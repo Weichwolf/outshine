@@ -23,6 +23,7 @@
 #include <span>
 #include <new>
 #include <limits>
+#include <memory>
 
 #include "Heap.h"
 
@@ -611,6 +612,10 @@ bool GeometryRenderer::ValidatePiece(const PieceMesh &piece, std::string &error)
     error = kPieceUv1Error;
     return false;
   }
+  if (!ValidPiecePlacement(piece)) {
+    error = "piece placement has conflicting rows or nonfinite coordinates";
+    return false;
+  }
   if (piece.MaxInstances > 0 && std::max(size_t{1}, piece.Instances.size()) > piece.MaxInstances) {
     error = Says::PieceInstanceLimit;
     return false;
@@ -714,11 +719,12 @@ Native::Result<PieceId> GeometryRenderer::PlacePiece(const PieceMesh &piece) {
   held.Surface = piece.Surface;
   held.ProductOrder = piece.ProductOrder;
   held.Passes = piece.Passes;
+  held.Placement = piece.Placement;
   held.Emitted.reset();
   held.MaxInstances = piece.MaxInstances;
   held.Rows.reserve(piece.MaxInstances);
   if (piece.Instances.empty()) {
-    held.Rows.assign(1, piece.Row);
+    held.Rows.assign(1, piece.Placement ? *piece.Placement : piece.Row);
   } else {
     held.Rows.assign(piece.Instances.begin(), piece.Instances.end());
   }
@@ -769,17 +775,26 @@ bool GeometryRenderer::SetPiecePasses(PieceId which, GeometryPasses passes, std:
 
 bool GeometryRenderer::SetPieceInstances(PieceId which,
                                          std::span<const Mat4> rows,
-                                         std::string &error) {
+                                         std::string &error,
+                                         std::shared_ptr<const Mat4> placement) {
   if (which >= Pieces_.size() || !Pieces_[which].Live) {
     error = Says::MissingPiece;
     return false;
   }
   Piece &piece = Pieces_[which];
+  if (placement && (!std::ranges::all_of(*placement, [](double value) {
+        return std::isfinite(value);
+      }) || (!rows.empty() && (rows.size() != 1 || rows.front() != *placement)))) {
+    error = "piece placement has conflicting rows or nonfinite coordinates";
+    return false;
+  }
   if (piece.MaxInstances > 0 && rows.size() > piece.MaxInstances) {
     error = Says::PieceInstanceLimit;
     return false;
   }
-  if (std::ranges::equal(piece.Rows, rows)) { return true; }
+  if (std::ranges::equal(piece.Rows, rows) && piece.Placement == placement) { return true; }
+  const bool placementChanged = piece.Placement != placement;
+  piece.Placement = std::move(placement);
   const auto previousSphere = piece.WorldSphere;
   const size_t previousRows = piece.Rows.size();
   piece.Rows.assign(rows.begin(), rows.end());
@@ -788,7 +803,7 @@ bool GeometryRenderer::SetPieceInstances(PieceId which,
     RecordPieceShadowChange(previousSphere, previousRows, piece.WorldSphere, piece.Rows.size());
   }
   RowsStale_ = true;
-  if (previousRows != piece.Rows.size()) {
+  if (previousRows != piece.Rows.size() || placementChanged) {
     TablesStale_ = true;
   } else if (!TablesStale_) {
     UpdatePieceBounds(piece);
@@ -821,6 +836,7 @@ void GeometryRenderer::ReleasePiece(PieceId which) {
   PieceTriangles_ -= held.IndexCount / 3u;
   held.Live = false;
   held.Surface = {};
+  held.Placement.reset();
   held.Clusters.clear();
   held.Rows.clear();
   Spare_.push_back(which);
@@ -885,6 +901,7 @@ bool GeometryRenderer::Retable(std::string &error) {
   OrderPieces();
   for (const uint32_t at : TableOrder_) {
     if (!AppendPieceBatches(Pieces_[at], error)) { return false; }
+    MergeLastPieceBatch(Pieces_[at]);
   }
   return UploadTables(error);
 }

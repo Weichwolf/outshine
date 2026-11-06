@@ -49,6 +49,7 @@ int main() {
       Render::PieceMesh mesh{};
       mesh.Verts = vertices;
       mesh.Indices = indices;
+      mesh.Placement = std::make_shared<const Mat4>();
       const auto piece = renderer.PlaceStructurePiece(mesh);
       CHECK(piece.has_value(), "structure piece becomes resident");
       if (piece) {

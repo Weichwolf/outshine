@@ -96,6 +96,7 @@ set(metal_validation_cases
   outshine/src/render/stages/GeometryRenderer/ResidentIndexCapacityRejectsWrappedDestinations
   outshine/src/render/stages/GeometryRenderer/ResidentSelectionPreservesMaterialPixels
   outshine/src/render/stages/GeometryRenderer/RigidMainMeshesAvoidDuplicatePreviousPositions
+  outshine/src/render/stages/GeometryRenderer/SharedPlacementsKeepAttributeOwnership
   outshine/src/render/stages/GeometryResidency/CancelledImagesReleaseStagingAndRecordedCopiesRetainResources
   outshine/src/render/stages/GeometryResidency/DeferredBatchesBoundTransfersAndPreserveEveryUpload
   outshine/src/render/stages/GeometryResidency/DeferredGrowthPreservesAcceptedBytesAcrossRetry

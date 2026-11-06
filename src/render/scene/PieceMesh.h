@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <span>
 #include "Mat4.h"
 #include "MaterialRegistration.h"
@@ -56,7 +57,16 @@ struct PieceMesh {
   bool Textured = false;
   std::array<uint64_t, 3> ProductOrder{};
   GeometryPasses Passes = GeometryPasses::MainAndShadow;
+  std::shared_ptr<const Mat4> Placement = nullptr;
 };
+
+[[nodiscard]] inline bool ValidPiecePlacement(const PieceMesh &piece) noexcept {
+  return !piece.Placement ||
+         (std::ranges::all_of(*piece.Placement,
+                              [](double value) { return std::isfinite(value); }) &&
+          (piece.Instances.empty() ||
+           (piece.Instances.size() == 1 && piece.Instances.front() == *piece.Placement)));
+}
 
 inline constexpr auto kPieceUv1Error =
     "piece second UVs require UV0 and exactly two finite floats per vertex";

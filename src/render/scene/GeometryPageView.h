@@ -6,6 +6,7 @@
 #include "LevelOfDetail.h"
 #include "ViewReuseDomain.h"
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string_view>
@@ -33,6 +34,7 @@ struct GeometryPageView {
   std::optional<uint32_t> RequestedCell;
   uint64_t OccupiedCells = 0;
   std::optional<SourceCoverage> Coverage = std::nullopt;
+  std::shared_ptr<const Mat4> Placement = nullptr;
 };
 }
 #endif

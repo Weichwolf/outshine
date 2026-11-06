@@ -9,6 +9,7 @@
 #include <cmath>
 #include <expected>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -27,6 +28,7 @@ constexpr uint32_t kGeometryPageCellsMost = std::numeric_limits<uint64_t>::digit
 std::expected<PieceHandle, std::string> UploadPart(SceneRenderer &renderer,
                                                    const GeometryPagePartView &part,
                                                    const Mat4 &row,
+                                                   const std::shared_ptr<const Mat4> &placement,
                                                    std::array<uint64_t, 3> productOrder) {
   if (part.Indices.empty()) { return PieceHandle{}; }
   if (part.Textured && (std::ranges::any_of(part.Verts,
@@ -50,7 +52,8 @@ std::expected<PieceHandle, std::string> UploadPart(SceneRenderer &renderer,
                                        .Surface = part.Surface,
                                        .Textured = part.Textured,
                                        .ProductOrder = productOrder,
-                                       .Passes = part.Passes});
+                                       .Passes = part.Passes,
+                                       .Placement = placement});
 }
 
 void AppendPieceRows(std::vector<SceneRenderer::PieceRows> &rows,
@@ -65,7 +68,8 @@ void AppendPieceRows(std::vector<SceneRenderer::PieceRows> &rows,
 
 }
 
-Mat4 GeometryPageResidency::RowFor(const Vec3 &anchorEcef) const {
+Mat4 GeometryPageResidency::RowFor(const Vec3 &anchorEcef, const Mat4 *placement) const {
+  if (placement != nullptr) { return *placement; }
   const Vec3 &east = Frame_.EastEcef();
   const Vec3 &north = Frame_.NorthEcef();
   const Vec3 &up = Frame_.UpEcef();
@@ -188,7 +192,8 @@ bool GeometryPageResidency::Store(uint32_t tile,
   if (!ValidateStore({.Tile = tile, .Cell = cell}, baked, sourceKey, publication, error)) {
     return false;
   }
-  const Mat4 row = RowFor(anchorEcef);
+  const auto &placement = baked.Placement;
+  const Mat4 row = RowFor(anchorEcef, placement.get());
   const auto first = std::ranges::lower_bound(Pages_, std::pair{tile, cell}, {}, AddressOf);
   const auto last =
       std::find_if(first, Pages_.end(), [tile, cell](const ResidentGeometryPage &held) {
@@ -216,7 +221,7 @@ bool GeometryPageResidency::Store(uint32_t tile,
   stood.Parts.reserve(baked.Parts.size());
   for (size_t at = 0; at < baked.Parts.size(); ++at) {
     const auto uploaded =
-        UploadPart(*Renderer_, baked.Parts[at], row, {sourceKey, baked.Digest, at});
+        UploadPart(*Renderer_, baked.Parts[at], row, placement, {sourceKey, baked.Digest, at});
     if (!uploaded) {
       Releases(stood);
       ++Refused_;

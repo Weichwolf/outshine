@@ -171,6 +171,7 @@ private:
     bool InstanceRowsVisited = false;
     std::array<uint64_t, 3> ProductOrder{};
     GeometryPasses Passes = GeometryPasses::MainAndShadow;
+    std::shared_ptr<const Mat4> Placement;
 
     [[nodiscard]] PieceMesh Mesh() const noexcept;
   };

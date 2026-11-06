@@ -23,6 +23,14 @@ constexpr auto PieceSlotLimit = "piece storage exceeds the native slot index ran
 constexpr auto PieceCapacity = "an instance update exceeds the piece capacity";
 }
 
+namespace {
+std::shared_ptr<const Mat4> PlacementForRows(const std::shared_ptr<const Mat4> &placement,
+                                             std::span<const Mat4> rows) {
+  return placement && (rows.empty() || (rows.size() == 1 && rows.front() == *placement)) ? placement
+                                                                                         : nullptr;
+}
+}
+
 PieceMesh SceneResources::Piece::Mesh() const noexcept {
   return {.Tangents = Source->Tangents,
           .Verts = Source->Vertices,
@@ -36,7 +44,8 @@ PieceMesh SceneResources::Piece::Mesh() const noexcept {
           .Surface = Surface,
           .Textured = Textured,
           .ProductOrder = ProductOrder,
-          .Passes = Passes};
+          .Passes = Passes,
+          .Placement = Placement};
 }
 
 std::expected<PieceHandle, std::string>
@@ -45,6 +54,9 @@ SceneResources::PlacePiece(GeometryRenderer &geometry, const PieceMesh &piece, P
     return std::unexpected("piece has invalid geometry passes");
   }
   if (!ValidPieceUv1(piece)) { return std::unexpected(std::string(kPieceUv1Error)); }
+  if (!ValidPiecePlacement(piece)) {
+    return std::unexpected("piece placement has conflicting rows or nonfinite coordinates");
+  }
   if (piece.Surface.From == PieceSurface::Source::Registered &&
       !HasMaterialRegistration(
           {.First = piece.Surface.Index, .Source = piece.Surface.MaterialOwner})) {
@@ -61,15 +73,16 @@ SceneResources::PlacePiece(GeometryRenderer &geometry, const PieceMesh &piece, P
                   .Colours = {piece.Colours.begin(), piece.Colours.end()},
                   .Uv1 = {piece.Uv1.begin(), piece.Uv1.end()}});
   Piece held{.Source = std::move(source),
-             .Row = piece.Row,
+             .Row = piece.Placement ? *piece.Placement : piece.Row,
              .Rows = {piece.Instances.begin(), piece.Instances.end()},
              .MaxInstances = piece.MaxInstances,
              .Surface = piece.Surface,
              .Owner = owner,
              .Textured = piece.Textured,
              .ProductOrder = piece.ProductOrder,
-             .Passes = piece.Passes};
-  if (held.Rows.empty()) { held.Rows.push_back(piece.Row); }
+             .Passes = piece.Passes,
+             .Placement = piece.Placement};
+  if (held.Rows.empty()) { held.Rows.push_back(held.Row); }
   auto placed = geometry.PlacePiece(held.Mesh());
   if (!placed) { return std::unexpected(std::move(placed.error().Message)); }
   held.Resident = *placed;
@@ -191,19 +204,21 @@ bool SceneResources::SetPieceInstances(GeometryRenderer &geometry,
   for (; changed < pieces.size(); ++changed) {
     const PieceRows &change = pieces[changed];
     auto &piece = Pieces_[change.Piece.Slot];
-    if (geometry.SetPieceInstances(piece.Resident, change.Rows, error)) {
+    if (geometry.SetPieceInstances(
+            piece.Resident, change.Rows, error, PlacementForRows(piece.Placement, change.Rows))) {
       if (!change.Passes || geometry.SetPiecePasses(piece.Resident, *change.Passes, error)) {
         continue;
       }
       std::string ignored;
-      (void)geometry.SetPieceInstances(piece.Resident, piece.Rows, ignored);
+      (void)geometry.SetPieceInstances(piece.Resident, piece.Rows, ignored, piece.Placement);
     }
     while (changed > 0) {
       --changed;
       const PieceRows &undo = pieces[changed];
       std::string ignored;
       const auto &previous = Pieces_[undo.Piece.Slot];
-      (void)geometry.SetPieceInstances(previous.Resident, previous.Rows, ignored);
+      (void)geometry.SetPieceInstances(
+          previous.Resident, previous.Rows, ignored, previous.Placement);
       if (undo.Passes) {
         (void)geometry.SetPiecePasses(previous.Resident, previous.Passes, ignored);
       }
@@ -212,6 +227,7 @@ bool SceneResources::SetPieceInstances(GeometryRenderer &geometry,
   }
   for (const PieceRows &change : pieces) {
     auto &piece = Pieces_[change.Piece.Slot];
+    piece.Placement = PlacementForRows(piece.Placement, change.Rows);
     piece.Rows.assign(change.Rows.begin(), change.Rows.end());
     if (change.Passes) { piece.Passes = *change.Passes; }
   }
@@ -305,7 +321,8 @@ std::expected<bool, std::string> SceneResources::AdvancePieceRestore(GeometryRen
     }
     piece.Resident = *placed;
     std::string error;
-    if (piece.Rows.empty() && !geometry.SetPieceInstances(piece.Resident, {}, error)) {
+    if (piece.Rows.empty() &&
+        !geometry.SetPieceInstances(piece.Resident, {}, error, piece.Placement)) {
       geometry.ReleasePiece(piece.Resident);
       piece.Resident = kNoPiece;
       return std::unexpected(std::move(error));

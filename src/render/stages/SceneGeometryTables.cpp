@@ -8,6 +8,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <map>
+#include <memory>
+#include <tuple>
 #include <optional>
 #include <span>
 #include <string>
@@ -120,10 +123,17 @@ void GeometryRenderer::OrderPieces() {
   size_t clusters = 0;
   size_t roots = Batches.size();
   auto nextRow = static_cast<uint32_t>(std::max(Placed_.size() / 16u, size_t{MainMeshRows_}));
+  std::map<std::tuple<std::shared_ptr<const Mat4>, uint32_t, uint32_t>, uint32_t> placements;
   for (Piece &piece : Pieces_) {
     piece.FirstBatch.reset();
     piece.FirstRow = nextRow;
     nextRow += static_cast<uint32_t>(piece.Rows.size());
+    if (piece.Placement && piece.Rows.size() == 1) {
+      const uint32_t colour = CarriesColour(piece.Layout) ? piece.C.First - piece.V.First : 0;
+      const uint32_t tangent = CarriesTangent(piece.Layout) ? piece.T.First - piece.V.First : 0;
+      piece.FirstRow =
+          placements.try_emplace({piece.Placement, colour, tangent}, piece.FirstRow).first->second;
+    }
   }
   for (uint32_t at = 0; at < Pieces_.size(); ++at) {
     const auto &one = Pieces_[at];
@@ -136,16 +146,28 @@ void GeometryRenderer::OrderPieces() {
   TableTemplates_.reserve(TableTemplates_.size() + clusters);
   TableSpheres_.reserve(TableSpheres_.size() + clusters * kSphereFloats);
   TableRoots_.reserve(roots);
-  std::ranges::sort(TableOrder_, [this](uint32_t a, uint32_t b) {
-    const Piece &left = Pieces_[a];
-    const Piece &right = Pieces_[b];
-    if (MaterialSlotFor(left) != MaterialSlotFor(right)) {
-      return MaterialSlotFor(left) < MaterialSlotFor(right);
+  std::ranges::sort(TableOrder_, [this](uint32_t a, uint32_t b) { return PieceOrderLess(a, b); });
+}
+
+bool GeometryRenderer::PieceOrderLess(uint32_t a, uint32_t b) const {
+  const Piece &left = Pieces_[a];
+  const Piece &right = Pieces_[b];
+  if (MaterialSlotFor(left) != MaterialSlotFor(right)) {
+    return MaterialSlotFor(left) < MaterialSlotFor(right);
+  }
+  if (left.Layout != right.Layout) { return left.Layout < right.Layout; }
+  const auto kind = Slots[MaterialSlotFor(left)].Kind;
+  if (kind == SurfaceKind::Opaque || kind == SurfaceKind::Masked) {
+    if (static_cast<bool>(left.Placement) != static_cast<bool>(right.Placement)) {
+      return static_cast<bool>(left.Placement);
     }
-    if (left.Layout != right.Layout) { return left.Layout < right.Layout; }
-    if (left.ProductOrder != right.ProductOrder) { return left.ProductOrder < right.ProductOrder; }
-    return a < b;
-  });
+    if (left.Placement && right.Placement) {
+      if (left.FirstRow != right.FirstRow) { return left.FirstRow < right.FirstRow; }
+      if (left.I.First != right.I.First) { return left.I.First < right.I.First; }
+    }
+  }
+  if (left.ProductOrder != right.ProductOrder) { return left.ProductOrder < right.ProductOrder; }
+  return a < b;
 }
 
 bool GeometryRenderer::UploadTables(std::string &error) {

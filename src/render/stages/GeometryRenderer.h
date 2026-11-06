@@ -184,8 +184,10 @@ public:
   [[nodiscard]] Native::Result<PieceId> PlacePiece(const PieceMesh &piece);
   void ReleasePiece(PieceId which);
   [[nodiscard]] bool SetPiecePasses(PieceId which, GeometryPasses passes, std::string &error);
-  [[nodiscard]] bool
-  SetPieceInstances(PieceId which, std::span<const Mat4> rows, std::string &error);
+  [[nodiscard]] bool SetPieceInstances(PieceId which,
+                                       std::span<const Mat4> rows,
+                                       std::string &error,
+                                       std::shared_ptr<const Mat4> placement = {});
   void SetNativePieceSurfaces(std::span<const uint32_t> slots);
   void SetRegisteredPieceSurfaces(std::span<const uint32_t> slots);
   [[nodiscard]] bool HandTables(std::string &error);
@@ -607,6 +609,7 @@ private:
     bool Live = false;
     std::array<uint64_t, 3> ProductOrder{};
     GeometryPasses Passes = GeometryPasses::MainAndShadow;
+    std::shared_ptr<const Mat4> Placement;
   };
 
   std::vector<DrawBatch> MainMeshBatches_;
@@ -654,7 +657,9 @@ private:
   void PrepareShadowCasters();
   [[nodiscard]] uint32_t MaterialSlotFor(const Piece &piece) const;
   void OrderPieces();
+  [[nodiscard]] bool PieceOrderLess(uint32_t a, uint32_t b) const;
   [[nodiscard]] bool AppendPieceBatches(Piece &one, std::string &error);
+  void MergeLastPieceBatch(Piece &one);
   void UpdatePieceBounds(const Piece &piece);
   [[nodiscard]] bool UploadTables(std::string &error);
   size_t Moved_ = 0;

@@ -266,7 +266,7 @@ private:
                                       std::span<const PageSelection> targets,
                                       std::string &error);
   [[nodiscard]] bool IndependentPasses(uint32_t tile) const noexcept;
-  [[nodiscard]] Mat4 RowFor(const Vec3 &anchorEcef) const;
+  [[nodiscard]] Mat4 RowFor(const Vec3 &anchorEcef, const Mat4 *placement) const;
   [[nodiscard]] bool ValidateStore(TileCell address,
                                    const GeometryPageView &baked,
                                    uint64_t sourceKey,
