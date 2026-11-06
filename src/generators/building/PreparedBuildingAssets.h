@@ -120,8 +120,9 @@ public:
   };
 
   struct SourceMember {
+    enum class State : uint8_t { Unresolved, Surface, Empty };
     uint32_t Cell = 0;
-    bool FieldSupported = false;
+    State Availability = State::Unresolved;
     uint32_t Faces = 0;
     std::optional<double> ShellErrorM;
   };

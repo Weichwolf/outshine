@@ -65,6 +65,8 @@ public:
 
   [[nodiscard]] std::span<const uint32_t> Sources() const noexcept { return Sources_; }
 
+  [[nodiscard]] std::span<const uint32_t> CoveredSources() const noexcept { return Covered_; }
+
   [[nodiscard]] std::span<const uint32_t> Unsupported() const noexcept { return Unsupported_; }
 
   [[nodiscard]] std::expected<Geometry, Error>
@@ -77,11 +79,13 @@ private:
                      BuildingCaptureFrame frame,
                      Box bounds,
                      std::vector<uint32_t> sources,
+                     std::vector<uint32_t> covered,
                      std::vector<uint32_t> unsupported);
   std::shared_ptr<const PreparedStructureTile> Base_;
   BuildingCaptureFrame Frame_;
   Box Bounds_;
   std::vector<uint32_t> Sources_;
+  std::vector<uint32_t> Covered_;
   std::vector<uint32_t> Unsupported_;
 };
 }

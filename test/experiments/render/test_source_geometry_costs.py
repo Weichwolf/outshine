@@ -6,14 +6,26 @@ from panoramic_geometry_cut import PanoramicView
 from test_source_product_cut import index
 
 
-def inventory(rows=((1, 6, 0.25),) * 4):
-    return struct.pack("<QI", 0x3250524752435342, len(rows)) + b"".join(
+def inventory(rows=((1, 6, 0.25),) * 4, version=2):
+    magic = 0x3350524752435342 if version == 3 else 0x3250524752435342
+    return struct.pack("<QI", magic, len(rows)) + b"".join(
         struct.pack("<IBId", 1, supported, faces, error)
         for supported, faces, error in rows
     )
 
 
 class SourceGeometryCostsTests(unittest.TestCase):
+    def test_empty_recipe_metadata_never_becomes_renderable_geometry(self):
+        data, _, _ = index()
+        rows = ((1, 6, 0.25), (2, 0, -1), (1, 6, 0.25), (1, 6, 0.25))
+        members, sources = geometry_inputs(inventory(rows, version=3), data, "fixture")
+        self.assertEqual(list(members["field"]), [1, 2, 1, 1])
+        report = cut(sources, (15, 1, 1000), (1280, 720), 720, 1, False)
+        self.assertEqual(report["representations"]["unknown"]["sources"], 1)
+        for invalid in (inventory(rows), inventory(((2, 6, -1),) * 4, version=3)):
+            with self.assertRaises(ValueError):
+                geometry_inputs(invalid, data, "fixture")
+
     def test_ready_metadata_uses_existing_geometry_reference(self):
         data, _, _ = index()
         members, sources = geometry_inputs(inventory(), data, "fixture")

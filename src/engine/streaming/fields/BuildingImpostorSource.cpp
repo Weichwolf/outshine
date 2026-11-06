@@ -51,7 +51,7 @@ BuildingImpostorSource::Layout(const Generators::BuildingSourceView &source) con
   }
   worldFromField.SetTranslation(source.AnchorEcef() + Recipe_.Frame.Origin);
   auto coverage =
-      SourceCoverage::FromSources(Recipe_.BaseKey, source.SourceCount(), source.Sources());
+      SourceCoverage::FromSources(Recipe_.BaseKey, source.SourceCount(), source.CoveredSources());
   if (!coverage) { return std::unexpected("invalid building geometry source coverage"); }
   return GeometryAsset::Description{.Bounds = source.Bounds(),
                                     .WorldFromLocal = worldFromField,

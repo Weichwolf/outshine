@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 
 from field_group_selection import FieldGroups, enu_rows
-from source_geometry_costs import Cache, ecef, inputs
+from source_geometry_costs import Cache, ecef, inputs, source_records
 
 
 def metadata(cache, base):
@@ -50,8 +50,8 @@ def main():
         "SELECT 1 FROM assets b JOIN assets m ON m.parent=b.key "
         "WHERE b.parent=g.parent AND b.kind='building-basis' "
         "AND m.kind='building-source-metadata')"))
-    records = [r for r in records if r["key"] == hashlib.sha256(
-        ("building-source-groups-2/" + r["parent"]).encode()).hexdigest()]
+    available = {record["key"] for record in records}
+    records = [record for record in source_records(cache) if record["key"] in available]
     eye = ecef(*args.eye)
     records.sort(key=lambda r: sum(max(r["min" + a] - eye[i], 0,
                                       eye[i] - r["max" + a])**2 for i, a in enumerate("xyz")))

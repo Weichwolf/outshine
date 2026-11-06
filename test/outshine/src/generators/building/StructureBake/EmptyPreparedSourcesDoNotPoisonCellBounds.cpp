@@ -1,4 +1,5 @@
 #include "BuildingMesh.h"
+#include "BuildingSourceView.h"
 #include "Check.h"
 #include "Geodesy.h"
 #include "PreparedStructurePlan.h"
@@ -10,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <utility>
 #include <optional>
 #include <span>
@@ -64,6 +66,25 @@ int main() {
   CHECK(prepared && prepared->Structures.size() == 2 && prepared->Surfaces.size() == 2,
         "prepared input retains both physical source footprints");
   if (!prepared) { return Report(); }
+  CHECK(!KnownEmptyPreparedStructure(*prepared, 0) && KnownEmptyPreparedStructure(*prepared, 1) &&
+            !KnownEmptyPreparedStructure(*prepared, 2),
+        "valid empty source records are distinct from renderable and unavailable sources");
+  const auto owner = std::make_shared<const PreparedStructureTile>(*prepared);
+  const BuildingCaptureFrame frame{.Axes = EnuAxesEcef({.LongitudeDeg = 9, .LatitudeDeg = 47}),
+                                   .Origin = {}};
+  const std::array<uint32_t, 2> sources{0, 1};
+  const auto view = BuildingSourceView::OpenSources(owner, sources, frame);
+  CHECK(view && view->Sources().size() == 1 && view->CoveredSources().size() == 2 &&
+            view->Unsupported().empty(),
+        "a complete game cell covers its empty recipe without drawing nonexistent geometry");
+  auto invalidSource = *prepared;
+  invalidSource.Structures[1].Layout.PointCount = 0;
+  const auto invalidView = BuildingSourceView::OpenSources(
+      std::make_shared<const PreparedStructureTile>(invalidSource), sources, frame);
+  CHECK(invalidView && invalidView->CoveredSources().size() == 1 &&
+            invalidView->Unsupported().size() == 1 &&
+            !KnownEmptyPreparedStructure(invalidSource, 1),
+        "an invalid source remains unresolved beside the renderable neighbor");
   const BuildingMesh mesher;
   auto scratch = mesher.Scratch();
   auto omitted = PreparedStructurePlan(prepared->Structures[1],

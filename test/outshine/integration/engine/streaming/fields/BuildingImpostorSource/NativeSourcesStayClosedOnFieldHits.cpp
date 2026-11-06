@@ -601,7 +601,7 @@ void CheckSourceIndex(Generators::PreparedBuildingAssets &assets,
                assets.Costs().ReadBytes - stored.ReadBytes);
 }
 
-void Partial(const std::filesystem::path &root, std::string_view index) {
+void EmptyNeighbors(const std::filesystem::path &root, std::string_view index) {
   const auto bytes = ReadTextFile(index, size_t{64} * 1024 * 1024);
   CHECK(bytes.has_value(), "the explicitly requested original index is readable");
   if (!bytes) { return; }
@@ -657,16 +657,15 @@ void Partial(const std::filesystem::path &root, std::string_view index) {
   groupRecipe.Sources = {static_cast<uint32_t>(supported - base->Surfaces.begin())};
   BuildingImpostorSource source(std::move(recipe), *assets);
   const auto metadata = source.ResolveMetadata(**cache, kBytes);
-  CHECK(!metadata && metadata.error().contains("unsupported building source ordinal"),
-        "real unresolved originals prevent a complete-source metadata declaration");
+  CHECK(metadata, "verified recipe omissions retain complete real-source metadata coverage");
   CHECK((*assets)->Costs().SurfaceReadBytes == 0 && (*assets)->Costs().SurfaceWrites == 0,
-        "incomplete source rejection requires no form loading or generation");
-  const auto absent = outshine::ImpostorViewAssets::Open(**cache, source.Provenance());
-  CHECK(absent && !*absent, "an incomplete original set publishes no replacement metadata");
+        "empty recipe validation requires no form loading or generation");
+  const auto restored = outshine::ImpostorViewAssets::Open(**cache, source.Provenance());
+  CHECK(restored && *restored, "complete source metadata remains independently readable");
   BuildingImpostorSource group(std::move(groupRecipe), *assets);
   const auto grouped = group.ResolveMetadata(**cache, kBytes);
   CHECK(grouped && group.Provenance() != source.Provenance(),
-        "a complete real subgroup publishes its own metadata despite unresolved neighbors");
+        "a real subgroup has its own identity beside the complete source metadata");
   CHECK((*assets)->Costs().SurfaceReadBytes == 0 && (*assets)->Costs().SurfaceWrites == 0,
         "real subgroup metadata requires neither form reads nor source regeneration");
 }
@@ -685,7 +684,7 @@ int main(int argc, char *const *argv) {
                     ("outshine-native-building-views-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   if (argc == 2) {
-    Partial(root, argv[1]);
+    EmptyNeighbors(root, argv[1]);
   } else {
     Run(root, std::filesystem::absolute(argv[0]).string());
     Groups(root / "groups");
