@@ -1,5 +1,6 @@
 #include "CacheUsageIndex.h"
 #include "SqliteFileBudget.h"
+#include "Tasks.h"
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
@@ -85,25 +86,92 @@ Write(sqlite3 *database, const std::unordered_map<std::string, Observation> &pen
 struct CacheUsageIndex::State {
   std::shared_ptr<SqliteFileBudget> Budget;
   sqlite3 *Database = nullptr;
+  Tasks *Workers = nullptr;
   std::mutex Mutex;
+  std::mutex Writer;
   std::unordered_map<std::string, Observation> Pending;
+  std::unordered_map<std::string, Observation> Writing;
+  size_t WritingCount = 0;
+  bool Scheduled = false;
+  bool Stopping = false;
+  bool Warned = false;
+
+  [[nodiscard]] std::expected<void, std::string> Flush(bool drain);
+  [[nodiscard]] static bool Schedule(const std::shared_ptr<State> &state);
 
   ~State() { sqlite3_close(Database); }
 };
 
-CacheUsageIndex::CacheUsageIndex(std::unique_ptr<State> state) : State_(std::move(state)) {}
-
-CacheUsageIndex::~CacheUsageIndex() {
-  if (!Flush()) { std::fputs("cache usage index: pending observations were not saved\n", stderr); }
+std::expected<void, std::string> CacheUsageIndex::State::Flush(bool drain) {
+  if (Workers == nullptr) {
+    const std::scoped_lock lock(Mutex);
+    if (auto written = Write(Database, Pending); !written) { return written; }
+    Pending.clear();
+    return {};
+  }
+  const std::scoped_lock writing(Writer);
+  if (Database == nullptr) { return {}; }
+  for (unsigned batch = 0; batch < (drain ? 2u : 1u); ++batch) {
+    if (Writing.empty()) {
+      const std::scoped_lock lock(Mutex);
+      Writing.swap(Pending);
+      WritingCount = Writing.size();
+    }
+    if (auto written = Write(Database, Writing); !written) { return written; }
+    Writing.clear();
+    const std::scoped_lock lock(Mutex);
+    WritingCount = 0;
+  }
+  return {};
 }
 
-std::expected<std::unique_ptr<CacheUsageIndex>, std::string>
-CacheUsageIndex::Open(const std::string &path, std::shared_ptr<SqliteFileBudget> budget) {
+bool CacheUsageIndex::State::Schedule(const std::shared_ptr<State> &state) {
+  {
+    const std::scoped_lock lock(state->Mutex);
+    if (state->Stopping || state->Scheduled ||
+        (state->Pending.size() < kBatchEntries && state->WritingCount == 0)) {
+      return true;
+    }
+    state->Scheduled = true;
+  }
+  const bool posted = state->Workers->PostDetached([state] {
+    const auto result = state->Flush(false);
+    bool warn = false;
+    {
+      const std::scoped_lock lock(state->Mutex);
+      state->Scheduled = false;
+      if (!result && !state->Warned) { warn = state->Warned = true; }
+    }
+    if (warn) { std::fputs("cache usage index: deferred metadata write failed\n", stderr); }
+    if (result) { (void)Schedule(state); }
+  });
+  if (!posted) {
+    const std::scoped_lock lock(state->Mutex);
+    state->Scheduled = false;
+  }
+  return posted;
+}
+
+CacheUsageIndex::CacheUsageIndex(std::shared_ptr<State> state) : State_(std::move(state)) {}
+
+CacheUsageIndex::~CacheUsageIndex() {
+  {
+    const std::scoped_lock lock(State_->Mutex);
+    State_->Stopping = true;
+  }
+  if (!Flush()) { std::fputs("cache usage index: pending observations were not saved\n", stderr); }
+  const std::scoped_lock lock(State_->Writer);
+  (void)sqlite3_close(std::exchange(State_->Database, nullptr));
+}
+
+std::expected<std::unique_ptr<CacheUsageIndex>, std::string> CacheUsageIndex::Open(
+    const std::string &path, std::shared_ptr<SqliteFileBudget> budget, Tasks *workers) {
   if (path.empty() || path.contains('\0')) {
     return std::unexpected("cache usage index requires a valid path");
   }
-  auto state = std::make_unique<State>();
+  auto state = std::make_shared<State>();
   state->Budget = std::move(budget);
+  state->Workers = workers;
   if (sqlite3_open_v2(path.c_str(),
                       &state->Database,
                       SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX,
@@ -143,28 +211,38 @@ CacheUsageIndex::Record(std::string_view key, uint64_t storedBytes, bool publish
   const auto now = std::chrono::duration_cast<std::chrono::duration<int64_t>>(
                        std::chrono::system_clock::now().time_since_epoch())
                        .count();
-  const std::scoped_lock lock(State_->Mutex);
-  if (State_->Pending.size() == kBatchEntries && !State_->Pending.contains(std::string(key))) {
-    if (auto written = Write(State_->Database, State_->Pending); !written) { return written; }
-    State_->Pending.clear();
+  bool full = false;
+  {
+    const std::scoped_lock lock(State_->Mutex);
+    if (State_->Pending.size() == kBatchEntries && !State_->Pending.contains(std::string(key))) {
+      if (State_->Workers == nullptr) {
+        if (auto written = Write(State_->Database, State_->Pending); !written) { return written; }
+        State_->Pending.clear();
+      } else {
+        full = true;
+      }
+    }
+    if (!full) {
+      auto &observation = State_->Pending[std::string(key)];
+      observation.Bytes = storedBytes;
+      observation.Used = std::max(observation.Used, now);
+      if (published && !observation.Created) { observation.Created = now; }
+    }
   }
-  auto &observation = State_->Pending[std::string(key)];
-  observation.Bytes = storedBytes;
-  observation.Used = std::max(observation.Used, now);
-  if (published && !observation.Created) { observation.Created = now; }
+  if (State_->Workers != nullptr && !State::Schedule(State_)) {
+    return std::unexpected("cache usage worker is unavailable");
+  }
+  if (full) { return std::unexpected("cache usage pending buffer is full"); }
   return {};
 }
 
 std::expected<void, std::string> CacheUsageIndex::Flush() {
-  const std::scoped_lock lock(State_->Mutex);
-  if (auto written = Write(State_->Database, State_->Pending); !written) { return written; }
-  State_->Pending.clear();
-  return {};
+  return State_->Flush(true);
 }
 
 size_t CacheUsageIndex::Pending() const {
   const std::scoped_lock lock(State_->Mutex);
-  return State_->Pending.size();
+  return State_->Pending.size() + State_->WritingCount;
 }
 
 }

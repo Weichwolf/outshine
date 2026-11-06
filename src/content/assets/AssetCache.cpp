@@ -252,7 +252,7 @@ std::expected<void, AssetCacheError> AssetCache::State::Initialize() {
     const auto migrated = MigrateSchema(Database);
     if (!migrated) { return std::unexpected(migrated.error()); }
   }
-  auto usage = CacheUsageIndex::Open(path, Budget);
+  auto usage = CacheUsageIndex::Open(path, Budget, Execution.Workers);
   if (usage) { Usage = std::move(*usage); }
   if (!Usage) {
     std::fputs("asset cache: usage index could not be opened\n", stderr);

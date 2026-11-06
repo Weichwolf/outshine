@@ -11,11 +11,15 @@
 namespace outshine {
 
 class SqliteFileBudget;
+class Tasks;
 
 class CacheUsageIndex {
 public:
+  // Workers outlive the index; saturated buffers reject recency hints without blocking readers.
   [[nodiscard]] static std::expected<std::unique_ptr<CacheUsageIndex>, std::string>
-  Open(const std::string &path, std::shared_ptr<SqliteFileBudget> budget = {});
+  Open(const std::string &path,
+       std::shared_ptr<SqliteFileBudget> budget = {},
+       Tasks *workers = nullptr);
   ~CacheUsageIndex();
   CacheUsageIndex(const CacheUsageIndex &) = delete;
   CacheUsageIndex &operator=(const CacheUsageIndex &) = delete;
@@ -27,8 +31,8 @@ public:
 
 private:
   struct State;
-  explicit CacheUsageIndex(std::unique_ptr<State> state);
-  std::unique_ptr<State> State_;
+  explicit CacheUsageIndex(std::shared_ptr<State> state);
+  std::shared_ptr<State> State_;
 };
 
 }
