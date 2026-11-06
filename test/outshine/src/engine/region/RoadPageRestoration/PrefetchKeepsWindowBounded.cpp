@@ -25,6 +25,7 @@
 #include <span>
 #include <sqlite3.h>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
 
@@ -111,6 +112,32 @@ bool Ordered(const Geometry &geometry, size_t count) {
   return true;
 }
 
+std::expected<bool, std::string>
+Advance(RoadPageRestoration &reader, Geometry &geometry, GeometryClusters *clusters = nullptr) {
+  return reader.Advance(
+      [&](const RoadPageAsset &page,
+          std::string_view,
+          std::chrono::steady_clock::time_point) -> std::expected<bool, std::string> {
+        const auto &mesh = page.Geometry.Mesh;
+        if (mesh.Index.empty()) { return true; }
+        if (geometry.surfaces() == 0 && !geometry.addSurface("streets", Material{})) {
+          return std::unexpected("test page material failed");
+        }
+        const auto part = geometry.addPart("streets", MaterialInstance(0));
+        if (!part || !geometry.setPositions(*part, mesh.PositionM) ||
+            !geometry.setNormals(*part, mesh.NormalM) ||
+            !geometry.setColours(*part, mesh.ColourRgba) ||
+            !geometry.setTriangles(*part, mesh.Index)) {
+          return std::unexpected("test page consumer failed");
+        }
+        if (clusters != nullptr && page.Address.Clustered) {
+          clusters->resize(static_cast<size_t>(geometry.parts()));
+          (*clusters)[static_cast<size_t>(*part)] = page.Geometry.Clusters;
+        }
+        return true;
+      });
+}
+
 void CheckSpatialOrder(Tasks &pool, const Fixture &fixture) {
   using namespace outshine::Test;
   const auto loaded = fixture.Pages->LoadManifest(fixture.Key);
@@ -129,7 +156,7 @@ void CheckSpatialOrder(Tasks &pool, const Fixture &fixture) {
   Geometry geometry;
   bool finished = false;
   for (size_t calls = 0; calls < 1024; ++calls) {
-    const auto advanced = (*restore)->Advance(geometry);
+    const auto advanced = Advance(**restore, geometry);
     if (!advanced || (*restore)->Missing()) { break; }
     if (*advanced) {
       finished = true;
@@ -151,19 +178,55 @@ void CheckSpatialOrder(Tasks &pool, const Fixture &fixture) {
         "priority changes neither source coverage nor native geometry");
 }
 
+void CheckConsumerRetention(Tasks &pool, const Fixture &fixture) {
+  using namespace outshine::Test;
+  const std::array<uint32_t, 1> selected{0};
+  auto reader =
+      RoadPageRestoration::Begin(pool, fixture.Pages, fixture.Manifest, std::span(selected));
+  CHECK(reader, "one source page opens for incremental consumption");
+  if (!reader) { return; }
+  const RoadPageAsset *held = nullptr;
+  size_t offered = 0;
+  const auto consume =
+      [&](const RoadPageAsset &page,
+          std::string_view key,
+          std::chrono::steady_clock::time_point) -> std::expected<bool, std::string> {
+    CHECK(key == fixture.Manifest->Pages[0].Key, "the consumer receives the bound native identity");
+    if (held == nullptr) { held = &page; }
+    CHECK(held == &page, "backpressure retains the same decoded page until acceptance");
+    ++offered;
+    return offered >= 3;
+  };
+  bool finished = false;
+  for (size_t step = 0; step < 32; ++step) {
+    const auto result = (*reader)->Advance(consume);
+    CHECK(result, "consumer backpressure is not a source error");
+    if (!result) { break; }
+    if (*result) {
+      finished = true;
+      break;
+    }
+    CHECK((*reader)->Pages() == 0, "an unfinished page does not advance its source cursor");
+    if (!Barrier(pool)) { break; }
+  }
+  CHECK(finished && offered == 3 && (*reader)->Pages() == 1,
+        "the page is committed exactly once after its consumer accepts it");
+}
+
 void CheckPacing(Tasks &pool, const Fixture &fixture) {
   using namespace outshine::Test;
   auto restore = RoadPageRestoration::Begin(pool, fixture.Pages, fixture.Manifest);
   CHECK(restore.has_value(), "the paced reader opens the native page fixture");
   if (!restore) { return; }
   Geometry geometry;
+  GeometryClusters clusters;
   size_t calls = 0;
   double longestUs = 0;
   const auto began = std::chrono::steady_clock::now();
   bool finished = false;
   while (calls < 1024) {
     const auto before = std::chrono::steady_clock::now();
-    const auto advanced = (*restore)->Advance(geometry);
+    const auto advanced = Advance(**restore, geometry, &clusters);
     longestUs = std::max(
         longestUs,
         std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - before)
@@ -182,7 +245,7 @@ void CheckPacing(Tasks &pool, const Fixture &fixture) {
         "paced worker-ready polling restores every selected page");
   CHECK(Ordered(geometry, fixture.Manifest->Pages.size()),
         "prefetched results retain manifest order and original local triangle indices");
-  auto prepared = (*restore)->TakeClusters();
+  auto prepared = std::move(clusters);
   if (fixture.Manifest->Pages.front().Clustered) {
     CHECK(prepared.size() == fixture.Manifest->Pages.size(),
           "each prepared page retains its cluster owner through World restoration");
@@ -239,8 +302,9 @@ std::expected<Geometry, std::string> RestoreSelected(
   auto restore = RoadPageRestoration::Begin(pool, fixture.Pages, std::move(manifest), selected);
   if (!restore) { return std::unexpected(restore.error()); }
   Geometry geometry;
+  GeometryClusters clusters;
   for (size_t step = 0; step < 1024; ++step) {
-    const auto ready = (*restore)->Advance(geometry);
+    const auto ready = Advance(**restore, geometry, &clusters);
     if (!ready) {
       CHECK(geometry.parts() == 0, "a mismatched display model publishes no geometry");
       return std::unexpected(ready.error());
@@ -344,7 +408,7 @@ void CheckWindow(Tasks &pool,
   auto restore = RoadPageRestoration::Begin(
       pool, fixture.Pages, fixture.Manifest, std::nullopt, fixture.Key, std::nullopt, limits);
   Geometry geometry;
-  const auto advanced = restore ? (*restore)->Advance(geometry)
+  const auto advanced = restore ? Advance(**restore, geometry)
                                 : std::expected<bool, std::string>(std::unexpected("no reader"));
   CHECK(advanced && !*advanced && geometry.parts() == 0,
         "polling returns while the IO worker is blocked without publishing a partial page");
@@ -381,7 +445,7 @@ void CheckWindows(Tasks &pool, const Fixture &fixture, const std::filesystem::pa
   Geometry geometry;
   bool complete = false;
   for (size_t step = 0; serial && step < 1024; ++step) {
-    const auto ready = (*serial)->Advance(geometry);
+    const auto ready = Advance(**serial, geometry);
     if (!ready || (*serial)->Missing()) { break; }
     if (*ready) {
       complete = true;
@@ -423,7 +487,7 @@ void CheckWindows(Tasks &pool, const Fixture &fixture, const std::filesystem::pa
   auto empty = RoadPageRestoration::Begin(
       pool, fixture.Pages, fixture.Manifest, std::span<const uint32_t>{});
   Geometry none;
-  const auto done = empty ? (*empty)->Advance(none)
+  const auto done = empty ? Advance(**empty, none)
                           : std::expected<bool, std::string>(std::unexpected("no reader"));
   CHECK(done && *done && none.parts() == 0 && none.surfaces() == 0,
         "an empty explicit demand completes without IO or material publication");
@@ -446,6 +510,7 @@ int main() {
       if (fixture) {
         Tasks pool(1);
         CheckSpatialOrder(pool, *fixture);
+        CheckConsumerRetention(pool, *fixture);
         CheckPacing(pool, *fixture);
         CheckWindows(pool, *fixture, path);
         if (!display) { CheckDisplaySelection(pool, *fixture, path); }

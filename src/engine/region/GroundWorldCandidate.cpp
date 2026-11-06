@@ -12,8 +12,6 @@
 
 namespace outshine {
 [[nodiscard]] size_t GroundBuildProducts::OwnedHeapBytes() const noexcept {
-  size_t clusterBytes = GroundClusters.capacity() * sizeof(std::vector<DagCluster>);
-  for (const auto &part : GroundClusters) { clusterBytes += part.capacity() * sizeof(DagCluster); }
   size_t alignmentBytes = RoadAlignments.capacity() * sizeof(NamedRoadAlignment);
   for (const NamedRoadAlignment &route : RoadAlignments) {
     alignmentBytes += route.Id.capacity();
@@ -26,7 +24,7 @@ namespace outshine {
   }
   return TerrainSurface.HeapBytes(TerrainHeapScope::Additional) +
          Footprints.HeapBytes(::outshine::Generators::Osm::BuildingField::HeapScope::Additional) +
-         Pieces.HeapBytes() + alignmentBytes + Ground.storageBytes() + clusterBytes +
+         Pieces.HeapBytes() + Roads.HeapBytes() + alignmentBytes + Ground.storageBytes() +
          PositionsM.capacity() * sizeof(float) + Indices.capacity() * sizeof(uint32_t) +
          ClassPalette.capacity() * sizeof(float);
 }
@@ -39,8 +37,8 @@ GroundWorldCandidate::GroundWorldCandidate(
     : Products_{.TerrainSurface = world.TerrainSurface,
                 .Footprints = footprints.SnapshotAccepted(),
                 .Pieces = world.Pieces,
+                .Roads = world.Roads,
                 .Ground = {},
-                .GroundClusters = {},
                 .PositionsM = {},
                 .Indices = {},
                 .ClassPalette = {},
@@ -103,8 +101,10 @@ GroundWorldCandidate::Prepare(const Core::RuntimeScene &previous, const Ui::Font
   if (!WorldPrepared_) {
     if (PieceSources_ == Render::SceneResources::PieceSources::Copy) {
       Products_.Pieces.BindRenderer(&World_.Renderer());
+      Products_.Roads.BindRenderer(&World_.Renderer());
       std::string sourceError;
-      if (!Products_.Pieces.ValidateSources(sourceError)) {
+      if (!Products_.Pieces.ValidateSources(sourceError) ||
+          !Products_.Roads.ValidateSources(sourceError)) {
         return std::unexpected("candidate snapshot before preparation: " + sourceError);
       }
     }
@@ -124,8 +124,10 @@ GroundWorldCandidate::Prepare(const Core::RuntimeScene &previous, const Ui::Font
   if (!ground) { return std::unexpected(std::move(ground.error())); }
   if (!*ground) { return false; }
   Products_.TerrainSurface.SetRenderer(&World_.Renderer());
+  Products_.Roads.BindRenderer(&World_.Renderer());
   Products_.Pieces.BindRenderer(&World_.Renderer());
   if (PieceSources_ == Render::SceneResources::PieceSources::Omit) {
+    Products_.Roads.Clear();
     Products_.Pieces.Clear();
     Products_.Pieces.BindRenderer(&World_.Renderer());
   }
@@ -142,7 +144,10 @@ GroundWorldCandidate::Publish(WorldRegionState &world,
     return std::unexpected("a capture holds the published ground");
   }
   PublicationMetrics_ = {};
-  const auto reconciled = World_.Renderer().ReconcileStructurePieces(Products_.Pieces.Handles());
+  auto handles = Products_.Pieces.Handles();
+  const auto roads = Products_.Roads.Handles();
+  handles.insert(handles.end(), roads.begin(), roads.end());
+  const auto reconciled = World_.Renderer().ReconcileStructurePieces(handles);
   if (!reconciled) { return std::unexpected(reconciled.error()); }
   PublicationMetrics_.OrphanStructurePieces = *reconciled;
   auto region = std::make_shared<const ::outshine::Generators::Osm::PublishedRegion>(
@@ -165,6 +170,7 @@ GroundWorldCandidate::Publish(WorldRegionState &world,
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
   phaseAt = std::chrono::steady_clock::now();
   world.Pieces = std::move(Products_.Pieces);
+  world.Roads = std::move(Products_.Roads);
   world.StructureSurfaces = Products_.Surfaces;
   PublicationMetrics_.PiecesMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();

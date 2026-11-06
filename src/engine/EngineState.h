@@ -146,6 +146,7 @@ struct WorldRegionState {
 
   void BindSceneResources(Render::SceneRenderer &renderer) noexcept {
     Pieces.BindRenderer(&renderer);
+    Roads.BindRenderer(&renderer);
     TerrainSurface.SetRenderer(&renderer);
     if (Vegetation) { Vegetation->Into(renderer); }
     if (UrbanAreas) { UrbanAreas->Into(renderer); }
@@ -185,6 +186,7 @@ struct WorldRegionState {
   size_t GroundCandidates = 0;
 
   Render::GeometryPageResidency Pieces;
+  Render::GeometryPageResidency Roads;
   std::optional<BuildingPageMaterials> StructureSurfaces;
   TerrainSurfacePublication TerrainSurface;
   std::shared_ptr<const Path::Network> StreetGraph;

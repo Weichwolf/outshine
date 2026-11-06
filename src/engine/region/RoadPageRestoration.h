@@ -4,13 +4,16 @@
 #include "RoadPageQueue.h"
 #include "RoadPageManifest.h"
 #include <cstddef>
+#include <chrono>
 #include <cstdint>
 #include <deque>
 #include <expected>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <utility>
 
@@ -30,7 +33,9 @@ public:
         std::string manifestKey = {},
         std::optional<Vec3> eye = std::nullopt,
         Limits limits = {.PendingMost = 4, .NativeBytesMost = size_t{8} * 1024u * 1024u});
-  [[nodiscard]] std::expected<bool, std::string> Advance(Geometry &ground);
+  using Consumer = std::function<std::expected<bool, std::string>(
+      const Generators::RoadPageAsset &, std::string_view, std::chrono::steady_clock::time_point)>;
+  [[nodiscard]] std::expected<bool, std::string> Advance(const Consumer &consume);
 
   [[nodiscard]] bool Missing() const noexcept { return Missing_; }
 
@@ -40,14 +45,12 @@ public:
 
   [[nodiscard]] const RoadMeshingStats &Meshing() const noexcept { return Meshing_; }
 
-  [[nodiscard]] GeometryClusters TakeClusters() noexcept { return std::move(Clusters_); }
-
 private:
   struct Pending {
     uint32_t Index;
     std::optional<RoadPageQueue::Result> Result;
   };
-  enum class Stage : uint8_t { Material, Waiting, Positions, Normals, Colours, Triangles };
+
   RoadPageRestoration(Tasks &pool,
                       std::shared_ptr<Generators::PreparedRoadPages> pages,
                       std::shared_ptr<const Generators::RoadPageManifest> manifest,
@@ -55,8 +58,7 @@ private:
   [[nodiscard]] bool OrderPages(const Vec3 &eye);
   [[nodiscard]] std::expected<void, std::string> Prefetch();
   [[nodiscard]] std::expected<void, std::string> CollectReady();
-  [[nodiscard]] std::expected<bool, std::string> Collect(Geometry &ground);
-  [[nodiscard]] std::expected<bool, std::string> Transfer(Geometry &ground);
+  [[nodiscard]] std::expected<void, std::string> Collect();
   void FinishPage();
   RoadPageQueue Queue_;
   std::shared_ptr<const Generators::RoadPageManifest> Manifest_;
@@ -64,17 +66,13 @@ private:
   std::deque<Pending> Window_;
   Limits Limits_;
   RoadMeshingStats Meshing_;
-  GeometryClusters Clusters_;
   std::unique_ptr<Generators::RoadPageAsset> Loaded_;
-  std::optional<MaterialInstance> Surface_;
   size_t Next_ = 0;
   size_t Requested_ = 0;
   size_t WindowBytes_ = 0;
   size_t NativeBytes_ = 0;
-  int Part_ = -1;
   std::string ManifestKey_;
   bool Missing_ = false;
-  Stage Stage_ = Stage::Material;
 };
 }
 #endif

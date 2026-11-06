@@ -113,27 +113,27 @@ bool RoadPageRestoration::OrderPages(const Vec3 &eye) {
   return true;
 }
 
-std::expected<bool, std::string> RoadPageRestoration::Advance(Geometry &ground) {
+std::expected<bool, std::string> RoadPageRestoration::Advance(const Consumer &consume) {
+  if (!consume) { return std::unexpected("road restoration needs a page consumer"); }
   if (Missing_) { return false; }
   if (Next_ == Selected_.size()) { return true; }
-  if (Stage_ == Stage::Material) {
-    const auto surface =
-        ground.addSurface("streets", Manifest_->Materials.surfaceAt(MaterialInstance(0)));
-    if (!surface) { return std::unexpected("could not restore the shared road material"); }
-    Surface_ = *surface;
-    Stage_ = Stage::Waiting;
-  }
   constexpr size_t kStepsMost = 32;
   const auto until = std::chrono::steady_clock::now() + std::chrono::milliseconds(1);
   for (size_t step = 0; step < kStepsMost; ++step) {
-    const auto requested = Prefetch();
-    if (!requested) { return std::unexpected(requested.error()); }
-    const auto collected = CollectReady();
-    if (!collected) { return std::unexpected(collected.error()); }
-    if (Stage_ == Stage::Waiting && !Window_.front().Result) { return false; }
-    const auto advanced = Stage_ == Stage::Waiting ? Collect(ground) : Transfer(ground);
-    if (!advanced) { return std::unexpected(advanced.error()); }
-    if (Missing_) { return false; }
+    if (const auto requested = Prefetch(); !requested) {
+      return std::unexpected(requested.error());
+    }
+    if (const auto collected = CollectReady(); !collected) {
+      return std::unexpected(collected.error());
+    }
+    if (!Loaded_) {
+      if (const auto loaded = Collect(); !loaded) { return std::unexpected(loaded.error()); }
+      if (!Loaded_ || Missing_) { return false; }
+    }
+    const auto accepted = consume(*Loaded_, Manifest_->Pages[Selected_[Next_]].Key, until);
+    if (!accepted) { return std::unexpected(accepted.error()); }
+    if (!*accepted) { return false; }
+    FinishPage();
     if (Next_ == Selected_.size()) { return true; }
     if (std::chrono::steady_clock::now() >= until) { return false; }
   }
@@ -171,17 +171,17 @@ std::expected<void, std::string> RoadPageRestoration::CollectReady() {
   return {};
 }
 
-std::expected<bool, std::string> RoadPageRestoration::Collect(Geometry &ground) {
+std::expected<void, std::string> RoadPageRestoration::Collect() {
   if (Window_.empty()) { return std::unexpected("road restoration has no admitted page"); }
   auto &ready = Window_.front().Result;
-  if (!ready) { return false; }
+  if (!ready) { return {}; }
   auto one = std::move(*ready);
   const auto &reference = Manifest_->Pages[Selected_[Next_]];
   if (!one) { return std::unexpected(std::move(one.error())); }
   if (!*one) {
     Missing_ = true;
     for (const auto &pending : Window_) { Queue_.Cancel(Manifest_->Pages[pending.Index].Key); }
-    return false;
+    return {};
   }
   auto *loaded = std::get_if<Generators::RoadPageLease>(&**one);
   if (loaded == nullptr) {
@@ -211,48 +211,7 @@ std::expected<bool, std::string> RoadPageRestoration::Collect(Geometry &ground) 
                {"reason", diagnostic.Empty ? "empty_native_mesh" : "partial_native_mesh"},
                {"refused", static_cast<int64_t>(diagnostic.Stats.Refused)}});
   }
-  if (Loaded_->Geometry.Mesh.Index.empty()) {
-    FinishPage();
-    return false;
-  }
-  if (!Surface_) { return std::unexpected("road restoration material is not ready"); }
-  const auto part = ground.addPart("streets", *Surface_);
-  if (!part) { return std::unexpected("could not restore the native road page"); }
-  Part_ = *part;
-  Stage_ = Stage::Positions;
-  return false;
-}
-
-std::expected<bool, std::string> RoadPageRestoration::Transfer(Geometry &ground) {
-  auto &mesh = Loaded_->Geometry.Mesh;
-  bool transferred = false;
-  switch (Stage_) {
-    case Stage::Positions:
-      transferred = ground.adoptPositions(Part_, mesh.PositionM).has_value();
-      Stage_ = Stage::Normals;
-      break;
-    case Stage::Normals:
-      transferred = ground.adoptNormals(Part_, mesh.NormalM).has_value();
-      Stage_ = Stage::Colours;
-      break;
-    case Stage::Colours:
-      transferred = ground.adoptColours(Part_, mesh.ColourRgba).has_value();
-      Stage_ = Stage::Triangles;
-      break;
-    case Stage::Triangles:
-      transferred = ground.adoptTriangles(Part_, mesh.Index).has_value();
-      if (transferred && Loaded_->Address.Clustered) {
-        Clusters_.resize(static_cast<size_t>(ground.parts()));
-        Clusters_[static_cast<size_t>(Part_)] = std::move(Loaded_->Geometry.Clusters);
-      }
-      FinishPage();
-      break;
-    default: return std::unexpected("road restoration transfer is not active");
-  }
-  if (!transferred) {
-    return std::unexpected("could not transfer a restored road page into the world");
-  }
-  return false;
+  return {};
 }
 
 void RoadPageRestoration::FinishPage() {
@@ -260,6 +219,5 @@ void RoadPageRestoration::FinishPage() {
   Window_.pop_front();
   ++Next_;
   Loaded_.reset();
-  Stage_ = Stage::Waiting;
 }
 }

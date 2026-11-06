@@ -129,6 +129,7 @@ WorldRegionBuildState::AdvanceWater(Tasks &pool,
   build.Ground = std::move(region.Surfaces);
   SurfaceManifestKey_ = std::move(region.SurfaceManifest);
   RoadRestoration_.reset();
+  RoadPublication_.reset();
   RoadsRestored_ = false;
   build.TerrainClassificationMap = std::move(region.Classes);
   build.ClassPalette = std::move(region.ClassPalette);
@@ -210,16 +211,16 @@ void WorldRegionBuildState::SamplesClassComponents(
 
 [[nodiscard]] WorldRegionBuildState::ProductMemory
 WorldRegionBuildState::CurrentProductMemory() const noexcept {
-  return {
-      .Candidate = BuildingEarthworks_ ? StampingCandidateHeapBytes_ : Candidate_.OwnedHeapBytes(),
-      .TerrainSources = TerrainInputs_.HeapBytes(),
-      .Patchwork = Patchwork_ ? Patchwork_->HeapBytes() : 0u,
-      .SourceCoverage = RoadHeightCoverage_.Tiles.capacity() * sizeof(Data::TileId) +
-                        RoadHeightCoverage_.SelectedRouteIndices.capacity() * sizeof(size_t),
-      .Survey = Surveying_.Terrain.ProbePositionsM.capacity() * sizeof(Vec3f),
-      .BuildingStamps = BuildingEarthworks_ ? BuildingEarthworks_->HeapBytes() : 0u,
-      .Deformation = TerrainDeformation_ ? TerrainDeformation_->HeapBytes() : 0u,
-      .CorridorStamps = Corridors_.capacity() * sizeof(EarthworkStamp) + CorridorHeapBytes_,
-      .RoadStamps = RoadEarthworkHeapBytes_ + RoadEarthworks_.capacity() * sizeof(EarthworkStamp)};
+  return {.Candidate = BuildingEarthworks_ ? StampingCandidateHeapBytes_ : RetainedCandidateBytes(),
+          .TerrainSources = TerrainInputs_.HeapBytes(),
+          .Patchwork = Patchwork_ ? Patchwork_->HeapBytes() : 0u,
+          .SourceCoverage = RoadHeightCoverage_.Tiles.capacity() * sizeof(Data::TileId) +
+                            RoadHeightCoverage_.SelectedRouteIndices.capacity() * sizeof(size_t),
+          .Survey = Surveying_.Terrain.ProbePositionsM.capacity() * sizeof(Vec3f),
+          .BuildingStamps = BuildingEarthworks_ ? BuildingEarthworks_->HeapBytes() : 0u,
+          .Deformation = TerrainDeformation_ ? TerrainDeformation_->HeapBytes() : 0u,
+          .CorridorStamps = Corridors_.capacity() * sizeof(EarthworkStamp) + CorridorHeapBytes_,
+          .RoadStamps =
+              RoadEarthworkHeapBytes_ + RoadEarthworks_.capacity() * sizeof(EarthworkStamp)};
 }
 }

@@ -5,6 +5,7 @@
 #include "Corridors.h"
 #include "RoadPageConstruction.h"
 #include "RoadPageRestoration.h"
+#include "RoadGeometryPublication.h"
 #include "RoadHeightCoverage.h"
 #include "GroundWorldCandidate.h"
 #include "GroundBuildSchedule.h"
@@ -273,7 +274,7 @@ public:
   }
 
   [[nodiscard]] size_t RetainedCandidateBytes() const noexcept {
-    return Candidate_.OwnedHeapBytes();
+    return Candidate_.OwnedHeapBytes() + (RoadPublication_ ? RoadPublication_->HeapBytes() : 0);
   }
 
   [[nodiscard]] size_t RetainedPatchworkBytes() const noexcept {
@@ -314,18 +315,25 @@ public:
 
   [[nodiscard]] RoadPageRestoration *RoadRestoration() noexcept { return RoadRestoration_.get(); }
 
+  [[nodiscard]] RoadGeometryPublication *RoadPublication() noexcept {
+    return RoadPublication_.get();
+  }
+
   [[nodiscard]] bool RoadsRestored() const noexcept { return RoadsRestored_; }
 
   [[nodiscard]] bool RoadsMissing() const noexcept {
     return RoadRestoration_ && RoadRestoration_->Missing();
   }
 
-  void BeginRoadRestoration(std::unique_ptr<RoadPageRestoration> restore) noexcept {
+  void BeginRoadRestoration(std::unique_ptr<RoadPageRestoration> restore,
+                            std::unique_ptr<RoadGeometryPublication> publication) noexcept {
     RoadRestoration_ = std::move(restore);
+    RoadPublication_ = std::move(publication);
   }
 
   void FinishRoadRestoration() noexcept {
     RoadRestoration_.reset();
+    RoadPublication_.reset();
     RoadsRestored_ = true;
   }
 
@@ -496,6 +504,7 @@ private:
   std::unique_ptr<Generators::Corridors::Job> CorridorJob_;
   std::unique_ptr<RoadPageConstruction> RoadPages_;
   std::unique_ptr<RoadPageRestoration> RoadRestoration_;
+  std::unique_ptr<RoadGeometryPublication> RoadPublication_;
   std::shared_ptr<const Generators::RoadPageManifest> RoadManifest_;
   std::string SurfaceManifestKey_;
   bool RoadsRestored_ = false;

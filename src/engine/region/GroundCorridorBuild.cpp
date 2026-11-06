@@ -235,7 +235,12 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
 
 Engine::State::GroundBuildProgress
 Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
-  if (state.RoadsRestored() || !state.RoadManifest()) { return GroundBuildProgress::Ready; }
+  if (state.RoadsRestored()) { return GroundBuildProgress::Ready; }
+  if (!state.RoadManifest()) {
+    state.Candidate().Products().Roads.Clear();
+    state.FinishRoadRestoration();
+    return GroundBuildProgress::Ready;
+  }
   if (state.RoadRestoration() == nullptr) {
     if (!Services.Compute) {
       Error = "road restoration has no worker pool";
@@ -262,11 +267,25 @@ Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
       Error = std::move(restore.error());
       return GroundBuildProgress::Failed;
     }
-    state.BeginRoadRestoration(std::move(*restore));
+    const auto origin = Session.Declared.Ground.Origin;
+    auto publication = RoadGeometryPublication::Begin(
+        Picture.Device,
+        state.Candidate().Products().Roads,
+        *state.RoadManifest(),
+        TangentFrame::At({.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg}));
+    if (!publication) {
+      Error = std::move(publication.error());
+      return GroundBuildProgress::Failed;
+    }
+    state.BeginRoadRestoration(std::move(*restore), std::move(*publication));
     return GroundBuildProgress::Pending;
   }
   auto *restore = state.RoadRestoration();
-  const auto advanced = restore->Advance(state.Candidate().Products().Ground);
+  auto *publication = state.RoadPublication();
+  const auto advanced = restore->Advance([publication](const auto &page, auto key, auto until) {
+    return publication->Advance(page, key, until);
+  });
+  state.SamplesProductPeak();
   if (!advanced) {
     Error = advanced.error();
     return GroundBuildProgress::Failed;
@@ -283,11 +302,17 @@ Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
   Published.RecordMetric("streets: pieces the sweep could not lay",
                          static_cast<double>(restore->Meshing().Refused),
                          "pieces");
-  auto &products = state.Candidate().Products();
-  products.GroundClusters = restore->TakeClusters();
-  if (!products.GroundClusters.empty()) {
-    products.GroundClusters.resize(static_cast<size_t>(products.Ground.parts()));
+  const auto finished = publication->Finish();
+  if (!finished) {
+    Error = finished.error();
+    return GroundBuildProgress::Failed;
   }
+  Published.RecordMetric("ground candidate: road publication staging bytes",
+                         static_cast<double>(publication->HeapBytes()),
+                         "bytes");
+  Published.RecordMetric("ground candidate: road CPU packing", publication->PackingMs(), "ms");
+  Published.RecordMetric(
+      "ground candidate: road CPU publication", publication->PublicationMs(), "ms");
   state.FinishRoadRestoration();
   return GroundBuildProgress::Pending;
 }
