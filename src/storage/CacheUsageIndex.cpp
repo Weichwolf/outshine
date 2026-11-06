@@ -11,6 +11,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <print>
 #include <sqlite3.h>
 #include <string>
 #include <string_view>
@@ -96,16 +97,25 @@ struct CacheUsageIndex::State {
   bool Stopping = false;
   bool Warned = false;
 
+  [[nodiscard]] std::expected<void, std::string>
+  Persist(const std::unordered_map<std::string, Observation> &batch) const;
   [[nodiscard]] std::expected<void, std::string> Flush(bool drain);
   [[nodiscard]] static bool Schedule(const std::shared_ptr<State> &state);
 
   ~State() { sqlite3_close(Database); }
 };
 
+std::expected<void, std::string>
+CacheUsageIndex::State::Persist(const std::unordered_map<std::string, Observation> &batch) const {
+  std::optional<SqliteFileBudget::Maintenance> maintenance;
+  if (Budget) { maintenance.emplace(*Budget); }
+  return Write(Database, batch);
+}
+
 std::expected<void, std::string> CacheUsageIndex::State::Flush(bool drain) {
   if (Workers == nullptr) {
     const std::scoped_lock lock(Mutex);
-    if (auto written = Write(Database, Pending); !written) { return written; }
+    if (auto written = Persist(Pending); !written) { return written; }
     Pending.clear();
     return {};
   }
@@ -117,7 +127,7 @@ std::expected<void, std::string> CacheUsageIndex::State::Flush(bool drain) {
       Writing.swap(Pending);
       WritingCount = Writing.size();
     }
-    if (auto written = Write(Database, Writing); !written) { return written; }
+    if (auto written = Persist(Writing); !written) { return written; }
     Writing.clear();
     const std::scoped_lock lock(Mutex);
     WritingCount = 0;
@@ -142,7 +152,7 @@ bool CacheUsageIndex::State::Schedule(const std::shared_ptr<State> &state) {
       state->Scheduled = false;
       if (!result && !state->Warned) { warn = state->Warned = true; }
     }
-    if (warn) { std::fputs("cache usage index: deferred metadata write failed\n", stderr); }
+    if (!result && warn) { std::println(stderr, "{} (deferred metadata)", result.error()); }
     if (result) { (void)Schedule(state); }
   });
   if (!posted) {
@@ -216,7 +226,7 @@ CacheUsageIndex::Record(std::string_view key, uint64_t storedBytes, bool publish
     const std::scoped_lock lock(State_->Mutex);
     if (State_->Pending.size() == kBatchEntries && !State_->Pending.contains(std::string(key))) {
       if (State_->Workers == nullptr) {
-        if (auto written = Write(State_->Database, State_->Pending); !written) { return written; }
+        if (auto written = State_->Persist(State_->Pending); !written) { return written; }
         State_->Pending.clear();
       } else {
         full = true;
