@@ -72,20 +72,20 @@ void InvalidAlias() {
   const auto before = native->Costs();
   const StructureBuildQueue::HeightSource noHeights{
       .Sample = {}, .PinField = {}, .Revision = {.Value = 11}};
-  std::optional<StructureBuildQueue::NativeBasisQuery> completed;
+  std::optional<StructureBuildQueue::NativeAssetQuery> completed;
   const auto deadline = std::chrono::steady_clock::now() + kDeadline;
   while (std::chrono::steady_clock::now() < deadline) {
     (void)env.Queue.Posts(env.Stack, env.Stack.Footprints(), env.Eye, noHeights, 1);
-    const auto query = env.Queue.PollNativeBasis(env.Stack, env.Stack.Footprints(), 0);
+    const auto query = env.Queue.PollNativeAsset(env.Stack, env.Stack.Footprints(), 0);
     if (!query) { break; }
-    if (query->Where == StructureBuildQueue::NativeBasisQuery::Phase::Ready) {
+    if (query->Where == StructureBuildQueue::NativeAssetQuery::Phase::Ready) {
       completed = *query;
       break;
     }
     (void)env.Worker.AwaitCompletion(0.001);
   }
-  CHECK(completed && completed->Source && completed->Source->Product &&
-            completed->Source->BaseKey == test.Key,
+  CHECK(completed && completed->Basis() && completed->Basis()->Product &&
+            completed->Basis()->BaseKey == test.Key,
         "the actual queue repairs an invalid alias and reaches existing native content without "
         "height regeneration or repeated fallback");
   const auto original = test.Cache->Find(test.Key);
@@ -108,8 +108,8 @@ void BusyRetirementAndRepair() {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(40);
   while (std::chrono::steady_clock::now() < deadline) {
     const auto query =
-        test.Env.Queue.PollNativeBasis(test.Env.Stack, test.Env.Stack.Footprints(), 0);
-    CHECK(query && query->Where == StructureBuildQueue::NativeBasisQuery::Phase::Pending,
+        test.Env.Queue.PollNativeAsset(test.Env.Stack, test.Env.Stack.Footprints(), 0);
+    CHECK(query && query->Where == StructureBuildQueue::NativeAssetQuery::Phase::Pending,
           "writer-blocked invalid-alias retirement stays pending in the actual queue");
     if (!query) { return; }
     (void)test.Env.Worker.AwaitCompletion(0.001);
@@ -121,20 +121,20 @@ void BusyRetirementAndRepair() {
   const auto replacement = test.Env.Generate(test.Digest + 1);
   CHECK(replacement, "another native owner repairs the invalid request binding");
   if (!replacement) { return; }
-  std::optional<StructureBuildQueue::NativeBasisQuery> ready;
+  std::optional<StructureBuildQueue::NativeAssetQuery> ready;
   const auto until = std::chrono::steady_clock::now() + kDeadline;
   while (std::chrono::steady_clock::now() < until) {
     const auto query =
-        test.Env.Queue.PollNativeBasis(test.Env.Stack, test.Env.Stack.Footprints(), 0);
+        test.Env.Queue.PollNativeAsset(test.Env.Stack, test.Env.Stack.Footprints(), 0);
     CHECK(query, "the original retirement observes the repaired request");
     if (!query) { return; }
-    if (query->Where == StructureBuildQueue::NativeBasisQuery::Phase::Ready) {
+    if (query->Where == StructureBuildQueue::NativeAssetQuery::Phase::Ready) {
       ready = *query;
       break;
     }
     (void)test.Env.Worker.AwaitCompletion(0.001);
   }
-  CHECK(ready && ready->Source && ready->Source->BaseKey == *replacement,
+  CHECK(ready && ready->Basis() && ready->Basis()->BaseKey == *replacement,
         "resuming invalid-alias retirement preserves the newly repaired valid target");
 }
 }

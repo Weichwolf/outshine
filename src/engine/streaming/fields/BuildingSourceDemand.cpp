@@ -1,7 +1,6 @@
 #include "BuildingSourceDemand.h"
 #include "StructureBuildQueue.h"
 #include "SurfacePreparation.h"
-#include "StructureCell.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -12,19 +11,16 @@
 namespace outshine {
 namespace {
 std::optional<BuildingSourceDemand::Source>
-SourceOf(const StructureBuildQueue::NativeBasisQuery &query) {
-  const auto &result = *query.Source;
+SourceOf(const StructureBuildQueue::NativeAssetQuery &query) {
+  const auto *result = query.Metadata();
+  if (result == nullptr) { return std::nullopt; }
   BuildingSourceDemand::Source source{.RequestKey = query.RequestKey,
-                                      .BaseKey = result.BaseKey,
-                                      .Bounds = result.Bounds,
-                                      .AnchorEcef = result.Product->AnchorEcef,
-                                      .Cells = 0,
-                                      .HeightQualified = result.Product->HeightQualified};
-  for (const auto &part : result.Product->Sources) {
-    if (part.Cell == 0 || part.Cell > Generators::kStructureCellsPerTile) { return std::nullopt; }
-    source.Cells |= uint64_t{1} << (part.Cell - 1u);
-    ++source.CellSourceCounts[part.Cell - 1u];
-  }
+                                      .BaseKey = result->BaseKey,
+                                      .Bounds = result->Bounds,
+                                      .AnchorEcef = result->Metadata.AnchorEcef,
+                                      .Cells = result->Metadata.Cells,
+                                      .HeightQualified = result->Metadata.HeightQualified,
+                                      .CellSourceCounts = result->Metadata.CellSourceCounts};
   return source;
 }
 
@@ -33,19 +29,24 @@ void PollSource(BuildingSourceDemand::Entry &entry,
                 Ground::SurfacePreparation &stack,
                 uint32_t tile) {
   using Phase = BuildingSourceDemand::Phase;
-  const auto query = queue.PollNativeBasis(stack, stack.Footprints(), tile);
+  const auto query =
+      queue.PollNativeAsset(stack,
+                            stack.Footprints(),
+                            tile,
+                            StructureBuildQueue::NativeAssetQuery::Product::SourceMetadata);
   if (!query) {
     entry.Where = Phase::Failed;
     return;
   }
-  using NativePhase = StructureBuildQueue::NativeBasisQuery::Phase;
+  using NativePhase = StructureBuildQueue::NativeAssetQuery::Phase;
   switch (query->Where) {
     case NativePhase::Pending: entry.Where = Phase::Pending; break;
     case NativePhase::Unavailable: entry.Where = Phase::Unrequested; break;
     case NativePhase::Missing: entry.Where = Phase::Missing; break;
     case NativePhase::Ready:
       entry.Value = SourceOf(*query);
-      queue.ReleaseNativeBasis(query->RequestKey);
+      queue.ReleaseNativeAsset(query->RequestKey,
+                               StructureBuildQueue::NativeAssetQuery::Product::SourceMetadata);
       entry.Where = entry.Value ? Phase::Ready : Phase::Failed;
       break;
   }

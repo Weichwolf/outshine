@@ -18,7 +18,7 @@ void QueuedClear() {
   WorkerBlock held;
   CHECK(held.Start(env.Worker), "the compute worker is held before lookup");
   const auto pending = Query(env.Queue, env);
-  CHECK(pending && pending->Where == StructureBuildQueue::NativeBasisQuery::Phase::Pending,
+  CHECK(pending && pending->Where == StructureBuildQueue::NativeAssetQuery::Phase::Pending,
         "the actual queue has a pending native basis lookup");
   std::binary_semaphore cleared(0);
   std::thread clear([&] {
@@ -38,13 +38,13 @@ void QueuedClear() {
   const auto nextCache = next.Stack.BuildingAssets();
   const auto nextBefore = nextCache->Costs();
   const auto replacement = Query(env.Queue, next);
-  CHECK(replacement && replacement->Where == StructureBuildQueue::NativeBasisQuery::Phase::Pending,
+  CHECK(replacement && replacement->Where == StructureBuildQueue::NativeAssetQuery::Phase::Pending,
         "clear accepts a different cache independently of the retired job");
   held.Release();
   Barrier(env.Worker);
   const auto ready = Query(env.Queue, next);
-  CHECK(ready && ready->Where == StructureBuildQueue::NativeBasisQuery::Phase::Ready &&
-            ready->Source && replacement && ready->RequestKey == replacement->RequestKey,
+  CHECK(ready && ready->Where == StructureBuildQueue::NativeAssetQuery::Phase::Ready &&
+            ready->Basis() && replacement && ready->RequestKey == replacement->RequestKey,
         "fresh demand publishes its own native basis after old work retires");
   const auto after = cache->Costs();
   CHECK(after.BasisHits == before.BasisHits && after.BasisWrites == before.BasisWrites,
@@ -60,13 +60,13 @@ void ReadyClear(bool release) {
   if (!Open(env)) { return; }
   const std::weak_ptr<Generators::PreparedBuildingAssets> lifetime = env.Stack.BuildingAssets();
   const auto pending = Query(env.Queue, env);
-  CHECK(pending && pending->Where == StructureBuildQueue::NativeBasisQuery::Phase::Pending,
+  CHECK(pending && pending->Where == StructureBuildQueue::NativeAssetQuery::Phase::Pending,
         "the ready case starts a real pending native lookup");
   Barrier(env.Worker);
   const auto ready = Query(env.Queue, env);
-  CHECK(ready && ready->Where == StructureBuildQueue::NativeBasisQuery::Phase::Ready,
+  CHECK(ready && ready->Where == StructureBuildQueue::NativeAssetQuery::Phase::Ready,
         "a real ready basis is retained before cleanup");
-  if (release && ready) { env.Queue.ReleaseNativeBasis(ready->RequestKey); }
+  if (release && ready) { env.Queue.ReleaseNativeAsset(ready->RequestKey); }
   WorkerBlock held;
   CHECK(held.Start(env.Worker), "the worker is held before ready cache cleanup");
   env.Queue.Clear();
@@ -88,7 +88,7 @@ void Discard() {
   WorkerBlock held;
   CHECK(held.Start(*pool), "the worker is held before discard");
   const auto pending = Query(*queue, env);
-  CHECK(pending && pending->Where == StructureBuildQueue::NativeBasisQuery::Phase::Pending,
+  CHECK(pending && pending->Where == StructureBuildQueue::NativeAssetQuery::Phase::Pending,
         "discard starts with a queued native lookup");
   std::binary_semaphore retired(0);
   std::thread clear([&] {
@@ -124,19 +124,19 @@ void ConcurrentClear() {
   queue.Opens(&pool, nullptr, outshine::Test::JobAdmissions(), outshine::Test::ContextAdmissions());
   for (int iteration = 0; iteration < 96; ++iteration) {
     const auto query = Query(queue, env);
-    CHECK(query && query->Where == StructureBuildQueue::NativeBasisQuery::Phase::Pending,
+    CHECK(query && query->Where == StructureBuildQueue::NativeAssetQuery::Phase::Pending,
           "each new generation starts an independent actual cache job");
     std::this_thread::yield();
     queue.Clear();
   }
   const auto pending = Query(queue, env);
-  CHECK(pending && pending->Where == StructureBuildQueue::NativeBasisQuery::Phase::Pending,
+  CHECK(pending && pending->Where == StructureBuildQueue::NativeAssetQuery::Phase::Pending,
         "a final lookup follows concurrent retirement");
   Barrier(pool);
   const auto until = std::chrono::steady_clock::now() + kDeadline;
   while (std::chrono::steady_clock::now() < until) {
     const auto query = Query(queue, env);
-    if (query && query->Where == StructureBuildQueue::NativeBasisQuery::Phase::Ready) { return; }
+    if (query && query->Where == StructureBuildQueue::NativeAssetQuery::Phase::Ready) { return; }
     (void)queue.AwaitSlice(0.01);
   }
   CHECK(false, "a final live native basis survives concurrent replacements");

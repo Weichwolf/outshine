@@ -17,14 +17,14 @@ int main() {
   WorkerBlock held;
   CHECK(held.Start(env.Worker), "hold the actual native lookup worker");
   const auto pending = Query(first, env);
-  CHECK(pending && pending->Where == StructureBuildQueue::NativeBasisQuery::Phase::Pending &&
+  CHECK(pending && pending->Where == StructureBuildQueue::NativeAssetQuery::Phase::Pending &&
             first.Queued() == 1 && contexts->Active() == 1,
         "a real native lookup owns its context before queue admission");
   const auto before = env.Stack.BuildingAssets()->Costs();
   first.Clear();
   for (int attempt = 0; attempt < 32; ++attempt) {
     const auto denied = Query(next, env);
-    CHECK(denied && denied->Where == StructureBuildQueue::NativeBasisQuery::Phase::Pending &&
+    CHECK(denied && denied->Where == StructureBuildQueue::NativeAssetQuery::Phase::Pending &&
               next.Queued() == 0 && contexts->Active() == 1,
           "repeated cache requests remain pending before allocating a lookup");
     next.Clear();
@@ -42,8 +42,8 @@ int main() {
   CHECK(contexts->Active() == 0, "queued cancellation and worker cleanup return the context");
   while (std::chrono::steady_clock::now() < until) {
     const auto ready = Query(next, env);
-    if (ready && ready->Where == StructureBuildQueue::NativeBasisQuery::Phase::Ready) {
-      CHECK(ready->Source != nullptr, "the admitted replacement returns its native basis");
+    if (ready && ready->Where == StructureBuildQueue::NativeAssetQuery::Phase::Ready) {
+      CHECK(ready->Basis() != nullptr, "the admitted replacement returns its native basis");
       return Report();
     }
     (void)next.AwaitSlice(0.01);

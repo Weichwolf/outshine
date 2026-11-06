@@ -92,9 +92,9 @@ struct Case {
       const auto ready =
           Env.Queue.NextLandings(Env.Stack, Env.Stack.Footprints(), Env.Eye, NoHeights, 1);
       CHECK(ready && ready->empty(), "busy alias publication cannot expose a partial landing");
-      const auto query = Env.Queue.PollNativeBasis(Env.Stack, Env.Stack.Footprints(), 0);
-      CHECK(query && (query->Where == StructureBuildQueue::NativeBasisQuery::Phase::Pending ||
-                      query->Where == StructureBuildQueue::NativeBasisQuery::Phase::Missing),
+      const auto query = Env.Queue.PollNativeAsset(Env.Stack, Env.Stack.Footprints(), 0);
+      CHECK(query && (query->Where == StructureBuildQueue::NativeAssetQuery::Phase::Pending ||
+                      query->Where == StructureBuildQueue::NativeAssetQuery::Phase::Missing),
             "the actual native lookup keeps writer contention pending rather than permanent");
       if (!ready || !query) { return false; }
       (void)Env.Worker.AwaitCompletion(std::chrono::duration<double>(kWait).count());
@@ -119,8 +119,8 @@ void Resume() {
   const auto until = std::chrono::steady_clock::now() + std::chrono::milliseconds(40);
   while (std::chrono::steady_clock::now() < until) {
     const auto query =
-        test.Env.Queue.PollNativeBasis(test.Env.Stack, test.Env.Stack.Footprints(), 0);
-    CHECK(query && query->Where == StructureBuildQueue::NativeBasisQuery::Phase::Pending,
+        test.Env.Queue.PollNativeAsset(test.Env.Stack, test.Env.Stack.Footprints(), 0);
+    CHECK(query && query->Where == StructureBuildQueue::NativeAssetQuery::Phase::Pending,
           "retained alias work waits without becoming a ready native source");
     if (!query) { return; }
     (void)test.Env.Worker.AwaitCompletion(std::chrono::duration<double>(kWait).count());
@@ -145,23 +145,23 @@ void Resume() {
   if (finished) { test.Env.Worker.Wait(job); }
   test.ReleaseWriter();
   const auto deadline = std::chrono::steady_clock::now() + kDeadline;
-  std::optional<StructureBuildQueue::NativeBasisQuery> completed;
+  std::optional<StructureBuildQueue::NativeAssetQuery> completed;
   while (std::chrono::steady_clock::now() < deadline) {
     const auto query =
-        test.Env.Queue.PollNativeBasis(test.Env.Stack, test.Env.Stack.Footprints(), 0);
+        test.Env.Queue.PollNativeAsset(test.Env.Stack, test.Env.Stack.Footprints(), 0);
     CHECK(query, "writer release resumes the same actual native lookup");
     if (!query) { return; }
-    if (query->Where == StructureBuildQueue::NativeBasisQuery::Phase::Ready) {
+    if (query->Where == StructureBuildQueue::NativeAssetQuery::Phase::Ready) {
       completed = *query;
       break;
     }
     (void)test.Env.Worker.AwaitCompletion(std::chrono::duration<double>(kWait).count());
   }
-  CHECK(completed && completed->Source && completed->Source->Product &&
-            completed->Source->BaseKey == test.Key && completed->Source->Bounds == test.Bounds,
+  CHECK(completed && completed->Basis() && completed->Basis()->Product &&
+            completed->Basis()->BaseKey == test.Key && completed->Basis()->Bounds == test.Bounds,
         "committed alias exposes the same native identity and persisted nonempty bounds");
-  if (!completed || completed->Source == nullptr) { return; }
-  const auto product = completed->Source->Product;
+  if (!completed || completed->Basis() == nullptr) { return; }
+  const auto product = completed->Basis()->Product;
   const auto replay = test.Env.Stack.BuildingAssets()->LoadBasisRequest(test.Request);
   const auto after = test.Env.Stack.BuildingAssets()->Costs();
   CHECK(replay && *replay && (**replay).Product == product &&
@@ -184,21 +184,21 @@ void Rebound() {
   CHECK(replacement && *replacement != test.Key,
         "another native owner publishes a newer valid target before the held alias resumes");
   if (!replacement) { return; }
-  std::optional<StructureBuildQueue::NativeBasisQuery> ready;
+  std::optional<StructureBuildQueue::NativeAssetQuery> ready;
   const auto deadline = std::chrono::steady_clock::now() + kDeadline;
   while (std::chrono::steady_clock::now() < deadline) {
     const auto query =
-        test.Env.Queue.PollNativeBasis(test.Env.Stack, test.Env.Stack.Footprints(), 0);
+        test.Env.Queue.PollNativeAsset(test.Env.Stack, test.Env.Stack.Footprints(), 0);
     CHECK(query, "a resumed alias can observe a concurrent valid target");
     if (!query) { return; }
-    if (query->Where == StructureBuildQueue::NativeBasisQuery::Phase::Ready) {
+    if (query->Where == StructureBuildQueue::NativeAssetQuery::Phase::Ready) {
       ready = *query;
       break;
     }
     (void)test.Env.Worker.AwaitCompletion(0.001);
   }
   const auto durable = test.Env.Stack.BuildingAssets()->LoadBasisRequest(test.Request);
-  CHECK(ready && ready->Source && ready->Source->BaseKey == *replacement && durable && *durable &&
+  CHECK(ready && ready->Basis() && ready->Basis()->BaseKey == *replacement && durable && *durable &&
             (**durable).BaseKey == *replacement,
         "old retained work neither overwrites nor returns the superseded request target");
   const auto later = test.Env.Generate(test.Digest + 2);
@@ -206,18 +206,18 @@ void Rebound() {
         "another native revision follows the completed alias repair");
   if (!later) { return; }
   const auto changed =
-      test.Env.Queue.PollNativeBasis(test.Env.Stack, test.Env.Stack.Footprints(), 0);
-  using Phase = StructureBuildQueue::NativeBasisQuery::Phase;
+      test.Env.Queue.PollNativeAsset(test.Env.Stack, test.Env.Stack.Footprints(), 0);
+  using Phase = StructureBuildQueue::NativeAssetQuery::Phase;
   CHECK(changed && changed->Where == Phase::Pending,
         "the completed content repair retains no stale mutable request binding");
   const auto refreshDeadline = std::chrono::steady_clock::now() + kDeadline;
   std::optional<std::string> latest;
   do {
     const auto next =
-        test.Env.Queue.PollNativeBasis(test.Env.Stack, test.Env.Stack.Footprints(), 0);
+        test.Env.Queue.PollNativeAsset(test.Env.Stack, test.Env.Stack.Footprints(), 0);
     if (!next) { break; }
     if (next->Where == Phase::Ready) {
-      latest = next->Source->BaseKey;
+      latest = next->Basis()->BaseKey;
       break;
     }
     (void)test.Env.Worker.AwaitCompletion(0.001);

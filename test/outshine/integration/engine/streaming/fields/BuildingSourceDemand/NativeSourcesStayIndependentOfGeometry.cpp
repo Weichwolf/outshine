@@ -77,17 +77,21 @@ void CoalescedAndBounded(Fixture &fixture) {
   std::atomic_bool released{false};
   const auto blocker = fixture.Worker.Post([&released] { released.wait(false); });
   const auto before = fixture.Stack.BuildingAssets()->Costs();
-  const auto first = fixture.Queue.PollNativeBasis(fixture.Stack, fixture.Stack.Footprints(), 0);
-  const auto again = fixture.Queue.PollNativeBasis(fixture.Stack, fixture.Stack.Footprints(), 0);
-  CHECK(first && again && first->Where == StructureBuildQueue::NativeBasisQuery::Phase::Pending &&
+  constexpr auto product = StructureBuildQueue::NativeAssetQuery::Product::SourceMetadata;
+  const auto first =
+      fixture.Queue.PollNativeAsset(fixture.Stack, fixture.Stack.Footprints(), 0, product);
+  const auto again =
+      fixture.Queue.PollNativeAsset(fixture.Stack, fixture.Stack.Footprints(), 0, product);
+  CHECK(first && again && first->Where == StructureBuildQueue::NativeAssetQuery::Phase::Pending &&
             again->RequestKey == first->RequestKey && fixture.Queue.Queued() == 1,
         "identical callers share one bounded worker lookup");
   CHECK(fixture.Stack.BuildingAssets()->Costs().BasisReadBytes == before.BasisReadBytes,
         "a held worker proves no caller-side basis read or decode");
   for (size_t at = 1; at <= StructureBuildQueue::kCandidateWindow; ++at) {
     fixture.Stack.Footprints().TilesSpan(kSpan + static_cast<double>(at));
-    const auto query = fixture.Queue.PollNativeBasis(fixture.Stack, fixture.Stack.Footprints(), 0);
-    CHECK(query && query->Where == StructureBuildQueue::NativeBasisQuery::Phase::Pending,
+    const auto query =
+        fixture.Queue.PollNativeAsset(fixture.Stack, fixture.Stack.Footprints(), 0, product);
+    CHECK(query && query->Where == StructureBuildQueue::NativeAssetQuery::Phase::Pending,
           "new demand remains pending while lookup admission is full");
   }
   CHECK(fixture.Queue.Queued() == StructureBuildQueue::kCandidateWindow,
@@ -101,18 +105,39 @@ void CoalescedAndBounded(Fixture &fixture) {
 
 void CompactLeaseAndCamera(Fixture &fixture) {
   const auto deadline = std::chrono::steady_clock::now() + kDeadline;
-  auto query = fixture.Queue.PollNativeBasis(fixture.Stack, fixture.Stack.Footprints(), 0);
-  while (query && query->Where == StructureBuildQueue::NativeBasisQuery::Phase::Pending &&
+  auto query = fixture.Queue.PollNativeAsset(fixture.Stack, fixture.Stack.Footprints(), 0);
+  while (query && query->Where == StructureBuildQueue::NativeAssetQuery::Phase::Pending &&
          std::chrono::steady_clock::now() < deadline) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    query = fixture.Queue.PollNativeBasis(fixture.Stack, fixture.Stack.Footprints(), 0);
+    query = fixture.Queue.PollNativeAsset(fixture.Stack, fixture.Stack.Footprints(), 0);
   }
-  CHECK(query && query->Source != nullptr, "the native source offers a borrowed complete basis");
-  if (!query || query->Source == nullptr) { return; }
-  const std::weak_ptr<const Generators::PreparedBuildingBasis> basis = query->Source->Product;
+  CHECK(query && query->Basis() != nullptr, "the native source offers a borrowed complete basis");
+  if (!query || query->Basis() == nullptr) { return; }
+  const std::weak_ptr<const Generators::PreparedBuildingBasis> basis = query->Basis()->Product;
+  const auto beforeMetadata = fixture.Stack.BuildingAssets()->Costs();
+  auto metadata =
+      fixture.Queue.PollNativeAsset(fixture.Stack,
+                                    fixture.Stack.Footprints(),
+                                    0,
+                                    StructureBuildQueue::NativeAssetQuery::Product::SourceMetadata);
+  while (metadata && metadata->Where == StructureBuildQueue::NativeAssetQuery::Phase::Pending &&
+         std::chrono::steady_clock::now() < deadline) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    metadata = fixture.Queue.PollNativeAsset(
+        fixture.Stack,
+        fixture.Stack.Footprints(),
+        0,
+        StructureBuildQueue::NativeAssetQuery::Product::SourceMetadata);
+  }
+  CHECK(metadata && metadata->Metadata() != nullptr && metadata->Basis() == nullptr &&
+            fixture.Stack.BuildingAssets()->Costs().BasisReadBytes == beforeMetadata.BasisReadBytes,
+        "the independent source summary is ready without another basis read or owner");
   BuildingSourceDemand demand;
   CHECK(demand.Advance(fixture.Queue, fixture.Stack, 1) && demand.Counts().Ready == 1,
-        "World consumes the borrowed basis into its compact source descriptor");
+        "World consumes the borrowed metadata into its compact source descriptor");
+  CHECK(!basis.expired(), "consuming metadata preserves another caller's separate basis lookup");
+  fixture.Queue.ReleaseNativeAsset(query->RequestKey,
+                                   StructureBuildQueue::NativeAssetQuery::Product::Basis);
   CHECK(basis.expired(), "the descriptor retains no full basis or source-coordinate owner");
   const auto before = fixture.Stack.BuildingAssets()->Costs();
   fixture.Stack.Footprints().SeenWith({.FocalPx = 1440});
@@ -144,16 +169,18 @@ void FreshWarmAndStoreScope(Fixture &original) {
   const auto after = warm.Stack.BuildingAssets()->Costs();
   CHECK(warm.Stack.Ways().LookedCount() == 0 && after.ReadBytes == before.ReadBytes &&
             after.SurfaceReadBytes == before.SurfaceReadBytes &&
-            after.GeometryReadBytes == before.GeometryReadBytes,
-        "cached World source discovery never enters the geometry or street fallback");
-  const auto foreign = warm.Queue.PollNativeBasis(original.Stack, original.Stack.Footprints(), 0);
+            after.GeometryReadBytes == before.GeometryReadBytes &&
+            after.BasisReadBytes == before.BasisReadBytes &&
+            after.SourceMetadataHits == before.SourceMetadataHits + 1,
+        "cached World source discovery reads metadata without basis, geometry or street fallback");
+  const auto foreign = warm.Queue.PollNativeAsset(original.Stack, original.Stack.Footprints(), 0);
   const auto *failure =
       foreign ? nullptr : std::get_if<Generators::StructureBakeErrorKind>(&foreign.error());
   CHECK(failure && *failure == Generators::StructureBakeErrorKind::ArtifactInvalidProduct,
         "a queue cannot return another asset store's request binding");
   warm.Queue.Clear();
-  const auto rebound = warm.Queue.PollNativeBasis(original.Stack, original.Stack.Footprints(), 0);
-  CHECK(rebound && rebound->Where == StructureBuildQueue::NativeBasisQuery::Phase::Pending,
+  const auto rebound = warm.Queue.PollNativeAsset(original.Stack, original.Stack.Footprints(), 0);
+  CHECK(rebound && rebound->Where == StructureBuildQueue::NativeAssetQuery::Phase::Pending,
         "clearing a queue permits a new store scope and a fresh bounded lookup");
   warm.Queue.Clear();
   warm.Stack.Close();
@@ -206,13 +233,13 @@ void ReboundLookup(bool present, bool collected) {
               nullptr,
               outshine::Test::JobAdmissions(),
               outshine::Test::ContextAdmissions());
-  const auto pending = queue.PollNativeBasis(fixture.Stack, fixture.Stack.Footprints(), 0);
-  using Phase = StructureBuildQueue::NativeBasisQuery::Phase;
+  const auto pending = queue.PollNativeAsset(fixture.Stack, fixture.Stack.Footprints(), 0);
+  using Phase = StructureBuildQueue::NativeAssetQuery::Phase;
   CHECK(pending && pending->Where == Phase::Pending, "the real request lookup runs off thread");
   const auto barrier = fixture.Worker.Post([] {});
   fixture.Worker.Wait(barrier);
   if (collected) {
-    const auto previous = queue.PollNativeBasis(fixture.Stack, fixture.Stack.Footprints(), 0);
+    const auto previous = queue.PollNativeAsset(fixture.Stack, fixture.Stack.Footprints(), 0);
     CHECK(previous && previous->Where == (present ? Phase::Ready : Phase::Missing),
           "the first completed result stays in the ordinary queue cache");
   }
@@ -220,16 +247,16 @@ void ReboundLookup(bool present, bool collected) {
   CHECK(replacement, "a newer request binding publishes after the old metadata read finished");
   if (!replacement) { return; }
   const auto before = fixture.Stack.BuildingAssets()->Costs();
-  const auto changed = queue.PollNativeBasis(fixture.Stack, fixture.Stack.Footprints(), 0);
+  const auto changed = queue.PollNativeAsset(fixture.Stack, fixture.Stack.Footprints(), 0);
   CHECK(changed && changed->Where == Phase::Pending,
         "an observed newer publication prevents an old completed lookup from becoming current");
   const auto deadline = std::chrono::steady_clock::now() + kDeadline;
   std::optional<std::string> latest;
   do {
-    const auto next = queue.PollNativeBasis(fixture.Stack, fixture.Stack.Footprints(), 0);
+    const auto next = queue.PollNativeAsset(fixture.Stack, fixture.Stack.Footprints(), 0);
     if (!next) { break; }
     if (next->Where == Phase::Ready) {
-      latest = next->Source->BaseKey;
+      latest = next->Basis()->BaseKey;
       break;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));

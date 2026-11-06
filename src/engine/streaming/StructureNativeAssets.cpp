@@ -17,6 +17,15 @@
 #include <variant>
 
 namespace outshine {
+namespace {
+std::string LookupKey(const std::string &request,
+                      StructureBuildQueue::NativeAssetQuery::Product product) {
+  return product == StructureBuildQueue::NativeAssetQuery::Product::SourceMetadata
+             ? "source/" + request
+             : request;
+}
+}
+
 struct StructureBuildQueue::NativeProgress {
   std::mutex Mutex;
   std::condition_variable Changed;
@@ -79,7 +88,7 @@ bool StructureBuildQueue::AwaitSlice(double seconds) const {
       wait = std::min(wait, build.Task.ResumeDelaySeconds());
     }
   }
-  if (PendingBasisLookups() != 0) {
+  if (PendingNativeLookups() != 0) {
     const auto now = std::chrono::steady_clock::now();
     for (const auto &entry : Context_.NativeLookups) {
       const auto &lookup = *entry.second;
@@ -99,7 +108,7 @@ bool StructureBuildQueue::AwaitSlice(double seconds) const {
   return pendingGeometry && Pool_->AwaitCompletion(wait);
 }
 
-size_t StructureBuildQueue::PendingBasisLookups() const noexcept {
+size_t StructureBuildQueue::PendingNativeLookups() const noexcept {
   return static_cast<size_t>(std::ranges::count_if(Context_.NativeLookups, [](const auto &entry) {
     return entry.second->Working || entry.second->Retries != 0;
   }));
@@ -108,6 +117,11 @@ size_t StructureBuildQueue::PendingBasisLookups() const noexcept {
 void StructureBuildQueue::ReadNativeLookup(Generators::PreparedBuildingAssets &cache,
                                            const std::string &request,
                                            NativeLookup &lookup) {
+  if (lookup.Requested == NativeAssetQuery::Product::SourceMetadata) {
+    lookup.BasisWrites = cache.Costs().BasisWrites;
+    lookup.Result = cache.LoadSourceRequest(request);
+    return;
+  }
   if (lookup.Stage == NativeLookup::Phase::Request) {
     lookup.BasisWrites = cache.Costs().BasisWrites;
     lookup.Result = cache.LoadBasisRequest(request);
@@ -192,8 +206,11 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::RetryNativeLookup(
 }
 
 StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
-    const std::shared_ptr<Generators::PreparedBuildingAssets> &cache, const std::string &request) {
-  auto found = Context_.NativeLookups.find(request);
+    const std::shared_ptr<Generators::PreparedBuildingAssets> &cache,
+    const std::string &request,
+    NativeAssetQuery::Product product) {
+  const auto key = LookupKey(request, product);
+  auto found = Context_.NativeLookups.find(key);
   if (found != Context_.NativeLookups.end()) {
     const auto &previous = *found->second;
     if (!previous.Working && previous.Retries == 0 &&
@@ -203,7 +220,7 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
     }
   }
   if (found == Context_.NativeLookups.end()) {
-    if (PendingBasisLookups() >= kCandidateWindow) { return nullptr; }
+    if (PendingNativeLookups() >= kCandidateWindow) { return nullptr; }
     constexpr size_t kLookupsMost = 256;
     if (Context_.NativeLookups.size() >= kLookupsMost) {
       const auto idle = std::ranges::find_if(Context_.NativeLookups, [](const auto &entry) {
@@ -213,10 +230,11 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
       Context_.NativeLookups.erase(idle);
     }
     auto lookup = std::make_shared<NativeLookup>();
+    lookup->Requested = product;
     lookup->BasisWrites = cache->Costs().BasisWrites;
     auto *const output = lookup.get();
     StartNativeLookup(cache, request, lookup);
-    Context_.NativeLookups.emplace(request, std::move(lookup));
+    Context_.NativeLookups.emplace(key, std::move(lookup));
     return output->Working ? nullptr : output;
   }
   auto &lookup = *found->second;
@@ -237,11 +255,12 @@ StructureBuildQueue::NativeLookup *StructureBuildQueue::AdvanceNativeLookup(
   return &lookup;
 }
 
-std::expected<StructureBuildQueue::NativeBasisQuery, Generators::StructureBakeError>
-StructureBuildQueue::PollNativeBasis(Ground::SurfacePreparation &stack,
+std::expected<StructureBuildQueue::NativeAssetQuery, Generators::StructureBakeError>
+StructureBuildQueue::PollNativeAsset(Ground::SurfacePreparation &stack,
                                      const Generators::Osm::BuildingField &prints,
-                                     uint32_t tile) {
-  NativeBasisQuery query;
+                                     uint32_t tile,
+                                     NativeAssetQuery::Product product) {
+  NativeAssetQuery query;
   const auto &cache = stack.BuildingAssets();
   const auto *vectors = stack.Vectors();
   if (!cache || Pool_ == nullptr || vectors == nullptr || tile >= vectors->Tiles().size()) {
@@ -250,7 +269,7 @@ StructureBuildQueue::PollNativeBasis(Ground::SurfacePreparation &stack,
   const auto &region = vectors->Tiles()[tile];
   if (region.InputDigest.empty()) { return query; }
   if (!AdmitContext()) {
-    query.Where = NativeBasisQuery::Phase::Pending;
+    query.Where = NativeAssetQuery::Phase::Pending;
     return query;
   }
   if (Context_.NativeAssets && Context_.NativeAssets != cache) {
@@ -264,23 +283,24 @@ StructureBuildQueue::PollNativeBasis(Ground::SurfacePreparation &stack,
   if (query.RequestKey.empty()) {
     return std::unexpected(Generators::StructureBakeErrorKind::ArtifactInvalidProduct);
   }
-  auto *lookup = AdvanceNativeLookup(cache, query.RequestKey);
+  auto *lookup = AdvanceNativeLookup(cache, query.RequestKey, product);
   if (lookup == nullptr) {
-    query.Where = NativeBasisQuery::Phase::Pending;
+    query.Where = NativeAssetQuery::Phase::Pending;
     return query;
   }
   if (!lookup->Result) { return std::unexpected(lookup->Result.error()); }
   if (*lookup->Result) {
-    query.Where = NativeBasisQuery::Phase::Ready;
+    query.Where = NativeAssetQuery::Phase::Ready;
     query.Source = &**lookup->Result;
   } else {
-    query.Where = NativeBasisQuery::Phase::Missing;
+    query.Where = NativeAssetQuery::Phase::Missing;
   }
   return query;
 }
 
-void StructureBuildQueue::ReleaseNativeBasis(const std::string &request) {
-  const auto found = Context_.NativeLookups.find(request);
+void StructureBuildQueue::ReleaseNativeAsset(const std::string &request,
+                                             NativeAssetQuery::Product product) {
+  const auto found = Context_.NativeLookups.find(LookupKey(request, product));
   if (found == Context_.NativeLookups.end()) { return; }
   const auto &lookup = *found->second;
   if (!lookup.Working && lookup.Stage == NativeLookup::Phase::Request && lookup.Result &&
@@ -294,14 +314,14 @@ bool StructureBuildQueue::SelectNativeBasis(
     const ::outshine::Generators::Osm::BuildingField &prints,
     uint32_t tile,
     VectorSelection &selected) {
-  const auto query = PollNativeBasis(stack, prints, tile);
+  const auto query = PollNativeAsset(stack, prints, tile, NativeAssetQuery::Product::Basis);
   if (!query) {
     Context_.NativeFailure = query.error();
     return false;
   }
-  if (query->Where == NativeBasisQuery::Phase::Unavailable) { return true; }
+  if (query->Where == NativeAssetQuery::Phase::Unavailable) { return true; }
   selected.RequestKey = query->RequestKey;
-  if (query->Where == NativeBasisQuery::Phase::Pending) { return false; }
+  if (query->Where == NativeAssetQuery::Phase::Pending) { return false; }
   auto &lookup = *Context_.NativeLookups.at(selected.RequestKey);
   const auto &cache = stack.BuildingAssets();
   const auto &vectors = *stack.Vectors();
@@ -315,8 +335,14 @@ bool StructureBuildQueue::SelectNativeBasis(
   selected.ReadMs = lookup.ReadMs;
   selected.StreetDigest = lookup.StreetDigest;
   if (*lookup.Result) {
-    selected.Key = (**lookup.Result).BaseKey;
-    selected.Basis = (**lookup.Result).Product;
+    const auto *basis =
+        std::get_if<Generators::PreparedBuildingAssets::RequestedBasis>(&**lookup.Result);
+    if (basis == nullptr) {
+      Context_.NativeFailure = Generators::StructureBakeErrorKind::ArtifactInvalidProduct;
+      return false;
+    }
+    selected.Key = basis->BaseKey;
+    selected.Basis = basis->Product;
     return true;
   }
   if (lookup.Stage == NativeLookup::Phase::Content) {
@@ -334,7 +360,7 @@ bool StructureBuildQueue::SelectNativeBasis(
     Context_.NativeFailure = Generators::StructureBakeErrorKind::ArtifactInvalidProduct;
     return false;
   }
-  if (PendingBasisLookups() >= kCandidateWindow) { return false; }
+  if (PendingNativeLookups() >= kCandidateWindow) { return false; }
   lookup.Stage = NativeLookup::Phase::Content;
   lookup.ContentKey = key;
   lookup.StreetDigest = *digest;

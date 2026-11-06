@@ -21,7 +21,7 @@ inline bool Open(Fixture &env) {
 }
 
 inline auto Query(StructureBuildQueue &queue, Fixture &env) {
-  return queue.PollNativeBasis(env.Stack, env.Stack.Footprints(), 0);
+  return queue.PollNativeAsset(env.Stack, env.Stack.Footprints(), 0);
 }
 
 inline void Barrier(Tasks &pool) {

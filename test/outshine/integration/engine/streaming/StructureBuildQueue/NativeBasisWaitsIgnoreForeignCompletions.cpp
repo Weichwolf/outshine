@@ -16,7 +16,7 @@ void OwnCompletion() {
   WorkerBlock held;
   CHECK(held.Start(env.Worker), "the actual lookup worker is held");
   const auto pending = Query(env.Queue, env);
-  CHECK(pending && pending->Where == StructureBuildQueue::NativeBasisQuery::Phase::Pending,
+  CHECK(pending && pending->Where == StructureBuildQueue::NativeAssetQuery::Phase::Pending,
         "native query queues a real cache lookup");
   CHECK(!env.Queue.AwaitSlice(0) && !env.Queue.AwaitSlice(0.002),
         "the foreign completion cannot satisfy this queue wait");
@@ -37,8 +37,8 @@ void OwnCompletion() {
   CHECK(signaled && env.Queue.AwaitSlice(0.001),
         "real completion signals this queue and remains ready until consumed");
   const auto ready = Query(env.Queue, env);
-  CHECK(ready && ready->Where == StructureBuildQueue::NativeBasisQuery::Phase::Ready &&
-            ready->Source && ready->Source->Product,
+  CHECK(ready && ready->Where == StructureBuildQueue::NativeAssetQuery::Phase::Ready &&
+            ready->Basis() && ready->Basis()->Product,
         "only the complete original native product is published");
   CHECK(!env.Queue.AwaitSlice(0.002), "the consumed lookup cannot leave a hot ready signal");
   CHECK(env.Worker.TakeCompletion(foreign), "the foreign completion still belongs to its caller");

@@ -13,6 +13,7 @@
 #include <span>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 #include <unordered_map>
 
@@ -40,19 +41,38 @@ public:
   enum class HeightRequirement : uint8_t { AllowFallback, FineOnly };
   enum class BuildPurpose : uint8_t { ViewDetail, TerrainContacts };
 
-  struct NativeBasisQuery {
+  using BuildingAsset = std::variant<Generators::PreparedBuildingAssets::RequestedBasis,
+                                     Generators::PreparedBuildingAssets::RequestedSource>;
+
+  struct NativeAssetQuery {
     enum class Phase : uint8_t { Unavailable, Pending, Missing, Ready };
+    enum class Product : uint8_t { Basis, SourceMetadata };
     std::string RequestKey;
     Phase Where = Phase::Unavailable;
-    const Generators::PreparedBuildingAssets::RequestedBasis *Source = nullptr;
+    const BuildingAsset *Source = nullptr;
+
+    [[nodiscard]] const Generators::PreparedBuildingAssets::RequestedBasis *Basis() const noexcept {
+      return Source != nullptr
+                 ? std::get_if<Generators::PreparedBuildingAssets::RequestedBasis>(Source)
+                 : nullptr;
+    }
+
+    [[nodiscard]] const Generators::PreparedBuildingAssets::RequestedSource *
+    Metadata() const noexcept {
+      return Source != nullptr
+                 ? std::get_if<Generators::PreparedBuildingAssets::RequestedSource>(Source)
+                 : nullptr;
+    }
   };
 
   // The source is borrowed until the next non-const queue call; one store per Clear().
-  [[nodiscard]] std::expected<NativeBasisQuery, Generators::StructureBakeError>
-  PollNativeBasis(Ground::SurfacePreparation &stack,
+  [[nodiscard]] std::expected<NativeAssetQuery, Generators::StructureBakeError>
+  PollNativeAsset(Ground::SurfacePreparation &stack,
                   const Generators::Osm::BuildingField &footprints,
-                  uint32_t tile);
-  void ReleaseNativeBasis(const std::string &request);
+                  uint32_t tile,
+                  NativeAssetQuery::Product product = NativeAssetQuery::Product::Basis);
+  void ReleaseNativeAsset(const std::string &request,
+                          NativeAssetQuery::Product product = NativeAssetQuery::Product::Basis);
 
   struct HeightSourceRevision {
     uint64_t Value = 0;
@@ -191,7 +211,7 @@ public:
   void Clear();
 
   [[nodiscard]] size_t Queued() const {
-    return Context_.Queue.size() + PendingBasisLookups() +
+    return Context_.Queue.size() + PendingNativeLookups() +
            static_cast<size_t>(Context_.OriginalPreparation &&
                                Context_.OriginalPreparation->Running());
   }
@@ -303,12 +323,11 @@ private:
     struct Completion;
     enum class Phase : uint8_t { Request, Content, Bind };
     Phase Stage = Phase::Request;
+    NativeAssetQuery::Product Requested = NativeAssetQuery::Product::Basis;
     bool Working = false;
     std::atomic_bool Finished{false};
     std::atomic_bool Stopping{false};
-    std::expected<std::optional<Generators::PreparedBuildingAssets::RequestedBasis>,
-                  Generators::StructureBakeError>
-        Result;
+    std::expected<std::optional<BuildingAsset>, Generators::StructureBakeError> Result;
     std::string ContentKey;
     Generators::PreparedBuildingAssets::Basis HeldBasis;
     unsigned Retries = 0;
@@ -319,10 +338,11 @@ private:
   };
 
   [[nodiscard]] bool AwaitNativeLookups(double seconds) const;
-  [[nodiscard]] size_t PendingBasisLookups() const noexcept;
+  [[nodiscard]] size_t PendingNativeLookups() const noexcept;
   [[nodiscard]] NativeLookup *
   AdvanceNativeLookup(const std::shared_ptr<Generators::PreparedBuildingAssets> &cache,
-                      const std::string &request);
+                      const std::string &request,
+                      NativeAssetQuery::Product product);
   [[nodiscard]] NativeLookup *
   RetryNativeLookup(const std::shared_ptr<Generators::PreparedBuildingAssets> &cache,
                     const std::string &request,
