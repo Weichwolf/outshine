@@ -49,9 +49,12 @@ public:
     uint64_t Attempts_ = 0;
   };
 
-  struct GeometryWrite {
+  enum class ProductKind { Geometry, TerrainContacts };
+
+  struct ProductWrite {
     std::string Key;
     PreparedAssetWrite Package;
+    ProductKind Kind = ProductKind::Geometry;
   };
 
   struct RequestedBasis {
@@ -74,6 +77,8 @@ public:
     uint64_t SourceMetadataHits = 0, SourceMetadataMisses = 0, SourceMetadataWrites = 0;
     uint64_t SourceMetadataReadBytes = 0;
     uint64_t GeometryHits = 0, GeometryMisses = 0, GeometryWrites = 0, GeometryReadBytes = 0;
+    uint64_t ContactHits = 0, ContactMisses = 0, ContactWrites = 0, ContactReadBytes = 0;
+    uint64_t ContactPreparations = 0;
     uint64_t SurfaceHits = 0, SurfaceMisses = 0, SurfaceWrites = 0, SurfaceReadBytes = 0;
     uint64_t SurfacePreparations = 0;
     uint64_t GeometryPreparations = 0, GeometryPublicationAttempts = 0;
@@ -156,13 +161,19 @@ public:
   LoadGeometry(const std::string &baseKey, const PreparedStructureTile &base, const RawTile &view);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
   LoadGeometry(const std::string &baseKey, Basis basis, const RawTile &view);
-  [[nodiscard]] std::expected<GeometryWrite, StructureBakeError>
+  [[nodiscard]] std::expected<ProductWrite, StructureBakeError>
   PrepareGeometry(const std::string &baseKey,
                   const PreparedStructureTile &base,
                   const RawTile &view,
                   const BakedTile &tile);
   [[nodiscard]] std::expected<void, StructureBakeError>
-  PublishGeometry(const GeometryWrite &prepared);
+  PublishProduct(const ProductWrite &prepared);
+  [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
+  LoadTerrainContacts(const std::string &baseKey, const PreparedStructureTile &base);
+  [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
+  LoadTerrainContacts(const std::string &baseKey, Basis basis);
+  [[nodiscard]] std::expected<ProductWrite, StructureBakeError> PrepareTerrainContacts(
+      const std::string &baseKey, const PreparedStructureTile &base, const BakedTile &tile);
   [[nodiscard]] Counters Costs() const noexcept;
 
 private:
@@ -183,11 +194,22 @@ private:
   LoadCachedBasis(const std::string &key, const std::string &requestKey);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
   LoadGeometryArtifact(const std::string &baseKey, const RawTile &view, size_t coordinatePoints);
+  [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
+  LoadContactArtifact(const std::string &baseKey,
+                      std::span<const double> coordinates,
+                      std::span<const GeographicRing> rings,
+                      size_t sources);
+  [[nodiscard]] std::expected<ProductWrite, StructureBakeError>
+  PrepareProduct(AssetRecord record, const BakedTile &tile, ProductKind kind);
+  static void RestoreCoordinates(BakedTile &tile, const PreparedStructureTile &base);
+  static void RestoreCoordinates(BakedTile &tile, Basis basis);
 
   struct SurfaceCosts {
     std::atomic_uint64_t Hits{0}, Misses{0}, Writes{0}, ReadBytes{0};
     std::atomic_uint64_t Preparations{0};
   };
+
+  SurfaceCosts ContactCosts_;
 
   struct ResidentBasis {
     AssetRecord Record;

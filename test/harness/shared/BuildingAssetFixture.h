@@ -51,7 +51,7 @@ StoreGeometry(Generators::PreparedBuildingAssets &cache,
               const Generators::BakedTile &tile) {
   auto prepared = cache.PrepareGeometry(key, base, view, tile);
   if (!prepared) { return std::unexpected(prepared.error()); }
-  const auto stored = cache.PublishGeometry(*prepared);
+  const auto stored = cache.PublishProduct(*prepared);
   if (!stored) { return std::unexpected(stored.error()); }
   return std::move(prepared->Key);
 }
