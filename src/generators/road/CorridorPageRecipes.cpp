@@ -1,5 +1,8 @@
 #include "Corridors.h"
 #include "RoadLaneColour.h"
+#include "SurfaceBody.h"
+#include <memory>
+#include <unordered_map>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -12,6 +15,17 @@
 #include <utility>
 
 namespace outshine::Generators {
+namespace {
+using BodyCopies = std::unordered_map<const SurfaceBody *, std::shared_ptr<const HeightSolid>>;
+
+std::shared_ptr<const HeightSolid> CopyBody(BodyCopies &copies,
+                                            const std::shared_ptr<const SurfaceBody> &source) {
+  if (!source) { return {}; }
+  auto [body, fresh] = copies.try_emplace(source.get());
+  if (fresh) { body->second = std::make_shared<HeightSolid>(source->Geometry); }
+  return body->second;
+}
+}
 
 RoadSweep Corridors::SurfaceOf(const Osm::StreetField::Way &lane,
                                const RegionSurfaceRecipes &vegetation,
@@ -107,6 +121,7 @@ Corridors::PageRecipe(const Job &job, const Site &site, std::span<const RoadPage
     return std::unexpected("duplicate road page part request");
   }
   RoadPageRecipe recipe;
+  BodyCopies bodies;
   const auto &work = job.Work;
   for (const auto part : ordered) {
     if (part.Kind == RoadPagePartKind::Junction && part.Index < work.Junctions.size()) {
@@ -131,7 +146,7 @@ Corridors::PageRecipe(const Job &job, const Site &site, std::span<const RoadPage
                                                        site.Vegetation,
                                                        edge,
                                                        work.UnbankedWays.contains(edge.Lane)),
-                                  .StepBody = edge.StepBody});
+                                  .Body = CopyBody(bodies, edge.StepBody)});
     } else {
       return std::unexpected("unknown road page part request");
     }

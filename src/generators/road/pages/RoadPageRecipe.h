@@ -1,7 +1,8 @@
-#ifndef OUTSHINE_GENERATORS_ROAD_ROADPAGERECIPE_H
-#define OUTSHINE_GENERATORS_ROAD_ROADPAGERECIPE_H
+#ifndef OUTSHINE_GENERATORS_ROAD_PAGES_ROADPAGERECIPE_H
+#define OUTSHINE_GENERATORS_ROAD_PAGES_ROADPAGERECIPE_H
 
 #include "RoadPageGeometry.h"
+#include "HeightSolid.h"
 #include <cstdint>
 #include <expected>
 #include <memory>
@@ -10,14 +11,13 @@
 #include <vector>
 
 namespace outshine::Generators {
-struct SurfaceBody;
 
 struct RoadPageInterval {
   uint32_t Edge = 0;
   uint32_t Lane = 0;
   std::vector<RoadStation> Stations;
   RoadSweep Surface;
-  std::shared_ptr<const SurfaceBody> StepBody = nullptr;
+  std::shared_ptr<const HeightSolid> Body = nullptr;
 };
 
 struct RoadPageJunction {

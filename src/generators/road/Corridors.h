@@ -38,6 +38,7 @@ struct CurveFitResult;
 }
 
 namespace outshine::Generators {
+struct SurfaceBody;
 
 class Corridors {
 public:

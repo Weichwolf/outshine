@@ -1,6 +1,5 @@
 #include "RoadPageMeshProducer.h"
 #include "ProfiledRoadMesher.h"
-#include "SurfaceBody.h"
 #include "HeightSolid.h"
 #include "Check.h"
 #include <algorithm>
@@ -19,7 +18,7 @@ using namespace outshine;
 using namespace outshine::Generators;
 using namespace outshine::Test;
 
-std::shared_ptr<SurfaceBody> StepBody() {
+std::shared_ptr<HeightSolid> StepBody() {
   const std::array<PlanarPoint, 3> points{{{-1, -1}, {1, -1}, {0, 1}}};
   const std::array<PlanarFace, 1> faces{{{0, 1, 2}}};
   const std::array<std::array<double, 3>, 1> tops{{{12, 12, 12}}};
@@ -27,12 +26,12 @@ std::shared_ptr<SurfaceBody> StepBody() {
   auto solid = BuildHeightSolid(
       {.Points = points, .Faces = faces, .TopHeights = tops, .BottomHeights = bottoms});
   if (!solid) { return {}; }
-  auto body = std::make_shared<SurfaceBody>();
-  body->Geometry = std::move(*solid);
+  auto body = std::make_shared<HeightSolid>();
+  *body = std::move(*solid);
   return body;
 }
 
-RoadPageRecipe Recipe(const std::shared_ptr<SurfaceBody> &body) {
+RoadPageRecipe Recipe(const std::shared_ptr<HeightSolid> &body) {
   RoadPageRecipe recipe;
   for (uint32_t index = 0; index < 3; ++index) {
     recipe.Intervals.push_back(
@@ -44,7 +43,7 @@ RoadPageRecipe Recipe(const std::shared_ptr<SurfaceBody> &body) {
                      .WearsLinear = {{0.2f, 0.3f, 0.4f}},
                      .Crossfall = 0.025,
                      .Form = index == 0 ? RibbonForm::ClosedShell : RibbonForm::Surface},
-         .StepBody = index == 2 ? body : nullptr});
+         .Body = index == 2 ? body : nullptr});
   }
   return recipe;
 }

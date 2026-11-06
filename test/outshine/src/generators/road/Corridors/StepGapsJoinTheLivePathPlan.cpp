@@ -133,7 +133,7 @@ void CheckConnection(const outshine::Generators::GroundMaterialCatalog &material
   CHECK(recipe.has_value(), "the actual world-page consumer receives the corrected axes");
   if (!recipe) { return; }
   const auto bodies = std::ranges::count_if(
-      recipe->Intervals, [](const auto &interval) { return interval.StepBody != nullptr; });
+      recipe->Intervals, [](const auto &interval) { return interval.Body != nullptr; });
   CHECK(bodies == (test.Grade > 0 ? 1 : 0),
         "a suitable nonflat step interval carries its actual shared native body");
   CHECK(recipe->Junctions.size() == (test.Connects ? 1u : 0u),
