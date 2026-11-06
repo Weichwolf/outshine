@@ -14,6 +14,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <optional>
 #include <span>
 #include <string>
@@ -42,37 +43,63 @@ void BuildingFieldStreaming::State::Reject(Cell &cell) {
   cell.Where = Phase::Rejected;
   cell.Groups.clear();
   cell.Alternatives.clear();
+  cell.Consumer.reset();
 }
 
-void BuildingFieldStreaming::State::PollCell(Context &context, Tile &tile, Cell &cell) {
+void BuildingFieldStreaming::State::RecordAbortedPreflight(const Cell &cell) {
   if (cell.Where != Phase::Pending) { return; }
+  Statistics.AvoidedRasterRequests += static_cast<size_t>(std::ranges::count_if(
+      cell.Groups, [](const Group &group) { return group.Where == Phase::Prepared; }));
+}
+
+std::expected<void, std::string> BuildingFieldStreaming::State::PrepareCellMetadata(Cell &cell) {
+  for (auto &group : cell.Groups) {
+    if (group.Where != Phase::Pending || !group.Request) { continue; }
+    const auto ready = group.Request->PollMetadata();
+    if (!ready) { return std::unexpected(ready.error()); }
+    if (*ready) { group.Where = Phase::Prepared; }
+  }
+  if (std::ranges::all_of(cell.Groups, [](const Group &g) { return g.Where == Phase::Prepared; })) {
+    cell.Where = Phase::Prepared;
+  }
+  return {};
+}
+
+std::expected<void, std::string>
+BuildingFieldStreaming::State::LoadCellFields(Context &context, Tile &tile, Cell &cell) {
   std::string error;
   for (auto &group : cell.Groups) {
     if (group.Where != Phase::Pending || !group.Request) { continue; }
     const auto ready = group.Request->Poll();
-    if (!ready) {
-      error = ready.error();
-      break;
-    }
+    if (!ready) { return std::unexpected(ready.error()); }
     if (!*ready) { continue; }
-    if (!StageGroup(context, tile, group, **ready, error)) { break; }
+    if (!StageGroup(context, tile, group, **ready, error)) { return std::unexpected(error); }
     group.Metadata = (**ready).Metadata->Metadata();
     group.Support = (**ready).GeometricSupport;
     group.Request.reset();
     group.Where = Phase::Ready;
   }
-  if (error.empty() &&
-      std::ranges::all_of(cell.Groups, [](const Group &g) { return g.Where == Phase::Ready; }) &&
-      Stage(context, tile, cell, error)) {
+  if (std::ranges::all_of(cell.Groups, [](const Group &g) { return g.Where == Phase::Ready; })) {
+    if (!Stage(context, tile, cell, error)) { return std::unexpected(error); }
     cell.Where = Phase::Ready;
     cell.Alternatives.clear();
+    cell.Consumer.reset();
     for (auto &group : cell.Groups) { group.Surface.reset(); }
   }
-  if (error.empty()) { return; }
+  return {};
+}
+
+void BuildingFieldStreaming::State::PollCell(Context &context, Tile &tile, Cell &cell) {
+  if (cell.Where != Phase::Pending && cell.Where != Phase::Prepared) { return; }
+  const auto result = cell.Where == Phase::Pending ? PrepareCellMetadata(cell)
+                                                   : LoadCellFields(context, tile, cell);
+  if (result) { return; }
+  RecordAbortedPreflight(cell);
+  const auto &error = result.error();
   if (LastRejection != error) {
     Log::Warn(LogTag::World, "building_field_rejected", {{"reason", error}});
   }
-  LastRejection = std::move(error);
+  LastRejection = error;
   if (cell.Alternatives.empty()) {
     Reject(cell);
   } else {

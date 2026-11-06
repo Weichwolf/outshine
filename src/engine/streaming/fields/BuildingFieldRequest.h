@@ -83,12 +83,15 @@ public:
         BuildingSourceDemand::Source source,
         const Demand &demand,
         Budget budget,
-        std::shared_ptr<BuildingSourceRead> read = {});
+        std::shared_ptr<BuildingSourceRead> read = {},
+        std::shared_ptr<AssetPipeline::Consumer> consumer = {});
   BuildingFieldRequest(BuildingFieldRequest &&) noexcept;
   BuildingFieldRequest &operator=(BuildingFieldRequest &&other) noexcept;
   ~BuildingFieldRequest();
   BuildingFieldRequest(const BuildingFieldRequest &) = delete;
   BuildingFieldRequest &operator=(const BuildingFieldRequest &) = delete;
+  // Preflight a replacement component without producing or loading its raster.
+  [[nodiscard]] std::expected<std::shared_ptr<const Product>, std::string> PollMetadata();
   [[nodiscard]] std::expected<std::shared_ptr<const Product>, std::string> Poll();
   void Cancel() noexcept;
 

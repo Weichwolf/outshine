@@ -481,6 +481,9 @@ bool Engine::State::AdvanceBuildingFields() {
   Published.RecordMetric("building fields: cells needing no original",
                          static_cast<double>(counts.FieldOnlyCells),
                          "cells");
+  Published.RecordMetric("building fields: raster requests avoided before IO",
+                         static_cast<double>(counts.AvoidedRasterRequests),
+                         "requests");
   return true;
 }
 

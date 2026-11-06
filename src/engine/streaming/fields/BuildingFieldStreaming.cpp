@@ -1,4 +1,5 @@
 #include "BuildingFieldStreamingState.h"
+#include "AssetPipeline.h"
 #include "BuildingSourceRead.h"
 #include "SurfacePreparation.h"
 #include "StructureBuildQueue.h"
@@ -12,6 +13,7 @@
 #include <algorithm>
 #include <atomic>
 #include <bit>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -45,6 +47,7 @@ bool BuildingFieldStreaming::Preparing(uint32_t tile) const noexcept {
   const auto found = std::ranges::find(State_->Tiles, tile, &State::Tile::Index);
   if (found == State_->Tiles.end()) { return true; }
   return std::ranges::any_of(found->Cells, [](const auto &cell) {
+    if (cell.Where == State::Phase::Prepared) { return true; }
     return std::ranges::any_of(
         cell.Groups, [](const auto &group) { return group.Where == State::Phase::Pending; });
   });
@@ -171,9 +174,20 @@ bool BuildingFieldStreaming::State::RequestGroup(Context &context,
                                                  Tile &tile,
                                                  Cell &cell,
                                                  Group &group) {
+  if (cell.Where == Phase::Prepared && group.Where == Phase::Prepared) {
+    assert(group.Request.has_value());
+    group.Where = Phase::Pending;
+    PollCell(context, tile, cell);
+    return true;
+  }
   if (group.Where != Phase::Waiting) { return false; }
   auto demand = DemandFor(context, tile.Source, group.Bounds, WorldCamera(context));
-  if (!demand) { return false; }
+  if (!demand) {
+    if (cell.Groups.size() == 1) { return false; }
+    RecordAbortedPreflight(cell);
+    Reject(cell);
+    return true;
+  }
   auto count = tile.Source.CellSourceCounts[cell.Source.Cell - 1u];
   if (!group.Sources.empty()) {
     demand->Sources = group.Sources;
@@ -192,6 +206,12 @@ bool BuildingFieldStreaming::State::RequestGroup(Context &context,
         std::make_shared<BuildingSourceRead>(context.Surface.BuildingAssets(), source.BaseKey);
     ReadCell = cell.Source.Cell;
   }
+  auto consumer = cell.Consumer;
+  if (!consumer) {
+    auto opened = context.Pipeline.OpenConsumer({.Identity = context.Surface.AssetStore()});
+    if (!opened) { return false; }
+    consumer = std::make_shared<AssetPipeline::Consumer>(std::move(*opened));
+  }
   auto request = BuildingFieldRequest::Start(context.Pipeline,
                                              context.Workers,
                                              context.Surface.AssetStore(),
@@ -199,11 +219,15 @@ bool BuildingFieldStreaming::State::RequestGroup(Context &context,
                                              std::move(source),
                                              *demand,
                                              *budget,
-                                             SourceRead);
+                                             SourceRead,
+                                             consumer);
   if (!request) { return false; }
+  cell.Consumer = std::move(consumer);
   group.Request.emplace(std::move(*request));
   group.Where = Phase::Pending;
-  cell.Where = Phase::Pending;
+  if (cell.Where != Phase::Prepared) {
+    cell.Where = cell.Groups.size() == 1 ? Phase::Prepared : Phase::Pending;
+  }
   return true;
 }
 
@@ -247,8 +271,9 @@ bool BuildingFieldStreaming::Advance(Context &context, std::string &error) {
   counts.Ready = counts.Rejected = counts.ReadyGroups = 0;
   for (const auto &tile : State_->Tiles) {
     for (const auto &cell : tile.Cells) {
-      counts.Pending += static_cast<size_t>(std::ranges::count_if(
+      const auto pending = static_cast<size_t>(std::ranges::count_if(
           cell.Groups, [](const State::Group &g) { return g.Where == State::Phase::Pending; }));
+      counts.Pending += pending + (pending == 0 && cell.Where == State::Phase::Prepared ? 1u : 0u);
       counts.ReadyGroups += static_cast<size_t>(std::ranges::count_if(
           cell.Groups, [](const State::Group &g) { return g.Where == State::Phase::Ready; }));
       counts.Ready += cell.Where == State::Phase::Ready ? 1 : 0;

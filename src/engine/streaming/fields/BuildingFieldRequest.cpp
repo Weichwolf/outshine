@@ -95,7 +95,7 @@ struct BuildingFieldRequest::State {
   AssetPipeline *Pipeline;
   Tasks *Workers;
   std::shared_ptr<AssetCache> Cache;
-  AssetPipeline::Consumer Consumer;
+  std::shared_ptr<AssetPipeline::Consumer> Consumer;
   std::shared_ptr<BuildingImpostorSource> Producer;
   std::optional<ImpostorMetadataRequest> Metadata;
   std::optional<AssetPipeline::RequestTicket> Ticket;
@@ -110,7 +110,7 @@ struct BuildingFieldRequest::State {
   State(AssetPipeline &pipeline,
         Tasks &workers,
         std::shared_ptr<AssetCache> cache,
-        AssetPipeline::Consumer consumer,
+        std::shared_ptr<AssetPipeline::Consumer> consumer,
         std::shared_ptr<BuildingImpostorSource> producer,
         BuildingSourceDemand::Source source,
         Demand demand,
@@ -129,7 +129,7 @@ struct BuildingFieldRequest::State {
     const auto ready = Metadata->Poll();
     if (!ready) { return std::unexpected(ready.error()); }
     if (!*ready) { return false; }
-    Value.Metadata = *ready;
+    Value.Metadata = std::make_shared<const ImpostorViewAssets>(**ready);
     const auto &worldFromField = Value.Metadata->Metadata().WorldFromField;
     if (!worldFromField || !Matches(Value.Metadata->Metadata(), Value.Source, Requested)) {
       return std::unexpected(
@@ -151,6 +151,7 @@ struct BuildingFieldRequest::State {
       }
       Value.GeometricSupport = {.Plane = support, .View = pose, .Bounds = *error};
     }
+    Metadata.reset();
     return true;
   }
 
@@ -178,9 +179,9 @@ struct BuildingFieldRequest::State {
                   stop);
             }}};
     auto requested =
-        Pipeline->RequestResolved(Consumer,
+        Pipeline->RequestResolved(*Consumer,
                                   {.Key = *parsed,
-                                   .Generation = Consumer.Generation(),
+                                   .Generation = Consumer->Generation(),
                                    .InputBytes = Limits.ProducerBytes,
                                    .ConsumerBytes = Limits.ResidentBytes + Limits.RasterBytesMost,
                                    .ReceiptBytesMost = ImpostorViewAssets::MetadataBytesMost},
@@ -248,7 +249,8 @@ BuildingFieldRequest::Start(AssetPipeline &pipeline,
                             BuildingSourceDemand::Source source,
                             const Demand &demand,
                             Budget budget,
-                            std::shared_ptr<BuildingSourceRead> read) {
+                            std::shared_ptr<BuildingSourceRead> read,
+                            std::shared_ptr<AssetPipeline::Consumer> consumer) {
   const auto bytes =
       ImpostorAtlas::EncodedBytesMost({.Pixels = static_cast<int>(demand.Pixels), .Views = 1});
   if ((demand.Sources && demand.Sources->empty()) || !cache || source.Bounds.Empty() ||
@@ -277,15 +279,16 @@ BuildingFieldRequest::Start(AssetPipeline &pipeline,
   }
   auto recipe = RecipeOf(source, demand);
   if (recipe.Key().empty()) { return std::unexpected(AssetPublicationError::InvalidRequest); }
-  auto consumer = pipeline.OpenConsumer({.Identity = cache});
-  if (!consumer) { return std::unexpected(consumer.error()); }
+  if (!consumer) {
+    auto opened = pipeline.OpenConsumer({.Identity = cache});
+    if (!opened) { return std::unexpected(opened.error()); }
+    consumer = std::make_shared<AssetPipeline::Consumer>(std::move(*opened));
+  }
   const auto producer = std::make_shared<BuildingImpostorSource>(
       std::move(recipe), std::move(sources), std::move(read));
-  auto state = std::make_shared<State>(
-      pipeline, workers, cache, std::move(*consumer), producer, std::move(source), demand, budget);
   auto metadata = ImpostorMetadataRequest::Start(
       pipeline,
-      state->Consumer,
+      *consumer,
       workers,
       cache,
       producer->Provenance(),
@@ -294,22 +297,32 @@ BuildingFieldRequest::Start(AssetPipeline &pipeline,
       },
       budget.ProducerBytes);
   if (!metadata) { return std::unexpected(metadata.error()); }
+  auto state = std::make_shared<State>(
+      pipeline, workers, cache, std::move(consumer), producer, std::move(source), demand, budget);
   state->Metadata.emplace(std::move(*metadata));
   return BuildingFieldRequest(std::move(state));
 }
 
 std::expected<std::shared_ptr<const BuildingFieldRequest::Product>, std::string>
-BuildingFieldRequest::Poll() {
+BuildingFieldRequest::PollMetadata() {
   if (!State_) { return std::unexpected("building field request moved or cancelled"); }
   auto &state = *State_;
   if (state.Cancelled) { return std::unexpected("building field request cancelled"); }
   if (!state.Error.empty()) { return std::unexpected(state.Error); }
+  if (state.Value.Metadata) { return std::shared_ptr<const Product>(State_, &state.Value); }
+  const auto ready = state.PollMetadata();
+  if (!ready) { return std::unexpected(state.Error = ready.error()); }
+  if (!*ready) { return nullptr; }
+  return std::shared_ptr<const Product>(State_, &state.Value);
+}
+
+std::expected<std::shared_ptr<const BuildingFieldRequest::Product>, std::string>
+BuildingFieldRequest::Poll() {
+  const auto ready = PollMetadata();
+  if (!ready) { return std::unexpected(ready.error()); }
+  if (!*ready) { return nullptr; }
+  auto &state = *State_;
   if (state.Value.Field) { return std::shared_ptr<const Product>(State_, &state.Value); }
-  if (!state.Value.Metadata) {
-    const auto ready = state.PollMetadata();
-    if (!ready) { return std::unexpected(state.Error = ready.error()); }
-    if (!*ready) { return nullptr; }
-  }
   if (!state.Ticket && !state.Load) {
     const auto admitted = state.RequestField();
     if (!admitted) { return std::unexpected(state.Error = admitted.error()); }

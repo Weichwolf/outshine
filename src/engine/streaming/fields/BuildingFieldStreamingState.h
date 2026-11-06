@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_ENGINE_STREAMING_FIELDS_BUILDINGFIELDSTREAMINGSTATE_H
 #define OUTSHINE_ENGINE_STREAMING_FIELDS_BUILDINGFIELDSTREAMINGSTATE_H
 #include "BuildingFieldStreaming.h"
+#include "AssetPipeline.h"
 #include "BuildingFieldRequest.h"
 #include "BuildingSourceDemand.h"
 #include "PreparedBuildingAssets.h"
@@ -22,7 +23,7 @@
 
 namespace outshine {
 struct BuildingFieldStreaming::State {
-  enum class Phase { Waiting, Pending, Ready, Rejected };
+  enum class Phase { Waiting, Pending, Prepared, Ready, Rejected };
 
   struct Part {
     std::vector<StoredVertex> Vertices;
@@ -57,6 +58,7 @@ struct BuildingFieldStreaming::State {
     bool Staged = false;
     bool Qualified = false;
     bool ShadowNeeded = true;
+    std::shared_ptr<AssetPipeline::Consumer> Consumer;
   };
 
   struct Tile {
@@ -120,6 +122,10 @@ struct BuildingFieldStreaming::State {
   void StartMetadata(Context &context);
   void RequestOne(Context &context);
   bool RequestGroup(Context &context, Tile &tile, Cell &cell, Group &group);
+  [[nodiscard]] static std::expected<void, std::string> PrepareCellMetadata(Cell &cell);
+  void RecordAbortedPreflight(const Cell &cell);
+  [[nodiscard]] static std::expected<void, std::string>
+  LoadCellFields(Context &context, Tile &tile, Cell &cell);
   void PollCell(Context &context, Tile &tile, Cell &cell);
   void PollFields(Context &context);
   [[nodiscard]] bool Select(Context &context, std::string &error);

@@ -42,6 +42,7 @@ public:
     size_t ReadyGroups = 0, ActiveGroups = 0;
     size_t SelectedProducts = 0;
     size_t FieldOnlyCells = 0;
+    size_t AvoidedRasterRequests = 0;
   };
 
   BuildingFieldStreaming();
