@@ -31,7 +31,8 @@ RoadPageGeometry Triangle() {
                    .Index = {0, 1, 2}},
           .Swept = {},
           .Diagnostics = {},
-          .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = 7}}};
+          .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = 7}},
+          .Clusters = {}};
 }
 
 std::vector<RoadPageQueue::Completed> Wait(RoadPageQueue &queue) {
