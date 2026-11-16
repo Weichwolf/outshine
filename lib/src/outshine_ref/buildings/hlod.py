@@ -182,7 +182,9 @@ def block_hulls(buildings, bounds):
     """
     result, groups = [], []
     for b in sorted(buildings, key=lambda b: b.base + b.height):
-        span = 2 * (b.roof_frame or roof_axis(b.footprint))[2]
+        _, axis, _ = b.roof_frame or roof_axis(b.footprint)
+        along = np.array([-axis[1], axis[0]])
+        span = np.ptp(np.asarray(b.footprint.exterior.coords) @ along)
         if b.height > 19 and b.height > 2 * span:
             result.append(b)
         elif not groups or b.base + b.height - (groups[-1][0].base + groups[-1][0].height) > 4:
