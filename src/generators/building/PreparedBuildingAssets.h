@@ -197,7 +197,7 @@ private:
   [[nodiscard]] std::expected<Basis, StructureBakeError>
   LoadCachedBasis(const std::string &key, const std::string &requestKey);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError> LoadGeometryArtifact(
-      const std::string &baseKey, const RawTile &view, size_t coordinatePoints, uint64_t sourceKey);
+      const std::string &baseKey, uint64_t sourceKey, const RawTile &view, size_t coordinatePoints);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
   LoadContactArtifact(const std::string &baseKey,
                       std::span<const double> coordinates,

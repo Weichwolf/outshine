@@ -1,9 +1,11 @@
 #include "StructureSourceErrorTask.h"
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <expected>
 #include <limits>
+#include <optional>
 #include <utility>
 
 namespace outshine::Generators {
@@ -77,9 +79,10 @@ std::expected<void, StructureSurfaceErrorFailure> StructureSourceErrorTask::Adva
     Phase_ = Phase::Variant;
     return BeginMesh();
   }
-  Variant_ = std::move(*baked);
+  if (!Reference_) { return std::unexpected(StructureSurfaceErrorFailure::InvalidGeometry); }
+  auto &variant = Variant_.emplace(std::move(*baked));
   const auto reset = Surface_.Reset({.Reference = Reference_->Built,
-                                     .Variant = Variant_->Built,
+                                     .Variant = variant.Built,
                                      .SourceKey = Result_.Upper.SourceKey},
                                     Limits_);
   if (!reset) { return reset; }

@@ -28,9 +28,11 @@ std::string GeometryKey(const std::string &base, const RawTile &view) {
     return std::isfinite(value) && bytes.Number(value == 0.0 ? 0.0 : value);
   };
   const bool intrinsic = view.RequestedDetail.has_value();
-  const auto family = !intrinsic                                    ? "building-lod-6"
-                      : view.RequestedDetail == LevelOfDetail::Fine ? "building-static-lod-4"
-                                                                    : "building-static-lod-5";
+  std::string_view family = "building-lod-6";
+  if (intrinsic) {
+    family = view.RequestedDetail == LevelOfDetail::Fine ? "building-static-lod-4"
+                                                         : "building-static-lod-5";
+  }
   if (!text(family) || !text(base) ||
       !bytes.Number(view.RequestedDetail ? static_cast<int>(*view.RequestedDetail) : -1) ||
       !bytes.Number(view.RequestedCell.value_or(0)) || !bytes.Number(view.ClusterTriangles)) {
@@ -91,9 +93,9 @@ void PreparedBuildingAssets::RestoreCoordinates(BakedTile &tile, Basis basis) {
 
 std::expected<std::optional<BakedTile>, StructureBakeError>
 PreparedBuildingAssets::LoadGeometryArtifact(const std::string &baseKey,
+                                             uint64_t sourceKey,
                                              const RawTile &view,
-                                             size_t coordinatePoints,
-                                             uint64_t sourceKey) {
+                                             size_t coordinatePoints) {
   const auto key = GeometryKey(baseKey, view);
   if (key.empty()) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
   const auto loaded = Cache_->Load(key, kStructureArtifactBytesMost);
@@ -119,7 +121,7 @@ PreparedBuildingAssets::LoadGeometry(const std::string &baseKey,
                                      const PreparedStructureTile &base,
                                      const RawTile &view,
                                      uint64_t sourceKey) {
-  auto loaded = LoadGeometryArtifact(baseKey, view, base.PointsLatLon.size() / 2u, sourceKey);
+  auto loaded = LoadGeometryArtifact(baseKey, sourceKey, view, base.PointsLatLon.size() / 2u);
   if (loaded && *loaded) { RestoreCoordinates(**loaded, base); }
   return loaded;
 }
@@ -127,7 +129,7 @@ PreparedBuildingAssets::LoadGeometry(const std::string &baseKey,
 std::expected<std::optional<BakedTile>, StructureBakeError> PreparedBuildingAssets::LoadGeometry(
     const std::string &baseKey, Basis basis, const RawTile &view, uint64_t sourceKey) {
   if (!basis) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
-  auto loaded = LoadGeometryArtifact(baseKey, view, basis->PointsLatLon.size() / 2u, sourceKey);
+  auto loaded = LoadGeometryArtifact(baseKey, sourceKey, view, basis->PointsLatLon.size() / 2u);
   if (loaded && *loaded) { RestoreCoordinates(**loaded, std::move(basis)); }
   return loaded;
 }

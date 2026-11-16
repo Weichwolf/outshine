@@ -130,6 +130,7 @@ struct StructureBuildTask::Comparison {
                const std::atomic_bool &stopping,
                const Generators::PreparedStructureTile *base) {
     using namespace Generators;
+    assert(Variant.has_value());
     if (stopping.load(std::memory_order_relaxed)) {
       Surface.Cancel();
       output.Status = std::unexpected(StructureBakeErrorKind::Cancelled);
@@ -152,6 +153,7 @@ struct StructureBuildTask::Comparison {
                       Output &output,
                       const std::atomic_bool &stopping) {
     using namespace Generators;
+    assert(Variant.has_value());
     if (!Sources) {
       Sources = std::make_unique<StructureSourceErrorTask>();
       RawTile view;
@@ -635,6 +637,43 @@ struct StructureBuildTask::Payload {
   }
 
   std::shared_ptr<const void> Lifetime;
+
+  bool RestoreNativeProduct() {
+    if (!Native ||
+        !Native->BeforeProduction(*Raw, Heights.get(), Base, Basis, *Result, *Stopping)) {
+      return false;
+    }
+    if (SurfaceComparison) { SurfaceComparison->PrepareCell(*Raw); }
+    if (!Native->QualifyParent(*Raw, *Result)) { *Progress = {}; }
+    return true;
+  }
+
+  void Produce() {
+    if (SurfaceComparison) { SurfaceComparison->PrepareCell(*Raw); }
+    const bool compare = SurfaceComparison && (!Native || Native->ParentSourceKey == 0 ||
+                                               Raw->RequestedDetail != LevelOfDetail::Fine);
+    if (Requested == Product::TerrainContacts) {
+      CollectContacts();
+    } else if (compare) {
+      SurfaceComparison->Bake(
+          *Raw, Heights.get(), *Mesher, *Scratch, *Progress, *Result, Stopping, Base.get());
+    } else {
+      BakeVariant(Raw.get(),
+                  Heights.get(),
+                  *Mesher,
+                  Scratch.get(),
+                  Progress.get(),
+                  Result.get(),
+                  Stopping,
+                  Base.get());
+    }
+    if (Native) {
+      Native->AfterProduction(*Raw, *Base, *Result, *Stopping);
+      if (!Native->QualifyParent(*Raw, *Result)) { *Progress = {}; }
+    }
+    if (SurfaceComparison) { Comparison::CancelIfStopping(*Result, *Stopping); }
+  }
+
   JobAdmission::Lease Admission;
   std::shared_ptr<const StructureMesher> Mesher;
   std::unique_ptr<Generators::RawTile> Raw;
@@ -870,16 +909,8 @@ void StructureBuildTask::Posts(Tasks &pool) {
   (void)pool.PostDetached([completion, posted] {
     completion->Started = true;
     const auto &payload = completion->Value;
-    Generators::RawTile *const raw = payload->Raw.get();
-    const Ground::HeightField *const heights = payload->Heights.get();
-    auto *const base = &payload->Base;
-    const auto &basis = payload->Basis;
     NativeProducts *const native = payload->Native.get();
-    const auto &mesher = payload->Mesher;
-    MeshScratch *const scratch = payload->Scratch.get();
-    Generators::StructureBakeProgress *const progress = payload->Progress.get();
     Output *const output = payload->Result.get();
-    Comparison *const comparison = payload->SurfaceComparison.get();
     const auto &stopping = payload->Stopping;
     const auto began = std::chrono::steady_clock::now();
     output->LastQueueMs = std::chrono::duration<double, std::milli>(began - posted).count();
@@ -896,31 +927,14 @@ void StructureBuildTask::Posts(Tasks &pool) {
       }
       return;
     }
-    if (native && native->BeforeProduction(*raw, heights, *base, basis, *output, *stopping)) {
-      if (comparison) { comparison->PrepareCell(*raw); }
-      if (!native->QualifyParent(*raw, *output)) { *progress = {}; }
+    if (payload->RestoreNativeProduct()) {
       output->LastTaskMs =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
               .count();
       output->BakeMs += output->LastTaskMs;
       return;
     }
-    if (comparison) { comparison->PrepareCell(*raw); }
-    if (payload->Requested == Payload::Product::TerrainContacts) {
-      payload->CollectContacts();
-    } else if (comparison && (native == nullptr || native->ParentSourceKey == 0 ||
-                              raw->RequestedDetail != LevelOfDetail::Fine)) {
-      comparison->Bake(*raw, heights, *mesher, *scratch, *progress, *output, stopping, base->get());
-    } else if (*base) {
-      BakeVariant(raw, heights, *mesher, scratch, progress, output, stopping, base->get());
-    } else {
-      BakeVariant(raw, heights, *mesher, scratch, progress, output, stopping);
-    }
-    if (native != nullptr) {
-      native->AfterProduction(*raw, **base, *output, *stopping);
-      if (!native->QualifyParent(*raw, *output)) { *progress = {}; }
-    }
-    if (comparison != nullptr) { Comparison::CancelIfStopping(*output, *stopping); }
+    payload->Produce();
     const double taskMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
     output->LastTaskMs = taskMs;
