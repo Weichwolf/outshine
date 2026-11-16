@@ -79,6 +79,7 @@ def extrusions(buildings, *, roofs=True, tolerance=0.0):
         p = building.footprint.simplify(tolerance, preserve_topology=True)
         rise = min(building.roof_rise, building.height * .45) if roofs else 0.0
         parts, axes = roof_pieces(p, rise, building.roof_frame)
+        boundary = p.boundary.buffer(1e-7)
 
         def top(xy):
             if axes is None:
@@ -97,7 +98,7 @@ def extrusions(buildings, *, roofs=True, tolerance=0.0):
                 xy = np.asarray(ring.coords)
                 for a, b in zip(xy[:-1], xy[1:]):
                     edge = LineString([a, b])
-                    if not p.boundary.buffer(1e-7).covers(edge):
+                    if not boundary.covers(edge):
                         continue
                     low = np.array([[*a, building.base], [*b, building.base]])
                     high = np.column_stack((np.array([a, b]), top(np.array([a, b]))))
@@ -112,33 +113,41 @@ def partition(buildings, bounds, divisions):
     x0, y0, x1, y1 = bounds
     step = np.array([x1 - x0, y1 - y0]) / divisions
     result = []
+    tree = shapely.STRtree([b.footprint for b in buildings])
     for y in range(divisions):
         for x in range(divisions):
             lo = np.array([x0, y0]) + step * (x, y)
             hi = lo + step
             boundary = box(*lo, *hi)
+            members = [buildings[int(i)] for i in tree.query(boundary, predicate="intersects")]
             clipped = [replace(b, footprint=p,
-                               roof_frame=b.roof_frame or roof_axis(b.footprint)) for b in buildings
-                       if b.footprint.intersects(boundary)
+                               roof_frame=b.roof_frame or roof_axis(b.footprint)) for b in members
                        for p in polygons(b.footprint.intersection(boundary))]
             result.append(((*lo, *hi), clipped))
     return result
 
 
-def block_hulls(buildings, bounds, divisions=8):
-    """One convex prism per occupied fixed block; maximum ASL top preserves towers.
+def block_hulls(buildings, bounds):
+    """Close with a 5 m radius, convex hull per connected block, 4 m DP.
 
-    Clipping at block edges bounds each hull and prevents a connected city from
-    becoming one slab. This candidate intentionally exposes courtyard/height loss.
+    Area-weighted top and base follow #1958. This intentionally exposes tower loss:
+    a 4 m footprint tolerance is not a bound on the resulting 3D height error.
     """
+    if not buildings:
+        return mesh([], [])
+    footprints = [b.footprint for b in buildings]
+    tree = shapely.STRtree(footprints)
+    closed = shapely.union_all(footprints).buffer(5, join_style=2).buffer(-5, join_style=2)
     result = []
-    for _, members in partition(buildings, bounds, divisions):
+    for component in polygons(closed.intersection(box(*bounds))):
+        indices = tree.query(component, predicate="intersects")
+        members = [buildings[int(i)] for i in indices]
         if not members:
             continue
-        footprint = shapely.union_all([b.footprint for b in members]).convex_hull
-        base = min(b.base for b in members)
-        top = max(b.base + b.height for b in members)
+        footprint = component.convex_hull.simplify(4, preserve_topology=True)
         weights = [b.footprint.area for b in members]
+        base = np.average([b.base for b in members], weights=weights)
+        top = np.average([b.base + b.height for b in members], weights=weights)
         colour = np.average([b.colour for b in members], axis=0, weights=weights)
         result.append(Building(footprint, base, top - base, 0.0, tuple(colour)))
     return extrusions(result, roofs=False)

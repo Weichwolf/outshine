@@ -1,6 +1,6 @@
 """#1959: exactly two candidates per level, using existing native source cache.
 
-Run with PYTHONPATH=lib/src .venv/bin/python test/experiments/building_hlod/compare.py
+Run with PYTHONPATH=lib/src .venv/bin/python test/experiments/hlod_levels/compare.py
 --cache ~/.local/share/outshine/outshine/sources --output /tmp/outshine-research-...
 Needs the lib places extra and numba. No source fetches or native frame-time claims.
 """
@@ -8,7 +8,6 @@ Needs the lib places extra and numba. No source fetches or native frame-time cla
 import argparse
 from dataclasses import replace
 import hashlib
-import io
 import json
 import math
 from pathlib import Path
@@ -25,7 +24,7 @@ from shapely import affinity
 from shapely.geometry import box, shape
 
 from outshine_ref.buildings.hlod import (
-    Building, Bake, bake, block_hulls, combine, extrusions, mesh, partition,
+    Building, Bake, bake, block_hulls, combine, extrusions, partition,
     polygons, remesh, roof_axis,
 )
 from outshine_ref.places.height import decode_terrarium
@@ -103,6 +102,66 @@ def inputs(cache, tile):
     return buildings, (0, 0, side, side), terrain, [vector_receipt, dem_receipt]
 
 
+def coarse_sources(cache, tile):
+    """Complete z12 source coverage, using the same local metric projection."""
+    z, x, y = tile
+    parent = (z - 2, x // 4, y // 4)
+    latitude = math.atan(math.sinh(math.pi * (1 - 2 * (parent[2] + .5) / 2**parent[0])))
+    side = 2 * math.pi * 6378137 * math.cos(latitude) / 2**parent[0]
+    step = side / 4
+    buildings, receipts = [], []
+    for dy in range(4):
+        for dx in range(4):
+            child = (z, parent[1] * 4 + dx, parent[2] * 4 + dy)
+            members, bounds, _, sources = inputs(cache, child)
+            factor = step / bounds[2]
+            offset = (dx * step, (3 - dy) * step)
+            for b in members:
+                footprint = affinity.affine_transform(
+                    b.footprint, [factor, 0, 0, factor, *offset])
+                buildings.append(replace(b, footprint=footprint, roof_frame=roof_axis(footprint)))
+            receipts.extend(sources)
+    return buildings, (0, 0, side, side), receipts, parent
+
+
+def source_height_check(buildings, candidate):
+    """Distance to triangle AABBs is a conservative lower bound, not a fit score.
+
+    Sample real source footprints at eave corners. A lower bound >4 m already
+    disproves epsilon=4 for this prism recipe, regardless of unsampled surfaces.
+    Roof tags are absent; use the same explicitly inferred rise as the images.
+    """
+    faces = candidate.vertices[candidate.triangles]
+    low, high = faces.min(axis=1), faces.max(axis=1)
+    points = np.concatenate([np.column_stack((np.asarray(b.footprint.exterior.coords)[:-1],
+                            np.full(len(b.footprint.exterior.coords) - 1,
+                                    b.base + b.height - b.roof_rise))) for b in buildings])
+    maximum, count, witness = 0.0, 0, None
+    for start in range(0, len(points), 128):
+        batch = points[start:start + 128]
+        delta = np.maximum(0, np.maximum(low[None] - batch[:, None], batch[:, None] - high[None]))
+        distances = np.sqrt(np.einsum("ijk,ijk->ij", delta, delta)).min(axis=1)
+        count += int(np.count_nonzero(distances > 4))
+        at = int(np.argmax(distances))
+        if distances[at] > maximum:
+            maximum, witness = float(distances[at]), batch[at].tolist()
+    return {"sampled_eave_corners": len(points), "corners_proven_over_4m": count,
+            "maximum_distance_lower_bound_m": maximum, "witness_local_xyz_m": witness}
+
+
+def coarse_check(cache, tile, output):
+    started = time.perf_counter()
+    buildings, bounds, receipts, parent = coarse_sources(cache, tile)
+    build_start = time.perf_counter()
+    value = block_hulls(buildings, bounds)
+    size = save_mesh(output / "complete-z12-hulls.npz", value)
+    built = time.perf_counter() - build_start
+    check = source_height_check(buildings, value)
+    return {"tile": parent, "source_buildings": len(buildings), "sources": receipts,
+            "triangles": len(value.triangles), "bytes": size, "build_s": built,
+            "elapsed_s": time.perf_counter() - started, "epsilon_check": check}
+
+
 def ground_nodes(bounds, terrain, cells=64):
     x0, y0, x1, y1 = bounds
     xx, yy = np.meshgrid(np.linspace(x0, x1, cells + 1), np.linspace(y0, y1, cells + 1))
@@ -140,7 +199,7 @@ def save_bake(path, value, include_height):
 
 def build_candidates(buildings, bounds, terrain, output):
     groups = {"fine": partition(buildings, bounds, 4),
-              "middle": partition(buildings, bounds, 4),
+              "middle": partition(buildings, bounds, 1),
               "coarse": partition(buildings, bounds, 2),
               "far": [(bounds, buildings)]}
     candidates, stats = {}, []
@@ -154,7 +213,7 @@ def build_candidates(buildings, bounds, terrain, output):
                 path = output / f"{level}-{name}-{index}.npz"
                 if level in ("fine", "middle"):
                     value = extrusions(members, roofs=name != "flat",
-                                       tolerance=0.0 if level == "fine" else .5)
+                                       tolerance=0.0 if level == "fine" else 1.0)
                     size = save_mesh(path, value)
                 elif name == "hulls":
                     value = block_hulls(members, tile_bounds)
@@ -164,6 +223,7 @@ def build_candidates(buildings, bounds, terrain, output):
                     field = bake(members, tile_bounds, ground)
                     if level == "far":
                         size = save_bake(path, field, name == "height_albedo")
+                        field = replace(field, colour=np.round(field.colour * 255) / 255)
                         value = remesh(field, heights=ground if name == "albedo" else None)
                     else:
                         value = remesh(field)
@@ -282,10 +342,16 @@ def comparisons(name, candidates, bounds, terrain, output, panels):
             png(reference[0]).save(output / f"{level}-fine-{azimuth}.png")
             row = Image.new("RGB", (1920, 380), "#18202b")
             labels = ["Fine recipe reference", first, second]
+            masks = np.logical_or.reduce([m for _, m in rendered])
+            yy, xx = np.nonzero(masks)
+            crop = (max(0, int(xx.min()) - 16), max(0, int(yy.min()) - 16),
+                    min(1280, int(xx.max()) + 17), min(720, int(yy.max()) + 17))
             draw = ImageDraw.Draw(row)
             for col, ((rgb, _), label) in enumerate(zip(rendered, labels)):
-                row.paste(png(rgb).resize((640, 360)), (640 * col, 20))
-                draw.text((640 * col + 8, 4), f"{name} {azimuth} deg | {label}", fill="white")
+                row.paste(png(rgb).crop(crop).resize((640, 360), Image.Resampling.NEAREST),
+                          (640 * col, 20))
+                draw.text((640 * col + 8, 4),
+                          f"{name} {azimuth} deg | {label} | crop {crop}", fill="white")
             panels[level].append(row)
     return measured
 
@@ -304,8 +370,10 @@ def main():
         buildings, bounds, terrain, receipts = inputs(args.cache, tile)
         candidates, costs = build_candidates(buildings, bounds, terrain, output)
         measurements = comparisons(name, candidates, bounds, terrain, output, panels)
+        complete_coarse = coarse_check(args.cache, tile, output)
         report.append({"city": name, "bounds": bounds, "source_buildings": len(buildings),
-                       "sources": receipts, "costs": costs, "images": measurements})
+                       "sources": receipts, "costs": costs, "images": measurements,
+                       "complete_z12_countercheck": complete_coarse})
         print(f"{name}: {len(buildings)} buildings; {time.perf_counter() - started:.1f} s", flush=True)
     for level, rows in panels.items():
         image = Image.new("RGB", (1920, len(rows) * 380))
@@ -314,7 +382,7 @@ def main():
         image.save(args.output / f"{level}-comparison.png")
     result = {"raster": [1280, 720], "vertical_fov_deg": 55, "view_elevation_deg": 15,
               "roof_reference": "inferred gable: min(3 m, quarter OBB width, .3 height); flat >=30 m or >=900 m2",
-              "limitations": "Unlit recipe reference, not native fine capture. Cache has no roof tags. One z14 tile per city; no frame-time acceptance.",
+              "limitations": "Unlit recipe reference, not native fine capture. Cache has no roof tags. Image comparison covers one z14 source window per city (fine z16, middle z14, coarse z15 windows, far z14 window); full z12 massing checked separately. Full z10 source coverage absent. No frame-time acceptance.",
               "elapsed_s": time.perf_counter() - started, "cases": report}
     (args.output / "results.json").write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")
     print(f"total {result['elapsed_s']:.1f} s", flush=True)
