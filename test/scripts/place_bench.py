@@ -13,6 +13,7 @@ from place_turn import turn_scenario
 
 PROFILES = {"rtx3060": (1920, 1080, 60), "iris": (1280, 720, 30),
             "a18": (1280, 720, 30)}
+M1_BUDGETS = {"rtx3060": (4, 10), "iris": (8, 20), "a18": (8, 20)}
 CASES = (("Still", 300), ("Drehung", 300), ("Flug", None))
 ERRORS = (OSError, ValueError, KeyError, TypeError, RuntimeError,
           subprocess.TimeoutExpired, ET.ParseError)
@@ -39,7 +40,7 @@ def startup_and_peak(reports, gpu=False):
             samples = sorted(report["gpu_times"]["samples"], key=lambda s: s["submission"])
             values = [s["elapsed_ms"] for s in samples]
         else:
-            values = [s["frame_ms"] for s in report["cpu_times"]["samples"]]
+            values = [s["cpu_work_ms"] for s in report["cpu_times"]["samples"]]
         if not values or any(not math.isfinite(v) or v < 0 for v in values):
             raise ValueError("frame samples must be finite, nonnegative and nonempty")
         windows.append(values)
@@ -125,10 +126,16 @@ def validate_report(report, options, frames, angular, linear):
         raise ValueError("native benchmark used a different measurement window")
     if report["gpu_times"]["frame"] is not None and len(report["gpu_times"]["samples"]) != frames:
         raise ValueError("native benchmark did not time every GPU frame")
-    for distribution in (report["cpu_times"]["frame"], report["gpu_times"]["frame"]):
+    for distribution in (report["cpu_times"]["frame"], report["cpu_times"]["work"],
+                         report["gpu_times"]["frame"]):
         if distribution is not None and any(not math.isfinite(distribution[k]) or distribution[k] < 0
                                             for k in ("p50_ms", "p99_ms")):
             raise ValueError("native benchmark contains invalid frame times")
+    for sample in report["cpu_times"]["samples"]:
+        wall, work, wait = (sample[k] for k in ("frame_ms", "cpu_work_ms", "sync_wait_ms"))
+        if (not all(math.isfinite(v) and v >= 0 for v in (wall, work, wait)) or
+                not math.isclose(work + wait, wall, rel_tol=1e-10, abs_tol=1e-9)):
+            raise ValueError("native CPU work and synchronous waiting do not partition frame wall time")
     for key, expected in (("angular_velocity_deg_s", angular), ("linear_velocity_mps", linear)):
         if not all(math.isclose(a, float(b), rel_tol=1e-10, abs_tol=1e-10)
                    for a, b in zip(motion[key], expected.split(","), strict=True)):
@@ -178,6 +185,8 @@ def summarize(reports):
     return {
         "cpu_p50_ms": field("cpu_times", "frame", "p50_ms"),
         "cpu_p99_ms": field("cpu_times", "frame", "p99_ms"),
+        "cpu_work_p50_ms": field("cpu_times", "work", "p50_ms"),
+        "cpu_work_p99_ms": field("cpu_times", "work", "p99_ms"),
         "gpu_p50_ms": field("gpu_times", "frame", "p50_ms"),
         "gpu_p99_ms": field("gpu_times", "frame", "p99_ms"),
         "cpu_encoding_ms": median(encoding),
@@ -232,14 +241,16 @@ def run_case(source, case, options, invoke, deadline, seed=None):
     return result, reports[0]
 
 
-def table_row(row, budget):
+def table_row(row, budget, cpu_budget, gpu_budget):
     values = [row["place"], row["case"]]
-    values.extend(number(row.get(k), budget) for k in
-                  ("cpu_p50_ms", "cpu_p99_ms", "gpu_p50_ms", "gpu_p99_ms"))
-    for key in ("cpu_extremes", "gpu_extremes"):
+    values.extend(number(row.get(k), limit) for k, limit in
+                  (("cpu_p50_ms", budget), ("cpu_p99_ms", budget),
+                   ("cpu_work_p50_ms", cpu_budget), ("cpu_work_p99_ms", cpu_budget),
+                   ("gpu_p50_ms", gpu_budget), ("gpu_p99_ms", gpu_budget)))
+    for key, limit in (("cpu_extremes", cpu_budget), ("gpu_extremes", gpu_budget)):
         extreme = row.get(key, {})
-        values.append(number(extreme.get("startup_p99_ms"), budget))
-        peak = number(extreme.get("max_ms"), budget)
+        values.append(number(extreme.get("startup_p99_ms"), limit))
+        peak = number(extreme.get("max_ms"), limit)
         if extreme.get("worst_frame") is not None:
             peak += f" (L{extreme['worst_run']}/F{extreme['worst_frame']})"
         values.append(peak)
@@ -260,8 +271,10 @@ def benchmark_places(available, selected, options, invoke):
     metadata = driver_metadata()
     width, height, rate = PROFILES[options.bench_profile]
     budget = 1000 / rate
+    cpu_budget, gpu_budget = M1_BUDGETS[options.bench_profile]
     output = {"profile": options.bench_profile, "width_px": width, "height_px": height,
-              "fps": rate, "budget_ms": budget, "runs": 3, "aggregation": "median",
+              "fps": rate, "budget_ms": budget, "cpu_work_budget_ms": cpu_budget,
+              "gpu_budget_ms": gpu_budget, "runs": 3, "aggregation": "median",
               "hardware": metadata, "rows": [], "elapsed_s": 0}
     options.reports.mkdir(parents=True, exist_ok=True)
     identities = set()
@@ -285,6 +298,8 @@ def benchmark_places(available, selected, options, invoke):
             print(f"{name}/{case[0]}: {'vollständig' if row['complete'] else 'unvollständig'}",
                   file=sys.stderr, flush=True)
     print(f"Profil {options.bench_profile}: {width}×{height}, {rate} fps, {budget:.2f} ms. "
+          f"M1: CPU-Arbeit ≤ {cpu_budget} ms, GPU ≤ {gpu_budget} ms. "
+          "Frame Wand enthält synchrones Warten; CPU-Arbeit zieht explizite Fence-/Acquire-Wartezeit ab. "
           "Drei Läufe, Median; fett = über Budget. Still/Drehung: 300 Frames, eine volle Drehung; "
           "Flug: zehn Sekunden mit 100 m/s. Anlauf: erste zehn Frames, weiter im Gesamtergebnis. "
           "Max: Median der Laufmaxima mit zugehörigem Lauf/Frame (1-basiert). "
@@ -293,15 +308,17 @@ def benchmark_places(available, selected, options, invoke):
           "GPU-MiB: Allokation nach Messung, kein Peak. GPU-Passzeiten: noch nicht verfügbar.")
     for cpu, gpu, driver, commit in sorted(identities):
         print(f"CPU: {cpu}; GPU: {gpu}; Treiber: {driver}; Commit: {commit}.")
-    print("\n| Place | Lastfall | CPU p50 ms | CPU p99 ms | GPU p50 ms | GPU p99 ms | "
-          "CPU Anlauf p99 ms | CPU Max ms (L/F) | GPU Anlauf p99 ms | GPU Max ms (L/F) | "
+    print("\n| Place | Lastfall | Frame Wand p50 ms | Frame Wand p99 ms | CPU-Arbeit p50 ms | "
+          "CPU-Arbeit p99 ms | GPU p50 ms | GPU p99 ms | "
+          "CPU-Arbeit Anlauf p99 ms | CPU-Arbeit Max ms (L/F) | GPU Anlauf p99 ms | GPU Max ms (L/F) | "
           "Geometrie-Draws (letzt.) | Geometrie-Dreiecke (letzt.) | Peak-RSS MiB | GPU MiB (danach) | "
           "Laden warm ms | Vollständig | Bildstruktur | CPU-Encoding ms | GPU-Pässe |")
-    print("|" + " --- |" * 19)
+    print("|" + " --- |" * 21)
     for row in output["rows"]:
-        print(table_row(row, budget))
+        print(table_row(row, budget, cpu_budget, gpu_budget))
     print(f"\nJSON: {options.reports / 'results.json'}; Dauer: {output['elapsed_s']:.1f} s.")
     return int(len(identities) > 1 or any(not r["complete"] or
                    (options.check_budget and (r.get("cpu_p99_ms") is None or
                     r["cpu_p99_ms"] > budget or r.get("gpu_p99_ms") is None or
-                    r["gpu_p99_ms"] > budget)) for r in output["rows"]))
+                    r["gpu_p99_ms"] > gpu_budget or r.get("cpu_work_p99_ms") is None or
+                    r["cpu_work_p99_ms"] > cpu_budget)) for r in output["rows"]))

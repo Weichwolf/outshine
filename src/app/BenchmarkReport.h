@@ -17,6 +17,7 @@ struct BenchmarkFrameSample {
   double WallMs = 0;
   double AdvanceMs = 0;
   double RenderMs = 0;
+  double SyncWaitMs = 0;
   bool Refined = false;
 };
 

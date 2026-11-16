@@ -19,7 +19,9 @@
 #include <Scenario.h>
 
 #include <array>
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -67,6 +69,16 @@ struct VideoSystem {
   ~VideoSystem() { SDL_QuitSubSystem(SDL_INIT_VIDEO); }
 };
 
+std::expected<double, std::string> FrameSyncWait(std::span<const DiagnosticSample> measures) {
+  const auto found = std::ranges::find_if(measures, [](const auto &sample) {
+    return sample.Name == "render host last submitted: fence wait";
+  });
+  if (found == measures.end() || !std::isfinite(found->Value) || found->Value < 0) {
+    return std::unexpected("the submitted frame has no valid synchronous-wait duration");
+  }
+  return found->Value;
+}
+
 Result MeasureFrames(Engine &engine,
                      const BenchmarkMotion &motion,
                      ScenarioBenchmarkReport &report,
@@ -90,9 +102,16 @@ Result MeasureFrames(Engine &engine,
     if (!rendered) { return rendered; }
     const double renderMs = ElapsedMs(renderAt);
     const bool refined = engine.settled(WorldQuality::Refined);
-    report.Frames.push_back({.WallMs = ElapsedMs(frameAt),
+    const auto waited = FrameSyncWait(engine.measures());
+    if (!waited) { return std::unexpected(waited.error()); }
+    const double wallMs = ElapsedMs(frameAt);
+    if (*waited > wallMs) {
+      return std::unexpected("synchronous frame waiting exceeds the measured frame duration");
+    }
+    report.Frames.push_back({.WallMs = wallMs,
                              .AdvanceMs = advanceMs,
                              .RenderMs = renderMs,
+                             .SyncWaitMs = *waited,
                              .Refined = refined});
   }
   report.WindowMs = ElapsedMs(began);

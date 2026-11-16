@@ -54,6 +54,14 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(report['profile']['fps'], 120)
             self.assertEqual(report['motion']['frames'], 8)
             self.assertEqual(len(report['cpu_times']['samples']), 8)
+            work = []
+            for sample in report['cpu_times']['samples']:
+                self.assertGreaterEqual(sample['sync_wait_ms'], 0)
+                self.assertGreaterEqual(sample['cpu_work_ms'], 0)
+                self.assertAlmostEqual(sample['cpu_work_ms'] + sample['sync_wait_ms'],
+                                       sample['frame_ms'], places=9)
+                work.append(sample['cpu_work_ms'])
+            self.assertEqual(report['cpu_times']['work']['p99_ms'], max(work))
             self.assertEqual(report['gpu_times']['rendered_frames'], 8)
             duration = 8 / 120
             for actual, expected in zip(report['motion']['finish']['position_m'],

@@ -80,24 +80,35 @@ ReportJson CpuTimes(const ScenarioBenchmarkReport &report, double budgetMs) {
   std::vector<double> frame;
   std::vector<double> advance;
   std::vector<double> render;
+  std::vector<double> work;
+  std::vector<double> waits;
   frame.reserve(report.Frames.size());
   advance.reserve(report.Frames.size());
   render.reserve(report.Frames.size());
+  work.reserve(report.Frames.size());
+  waits.reserve(report.Frames.size());
   auto samples = ReportJson::array();
   for (const auto &sample : report.Frames) {
     frame.push_back(sample.WallMs);
     advance.push_back(sample.AdvanceMs);
     render.push_back(sample.RenderMs);
+    work.push_back(sample.WallMs - sample.SyncWaitMs);
+    waits.push_back(sample.SyncWaitMs);
     samples.push_back({{"frame_ms", sample.WallMs},
                        {"advance_ms", sample.AdvanceMs},
                        {"render_ms", sample.RenderMs},
+                       {"cpu_work_ms", work.back()},
+                       {"sync_wait_ms", sample.SyncWaitMs},
                        {"world_refined", sample.Refined}});
   }
   return {{"time_basis", "host wall time excluding pacing; includes synchronous waits"},
+          {"work_time_basis", "frame wall time minus explicit fence and command-acquisition waits"},
           {"complete", !report.Frames.empty() && report.Frames.size() == report.Motion.Frames},
           {"frame", Distribution(std::move(frame), budgetMs)},
           {"advance", Distribution(std::move(advance), budgetMs)},
           {"render", Distribution(std::move(render), budgetMs)},
+          {"work", Distribution(std::move(work), budgetMs)},
+          {"sync_wait", Distribution(std::move(waits), budgetMs)},
           {"samples", std::move(samples)}};
 }
 

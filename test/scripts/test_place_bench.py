@@ -47,7 +47,10 @@ class PlaceBench(unittest.TestCase):
                        "start": {"world_from_camera": MATRIX, "position_m": [0, 0, 0]},
                        "finish": {"world_from_camera": MATRIX,
                                   "position_m": [v * frames / rate for v in velocity]}},
-            "cpu_times": {"frame": distribution, "samples": [{"frame_ms": timing}] * frames},
+            "cpu_times": {"frame": distribution,
+                          "work": {"p50_ms": timing / 4, "p99_ms": timing / 2},
+                          "samples": [{"frame_ms": timing, "cpu_work_ms": timing / 4,
+                                       "sync_wait_ms": timing * .75}] * frames},
             "gpu_times": {"frame": distribution,
                           "samples": [{"submission": i + 1, "elapsed_ms": timing}
                                       for i in range(frames)]},
@@ -89,6 +92,7 @@ class PlaceBench(unittest.TestCase):
                     self.assertEqual(linear, "0,0,-100" if case == "Flug" else "0,0,0")
                 for row in result["rows"]:
                     self.assertEqual(row["cpu_p50_ms"], 7)
+                    self.assertEqual(row["cpu_work_p50_ms"], 1.75)
                     self.assertEqual(row["gpu_p99_ms"], 14)
                     self.assertEqual(row["warm_load_ms"], 7)
                     self.assertIsNone(row["draws_last"])
@@ -174,8 +178,10 @@ class PlaceBench(unittest.TestCase):
         def spikes(*args, **kwargs):
             report = self.invoke(*args, **kwargs)
             run = int(args[3].name) if args[3].name != "warmup" else 0
-            report["cpu_times"]["samples"][0] = {"frame_ms": 30 + run}
-            report["cpu_times"]["samples"][-1] = {"frame_ms": 100 + run}
+            report["cpu_times"]["samples"][0] = {
+                "frame_ms": 40 + run, "cpu_work_ms": 30 + run, "sync_wait_ms": 10}
+            report["cpu_times"]["samples"][-1] = {
+                "frame_ms": 200 + run, "cpu_work_ms": 100 + run, "sync_wait_ms": 100}
             report["gpu_times"]["samples"][0]["elapsed_ms"] = 40 + run
             report["gpu_times"]["samples"][-1]["elapsed_ms"] = 200 + run
             report["gpu_times"]["samples"].reverse()
@@ -189,6 +195,29 @@ class PlaceBench(unittest.TestCase):
             self.assertEqual(row["gpu_extremes"], {"startup_p99_ms": 42, "max_ms": 202,
                                                    "worst_run": 2, "worst_frame": row["frames"]})
         self.assertIn("**102.00** (L2/F300)", table)
+
+    def test_budget_checks_cpu_work_and_gpu_against_each_m1_profile(self):
+        self.options.check_budget = True
+
+        def measured(*args, **kwargs):
+            report = self.invoke(*args, **kwargs)
+            report["cpu_times"]["frame"] = {"p50_ms": 12, "p99_ms": 15}
+            report["cpu_times"]["work"] = {"p50_ms": 4, "p99_ms": 5}
+            report["gpu_times"]["frame"] = {"p50_ms": 8, "p99_ms": 12}
+            return report
+
+        code, result, table = self.run_driver(measured)
+        self.assertEqual(code, 1)
+        self.assertEqual(result["cpu_work_budget_ms"], 4)
+        self.assertEqual(result["gpu_budget_ms"], 10)
+        self.assertIn("**5.00**", table)
+        self.assertIn("**12.00**", table)
+        self.assertIn("Frame Wand p99", table)
+        self.options.bench_profile = "iris"
+        code, result, _ = self.run_driver(measured)
+        self.assertEqual(code, 0)
+        self.assertEqual(result["cpu_work_budget_ms"], 8)
+        self.assertEqual(result["gpu_budget_ms"], 20)
 
 
 if __name__ == "__main__":
