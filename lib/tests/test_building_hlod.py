@@ -76,4 +76,4 @@ class BuildingHlod(unittest.TestCase):
         variant = mesh(vertices + (0, 0, 1.5), [(1, 1, 1)])
         error = geometric_error(reference, variant)
         self.assertGreaterEqual(error['epsilon_m'], 1.5)
-        self.assertLessEqual(error['epsilon_m'], 3.5)
+        self.assertLessEqual(error['epsilon_m'], 2.000001)

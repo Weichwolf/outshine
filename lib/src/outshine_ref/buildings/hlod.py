@@ -10,7 +10,6 @@ import numpy as np
 import shapely
 from shapely.geometry import LineString, Polygon, box
 from shapely.ops import split
-from scipy.spatial import cKDTree
 
 
 @dataclass(frozen=True)
@@ -208,18 +207,32 @@ def block_hulls(buildings, bounds):
     return extrusions(result, remove_shared=True)
 
 
-def surface_samples(value, radius=1.0):
-    """Centroids cover every triangle: longest-edge splits until radius <=1 m."""
-    faces = value.vertices[value.triangles].astype(np.float64)
-    samples, covering = [], 0.0
+def triangle_keys(value):
+    faces = value.vertices[value.triangles]
+    order = np.lexsort((faces[:, :, 2], faces[:, :, 1], faces[:, :, 0]), axis=1)
+    canonical = np.take_along_axis(faces, order[:, :, None], axis=1)
+    return np.ascontiguousarray(canonical).reshape(-1, 9)
+
+
+def directed_error(source, target, tree, shared, tolerance):
+    """Adaptive centroid/radius bounds; only potentially maximal faces subdivide."""
+    faces = source.vertices[source.triangles[~shared]].astype(np.float64)
+    if not len(faces):
+        return 0.0, 0.0
+    vertices = target.vertices.astype(np.float64)
+    indices = target.triangles.astype(np.int64)
+    lower = float(np.sqrt(tree.squared_distance(vertices, indices, faces.reshape(-1, 3))[0]).max())
+    upper = 0.0
     while len(faces):
         centres = faces.mean(axis=1)
-        extent = np.linalg.norm(faces - centres[:, None], axis=2).max(axis=1)
-        done = extent <= radius
-        if done.any():
-            samples.append(centres[done])
-            covering = max(covering, float(extent[done].max()))
-        faces = faces[~done]
+        distances = np.sqrt(tree.squared_distance(vertices, indices, centres)[0])
+        radii = np.linalg.norm(faces - centres[:, None], axis=2).max(axis=1)
+        lower = max(lower, float(distances.max()))
+        bounds = distances + radii
+        active = bounds > lower + tolerance
+        if (~active).any():
+            upper = max(upper, float(bounds[~active].max()))
+        faces = faces[active]
         if not len(faces):
             break
         edges = np.roll(faces, -1, axis=1) - faces
@@ -229,26 +242,34 @@ def surface_samples(value, radius=1.0):
         midpoint = (a + b) / 2
         faces = np.concatenate((np.stack((a, midpoint, c), axis=1),
                                 np.stack((midpoint, b, c), axis=1)))
-    return np.concatenate(samples) if samples else np.empty((0, 3)), covering
+    return lower, upper
 
 
-def geometric_error(reference, variant, radius=1.0):
-    """Symmetric surface-distance upper bound, including sample covering radius.
+def geometric_error(reference, variant, tolerance=.5):
+    """Bound symmetric mesh Hausdorff distance to within 0.5 m using libigl AABBs.
 
-    Nearest sampled target points lie on its triangles. Adding the source covering
-    radius therefore bounds unsampled surface points too; AABB lower bounds do not.
+    Exact common triangles need no query. Centroid-to-triangle distance plus the
+    triangle covering radius bounds its entire surface; refine until the global
+    upper/lower interval is <= tolerance. Only the upper endpoint is a LOD error.
     """
-    if (np.array_equal(reference.vertices, variant.vertices)
-            and np.array_equal(reference.triangles, variant.triangles)):
-        return {"epsilon_m": 0.0, "sampled_max_m": 0.0, "cover_radius_m": 0.0}
-    a, ra = surface_samples(reference, radius)
-    b, rb = surface_samples(variant, radius)
-    if not len(a) or not len(b):
+    import igl
+
+    ka, kb = triangle_keys(reference), triangle_keys(variant)
+    _, inverse = np.unique(np.concatenate((ka, kb)), axis=0, return_inverse=True)
+    ia, ib = inverse[:len(ka)], inverse[len(ka):]
+    a_shared, b_shared = np.isin(ia, ib), np.isin(ib, ia)
+    if a_shared.all() and b_shared.all():
+        return {"epsilon_m": 0.0, "sampled_max_m": 0.0, "uncertainty_m": 0.0}
+    if not len(ia) or not len(ib):
         raise ValueError("both surfaces must contain geometry")
-    ab = float(cKDTree(b).query(a, workers=4)[0].max())
-    ba = float(cKDTree(a).query(b, workers=4)[0].max())
-    return {"epsilon_m": max(ab + ra, ba + rb) + 1e-6,
-            "sampled_max_m": max(ab, ba), "cover_radius_m": max(ra, rb)}
+    tree_a, tree_b = igl.AABB(), igl.AABB()
+    tree_a.init(reference.vertices.astype(np.float64), reference.triangles.astype(np.int64))
+    tree_b.init(variant.vertices.astype(np.float64), variant.triangles.astype(np.int64))
+    ab = directed_error(reference, variant, tree_b, a_shared, tolerance)
+    ba = directed_error(variant, reference, tree_a, b_shared, tolerance)
+    lower, upper = max(ab[0], ba[0]), max(ab[1], ba[1])
+    return {"epsilon_m": upper + 1e-6, "sampled_max_m": lower,
+            "uncertainty_m": upper - lower + 1e-6}
 
 
 @dataclass(frozen=True)

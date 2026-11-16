@@ -2,7 +2,7 @@
 
 Run with PYTHONPATH=lib/src .venv/bin/python test/experiments/hlod_levels/compare.py
 --cache ~/.local/share/outshine/outshine/sources --output /tmp/outshine-research-...
-Needs the lib places extra and numba. No source fetches or native frame-time claims.
+Needs the lib places/hlod extras. No source fetches or native frame-time claims.
 """
 
 import argparse
@@ -352,7 +352,7 @@ def main():
     result = {"raster": [1280, 720], "vertical_fov_deg": 60, "view_elevation_deg": 15,
               "reference_commit": reference_commit,
               "roof_reference": "inferred gable: min(3 m, quarter OBB width, .3 height); flat >=30 m or >=900 m2",
-              "epsilon_method": "Bidirectional triangle-centroid distance plus source covering radius <=1m; conservative upper bound, not AABB lower bound. Zero for identical geometry.",
+              "epsilon_method": "libigl exact triangle distances, adaptive centroid/radius subdivision to <=0.5m symmetric Hausdorff uncertainty; store upper endpoint, zero for exact common geometry.",
               "limitations": "Accepted unlit source/roof reference. One z14 source window per city, adaptive geometry leaves <=20000 triangles; far payload at 8m/texel on the same window. No native frame-time acceptance.",
               "elapsed_s": time.perf_counter() - started, "cases": report}
     (args.output / "results.json").write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")
