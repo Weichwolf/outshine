@@ -1,9 +1,12 @@
 # Forschungsgrundlage für Outshine
 
-Stand: 2026-10-27. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
+Literaturbewertung: 2026-10-27; Arbeitsvorgaben aktualisiert am 16.11.2026.
+Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
 Papers, Kurse und Produktdokumentation sind als solche bezeichnet; Links und lokale PDFs bleiben erhalten.
-Die Einträge sind die kanonische Relevanzbewertung nach [#919](https://github.com/Weichwolf/outshine/issues/919),
-keine Machbarkeitsbestätigung und keine neue Architekturfreigabe.
+Die Einträge dokumentieren die damalige Relevanzbewertung, keine Machbarkeitsbestätigung.
+Historische Issue-Verweise und Architekturentscheidungen hier sind keine Arbeitsaufträge.
+Maßgeblich sind [AGENTS.md](../../AGENTS.md), die aktuellen Issues und
+[Roadmap #1972](https://github.com/Weichwolf/outshine/issues/1972).
 
 **Prüfstand: 70 von 71 Einträgen bewertet.** Alle Bereiche sind eingeordnet;
 ein Normalenartikel bleibt wegen fehlender Volltext-/Abbildungsprüfung ausdrücklich
@@ -17,10 +20,12 @@ Bewertete Einträge folgen absteigend dem aktuellen Nutzen innerhalb jeder Stufe
 | Gering | Spezialfall oder gemessen ungünstiger Ansatz im aktuellen Pfad |
 | Nicht relevant | Veröffentlichtes Verfahren passt nicht zu Eingaben, Ziel oder Kosten |
 
-Maßstab sind vollständige bewegte Welten bis 240 km, soweit physikalisch sichtbar,
-bei 1280×720/60 einschließlich p99 auf A18 Pro/Metal und i5-1135G7/Iris Xe/Vulkan ([#5](https://github.com/Weichwolf/outshine/issues/5)).
-Beide Ziele nutzen schnelle SSD und Unified Memory: kleine Rundum-Metadaten → Sicht-/Spielbedarf
-→ passende unabhängig lesbare fertige Produkte. Eltern bleiben bis vollständiger Kindabdeckung.
+Maßstab sind vollständige bewegte Welten bis 240 km. Algorithmen, Features und Vulkan
+werden zunächst auf RTX 3060 bei 1920×1080/60 entwickelt und optimiert. Iris Xe/Vulkan
+und A18/Metal folgen mit Anpassung und Optimierung für 1280×720 bei mindestens 30 fps;
+alle Budgets einschließlich p99 stehen in #1972. Geräteabnahmen blockieren die
+RTX-Entwicklung nicht. Kleine Rundum-Metadaten → Sicht-/Spielbedarf → passende
+unabhängig lesbare fertige Produkte. Eltern bleiben bis vollständiger Kindabdeckung.
 Render-, Funktions- und Simulationsbedarf bleiben getrennt ([#10](https://github.com/Weichwolf/outshine/issues/10),
 [#12](https://github.com/Weichwolf/outshine/issues/12), [#915](https://github.com/Weichwolf/outshine/issues/915),
 [#2](https://github.com/Weichwolf/outshine/issues/2)); verdeckte Schatten-/Spielwirkung zählt weiterhin.
@@ -51,13 +56,8 @@ Sie begründen Verfahren, keine vollständige Bestands- oder Geräteabnahme.
 | Bewegliches Höhenfeld | [Geometry Clipmaps 2004](terrain/siggraph/2004-geometry-clipmaps.pdf): toroidale Wiederverwendung und begrenzte Randupdates | Bei Überlast fällt Feindetail zurück; kein allgemeines Gebäude-/Transport-LOD |
 | Physikalische Bildantwort | [Frostbite PBR, Revision 3](lighting/siggraph/2014-frostbite-pbr-course-notes.pdf): Material-/Licht-/Kameraeinheiten und unabhängiger Referenzvergleich | Geometrie-SSE ersetzt keine Materialfehlerprüfung; historische Pass-/Pufferkosten neu messen |
 
-Worldpublikation, Simulation, Audio, JS und Persistenz-Lebensdauer besitzen
-[#1230](https://github.com/Weichwolf/outshine/issues/1230),
-[#1231](https://github.com/Weichwolf/outshine/issues/1231) und
-[#1232](https://github.com/Weichwolf/outshine/issues/1232); dieser Referenzkern
-decken sie nicht vollständig ab. Generatoren bleiben ein breites Forschungsfeld,
-ohne vorgeschriebene Solver-/Grammatikfamilie. Refactor und gemeinsame Abnahme
-der gesamten aktuellen Codebasis gehen neuer Featureintegration voraus (#1233/#1320).
+Simulation, Audio, Skripte und Persistenz deckt dieser Referenzkern nicht vollständig ab.
+Die Umsetzung folgt den aktuellen Meilensteinen in #1972; Sandbox gehört zu #1969.
 
 ## PDFs und Nutzung
 

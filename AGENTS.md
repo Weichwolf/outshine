@@ -26,6 +26,14 @@ Ich baue eine plausible, funktionale Erde, keinen digitalen Zwilling. Quellen li
 Verteilung, Großformen und Parameter; Rezepte ergänzen den Rest glaubwürdig.
 
 ## Was zählt
+**Aktueller Nutzerentscheid (16.11.2026):** Alle Features weiter implementieren und
+vorerst auf RTX 3060 / 1080p messen. Iris-Xe-/A18-Abnahmen und VIRUS-Zugang blockieren
+weder Implementierung noch Meilensteinwechsel. Die Reihenfolge bleibt; laufende
+Entwicklungsabnahme auf RTX, weitere Zielgeräte später. RTX-Zahlen gelten nur für RTX.
+Gemeinsame Algorithmen, alle Features und die Vulkan-Pipeline werden hier auf RTX
+entwickelt und optimiert. Danach: Iris Xe mit derselben Vulkan-Pipeline optimieren;
+A18 über Metal portieren bzw. anpassen und für die integrierte GPU optimieren.
+
 1. **Das Bild und die Framezeit.** Fortschritt ist ein besseres geöffnetes Bild oder eine
    bessere Zeile in der Benchmark-Tabelle. Commits, Tests, Issues, Verträge und Belege
    sind kein Fortschritt.
