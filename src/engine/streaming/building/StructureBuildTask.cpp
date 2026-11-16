@@ -1,4 +1,5 @@
 #include "GeometryErrorBound.h"
+#include "StructureSourceErrorTask.h"
 #include "StructureBuildTask.h"
 #include "PreparedStructureTile.h"
 #include "PreparedBuildingAssets.h"
@@ -134,10 +135,51 @@ struct StructureBuildTask::Comparison {
       output.Status = std::unexpected(StructureBakeErrorKind::Cancelled);
       return;
     }
+    if (base != nullptr && Variant->RequestedDetail == LevelOfDetail::Shell) {
+      AdvanceSources(*base, mesher, scratch, output, stopping);
+      return;
+    }
     if (Phase_ == Phase::Reference) {
       AdvanceReference(heights, mesher, scratch, output, stopping, base);
     } else {
       AdvanceSurface(output, stopping);
+    }
+  }
+
+  void AdvanceSources(const Generators::PreparedStructureTile &base,
+                      const StructureMesher &mesher,
+                      MeshScratch &scratch,
+                      Output &output,
+                      const std::atomic_bool &stopping) {
+    using namespace Generators;
+    if (!Sources) {
+      Sources = std::make_unique<StructureSourceErrorTask>();
+      RawTile view;
+      view.RequestedDetail = Variant->RequestedDetail;
+      view.RequestedCell = ReferenceRaw.RequestedCell;
+      view.ClusterTriangles = ReferenceRaw.ClusterTriangles;
+      const auto reset = Sources->Reset(base, view, Request.SourceKey, Request.Limits);
+      if (!reset) {
+        Finish(output, reset.error());
+        return;
+      }
+    }
+    const auto began = std::chrono::steady_clock::now();
+    for (size_t unit = 0; unit < 128; ++unit) {
+      const auto advanced = Sources->Step(mesher, scratch, stopping);
+      if (!advanced) {
+        Finish(output, advanced.error());
+        return;
+      }
+      if (*advanced == StructureSurfaceErrorProgress::Complete) {
+        Variant->SurfaceError = Sources->Bound(Request.SourceKey);
+        Finish(output,
+               Variant->SurfaceError
+                   ? std::nullopt
+                   : std::optional{StructureSurfaceErrorFailure::InvalidGeometry});
+        return;
+      }
+      if (std::chrono::steady_clock::now() - began >= std::chrono::milliseconds(2)) { return; }
     }
   }
 
@@ -260,6 +302,7 @@ struct StructureBuildTask::Comparison {
   std::optional<Generators::BakedTile> Variant;
   std::optional<Generators::BakedTile> Reference;
   Generators::StructureSurfaceRefinementTask Surface;
+  std::unique_ptr<Generators::StructureSourceErrorTask> Sources;
   Phase Phase_ = Phase::Reference;
 };
 
