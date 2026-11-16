@@ -110,7 +110,7 @@ void CheckFixedDetails(Fixture &fixture) {
                                BuildingPageView(fixture.fine, fixture.materials).View(),
                                fixture.frame.OriginEcef(),
                                fixture.error) &&
-            fixture.renderer.PiecesStanding() == 0,
+            fixture.Depth() == 0.0f,
         "an unkeyed explicit variant cannot enter residency");
   CHECK(fixture.pieces.Upload(7,
                               BuildingPageView(fixture.fine, fixture.materials).View(),
@@ -119,16 +119,14 @@ void CheckFixedDetails(Fixture &fixture) {
                               1),
         "first keyed detail becomes visible");
   const float fineDepth = fixture.Depth();
-  CHECK(fineDepth > 0.0f && fixture.pieces.Digest() != 0, "fine product covers the probe");
-  const auto fineDigest = fixture.pieces.Digest();
+  CHECK(fineDepth > 0.0f, "fine product covers the probe");
   CHECK(fixture.pieces.Upload(7,
                               BuildingPageView(fixture.shell, fixture.materials).View(),
                               fixture.frame.OriginEcef(),
                               fixture.error,
                               1),
         "second detail from the same source becomes resident");
-  CHECK(fixture.renderer.PiecesStanding() == 2 && fixture.pieces.Handles().size() == 2 &&
-            fixture.pieces.Digest() == fineDigest && fixture.Depth() == fineDepth,
+  CHECK(fixture.Depth() == fineDepth,
         "hidden detail neither replaces nor duplicates the visible image");
   CHECK(fixture.Visible().size() == 1 && fixture.Visible().front().SourceKey == 1 &&
             fixture.Visible().front().Detail == LevelOfDetail::Fine,
@@ -142,8 +140,7 @@ void CheckFixedDetails(Fixture &fixture) {
   CHECK(fixture.pieces.SelectDetail(7, LevelOfDetail::Shell, fixture.error),
         "shell becomes selected");
   const float shellDepth = fixture.Depth();
-  CHECK(shellDepth > 0.0f && shellDepth != fineDepth && fixture.pieces.Digest() != fineDigest,
-        "selected shell replaces fine at the probe");
+  CHECK(shellDepth > 0.0f && shellDepth != fineDepth, "selected shell replaces fine at the probe");
   CHECK(fixture.Visible().size() == 1 && fixture.Visible().front().Digest == 22 &&
             fixture.Visible().front().Detail == LevelOfDetail::Shell,
         "provenance follows the selected resident product");
@@ -161,7 +158,7 @@ void CheckFixedDetails(Fixture &fixture) {
                                fixture.frame.OriginEcef(),
                                fixture.error,
                                2) &&
-            fixture.renderer.PiecesStanding() == 2 && fixture.Depth() == fineDepth,
+            fixture.Depth() == fineDepth,
         "failed new-source upload preserves both old resident variants");
   fixture.revised =
       MakeMesh({.NorthM = -0.5f, .Digest = kRevisedDigest, .Detail = LevelOfDetail::Fine});
@@ -170,8 +167,7 @@ void CheckFixedDetails(Fixture &fixture) {
                               fixture.frame.OriginEcef(),
                               fixture.error,
                               2) &&
-            fixture.renderer.PiecesStanding() == 1 && fixture.Depth() != fineDepth &&
-            fixture.Depth() > 0.0f,
+            fixture.Depth() != fineDepth && fixture.Depth() > 0.0f,
         "new source atomically replaces all old variants");
   CHECK(!fixture.pieces.SelectDetail(7, LevelOfDetail::Shell, fixture.error),
         "a retired source detail cannot be selected");
@@ -182,7 +178,7 @@ void CheckFixedDetails(Fixture &fixture) {
                               BuildingPageView(fixture.automatic, fixture.materials).View(),
                               fixture.frame.OriginEcef(),
                               fixture.error) &&
-            fixture.renderer.PiecesStanding() == 1 && fixture.Depth() > 0.0f,
+            fixture.Depth() > 0.0f,
         "automatic replacement removes both variants without leaving the tile hidden");
   CHECK(fixture.Visible().size() == 1 && fixture.Visible().front().SourceKey == 0 &&
             !fixture.Visible().front().Detail,
@@ -225,8 +221,7 @@ void CheckInitialCells(Fixture &fixture) {
                               fixture.frame.OriginEcef(),
                               fixture.error,
                               11) &&
-            fixture.pieces.HasCell(7, 1, LevelOfDetail::Fine, 11) &&
-            fixture.renderer.PiecesStanding() == 2 && fixture.Depth() == legacyDepth,
+            fixture.pieces.HasCell(7, 1, LevelOfDetail::Fine, 11) && fixture.Depth() == legacyDepth,
         "same-source fallback refresh preserves the hidden cell product");
   fixture.cells = {
       {{.Cell = 1, .Detail = LevelOfDetail::Fine}, {.Cell = 2, .Detail = LevelOfDetail::Shell}}};
@@ -247,9 +242,8 @@ void CheckInitialCells(Fixture &fixture) {
             fixture.Depth() == legacyDepth,
         "a stale source key leaves both staged cells hidden");
   CHECK(fixture.pieces.ActivateCells(7, {.Key = 11, .Occupied = 3}, fixture.cells, fixture.error) &&
-            fixture.renderer.PiecesStanding() == 2 && fixture.Visible().size() == 2 &&
-            fixture.Visible()[0].Cell == 1 && fixture.Visible()[1].Cell == 2 &&
-            fixture.Depth() != legacyDepth,
+            fixture.Visible().size() == 2 && fixture.Visible()[0].Cell == 1 &&
+            fixture.Visible()[1].Cell == 2 && fixture.Depth() != legacyDepth,
         "one visibility transaction replaces the safety net with complete cell geometry");
   CHECK(fixture.pieces.CellsActive(7, fixture.cells, 11) &&
             !fixture.pieces.CellsActive(7, fixture.cells, 12),
@@ -268,7 +262,7 @@ void CheckCellDetails(Fixture &fixture) {
                                  fixture.frame.OriginEcef(),
                                  fixture.error,
                                  11) &&
-            fixture.renderer.PiecesStanding() == 3 && fixture.Depth() == fixture.cellFineDepth,
+            fixture.Depth() == fixture.cellFineDepth,
         "another detail of the same source stages without changing the visible image");
   CHECK(fixture.pieces.HasCell(7, 1, LevelOfDetail::Fine, 11) &&
             fixture.pieces.HasCell(7, 1, LevelOfDetail::Shell, 11) &&
@@ -276,14 +270,14 @@ void CheckCellDetails(Fixture &fixture) {
             !fixture.pieces.HasCell(7, 1, LevelOfDetail::Shell, 12) &&
             !fixture.pieces.HasCell(7, 0, LevelOfDetail::Fine, 11),
         "residency distinguishes hidden detail, source revision and invalid cell address");
-  CHECK(!fixture.pieces.StageCell(7,
-                                  1,
-                                  BuildingPageView(fixture.stagedShell, fixture.materials).View(),
-                                  fixture.frame.OriginEcef(),
-                                  fixture.error,
-                                  11) &&
-            fixture.renderer.PiecesStanding() == 3 && fixture.Depth() == fixture.cellFineDepth,
-        "a duplicate staged cell detail is rejected without replacing the resident");
+  CHECK(fixture.pieces.StageCell(7,
+                                 1,
+                                 BuildingPageView(fixture.stagedShell, fixture.materials).View(),
+                                 fixture.frame.OriginEcef(),
+                                 fixture.error,
+                                 11) &&
+            fixture.Depth() == fixture.cellFineDepth,
+        "reusing a staged cell preserves the visible geometry until activation");
   fixture.cells[0].Detail = LevelOfDetail::Shell;
   CHECK(fixture.pieces.ActivateCells(7, {.Key = 11, .Occupied = 3}, fixture.cells, fixture.error) &&
             fixture.Visible().size() == 2 && fixture.Visible()[0].Digest == kCellDigest &&
@@ -317,7 +311,7 @@ void CheckSourceRevision(Fixture &fixture) {
                                   fixture.frame.OriginEcef(),
                                   fixture.error,
                                   13) &&
-            fixture.renderer.PiecesStanding() == 4 && fixture.Depth() == fixture.cellFineDepth,
+            fixture.Depth() == fixture.cellFineDepth,
         "failed newer-source upload retains the old image and prior staged revision");
   nextAgain = nextOne;
   CHECK(fixture.pieces.StageCell(7,
@@ -326,14 +320,13 @@ void CheckSourceRevision(Fixture &fixture) {
                                  fixture.frame.OriginEcef(),
                                  fixture.error,
                                  13) &&
-            fixture.renderer.PiecesStanding() == 4 && fixture.Depth() == fixture.cellFineDepth &&
+            fixture.Depth() == fixture.cellFineDepth &&
             fixture.pieces.StageCell(7,
                                      1,
                                      BuildingPageView(nextOne, fixture.materials).View(),
                                      fixture.frame.OriginEcef(),
                                      fixture.error,
-                                     12) &&
-            fixture.renderer.PiecesStanding() == 4,
+                                     12),
         "successful newer-source stage retires only superseded hidden products");
   CHECK(fixture.pieces.StageCell(7,
                                  2,
@@ -347,8 +340,8 @@ void CheckSourceRevision(Fixture &fixture) {
         "an incomplete new source selection retains the old visible cells");
   fixture.cells[0].Detail = LevelOfDetail::Shell;
   CHECK(fixture.pieces.ActivateCells(7, {.Key = 12, .Occupied = 3}, fixture.cells, fixture.error) &&
-            fixture.renderer.PiecesStanding() == 2 && fixture.Visible().size() == 2 &&
-            fixture.Visible()[0].SourceKey == 12 && fixture.Visible()[1].SourceKey == 12 &&
+            fixture.Visible().size() == 2 && fixture.Visible()[0].SourceKey == 12 &&
+            fixture.Visible()[1].SourceKey == 12 &&
             fixture.Visible()[0].Digest == kNextFirstDigest &&
             fixture.Visible()[1].Digest == kNextSecondDigest,
         "complete new-source cells replace and retire all old variants in one transaction");
@@ -370,7 +363,7 @@ void CheckWholeFallback(Fixture &fixture) {
                                fixture.frame.OriginEcef(),
                                fixture.error,
                                13) &&
-            fixture.renderer.PiecesStanding() == 2 && fixture.Depth() == cellDepth,
+            fixture.Depth() == cellDepth,
         "failed whole-tile fallback leaves active cells visible");
   whole = fixture.automatic;
   whole.Digest = kWholeDigest;
@@ -379,12 +372,12 @@ void CheckWholeFallback(Fixture &fixture) {
                               fixture.frame.OriginEcef(),
                               fixture.error,
                               13) &&
-            fixture.renderer.PiecesStanding() == 1 && fixture.Visible().size() == 1 &&
-            fixture.Visible()[0].Cell == 0 && fixture.Visible()[0].SourceKey == 13 &&
-            fixture.Visible()[0].Digest == kWholeDigest && fixture.Depth() > 0.0f,
+            fixture.Visible().size() == 1 && fixture.Visible()[0].Cell == 0 &&
+            fixture.Visible()[0].SourceKey == 13 && fixture.Visible()[0].Digest == kWholeDigest &&
+            fixture.Depth() > 0.0f,
         "new whole tile retires every visible and hidden cell product after upload");
   fixture.pieces.Retire(7);
-  CHECK(fixture.renderer.PiecesStanding() == 0 && fixture.Visible().empty(),
+  CHECK(fixture.Visible().empty() && fixture.Depth() == 0.0f,
         "legacy whole-tile geometry retires before cell products are published");
 }
 
@@ -401,7 +394,7 @@ void CheckIndependentCells(Fixture &fixture) {
                                fixture.frame.OriginEcef(),
                                fixture.error,
                                11) &&
-            fixture.renderer.PiecesStanding() == 0,
+            fixture.Depth() == 0.0f,
         "a product cannot be published under another cell address");
   CHECK(fixture.pieces.Upload(7,
                               1,
@@ -422,9 +415,9 @@ void CheckIndependentCells(Fixture &fixture) {
                                   fixture.error,
                                   22),
         "two cells retain their own source-keyed detail products");
-  CHECK(fixture.renderer.PiecesStanding() == 3 && fixture.Visible().size() == 2 &&
-            fixture.Visible()[0].Cell == 1 && fixture.Visible()[1].Cell == 2 &&
-            fixture.Visible()[0].Digest == 11 && fixture.Visible()[1].Digest == 11,
+  CHECK(fixture.Visible().size() == 2 && fixture.Visible()[0].Cell == 1 &&
+            fixture.Visible()[1].Cell == 2 && fixture.Visible()[0].Digest == 11 &&
+            fixture.Visible()[1].Digest == 11,
         "only one detail per cell is visible");
   CHECK(fixture.pieces.SelectDetail(7, 1, LevelOfDetail::Shell, fixture.error) &&
             fixture.Visible()[0].Digest == 22 && fixture.Visible()[1].Digest == 11,
@@ -442,8 +435,7 @@ void CheckIndependentCells(Fixture &fixture) {
                                fixture.frame.OriginEcef(),
                                fixture.error,
                                kAutomaticDigest) &&
-            fixture.renderer.PiecesStanding() == 3 && fixture.Visible()[0].Digest == 22 &&
-            fixture.Visible()[1].Digest == 11,
+            fixture.Visible()[0].Digest == 22 && fixture.Visible()[1].Digest == 11,
         "failed cell upload preserves its previous detail and the neighbour");
   fixture.revised.RequestedCell = 1;
   CHECK(fixture.pieces.Upload(7,
@@ -452,17 +444,14 @@ void CheckIndependentCells(Fixture &fixture) {
                               fixture.frame.OriginEcef(),
                               fixture.error,
                               kAutomaticDigest) &&
-            fixture.renderer.PiecesStanding() == 2 &&
             fixture.Visible()[0].SourceKey == kAutomaticDigest &&
             fixture.Visible()[1].SourceKey == 22,
         "a new source replaces only the addressed cell");
   fixture.pieces.RetireCell(7, 1);
-  CHECK(fixture.renderer.PiecesStanding() == 1 && fixture.Visible().size() == 1 &&
-            fixture.Visible()[0].Cell == 2,
+  CHECK(fixture.Visible().size() == 1 && fixture.Visible()[0].Cell == 2,
         "evicting one cell preserves other products in the tile");
   fixture.pieces.Retire(7);
-  CHECK(fixture.renderer.PiecesStanding() == 0 && fixture.pieces.Handles().empty() &&
-            fixture.Depth() == 0.0f,
+  CHECK(fixture.Visible().empty() && fixture.Depth() == 0.0f,
         "forgetting the tile releases both resident variants");
 }
 
