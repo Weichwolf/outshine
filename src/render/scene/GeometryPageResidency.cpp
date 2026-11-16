@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cmath>
 #include <expected>
+#include <format>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -139,6 +140,23 @@ bool GeometryPageResidency::StageCell(uint32_t tile,
       baked.OccupiedCells != (uint64_t{1} << (cell - 1u))) {
     error = "staged geometry cell needs one occupied source cell";
     return false;
+  }
+  if (Renderer_ != nullptr && sourceKey != 0 && baked.RequestedCell == cell) {
+    const auto first = std::ranges::lower_bound(Pages_, std::pair{tile, cell}, {}, AddressOf);
+    const auto last = std::find_if(first, Pages_.end(), [tile, cell](const auto &held) {
+      return held.Tile != tile || held.Cell != cell;
+    });
+    const auto row = RowFor(anchorEcef, baked.Placement.get());
+    const auto resident = std::find_if(first, last, [&](const auto &held) {
+      return held.Mode == Publication::Cell && held.SourceKey == sourceKey &&
+             held.Detail == baked.RequestedDetail && held.Digest == baked.Digest &&
+             held.OccupiedCells == baked.OccupiedCells && held.Row == row;
+    });
+    if (resident != last) {
+      resident->SelectedView = baked.SelectedView;
+      std::rotate(first, resident, resident + 1);
+      return true;
+    }
   }
   return Store(tile, cell, baked, anchorEcef, error, sourceKey, Publication::Cell);
 }
@@ -354,7 +372,7 @@ bool GeometryPageResidency::ValidateStore(TileCell address,
     error = "staged geometry cohort needs its canonical source cell anchor";
     return false;
   }
-  if (staged && !ValidateStage(address.Tile, baked, sourceKey, publication, error)) {
+  if (staged && !ValidateStage(address.Tile, baked, sourceKey, error)) {
     return false;
   }
   if (!staged && address.Cell != 0) {
@@ -385,7 +403,6 @@ bool GeometryPageResidency::ValidateStore(TileCell address,
 bool GeometryPageResidency::ValidateStage(uint32_t tile,
                                           const GeometryPageView &baked,
                                           uint64_t sourceKey,
-                                          Publication publication,
                                           std::string &error) const {
   const auto first = std::ranges::lower_bound(Pages_, tile, {}, &ResidentGeometryPage::Tile);
   const auto last = std::find_if(
@@ -401,8 +418,16 @@ bool GeometryPageResidency::ValidateStage(uint32_t tile,
     }
     if (at->Cell == baked.RequestedCell && at->SourceKey == sourceKey &&
         at->Detail == baked.RequestedDetail && at->OccupiedCells == baked.OccupiedCells &&
-        (publication != Publication::Cohort || at->Digest == baked.Digest)) {
-      error = "geometry cell detail is already resident";
+        at->Digest == baked.Digest) {
+      error = std::format("geometry cell detail is already resident: tile={} cell={} source={} "
+                          "held_digest={} incoming_digest={} held_asset={} incoming_asset={}",
+                          tile,
+                          at->Cell,
+                          sourceKey,
+                          at->Digest,
+                          baked.Digest,
+                          at->AssetKey,
+                          baked.AssetKey);
       return false;
     }
   }

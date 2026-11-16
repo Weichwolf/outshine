@@ -275,7 +275,6 @@ private:
   [[nodiscard]] bool ValidateStage(uint32_t tile,
                                    const GeometryPageView &baked,
                                    uint64_t sourceKey,
-                                   Publication publication,
                                    std::string &error) const;
   [[nodiscard]] bool ValidateActivation(uint32_t tile,
                                         CellSource source,
