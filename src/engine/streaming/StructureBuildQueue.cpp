@@ -1315,6 +1315,7 @@ void StructureBuildQueue::CommitsLandings(::outshine::Generators::Osm::BuildingF
       bake.Task.SelectNextCell(cell);
       bake.Tasks = 0;
       PostSlice(bake);
+      std::rotate(Context_.Queue.begin(), Context_.Queue.begin() + 1, Context_.Queue.end());
       continue;
     }
     const Generators::BakedTile &baked = bake.InitialCells ? bake.InitialCells->Metadata() : child;
