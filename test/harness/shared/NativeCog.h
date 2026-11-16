@@ -112,6 +112,9 @@ inline std::vector<uint8_t> NativeCog(Data::CellId at,
     CHECK(ftruncate(descriptor,
                     profile == NativeCogProfile::LargeBlockOverlapsHeader ? 8 : 32768) == 0,
           "native fixture separates metadata and original blocks");
+    char pixelScale[] = "PixelScale";
+    char tiePoint[] = "TiePoint";
+    char geoKeys[] = "GeoKeys";
     const std::array<TIFFFieldInfo, 3> fields = {{{.field_tag = 33550,
                                                    .field_readcount = TIFF_VARIABLE2,
                                                    .field_writecount = TIFF_VARIABLE2,
@@ -119,7 +122,7 @@ inline std::vector<uint8_t> NativeCog(Data::CellId at,
                                                    .field_bit = FIELD_CUSTOM,
                                                    .field_oktochange = 1,
                                                    .field_passcount = 1,
-                                                   .field_name = "PixelScale"},
+                                                   .field_name = pixelScale},
                                                   {.field_tag = 33922,
                                                    .field_readcount = TIFF_VARIABLE2,
                                                    .field_writecount = TIFF_VARIABLE2,
@@ -127,7 +130,7 @@ inline std::vector<uint8_t> NativeCog(Data::CellId at,
                                                    .field_bit = FIELD_CUSTOM,
                                                    .field_oktochange = 1,
                                                    .field_passcount = 1,
-                                                   .field_name = "TiePoint"},
+                                                   .field_name = tiePoint},
                                                   {.field_tag = 34735,
                                                    .field_readcount = TIFF_VARIABLE2,
                                                    .field_writecount = TIFF_VARIABLE2,
@@ -135,7 +138,7 @@ inline std::vector<uint8_t> NativeCog(Data::CellId at,
                                                    .field_bit = FIELD_CUSTOM,
                                                    .field_oktochange = 1,
                                                    .field_passcount = 1,
-                                                   .field_name = "GeoKeys"}}};
+                                                   .field_name = geoKeys}}};
     CHECK(TIFFMergeFieldInfo(file.get(), fields.data(), fields.size()) == 0,
           "fixture registers georeference");
     const bool large = profile != NativeCogProfile::Analytic;
