@@ -38,7 +38,7 @@ struct DrawPacket {
 };
 
 struct RenderState {
-  std::string Label{};
+  std::string Label;
   uint32_t Width = 0;
   uint32_t Height = 0;
   bool Labelled = false;

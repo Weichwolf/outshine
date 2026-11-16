@@ -2,6 +2,7 @@
 #include "Context.h"
 #include "EncoderProfile.h"
 #include "Surface.h"
+#include <SDL3/SDL_stdinc.h>
 #include <array>
 #include <string_view>
 #include <thread>
@@ -13,7 +14,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <optional>
@@ -160,7 +160,8 @@ std::optional<QueueSelection> SelectQueue(const Context &context, VkPhysicalDevi
 }
 
 Result<void> SelectPhysical(Context &context) {
-  const char *const requested = std::getenv("OUTSHINE_VULKAN_DEVICE");
+  const char *const requested =
+      SDL_GetEnvironmentVariable(SDL_GetEnvironment(), "OUTSHINE_VULKAN_DEVICE");
   uint32_t count = 0;
   auto result = vkEnumeratePhysicalDevices(context.Instance, &count, nullptr);
   if (result != VK_SUCCESS) {

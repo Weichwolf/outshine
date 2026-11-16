@@ -10,11 +10,14 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <ios>
 #include <limits>
 #include <memory>
 #include <optional>
 #include <print>
+#include <ratio>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
 #include <vector>
