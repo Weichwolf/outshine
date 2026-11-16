@@ -8,7 +8,7 @@
 namespace outshine::Script {
 namespace {
 constexpr auto Interrupt = [](auto *machine, void *opaque) {
-  void *owner = nullptr;
+  const void *owner = nullptr;
   if constexpr (std::is_same_v<std::remove_pointer_t<decltype(machine)>, JSRuntime>) {
     owner = JS_GetRuntimeOpaque(machine);
   } else {
