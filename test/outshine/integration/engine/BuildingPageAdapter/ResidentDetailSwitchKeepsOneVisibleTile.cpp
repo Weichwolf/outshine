@@ -490,6 +490,61 @@ void CheckProjectedCoverage(Fixture &fixture) {
   fixture.pieces.Retire(7);
 }
 
+void CheckIntrinsicParents(Fixture &fixture) {
+  constexpr uint64_t kSource = 123;
+  auto first = MakeMesh({.NorthM = 0, .Digest = 201, .Detail = LevelOfDetail::Fine});
+  first.RequestedCell = 1;
+  first.OccupiedCells = 1;
+  auto second = MakeMesh({.NorthM = 1, .Digest = 202, .Detail = LevelOfDetail::Fine});
+  second.RequestedCell = 2;
+  second.OccupiedCells = 2;
+  CHECK(fixture.pieces.StageCell(7,
+                                 1,
+                                 BuildingPageView(first, fixture.materials).View(),
+                                 fixture.frame.OriginEcef(),
+                                 fixture.error,
+                                 kSource),
+        "the first intrinsic parent cell stages");
+  CHECK(!fixture.pieces.HasIntrinsicTile(
+            7, {.Key = kSource, .Occupied = 3}, Render::GeometryPasses::MainAndShadow, true),
+        "partial intrinsic source coverage cannot make a moving world complete");
+  CHECK(fixture.pieces.StageCell(7,
+                                 2,
+                                 BuildingPageView(second, fixture.materials).View(),
+                                 fixture.frame.OriginEcef(),
+                                 fixture.error,
+                                 kSource),
+        "the remaining intrinsic parent cell stages");
+  CHECK(fixture.pieces.HasIntrinsicTile(
+            7, {.Key = kSource, .Occupied = 3}, Render::GeometryPasses::MainAndShadow, true) &&
+            !fixture.pieces.HasIntrinsicTile(7, {.Key = kSource, .Occupied = 3}) &&
+            fixture.Depth() == 0,
+        "hidden complete parents are available without claiming they are drawn");
+  const std::array<Render::GeometryPageResidency::CellSelection, 2> selected{
+      {{.Cell = 1, .Detail = LevelOfDetail::Fine}, {.Cell = 2, .Detail = LevelOfDetail::Fine}}};
+  CHECK(fixture.pieces.ActivateCells(7, {.Key = kSource, .Occupied = 3}, selected, fixture.error) &&
+            fixture.pieces.HasIntrinsicTile(7, {.Key = kSource, .Occupied = 3}) &&
+            fixture.Depth() > 0,
+        "a complete intrinsic parent cut draws actual geometry");
+  CHECK(!fixture.pieces.HasIntrinsicTile(7, {.Key = kSource + 1, .Occupied = 3}) &&
+            !fixture.pieces.HasIntrinsicTile(7, {.Key = kSource, .Occupied = 7}),
+        "a different source revision or missing cell cannot reuse the intrinsic parent cut");
+  fixture.pieces.Retire(7);
+  first.RequestedDetail.reset();
+  first.SelectedView.emplace();
+  first.SelectedView->EyeRadiusM = 0;
+  CHECK(fixture.pieces.Upload(7,
+                              1,
+                              BuildingPageView(first, fixture.materials).View(),
+                              fixture.frame.OriginEcef(),
+                              fixture.error,
+                              kSource) &&
+            !fixture.pieces.HasIntrinsicTile(7, {.Key = kSource, .Occupied = 1}) &&
+            fixture.Depth() > 0,
+        "visible view-dependent geometry does not masquerade as an intrinsic parent");
+  fixture.pieces.Retire(7);
+}
+
 }
 
 int main() {
@@ -508,6 +563,7 @@ int main() {
       CheckWholeFallback(fixture);
       CheckIndependentCells(fixture);
       CheckProjectedCoverage(fixture);
+      CheckIntrinsicParents(fixture);
     }
   }
   SDL_Quit();

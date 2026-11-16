@@ -320,8 +320,7 @@ bool StructureBuildQueue::BakeRevision::Matches(
     const Data::SourceObjects *inputObjects) const noexcept {
   return OwnsReservation(vectors, footprints, eye, heightSource, inputObjects) &&
          RequestedDetail == detail && Purpose == purpose &&
-         (purpose != BuildPurpose::ViewDetail ||
-          (RequestedDetail && *RequestedDetail != LevelOfDetail::Fine) ||
+         (purpose != BuildPurpose::ViewDetail || RequestedDetail.has_value() ||
           Generators::StructureSelectionDomain(Eye, Projection, EyeEcef)
               .Contains(eye, footprints.Projection(), footprints.EyeEcef())) &&
          (heights == HeightRequirement::AllowFallback || !FallbackHeights);
@@ -834,7 +833,8 @@ StructureBuildQueue::VectorBuild(JobAdmission::Lease admission,
   if (!selected.Key.empty() && !revision.FallbackHeights &&
       (task.HeightQualified() || task.Raw().Structures.empty())) {
     task.UseNativeAssets(stack.BuildingAssets(), selected.Key, selected.RequestKey);
-    if (revision.Purpose != BuildPurpose::TerrainContacts && !revision.RequestedDetail) {
+    if (revision.Purpose != BuildPurpose::TerrainContacts &&
+        (!revision.RequestedDetail || revision.RequestedDetail == LevelOfDetail::Fine)) {
       task.UseInitialCells(revision.OriginalCells);
     }
   }
@@ -1229,8 +1229,8 @@ StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
                   .Publish = bake.Revision.OriginalCells ? Landing::Publication::Products
                                                          : Landing::Publication::Source};
   if (!complete) { return landing; }
-  if (bake.Replacement && bake.Revision.Purpose == BuildPurpose::ViewDetail &&
-      landing.SourceKey != 0 && QualifiedSourceKey(prints, landing.Tile) == landing.SourceKey) {
+  if (bake.Revision.Purpose == BuildPurpose::ViewDetail && landing.SourceKey != 0 &&
+      QualifiedSourceKey(prints, landing.Tile) == landing.SourceKey) {
     return landing;
   }
   const std::optional<Data::TileSourceIdentity> vectorSource =
@@ -1282,7 +1282,7 @@ void StructureBuildQueue::CommitFootprints(
                                            std::move(bake.Task.Raw().Holes));
   }
   if (!landing.Footprints) {
-    assert(bake.Replacement && bake.Revision.Purpose == BuildPurpose::ViewDetail &&
+    assert(bake.Revision.Purpose == BuildPurpose::ViewDetail &&
            QualifiedSourceKey(footprints, landing.Tile) == landing.SourceKey);
     return;
   }

@@ -367,7 +367,8 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
                                                   eye,
                                                   heightAt,
                                                   std::min(landsMost, size_t{1}),
-                                                  StructureBuildQueue::HeightRequirement::FineOnly);
+                                                  StructureBuildQueue::HeightRequirement::FineOnly,
+                                                  LevelOfDetail::Fine);
   Cost.BakeLanding.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - landingAt)
           .count());
@@ -380,7 +381,7 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
     const auto &landing = ready->front();
     if (StructureBuildQueue::QualifiedSourceKey(World.Surface().Footprints(), landing.Tile) !=
             landing.SourceKey ||
-        !StructureProductsReady(landing.Tile, eye)) {
+        !StructureProductsReady(landing.Tile)) {
       if (auto published = PublishStructureTile(World, Picture.Device, landing); !published) {
         Error = std::move(published.error());
         return false;
@@ -405,20 +406,14 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
       heightAt,
       StructureCandidatesMost(),
       StructureBuildQueue::HeightRequirement::FineOnly,
-      std::nullopt,
+      LevelOfDetail::Fine,
       StructureBuildQueue::BuildPurpose::ViewDetail,
-      [this, eye](uint32_t tile) {
-        return StructureProductsReady(tile, eye) ||
-               (World.BuildingFields &&
-                StructureBuildQueue::QualifiedSourceKey(World.Surface().Footprints(), tile) &&
-                World.BuildingFields->Preparing(tile));
-      },
+      [this](uint32_t tile) { return StructureParentsReady(tile); },
       [this](uint32_t tile) -> std::optional<uint64_t> {
         const auto source =
             StructureBuildQueue::QualifiedSourceKey(World.Surface().Footprints(), tile);
-        return source && World.BuildingFields
-                   ? World.BuildingFields->OriginalCells({.Tile = tile, .Key = *source})
-                   : std::nullopt;
+        const auto *accepted = World.Surface().Footprints().InputOfTile(tile);
+        return source && accepted ? std::optional(accepted->OccupiedCells) : std::nullopt;
       });
   Cost.BakePosting.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - postingAt)

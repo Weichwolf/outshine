@@ -479,6 +479,36 @@ bool GeometryPageResidency::HasCell(uint32_t tile,
   });
 }
 
+bool GeometryPageResidency::HasIntrinsicTile(uint32_t tile,
+                                             CellSource source,
+                                             GeometryPasses passes,
+                                             bool includeHidden) const noexcept {
+  if (source.Key == 0 || source.Occupied == 0) { return false; }
+  const auto first = std::ranges::lower_bound(Pages_, std::pair{tile, uint32_t{0}}, {}, AddressOf);
+  const auto last = std::find_if(
+      first, Pages_.end(), [tile](const ResidentGeometryPage &held) { return held.Tile != tile; });
+  uint64_t covered = 0;
+  for (auto at = first; at != last; ++at) {
+    if ((!at->Visible && !includeHidden) ||
+        (passes != GeometryPasses::MainAndShadow && at->Passes != GeometryPasses::MainAndShadow &&
+         at->Passes != passes) ||
+        at->Detail != LevelOfDetail::Fine || at->SourceKey != source.Key || at->FallbackHeights ||
+        at->SelectedView) {
+      continue;
+    }
+    if (at->Cell == 0) {
+      if (at->OccupiedCells == source.Occupied) { return true; }
+      continue;
+    }
+    if (at->Cell > kGeometryPageCellsMost ||
+        at->OccupiedCells != (uint64_t{1} << (at->Cell - 1u))) {
+      return false;
+    }
+    covered |= at->OccupiedCells;
+  }
+  return covered == source.Occupied;
+}
+
 bool GeometryPageResidency::HasProjectedTile(uint32_t tile,
                                              CellSource source,
                                              LongitudeLatitude eye,

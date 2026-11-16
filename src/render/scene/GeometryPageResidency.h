@@ -134,6 +134,10 @@ public:
   SelectDetail(uint32_t tile, uint32_t cell, LevelOfDetail detail, std::string &error);
   [[nodiscard]] bool
   HasCell(uint32_t tile, uint32_t cell, LevelOfDetail detail, uint64_t sourceKey) const noexcept;
+  [[nodiscard]] bool HasIntrinsicTile(uint32_t tile,
+                                      CellSource source,
+                                      GeometryPasses passes = GeometryPasses::Main,
+                                      bool includeHidden = false) const noexcept;
   [[nodiscard]] bool HasProjectedTile(uint32_t tile,
                                       CellSource source,
                                       LongitudeLatitude eye,

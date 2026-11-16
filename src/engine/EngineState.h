@@ -591,7 +591,8 @@ struct Engine::State {
   [[nodiscard]] bool AdvanceUrbanAreas();
   [[nodiscard]] std::string_view UrbanWorldBlocker() const noexcept;
   [[nodiscard]] bool WorldPreparationPending() const;
-  [[nodiscard]] bool StructureProductsReady(uint32_t tile, LongitudeLatitude eye) const;
+  [[nodiscard]] bool StructureParentsReady(uint32_t tile) const;
+  [[nodiscard]] bool StructureProductsReady(uint32_t tile) const;
   [[nodiscard]] bool UpdateTriggers();
   [[nodiscard]] bool Updates(bool simulate);
   [[nodiscard]] bool Draws();

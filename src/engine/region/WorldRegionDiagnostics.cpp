@@ -23,7 +23,7 @@ std::string Engine::State::StructureViewDiagnostic() const {
   const auto eye = CurrentGeographicFocus();
   const auto eyeEcef = CurrentGeographicEyeEcef();
   for (const auto tile : prints.AcceptedTiles()) {
-    if (StructureProductsReady(tile, eye)) { continue; }
+    if (StructureProductsReady(tile)) { continue; }
     const auto source = StructureBuildQueue::QualifiedSourceKey(prints, tile).value_or(0);
     std::string diagnostic = std::format("unready structure tile={}, source={}", tile, source);
     const auto needed = World.BuildingFields

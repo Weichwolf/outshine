@@ -744,8 +744,9 @@ void StructureBuildTask::UseTerrainContacts() {
 }
 
 void StructureBuildTask::UseInitialCells(std::optional<uint64_t> selected) {
-  assert(State_ == State::Ready && Payload_->Native && !Payload_->Raw->RequestedCell &&
-         !Payload_->Raw->RequestedDetail);
+  assert(
+      State_ == State::Ready && Payload_->Native && !Payload_->Raw->RequestedCell &&
+      (!Payload_->Raw->RequestedDetail || Payload_->Raw->RequestedDetail == LevelOfDetail::Fine));
   Payload_->Native->Cells = 0;
   Payload_->Native->Selection = selected;
 }

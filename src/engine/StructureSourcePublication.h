@@ -43,7 +43,7 @@ namespace outshine {
   uint64_t remaining = landing.InitialCells;
   while (remaining != 0) {
     selected[count++] = {.Cell = static_cast<uint32_t>(std::countr_zero(remaining)) + 1u,
-                         .Detail = std::nullopt};
+                         .Detail = landing.Baked->RequestedDetail};
     remaining &= remaining - 1u;
   }
   return pieces.ActivateCells(landing.Tile,

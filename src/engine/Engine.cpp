@@ -264,33 +264,42 @@ std::span<const DiagnosticSample> Engine::measures() const {
   return S_->Published.Samples();
 }
 
-bool Engine::State::StructureProductsReady(uint32_t tile, LongitudeLatitude eye) const {
+bool Engine::State::StructureParentsReady(uint32_t tile) const {
+  const auto &footprints = World.Surface().Footprints();
+  const auto *accepted = footprints.InputOfTile(tile);
+  const auto sourceKey = StructureBuildQueue::QualifiedSourceKey(footprints, tile);
+  if (accepted == nullptr || !sourceKey) { return false; }
+  return accepted->OccupiedCells == 0 ||
+         World.Pieces.HasIntrinsicTile(tile,
+                                       {.Key = *sourceKey, .Occupied = accepted->OccupiedCells},
+                                       Render::GeometryPasses::MainAndShadow,
+                                       true);
+}
+
+bool Engine::State::StructureProductsReady(uint32_t tile) const {
   const ::outshine::Generators::Osm::OsmField *vectors = World.Surface().Vectors();
   const auto &footprints = World.Surface().Footprints();
   const auto *accepted = footprints.InputOfTile(tile);
   const auto sourceKey = StructureBuildQueue::QualifiedSourceKey(footprints, tile);
-  if (vectors == nullptr || accepted == nullptr || !sourceKey) { return false; }
+  if (vectors == nullptr || accepted == nullptr || !sourceKey || !StructureParentsReady(tile)) {
+    return false;
+  }
   if (accepted->OccupiedCells == 0) { return true; }
   if (World.BuildingFields &&
       World.BuildingFields->ProductsReady({.Tile = tile, .Key = *sourceKey})) {
     return true;
   }
-  return World.Pieces.HasProjectedTile(tile,
-                                       {.Key = *sourceKey, .Occupied = accepted->OccupiedCells},
-                                       eye,
-                                       footprints.Projection(),
-                                       footprints.EyeEcef(),
-                                       Render::GeometryPasses::Shadow);
+  return World.Pieces.HasIntrinsicTile(tile,
+                                       {.Key = *sourceKey, .Occupied = accepted->OccupiedCells});
 }
 
 bool Engine::State::StructuresReady(const ::outshine::Generators::Osm::BuildingField &footprints,
                                     const GroundRevision &revision) const {
   if (revision.Quality == GroundQuality::Refined) {
     const LongitudeLatitude eye = CurrentGeographicFocus();
-    return World.StructureBuilds.Complete(
-        World.Surface(), footprints, eye, [this, eye](uint32_t tile) {
-          return StructureProductsReady(tile, eye);
-        });
+    return World.StructureBuilds.Complete(World.Surface(), footprints, eye, [this](uint32_t tile) {
+      return StructureProductsReady(tile);
+    });
   }
   if (World.StructureBuilds.HasOriginal()) {
     return World.StructureBuilds.SourcesComplete(World.Surface(), footprints);
