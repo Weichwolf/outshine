@@ -161,6 +161,8 @@ def summarize(reports):
 
     # These existing geometry metrics describe the final submitted frame only.
     metrics = [{m["name"]: m["value"] for m in r["metrics"]} for r in reports]
+    image_values = [r.get("image_row_variation") for r in reports]
+    image_nonblank = all(v is not None and math.isfinite(v) and v > .1 for v in image_values)
     encoding = []
     for report, metric in zip(reports, metrics, strict=True):
         stages = [value for key, value in metric.items()
@@ -181,13 +183,16 @@ def summarize(reports):
         "cpu_encoding_ms": median(encoding),
         "cpu_extremes": startup_and_peak(reports),
         "gpu_extremes": startup_and_peak(reports, gpu=True),
-        "draws_last": median([m.get("geometry draw records") for m in metrics]),
+        "draws_last": median([m.get("geometry draw calls") for m in metrics]),
         "triangles_last": median(triangles),
+        "image_nonblank": image_nonblank,
+        "image_row_variation_min": min(image_values) if all(v is not None for v in image_values)
+                                   else None,
         "peak_rss_bytes": field("process_memory", "peak_resident_bytes"),
         "gpu_allocated_bytes_after": field("gpu_memory", "resource_allocated_bytes"),
         "warm_load_ms": field("phases_ms", "preload"),
         "gpu_pass_ms": None,
-        "complete": len(reports) == 3 and all(r["measurement_complete"] and r["world_complete"]
+        "complete": len(reports) == 3 and image_nonblank and all(r["measurement_complete"] and r["world_complete"]
                                               and r["unrefined_frames"] == 0 for r in reports),
     }
 
@@ -244,6 +249,7 @@ def table_row(row, budget):
         value = row.get(key)
         values.append(number(value / 2**20 if value is not None else None))
     values.extend((number(row.get("warm_load_ms")), "ja" if row["complete"] else "nein",
+                   "ja" if row.get("image_nonblank") else "nein",
                    number(row.get("cpu_encoding_ms")), "n/v"))
     return "| " + " | ".join(values) + " |"
 
@@ -282,15 +288,16 @@ def benchmark_places(available, selected, options, invoke):
           "Drei Läufe, Median; fett = über Budget. Still/Drehung: 300 Frames, eine volle Drehung; "
           "Flug: zehn Sekunden mit 100 m/s. Anlauf: erste zehn Frames, weiter im Gesamtergebnis. "
           "Max: Median der Laufmaxima mit zugehörigem Lauf/Frame (1-basiert). "
-          "Draws/Dreiecke: letzter Frame; "
+          "Draws/Dreiecke: Geometrie im letzten Frame, ohne Terrain/Schatten. "
+          "Bildprüfung: mittlere horizontale RGB-Differenz > 0,1 in allen drei Bildern; "
           "GPU-MiB: Allokation nach Messung, kein Peak. GPU-Passzeiten: noch nicht verfügbar.")
     for cpu, gpu, driver, commit in sorted(identities):
         print(f"CPU: {cpu}; GPU: {gpu}; Treiber: {driver}; Commit: {commit}.")
     print("\n| Place | Lastfall | CPU p50 ms | CPU p99 ms | GPU p50 ms | GPU p99 ms | "
           "CPU Anlauf p99 ms | CPU Max ms (L/F) | GPU Anlauf p99 ms | GPU Max ms (L/F) | "
-          "Draws (letzt.) | Dreiecke (letzt.) | Peak-RSS MiB | GPU MiB (danach) | "
-          "Laden warm ms | Vollständig | CPU-Encoding ms | GPU-Pässe |")
-    print("|" + " --- |" * 18)
+          "Geometrie-Draws (letzt.) | Geometrie-Dreiecke (letzt.) | Peak-RSS MiB | GPU MiB (danach) | "
+          "Laden warm ms | Vollständig | Bildstruktur | CPU-Encoding ms | GPU-Pässe |")
+    print("|" + " --- |" * 19)
     for row in output["rows"]:
         print(table_row(row, budget))
     print(f"\nJSON: {options.reports / 'results.json'}; Dauer: {output['elapsed_s']:.1f} s.")

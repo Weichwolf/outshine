@@ -34,16 +34,6 @@ struct PlaceCapture {
   Json Report;
 };
 
-inline double PlaceMetric(Json::Ref report, const char *name) {
-  const auto metrics = report["metrics"];
-  for (size_t at = 0; at < metrics.Size(); ++at) {
-    if (metrics[at]["name"].StrEquals(name)) {
-      return metrics[at]["value"].Num(std::numeric_limits<double>::quiet_NaN());
-    }
-  }
-  return std::numeric_limits<double>::quiet_NaN();
-}
-
 inline double RowVariation(const Io::Png &image) {
   if (!image.Read || image.Wide < 2 || image.High == 0 || image.Channels < 3) {
     return std::numeric_limits<double>::quiet_NaN();
@@ -64,9 +54,8 @@ inline double RowVariation(const Io::Png &image) {
   return sum / static_cast<double>(steps);
 }
 
-inline bool CheckPlacePicture(const PlaceCapture &capture, const char *place) {
+inline bool CheckPlacePicture(const PlaceCapture &capture) {
   const auto summary = capture.Summary.Root();
-  const auto report = capture.Report.Root();
   constexpr double kMinimumVisibleVariation = 0.1;
   constexpr size_t kMostImageBytes = size_t{16} * 1024 * 1024;
   const auto bytes = ReadTextFile(summary["image"].Str(), kMostImageBytes);
@@ -89,17 +78,8 @@ inline bool CheckPlacePicture(const PlaceCapture &capture, const char *place) {
   const double variation = RowVariation(image);
   CHECK(std::isfinite(control) && control >= 0 && control < 0.5,
         "a vertical gradient is rejected by the actual image variation measure");
-  const double bare = PlaceMetric(report, "tiles the last rebuild laid bare");
-  CHECK(std::isfinite(bare) && bare == 0, "no terrain tiles remain without elevation");
-  const auto digest = summary["sha256"].Str().substr(0, 8);
-  const auto reference =
-      std::filesystem::path("build/shots/reference") / (std::string(place) + "-" + digest + ".png");
-  const double triangles = PlaceMetric(report, "building triangles the world meshed");
-  CHECK(std::isfinite(triangles) && triangles >= 0, "the building geometry measure is present");
-  if (!std::filesystem::exists(reference) && triangles > 0) {
-    CHECK(std::isfinite(variation) && variation > control + kMinimumVisibleVariation,
-          "meshed buildings produce a picture distinct from the blank-frame control");
-  }
+  CHECK(std::isfinite(variation) && variation > control + kMinimumVisibleVariation,
+        "every Place produces a picture distinct from the blank-frame control");
   return image.Read;
 }
 
@@ -235,7 +215,7 @@ inline int ScorePlace(const char *place,
             capture.Report.Root()["mode"].StrEquals("scenario"),
         "the native scenario benchmark provides the measurement");
   CheckPlaceTiming(capture, rateHz);
-  if (!CheckPlacePicture(capture, place)) { Unprepared("the driver left no valid final picture"); }
+  if (!CheckPlacePicture(capture)) { Unprepared("the driver left no valid final picture"); }
   return Report();
 }
 

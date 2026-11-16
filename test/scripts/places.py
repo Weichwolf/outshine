@@ -141,6 +141,9 @@ def capture(source, options):
     )
     if not same_pose:
         raise RuntimeError(f"{name}: complete turn did not return to the starting pose")
+    variation = report.get("image_row_variation")
+    if variation is None or not math.isfinite(variation) or variation <= .1:
+        raise RuntimeError(f"{name}: place image lacks visible horizontal structure; {report_path}")
     saved, digest = keep_latest(image, options.shots, name)
     gpu = report["gpu_times"]["frame"]
     return {
@@ -190,6 +193,8 @@ def main():
     options.shots = options.shots.resolve()
     options.commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT,
                                              text=True).strip()
+    if options.bench and subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT).strip():
+        parser.error("benchmark needs a clean committed checkout so its build identity is reproducible")
     if options.reports is None:
         role = "mac" if options.bench and options.bench_profile == "a18" else "linux"
         options.reports = Path(tempfile.mkdtemp(prefix=f"outshine-{role}-places-{options.commit[:9]}-"))

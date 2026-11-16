@@ -54,6 +54,7 @@ class PlaceBench(unittest.TestCase):
             "process_memory": {"peak_resident_bytes": 2**20 * index},
             "gpu_memory": {"resource_allocated_bytes": 2**20 * index},
             "phases_ms": {"preload": timing}, "metrics": [],
+            "image_row_variation": 2.0,
             "measurement_complete": True, "world_complete": True, "unrefined_frames": 0,
             "gpu": {"rtx3060": "RTX 3060", "iris": "Iris Xe Graphics", "a18": "Apple A18 Pro"}
                    [self.options.bench_profile], "cpu": "test CPU",
@@ -121,6 +122,21 @@ class PlaceBench(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertTrue(all(row["cpu_p99_ms"] == 14 for row in result["rows"]))
         self.assertTrue(all(not row["complete"] for row in result["rows"]))
+
+    def test_flat_picture_rejects_a_reported_complete_world_without_discarding_times(self):
+        def blank(*args, **kwargs):
+            report = self.invoke(*args, **kwargs)
+            report["image_row_variation"] = .01
+            return report
+
+        code, result, table = self.run_driver(blank)
+        self.assertEqual(code, 1)
+        for row in result["rows"]:
+            self.assertFalse(row["complete"])
+            self.assertFalse(row["image_nonblank"])
+            self.assertEqual(row["image_row_variation_min"], .01)
+            self.assertEqual(row["cpu_p99_ms"], 14)
+        self.assertIn("Bildstruktur", table)
 
     def test_wrong_profile_and_motion_fail_the_row(self):
         for changed in ("profile", "motion", "gpu", "commit"):

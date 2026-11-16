@@ -251,6 +251,8 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
         {"final_image", report.ImageMs},
         {"hardware_metadata", report.HardwareMs}}},
       {"world_complete", worldComplete},
+      {"image_row_variation",
+       report.ImageRowVariation ? ReportJson(*report.ImageRowVariation) : ReportJson(nullptr)},
       {"unrefined_frames", unrefined},
       {"final_world_blockers", report.FinalWorldBlockers},
       {"budget",

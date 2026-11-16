@@ -80,6 +80,8 @@ class ScenarioBenchmark(unittest.TestCase):
             png = image.read_bytes()
             self.assertEqual(png[:8], b'\x89PNG\r\n\x1a\n')
             self.assertEqual(struct.unpack('>II', png[16:24]), (32, 32))
+            self.assertTrue(math.isfinite(report['image_row_variation']))
+            self.assertGreaterEqual(report['image_row_variation'], 0)
             metrics = {metric['name']: metric['value'] for metric in report['metrics']}
             self.assertEqual(metrics.get('cull snapshot: available'), 0)
             self.assertGreaterEqual(report['phases_ms']['final_inspection'], 0)
