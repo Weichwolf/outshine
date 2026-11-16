@@ -35,8 +35,10 @@ UrbanArea::BoundPatch(UrbanPatchRange patch,
   const double derivative = kWgs84A / (1 - kWgs84F) + maxAbsHeight;
   const double footprintRadius =
       pitch * Recipe.FillFraction * std::numbers::sqrt2 / (2 * (1 - kWgs84F));
-  double radius =
-      derivative * ((east - west) + (north - south)) * .5 + (top - bottom) * .5 + footprintRadius;
+  double radius = std::hypot(derivative * (east - west) * .5,
+                             derivative * (north - south) * .5,
+                             (top - bottom) * .5) +
+                  footprintRadius;
   constexpr double degrees = 180 / std::numbers::pi;
   UrbanPatchBounds result;
   GeoToEcef({.LongitudeDeg = std::midpoint(west, east) * degrees,
