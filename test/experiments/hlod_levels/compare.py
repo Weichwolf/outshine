@@ -7,11 +7,9 @@ Needs the lib places/hlod extras. No source fetches or native frame-time claims.
 
 import argparse
 from dataclasses import replace
-import hashlib
 import json
 import math
 from pathlib import Path
-import struct
 import subprocess
 import time
 
@@ -29,6 +27,7 @@ from outshine_ref.buildings.hlod import (
     polygons, remesh, roof_axis,
 )
 from outshine_ref.places.height import decode_terrarium
+from outshine_ref.places.native_cache import cached_tile
 
 
 REVISION = "20261025_080012_pt"
@@ -38,21 +37,7 @@ GROUND_COLOUR = (.12, .16, .09)
 
 
 def source(cache, tile, vector):
-    def text(value):
-        data = value.encode()
-        return struct.pack("<I", len(data)) + data
-
-    dataset = "openfreemap.openmaptiles" if vector else "mapterhorn.terrarium"
-    revision = REVISION if vector else ""
-    endpoint = (f"https://tiles.openfreemap.org/planet/{revision}/{{z}}/{{x}}/{{y}}.pbf"
-                if vector else "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp")
-    data = text("raw-source-content-2") + text(dataset) + struct.pack("<I", 2 if vector else 1)
-    data += b"".join(text(v) for v in (revision, "vector" if vector else "elevation",
-                                    "/".join(map(str, tile)), endpoint, ""))
-    path = cache / hashlib.sha256(data).hexdigest()
-    payload = path.read_bytes()
-    return payload, {"tile": tile, "cache_key": path.name, "bytes": len(payload),
-                     "sha256": hashlib.sha256(payload).hexdigest(), "endpoint": endpoint}
+    return cached_tile(cache, tile, revision=REVISION if vector else None)
 
 
 def linear_colour(value):
