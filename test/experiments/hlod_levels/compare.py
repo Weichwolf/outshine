@@ -1,4 +1,4 @@
-"""#1959: exactly two candidates per level, using existing native source cache.
+"""#1959 final round: the corrected recipes selected by Technical Lead on 16 Nov.
 
 Run with PYTHONPATH=lib/src .venv/bin/python test/experiments/hlod_levels/compare.py
 --cache ~/.local/share/outshine/outshine/sources --output /tmp/outshine-research-...
@@ -25,7 +25,7 @@ from shapely import affinity
 from shapely.geometry import box, shape
 
 from outshine_ref.buildings.hlod import (
-    Building, Bake, bake, block_hulls, combine, extrusions, partition,
+    Building, Bake, bake, block_hulls, combine, extrusions, geometric_error, partition,
     polygons, remesh, roof_axis,
 )
 from outshine_ref.places.height import decode_terrarium
@@ -91,8 +91,6 @@ def inputs(cache, tile):
         geometry = affinity.affine_transform(shape(feature["geometry"]),
                                              [side / extent, 0, 0, -side / extent, 0, side])
         for p in polygons(shapely.make_valid(geometry).intersection(box(0, 0, side, side))):
-            if p.area < 1:
-                continue
             base = float(np.median(terrain(np.asarray(p.exterior.coords)))) + minimum
             frame = roof_axis(p)
             rise = min(3.0, frame[2] * .5, (height - minimum) * .3)
@@ -103,76 +101,6 @@ def inputs(cache, tile):
     return buildings, (0, 0, side, side), terrain, [vector_receipt, dem_receipt]
 
 
-def coarse_sources(cache, tile):
-    """Complete z12 source coverage, using the same local metric projection."""
-    z, x, y = tile
-    parent = (z - 2, x // 4, y // 4)
-    latitude = math.atan(math.sinh(math.pi * (1 - 2 * (parent[2] + .5) / 2**parent[0])))
-    side = 2 * math.pi * 6378137 * math.cos(latitude) / 2**parent[0]
-    step = side / 4
-    buildings, receipts = [], []
-    for dy in range(4):
-        for dx in range(4):
-            child = (z, parent[1] * 4 + dx, parent[2] * 4 + dy)
-            members, bounds, _, sources = inputs(cache, child)
-            factor = step / bounds[2]
-            offset = (dx * step, (3 - dy) * step)
-            for b in members:
-                footprint = affinity.affine_transform(
-                    b.footprint, [factor, 0, 0, factor, *offset])
-                centre, axis, half_width = b.roof_frame
-                frame = (centre * factor + offset, axis, half_width * factor)
-                buildings.append(replace(b, footprint=footprint, roof_frame=frame))
-            receipts.extend(sources)
-    return buildings, (0, 0, side, side), receipts, parent
-
-
-def source_height_check(buildings, candidate):
-    """Distance to triangle AABBs is a conservative lower bound, not a fit score.
-
-    Sample real source footprints at eave corners. A lower bound >4 m already
-    disproves epsilon=4 for this prism recipe, regardless of unsampled surfaces.
-    Roof tags are absent; use the same explicitly inferred rise as the images.
-    """
-    faces = candidate.vertices[candidate.triangles]
-    low, high = faces.min(axis=1), faces.max(axis=1)
-    points = np.concatenate([np.column_stack((np.asarray(b.footprint.exterior.coords)[:-1],
-                            np.full(len(b.footprint.exterior.coords) - 1,
-                                    b.base + b.height - b.roof_rise))) for b in buildings])
-    tree = shapely.STRtree(shapely.box(low[:, 0], low[:, 1], high[:, 0], high[:, 1]))
-    maximum, count, witness = 0.0, 0, None
-    radius = 32.0
-    for start in range(0, len(points), 4096):
-        batch = points[start:start + 4096]
-        first, second = tree.query(shapely.box(batch[:, 0] - radius, batch[:, 1] - radius,
-                                              batch[:, 0] + radius, batch[:, 1] + radius))
-        delta = np.maximum(0, np.maximum(low[second] - batch[first], batch[first] - high[second]))
-        distances = np.full(len(batch), radius)
-        np.minimum.at(distances, first, np.sqrt(np.einsum("ij,ij->i", delta, delta)))
-        count += int(np.count_nonzero(distances > 4))
-        at = int(np.argmax(distances))
-        if distances[at] > maximum:
-            maximum, witness = float(distances[at]), batch[at].tolist()
-    return {"sampled_eave_corners": len(points), "corners_proven_over_4m": count,
-            "maximum_distance_lower_bound_m": maximum, "lower_bound_cap_m": radius,
-            "witness_local_xyz_m": witness}
-
-
-def coarse_check(cache, tile, output):
-    started = time.perf_counter()
-    buildings, bounds, receipts, parent = coarse_sources(cache, tile)
-    print(f"z12 {parent}: {len(buildings)} source buildings, {time.perf_counter() - started:.1f} s inputs", flush=True)
-    build_start = time.perf_counter()
-    value = block_hulls(buildings, bounds)
-    size = save_mesh(output / "complete-z12-hulls.npz", value)
-    built = time.perf_counter() - build_start
-    print(f"z12 {parent}: {len(value.triangles)} hull triangles, {built:.1f} s build", flush=True)
-    check = source_height_check(buildings, value)
-    return {"tile": parent, "source_buildings": len(buildings), "sources": receipts,
-            "triangles": len(value.triangles), "bytes": size, "build_s": built,
-            "elapsed_s": time.perf_counter() - started, "epsilon_check": check}
-
-
 def ground_nodes(bounds, terrain, cells=64):
     x0, y0, x1, y1 = bounds
     xx, yy = np.meshgrid(np.linspace(x0, x1, cells + 1), np.linspace(y0, y1, cells + 1))
@@ -180,7 +108,7 @@ def ground_nodes(bounds, terrain, cells=64):
 
 
 def terrain_mesh(bounds, terrain):
-    ground = ground_nodes(bounds, terrain)
+    ground = ground_nodes(bounds, terrain, math.ceil((bounds[2] - bounds[0]) / 8))
     cells = ground.shape[0] - 1
     colours = np.tile(GROUND_COLOUR, (cells, cells, 1)).astype(np.float32)
     return remesh(Bake(tuple(bounds), ground, colours, np.zeros((cells, cells))))
@@ -208,49 +136,58 @@ def save_bake(path, value, include_height):
     return path.stat().st_size
 
 
+def build_geometry(level, members):
+    if level == "coarse":
+        return block_hulls(members, shapely.total_bounds([b.footprint for b in members]))
+    return extrusions(members, roofs=True, tolerance=.5 if level == "middle" else 0,
+                      remove_shared=True)
+
+
+def adaptive_tiles(level, buildings, bounds, output):
+    pending = [(bounds, buildings, "")]
+    meshes, stats = [], []
+    while pending:
+        tile_bounds, members, key = pending.pop()
+        if not members:
+            continue
+        started = time.perf_counter()
+        value = build_geometry(level, members)
+        if len(value.triangles) > 20000:
+            pending.extend((child_bounds, child_members, key + str(index))
+                           for index, (child_bounds, child_members) in enumerate(
+                               partition(members, tile_bounds, 2)))
+            continue
+        reference = value if level == "fine" else build_geometry("fine", members)
+        epsilon = geometric_error(reference, value)
+        size = save_mesh(output / f"{level}-{key or 'root'}.npz", value)
+        stats.append({"quad_suffix": key, "bounds": tile_bounds,
+                      "buildings": len(members), "triangles": len(value.triangles),
+                      "bytes": size, "build_s": time.perf_counter() - started, **epsilon})
+        meshes.append(value)
+    return combine(meshes), {"level": level, "tiles": stats}
+
+
 def build_candidates(buildings, bounds, terrain, output):
-    groups = {"fine": partition(buildings, bounds, 4),
-              "middle": partition(buildings, bounds, 1),
-              "coarse": partition(buildings, bounds, 2),
-              "far": [(bounds, buildings)]}
     candidates, stats = {}, []
-    for level, tiles in groups.items():
-        names = {"fine": ["reference"], "middle": ["flat", "roof"],
-                 "coarse": ["hulls", "heightfield"], "far": ["height_albedo", "albedo"]}[level]
-        for name in names:
-            meshes, tile_stats = [], []
-            for index, (tile_bounds, members) in enumerate(tiles):
-                started = time.perf_counter()
-                path = output / f"{level}-{name}-{index}.npz"
-                if level in ("fine", "middle"):
-                    if level == "middle" and name == "roof":
-                        members = [replace(b, roof_rise=0) if b.roof_rise <= 2 else b
-                                   for b in members]
-                    value = extrusions(members, roofs=name != "flat",
-                                       tolerance=0.0 if level == "fine" else 1.0)
-                    size = save_mesh(path, value)
-                elif name == "hulls":
-                    value = block_hulls(members, tile_bounds)
-                    size = save_mesh(path, value)
-                else:
-                    cells = math.ceil((tile_bounds[2] - tile_bounds[0]) / 8) if level == "far" else 64
-                    ground = ground_nodes(tile_bounds, terrain, cells)
-                    field = bake(members, tile_bounds, ground, cells)
-                    if level == "far":
-                        size = save_bake(path, field, name == "height_albedo")
-                        field = replace(field, colour=np.round(field.colour * 255) / 255)
-                        value = remesh(field, heights=ground if name == "albedo" else None)
-                    else:
-                        value = remesh(field)
-                        size = save_mesh(path, value)
-                elapsed = time.perf_counter() - started
-                meshes.append(value)
-                tile_stats.append({"tile": index, "bounds": tile_bounds, "buildings": len(members),
-                                   "triangles": 0 if level == "far" else len(value.triangles),
-                                   "shared_terrain_triangles": len(value.triangles) if level == "far" else 0,
-                                   "bytes": size, "build_s": elapsed})
-            candidates[f"{level}/{name}"] = combine(meshes)
-            stats.append({"level": level, "candidate": name, "tiles": tile_stats})
+    for level in ("fine", "middle", "coarse"):
+        value, cost = adaptive_tiles(level, buildings, bounds, output)
+        candidates[level] = value
+        stats.append(cost)
+        print(f"{level}: {len(cost['tiles'])} leaves, max {max(t['triangles'] for t in cost['tiles'])} triangles", flush=True)
+    started = time.perf_counter()
+    cells = math.ceil((bounds[2] - bounds[0]) / 8)
+    ground = ground_nodes(bounds, terrain, cells)
+    field = bake(buildings, bounds, ground, cells)
+    size = save_bake(output / "far-root.npz", field, True)
+    field = replace(field, colour=np.round(field.colour * 255) / 255)
+    value = remesh(field)
+    reference = combine([terrain_mesh(bounds, terrain), candidates['fine']])
+    epsilon = geometric_error(reference, value)
+    stats.append({"level": "far", "tiles": [{"quad_suffix": "", "bounds": bounds,
+                 "buildings": len(buildings), "triangles": 0,
+                 "shared_terrain_triangles": len(value.triangles), "bytes": size,
+                 "build_s": time.perf_counter() - started, **epsilon}]})
+    candidates['far'] = value
     return candidates, stats
 
 
@@ -284,20 +221,31 @@ def raster(triangles, colours, flags, depth, rgb, mask):
                     mask[y, x] = flags[at]
 
 
-def render(value, bounds, terrain, distance, azimuth):
-    x0, y0, x1, y1 = bounds
-    centre = np.array([(x0 + x1) / 2, (y0 + y1) / 2, 0.0])
-    centre[2] = terrain(centre[None, :2])[0] + 25
-    radius = math.hypot(x1 - x0, y1 - y0) / 2 + distance
+def camera(reference_box, distance, azimuth):
+    low, high = np.asarray(reference_box)
+    centre = (low + high) / 2
     a, elevation = math.radians(azimuth), math.radians(15)
-    eye = centre + radius * np.array([math.cos(a), math.sin(a), math.tan(elevation)])
-    forward = centre - eye
-    forward /= np.linalg.norm(forward)
+    direction = np.array([math.cos(a) * math.cos(elevation),
+                          math.sin(a) * math.cos(elevation), math.sin(elevation)])
+    left, right = 0.0, np.linalg.norm(high - low) + distance
+    for _ in range(48):
+        step = (left + right) / 2
+        eye = centre + direction * step
+        actual = np.linalg.norm(np.maximum(0, np.maximum(low - eye, eye - high)))
+        if actual < distance:
+            left = step
+        else:
+            right = step
+    return centre + direction * right, -direction
+
+
+def render(value, reference_box, distance, azimuth):
+    eye, forward = camera(reference_box, distance, azimuth)
     right = np.cross(forward, [0, 0, 1])
     right /= np.linalg.norm(right)
     up = np.cross(right, forward)
     xyz = (value.vertices - eye) @ np.array([right, up, forward]).T
-    focal = 360 / math.tan(math.radians(55) / 2)
+    focal = 360 / math.tan(math.radians(60) / 2)
     projected = np.column_stack((640 + focal * xyz[:, 0] / xyz[:, 2],
                                  360 - focal * xyz[:, 1] / xyz[:, 2], xyz[:, 2]))
     depth = np.full((720, 1280), np.inf)
@@ -333,31 +281,32 @@ def png(rgb):
     return Image.fromarray(np.round(value * 255).astype(np.uint8))
 
 
-def comparisons(name, candidates, bounds, terrain, output, panels):
+def transition(epsilon, height):
+    return epsilon * height / (4 * math.tan(math.radians(60) / 2))
+
+
+def comparisons(name, candidates, costs, bounds, terrain, output, panels):
     ground = terrain_mesh(bounds, terrain)
+    original = combine([ground, candidates["fine"]])
+    reference_box = np.array([original.vertices.min(axis=0), original.vertices.max(axis=0)])
     measured = []
-    for level, distance, first, second in [
-        ("middle", 500, "flat", "roof"), ("coarse", 3000, "hulls", "heightfield"),
-        ("far", 15000, "height_albedo", "albedo")
-    ]:
+    for level in ("middle", "coarse", "far"):
+        tiles = next(c['tiles'] for c in costs if c['level'] == level)
+        distance = max(.1, transition(max(t['epsilon_m'] for t in tiles), 720))
         for azimuth in (0, 120, 240):
-            reference = render(combine([ground, candidates["fine/reference"]]),
-                               bounds, terrain, distance, azimuth)
-            rendered = [reference]
-            for candidate in (first, second):
-                value = candidates[f"{level}/{candidate}"]
-                scene = value if level == "far" else combine([ground, value])
-                result = render(scene, bounds, terrain, distance, azimuth)
-                rendered.append(result)
-                metrics = error(reference, result)
-                measured.append({"city": name, "level": level, "candidate": candidate,
-                                 "distance_to_bounding_sphere_m": distance,
-                                 "azimuth_deg": azimuth, **metrics})
-                png(result[0]).save(output / f"{level}-{candidate}-{azimuth}.png")
+            reference = render(original, reference_box, distance, azimuth)
+            value = candidates[level]
+            scene = value if level == "far" else combine([ground, value])
+            result = render(scene, reference_box, distance, azimuth)
+            eye, _ = camera(reference_box, distance, azimuth)
+            measured.append({"city": name, "level": level, "distance_to_reference_aabb_m": distance,
+                             "azimuth_deg": azimuth, "eye_xyz_m": eye.tolist(),
+                             "reference_aabb": reference_box.tolist(), **error(reference, result)})
+            png(result[0]).save(output / f"{level}-{azimuth}.png")
             png(reference[0]).save(output / f"{level}-fine-{azimuth}.png")
-            row = Image.new("RGB", (1920, 380), "#18202b")
-            labels = ["Fine recipe reference", first, second]
-            masks = np.logical_or.reduce([m for _, m in rendered])
+            difference = np.minimum(1, np.abs(reference[0] - result[0]) * 4)
+            rendered = [reference[0], result[0], difference]
+            masks = reference[1] | result[1]
             yy, xx = np.nonzero(masks)
             width = min(1280, max(int(xx.max() - xx.min()) + 33,
                                   (int(yy.max() - yy.min()) + 33) * 16 / 9))
@@ -365,12 +314,13 @@ def comparisons(name, candidates, bounds, terrain, output, panels):
             left = np.clip((xx.min() + xx.max() - width) / 2, 0, 1280 - width)
             top = np.clip((yy.min() + yy.max() - height) / 2, 0, 720 - height)
             crop = tuple(map(int, (left, top, left + width, top + height)))
+            row = Image.new("RGB", (1920, 380), "#18202b")
             draw = ImageDraw.Draw(row)
-            for col, ((rgb, _), label) in enumerate(zip(rendered, labels)):
+            for col, (rgb, label) in enumerate(zip(rendered, ['Fine recipe', level, 'abs RGB x4'])):
                 row.paste(png(rgb).crop(crop).resize((640, 360), Image.Resampling.NEAREST),
                           (640 * col, 20))
                 draw.text((640 * col + 8, 4),
-                          f"{name} {azimuth} deg | {label} | crop {crop}", fill="white")
+                          f"{name} {azimuth} deg | {label} | d={distance:.1f}m | crop {crop}", fill="white")
             panels[level].append(row)
     return measured
 
@@ -381,6 +331,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     started = time.perf_counter()
+    reference_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     args.output.mkdir(parents=True, exist_ok=True)
     report, panels = [], {level: [] for level in ("middle", "coarse", "far")}
     for name, tile in CASES.items():
@@ -388,11 +339,9 @@ def main():
         output.mkdir(exist_ok=True)
         buildings, bounds, terrain, receipts = inputs(args.cache, tile)
         candidates, costs = build_candidates(buildings, bounds, terrain, output)
-        measurements = comparisons(name, candidates, bounds, terrain, output, panels)
-        complete_coarse = coarse_check(args.cache, tile, output)
+        measurements = comparisons(name, candidates, costs, bounds, terrain, output, panels)
         report.append({"city": name, "bounds": bounds, "source_buildings": len(buildings),
-                       "sources": receipts, "costs": costs, "images": measurements,
-                       "complete_z12_countercheck": complete_coarse})
+                       "sources": receipts, "costs": costs, "images": measurements})
         (args.output / f"{name}-results.json").write_text(json.dumps(report[-1], indent=2, allow_nan=False) + "\n")
         print(f"{name}: {len(buildings)} buildings; {time.perf_counter() - started:.1f} s", flush=True)
     for level, rows in panels.items():
@@ -400,10 +349,11 @@ def main():
         for index, row in enumerate(rows):
             image.paste(row, (0, index * 380))
         image.save(args.output / f"{level}-comparison.png")
-    result = {"raster": [1280, 720], "vertical_fov_deg": 55, "view_elevation_deg": 15,
-              "reference_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+    result = {"raster": [1280, 720], "vertical_fov_deg": 60, "view_elevation_deg": 15,
+              "reference_commit": reference_commit,
               "roof_reference": "inferred gable: min(3 m, quarter OBB width, .3 height); flat >=30 m or >=900 m2",
-              "limitations": "Unlit recipe reference, not native fine capture. Cache has no roof tags. Image comparison covers one z14 source window per city (fine z16, middle z14, coarse z15 windows, far z14 window); full z12 massing checked separately. Full z10 source coverage absent. No frame-time acceptance.",
+              "epsilon_method": "Bidirectional triangle-centroid distance plus source covering radius <=1m; conservative upper bound, not AABB lower bound. Zero for identical geometry.",
+              "limitations": "Accepted unlit source/roof reference. One z14 source window per city, adaptive geometry leaves <=20000 triangles; far payload at 8m/texel on the same window. No native frame-time acceptance.",
               "elapsed_s": time.perf_counter() - started, "cases": report}
     (args.output / "results.json").write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")
     print(f"total {result['elapsed_s']:.1f} s", flush=True)

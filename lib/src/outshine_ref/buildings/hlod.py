@@ -10,6 +10,7 @@ import numpy as np
 import shapely
 from shapely.geometry import LineString, Polygon, box
 from shapely.ops import split
+from scipy.spatial import cKDTree
 
 
 @dataclass(frozen=True)
@@ -72,27 +73,72 @@ def roof_pieces(polygon, rise, frame=None):
     return polygons(split(polygon, ridge)), (centre, axis, half_width)
 
 
-def extrusions(buildings, *, roofs=True, tolerance=0.0):
+def roof_height(building, xy, roofs=True):
+    xy = np.asarray(xy)
+    rise = min(building.roof_rise, building.height * .45) if roofs else 0.0
+    if rise <= 0:
+        return np.full(len(xy), building.base + building.height)
+    centre, axis, half_width = building.roof_frame or roof_axis(building.footprint)
+    across = np.abs((xy - centre) @ axis) / half_width
+    return building.base + building.height - rise * np.minimum(across, 1)
+
+
+def visible_wall(a, b, building, neighbours, roofs):
+    """Subtract shared vertical intervals; preserve exposed steps and gables."""
+    top = roof_height(building, np.array([a, b]), roofs)
+    wall = Polygon([(0, building.base), (1, building.base), (1, top[1]), (0, top[0])])
+    edge = LineString([a, b])
+    normal = np.array([a[1] - b[1], b[0] - a[0]]) / edge.length
+    if building.footprint.contains(shapely.Point((a + b) / 2 + normal * 1e-6)):
+        normal = -normal
+    for other in neighbours:
+        shared = edge.intersection(other.footprint.boundary)
+        lines = [shared] if isinstance(shared, LineString) else getattr(shared, "geoms", ())
+        for line in lines:
+            if not isinstance(line, LineString) or line.length < 1e-8:
+                continue
+            middle = np.asarray(line.interpolate(.5, normalized=True).coords)[0]
+            if not other.footprint.contains(shapely.Point(middle + normal * 1e-6)):
+                continue
+            u0, u1 = sorted(edge.project(shapely.Point(p), normalized=True)
+                            for p in (line.coords[0], line.coords[-1]))
+            breaks = [u0, u1]
+            centre, axis, _ = other.roof_frame or roof_axis(other.footprint)
+            slope = float((b - a) @ axis)
+            if slope != 0:
+                ridge = float((centre - a) @ axis) / slope
+                if u0 < ridge < u1:
+                    breaks.insert(1, ridge)
+            for left, right in zip(breaks[:-1], breaks[1:]):
+                heights = roof_height(other, a + np.array([left, right])[:, None] * (b - a), roofs)
+                hidden = Polygon([(left, other.base), (right, other.base),
+                                  (right, heights[1]), (left, heights[0])])
+                wall = wall.difference(hidden)
+    triangles = []
+    for part in polygons(wall):
+        for face in shapely.constrained_delaunay_triangles(part).geoms:
+            uz = np.asarray(face.exterior.coords)[:3]
+            triangles.append(np.column_stack((a + uz[:, :1] * (b - a), uz[:, 1])))
+    return triangles
+
+
+def extrusions(buildings, *, roofs=True, tolerance=0.0, remove_shared=False):
     """Preserve holes; simplify in metres; keep total top height for flat roofs."""
+    buildings = [replace(b, footprint=b.footprint.simplify(tolerance, preserve_topology=True),
+                         roof_frame=b.roof_frame or roof_axis(b.footprint)) for b in buildings]
+    tree = shapely.STRtree([b.footprint for b in buildings]) if remove_shared else None
     triangles, colours = [], []
-    for building in buildings:
-        p = building.footprint.simplify(tolerance, preserve_topology=True)
+    for index, building in enumerate(buildings):
+        p = building.footprint
         rise = min(building.roof_rise, building.height * .45) if roofs else 0.0
         parts, axes = roof_pieces(p, rise, building.roof_frame)
         boundary = p.boundary.buffer(1e-7)
-
-        def top(xy):
-            if axes is None:
-                return np.full(len(xy), building.base + building.height)
-            centre, axis, half_width = axes
-            across = np.abs((xy - centre) @ axis) / half_width
-            return building.base + building.height - rise * np.minimum(across, 1)
 
         for part in parts:
             faces = shapely.constrained_delaunay_triangles(part)
             for face in faces.geoms:
                 xy = np.asarray(face.exterior.coords)[:3]
-                triangles.append(np.column_stack((xy, top(xy))))
+                triangles.append(np.column_stack((xy, roof_height(building, xy, roofs))))
                 colours.append(np.asarray(building.colour) * .72)
             for ring in [part.exterior, *part.interiors]:
                 xy = np.asarray(ring.coords)
@@ -100,11 +146,11 @@ def extrusions(buildings, *, roofs=True, tolerance=0.0):
                     edge = LineString([a, b])
                     if not boundary.covers(edge):
                         continue
-                    low = np.array([[*a, building.base], [*b, building.base]])
-                    high = np.column_stack((np.array([a, b]), top(np.array([a, b]))))
-                    triangles.extend([[low[0], low[1], high[1]],
-                                      [low[0], high[1], high[0]]])
-                    colours.extend([building.colour, building.colour])
+                    neighbours = [] if tree is None else [buildings[int(i)] for i in
+                        tree.query(edge, predicate="intersects") if int(i) != index]
+                    faces = visible_wall(a, b, building, neighbours, roofs)
+                    triangles.extend(faces)
+                    colours.extend([building.colour] * len(faces))
     return mesh(triangles, colours)
 
 
@@ -128,29 +174,79 @@ def partition(buildings, bounds, divisions):
 
 
 def block_hulls(buildings, bounds):
-    """Close with a 5 m radius, convex hull per connected block, 4 m DP.
+    """Top-ASL groups span at most 4 m; towers retain their original body/roof.
 
-    Area-weighted top and base follow #1958. This intentionally exposes tower loss:
-    a 4 m footprint tolerance is not a bound on the resulting 3D height error.
+    Tower rule matches the native form classifier: height >19 m and >2*span.
+    Groups close with a 5 m mitre buffer; each connected block gets one convex
+    hull, DP 4 m, area-weighted base/top/colour. Error must be measured afterwards.
     """
-    if not buildings:
-        return mesh([], [])
-    footprints = [b.footprint for b in buildings]
-    tree = shapely.STRtree(footprints)
-    closed = shapely.union_all(footprints).buffer(5, join_style=2).buffer(-5, join_style=2)
-    result = []
-    for component in polygons(closed.intersection(box(*bounds))):
-        indices = tree.query(component, predicate="intersects")
-        members = [buildings[int(i)] for i in indices]
-        if not members:
-            continue
-        footprint = component.convex_hull.simplify(4, preserve_topology=True)
-        weights = [b.footprint.area for b in members]
-        base = np.average([b.base for b in members], weights=weights)
-        top = np.average([b.base + b.height for b in members], weights=weights)
-        colour = np.average([b.colour for b in members], axis=0, weights=weights)
-        result.append(Building(footprint, base, top - base, 0.0, tuple(colour)))
-    return extrusions(result, roofs=False)
+    result, groups = [], []
+    for b in sorted(buildings, key=lambda b: b.base + b.height):
+        span = 2 * (b.roof_frame or roof_axis(b.footprint))[2]
+        if b.height > 19 and b.height > 2 * span:
+            result.append(b)
+        elif not groups or b.base + b.height - (groups[-1][0].base + groups[-1][0].height) > 4:
+            groups.append([b])
+        else:
+            groups[-1].append(b)
+    for group in groups:
+        footprints = [b.footprint for b in group]
+        tree = shapely.STRtree(footprints)
+        closed = shapely.union_all(footprints).buffer(5, join_style=2).buffer(-5, join_style=2)
+        for component in polygons(closed.intersection(box(*bounds))):
+            members = [group[int(i)] for i in tree.query(component, predicate="intersects")]
+            if not members:
+                continue
+            weights = [b.footprint.area for b in members]
+            base = float(np.average([b.base for b in members], weights=weights))
+            top = float(np.average([b.base + b.height for b in members], weights=weights))
+            colour = np.average([b.colour for b in members], axis=0, weights=weights)
+            result.append(Building(component.convex_hull.simplify(4, preserve_topology=True),
+                                   base, top - base, 0.0, tuple(colour)))
+    return extrusions(result, remove_shared=True)
+
+
+def surface_samples(value, radius=1.0):
+    """Centroids cover every triangle: longest-edge splits until radius <=1 m."""
+    faces = value.vertices[value.triangles].astype(np.float64)
+    samples, covering = [], 0.0
+    while len(faces):
+        centres = faces.mean(axis=1)
+        extent = np.linalg.norm(faces - centres[:, None], axis=2).max(axis=1)
+        done = extent <= radius
+        if done.any():
+            samples.append(centres[done])
+            covering = max(covering, float(extent[done].max()))
+        faces = faces[~done]
+        if not len(faces):
+            break
+        edges = np.roll(faces, -1, axis=1) - faces
+        longest = np.einsum("ijk,ijk->ij", edges, edges).argmax(axis=1)
+        rows = np.arange(len(faces))
+        a, b, c = (faces[rows, (longest + i) % 3] for i in range(3))
+        midpoint = (a + b) / 2
+        faces = np.concatenate((np.stack((a, midpoint, c), axis=1),
+                                np.stack((midpoint, b, c), axis=1)))
+    return np.concatenate(samples) if samples else np.empty((0, 3)), covering
+
+
+def geometric_error(reference, variant, radius=1.0):
+    """Symmetric surface-distance upper bound, including sample covering radius.
+
+    Nearest sampled target points lie on its triangles. Adding the source covering
+    radius therefore bounds unsampled surface points too; AABB lower bounds do not.
+    """
+    if (np.array_equal(reference.vertices, variant.vertices)
+            and np.array_equal(reference.triangles, variant.triangles)):
+        return {"epsilon_m": 0.0, "sampled_max_m": 0.0, "cover_radius_m": 0.0}
+    a, ra = surface_samples(reference, radius)
+    b, rb = surface_samples(variant, radius)
+    if not len(a) or not len(b):
+        raise ValueError("both surfaces must contain geometry")
+    ab = float(cKDTree(b).query(a, workers=1)[0].max())
+    ba = float(cKDTree(a).query(b, workers=1)[0].max())
+    return {"epsilon_m": max(ab + ra, ba + rb) + 1e-6,
+            "sampled_max_m": max(ab, ba), "cover_radius_m": max(ra, rb)}
 
 
 @dataclass(frozen=True)

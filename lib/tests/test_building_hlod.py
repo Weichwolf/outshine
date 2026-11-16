@@ -4,7 +4,7 @@ import numpy as np
 from shapely.geometry import Polygon, box
 
 from outshine_ref.buildings.hlod import (
-    Building, bake, block_hulls, combine, extrusions, partition, remesh,
+    Building, bake, block_hulls, combine, extrusions, geometric_error, mesh, partition, remesh,
 )
 
 
@@ -49,9 +49,31 @@ class BuildingHlod(unittest.TestCase):
         flat = remesh(field, heights=ground)
         self.assertTrue(np.all(flat.vertices[:, 2] == 5))
 
-    def test_area_weighted_block_height_exposes_tower_loss(self):
+    def test_height_groups_keep_towers_and_separate_height_steps(self):
         a = Building(box(0, 0, 10, 10), 5, 100, 0, (.5, .4, .3))
         b = Building(box(12, 0, 22, 10), 5, 10, 0, (.3, .4, .5))
         result = block_hulls([a, b], (0, 0, 22, 10))
-        self.assertEqual(result.vertices[:, 2].max(), 60)
-        self.assertGreater(a.base + a.height - result.vertices[:, 2].max(), 4)
+        self.assertEqual(result.vertices[:, 2].max(), 105)
+        short = Building(box(0, 0, 10, 10), 5, 12, 0, (.5, .4, .3))
+        grouped = block_hulls([short, b], (0, 0, 22, 10))
+        self.assertEqual(grouped.vertices[:, 2].max(), 16)
+
+    def test_shared_wall_is_removed_but_exposed_height_step_stays(self):
+        a = Building(box(0, 0, 10, 10), 0, 10, 0, (.5, .5, .5))
+        b = Building(box(10, 0, 20, 10), 0, 6, 0, (.5, .5, .5))
+        value = extrusions([a, b], remove_shared=True)
+        faces = value.vertices[value.triangles]
+        shared = faces[np.all(np.isclose(faces[:, :, 0], 10), axis=1)]
+        area = np.linalg.norm(np.cross(shared[:, 1] - shared[:, 0],
+                                       shared[:, 2] - shared[:, 0]), axis=1).sum() / 2
+        self.assertAlmostEqual(area, 40)
+        duplicate = extrusions([a, a], remove_shared=True)
+        self.assertTrue(np.any(duplicate.vertices[:, 2] == 0))
+
+    def test_surface_error_bounds_distance_between_translated_planes(self):
+        vertices = np.array([[[0, 0, 0], [4, 0, 0], [0, 4, 0]]])
+        reference = mesh(vertices, [(1, 1, 1)])
+        variant = mesh(vertices + (0, 0, 1.5), [(1, 1, 1)])
+        error = geometric_error(reference, variant)
+        self.assertGreaterEqual(error['epsilon_m'], 1.5)
+        self.assertLessEqual(error['epsilon_m'], 3.5)
