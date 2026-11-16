@@ -58,6 +58,16 @@ class BuildingHlod(unittest.TestCase):
         grouped = block_hulls([short, b], (0, 0, 22, 10))
         self.assertEqual(grouped.vertices[:, 2].max(), 16)
 
+    def test_bake_preserves_unoccupied_terrain_and_negative_building_tops(self):
+        ground = np.full((5, 5), -30.0)
+        empty = bake([], (0, 0, 4, 4), ground, 4)
+        self.assertTrue(np.all(empty.height == -30))
+        building = Building(box(1.1, 1.1, 1.9, 1.9), -20, 5, 0, (.5, .5, .5))
+        occupied = bake([building], (0, 0, 4, 4), ground, 4)
+        self.assertTrue(np.all(occupied.height[1:3, 1:3] == -15))
+        self.assertEqual(occupied.height[0, 0], -30)
+        self.assertEqual(occupied.height[-1, -1], -30)
+
     def test_shared_wall_is_removed_but_exposed_height_step_stays(self):
         a = Building(box(0, 0, 10, 10), 0, 10, 0, (.5, .5, .5))
         b = Building(box(10, 0, 20, 10), 0, 6, 0, (.5, .5, .5))

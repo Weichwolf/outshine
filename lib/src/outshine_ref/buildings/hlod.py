@@ -288,7 +288,7 @@ def bake(buildings, bounds, ground, cells=64):
     """
     x0, y0, x1, y1 = bounds
     step = np.array([x1 - x0, y1 - y0]) / cells
-    height = np.zeros((cells, cells), np.float64)
+    height = np.full((cells, cells), -np.inf, np.float64)
     coverage = np.zeros_like(height)
     colour = np.zeros((cells, cells, 3), np.float64)
     for b in sorted(buildings, key=lambda b: b.base + b.height, reverse=True):
@@ -305,7 +305,7 @@ def bake(buildings, bounds, ground, cells=64):
         contribution = np.minimum(area, free)
         colour[yy, xx] += contribution[..., None] * np.array(b.colour) * .72
         coverage[yy, xx] += contribution
-        height[yy, xx] = np.maximum(height[yy, xx], np.where(area > 0, b.base + b.height, 0))
+        height[yy, xx] = np.maximum(height[yy, xx], np.where(area > 0, b.base + b.height, -np.inf))
     colour += (1 - coverage[..., None]) * np.array([.12, .16, .09])
     nodes = np.asarray(ground, dtype=np.float64).copy()
     if nodes.shape != (cells + 1, cells + 1):
