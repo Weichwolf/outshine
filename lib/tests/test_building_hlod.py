@@ -48,3 +48,10 @@ class BuildingHlod(unittest.TestCase):
         self.assertEqual(hull.vertices[:, 2].max(), 205)
         flat = remesh(field, heights=ground)
         self.assertTrue(np.all(flat.vertices[:, 2] == 5))
+
+    def test_area_weighted_block_height_exposes_tower_loss(self):
+        a = Building(box(0, 0, 10, 10), 5, 100, 0, (.5, .4, .3))
+        b = Building(box(12, 0, 22, 10), 5, 10, 0, (.3, .4, .5))
+        result = block_hulls([a, b], (0, 0, 22, 10))
+        self.assertEqual(result.vertices[:, 2].max(), 60)
+        self.assertGreater(a.base + a.height - result.vertices[:, 2].max(), 4)

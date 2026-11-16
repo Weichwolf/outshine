@@ -119,7 +119,9 @@ def coarse_sources(cache, tile):
             for b in members:
                 footprint = affinity.affine_transform(
                     b.footprint, [factor, 0, 0, factor, *offset])
-                buildings.append(replace(b, footprint=footprint, roof_frame=roof_axis(footprint)))
+                centre, axis, half_width = b.roof_frame
+                frame = (centre * factor + offset, axis, half_width * factor)
+                buildings.append(replace(b, footprint=footprint, roof_frame=frame))
             receipts.extend(sources)
     return buildings, (0, 0, side, side), receipts, parent
 
@@ -136,26 +138,34 @@ def source_height_check(buildings, candidate):
     points = np.concatenate([np.column_stack((np.asarray(b.footprint.exterior.coords)[:-1],
                             np.full(len(b.footprint.exterior.coords) - 1,
                                     b.base + b.height - b.roof_rise))) for b in buildings])
+    tree = shapely.STRtree(shapely.box(low[:, 0], low[:, 1], high[:, 0], high[:, 1]))
     maximum, count, witness = 0.0, 0, None
-    for start in range(0, len(points), 128):
-        batch = points[start:start + 128]
-        delta = np.maximum(0, np.maximum(low[None] - batch[:, None], batch[:, None] - high[None]))
-        distances = np.sqrt(np.einsum("ijk,ijk->ij", delta, delta)).min(axis=1)
+    radius = 32.0
+    for start in range(0, len(points), 4096):
+        batch = points[start:start + 4096]
+        first, second = tree.query(shapely.box(batch[:, 0] - radius, batch[:, 1] - radius,
+                                              batch[:, 0] + radius, batch[:, 1] + radius))
+        delta = np.maximum(0, np.maximum(low[second] - batch[first], batch[first] - high[second]))
+        distances = np.full(len(batch), radius)
+        np.minimum.at(distances, first, np.sqrt(np.einsum("ij,ij->i", delta, delta)))
         count += int(np.count_nonzero(distances > 4))
         at = int(np.argmax(distances))
         if distances[at] > maximum:
             maximum, witness = float(distances[at]), batch[at].tolist()
     return {"sampled_eave_corners": len(points), "corners_proven_over_4m": count,
-            "maximum_distance_lower_bound_m": maximum, "witness_local_xyz_m": witness}
+            "maximum_distance_lower_bound_m": maximum, "lower_bound_cap_m": radius,
+            "witness_local_xyz_m": witness}
 
 
 def coarse_check(cache, tile, output):
     started = time.perf_counter()
     buildings, bounds, receipts, parent = coarse_sources(cache, tile)
+    print(f"z12 {parent}: {len(buildings)} source buildings, {time.perf_counter() - started:.1f} s inputs", flush=True)
     build_start = time.perf_counter()
     value = block_hulls(buildings, bounds)
     size = save_mesh(output / "complete-z12-hulls.npz", value)
     built = time.perf_counter() - build_start
+    print(f"z12 {parent}: {len(value.triangles)} hull triangles, {built:.1f} s build", flush=True)
     check = source_height_check(buildings, value)
     return {"tile": parent, "source_buildings": len(buildings), "sources": receipts,
             "triangles": len(value.triangles), "bytes": size, "build_s": built,
@@ -344,8 +354,12 @@ def comparisons(name, candidates, bounds, terrain, output, panels):
             labels = ["Fine recipe reference", first, second]
             masks = np.logical_or.reduce([m for _, m in rendered])
             yy, xx = np.nonzero(masks)
-            crop = (max(0, int(xx.min()) - 16), max(0, int(yy.min()) - 16),
-                    min(1280, int(xx.max()) + 17), min(720, int(yy.max()) + 17))
+            width = min(1280, max(int(xx.max() - xx.min()) + 33,
+                                  (int(yy.max() - yy.min()) + 33) * 16 / 9))
+            height = width * 9 / 16
+            left = np.clip((xx.min() + xx.max() - width) / 2, 0, 1280 - width)
+            top = np.clip((yy.min() + yy.max() - height) / 2, 0, 720 - height)
+            crop = tuple(map(int, (left, top, left + width, top + height)))
             draw = ImageDraw.Draw(row)
             for col, ((rgb, _), label) in enumerate(zip(rendered, labels)):
                 row.paste(png(rgb).crop(crop).resize((640, 360), Image.Resampling.NEAREST),
@@ -374,6 +388,7 @@ def main():
         report.append({"city": name, "bounds": bounds, "source_buildings": len(buildings),
                        "sources": receipts, "costs": costs, "images": measurements,
                        "complete_z12_countercheck": complete_coarse})
+        (args.output / f"{name}-results.json").write_text(json.dumps(report[-1], indent=2, allow_nan=False) + "\n")
         print(f"{name}: {len(buildings)} buildings; {time.perf_counter() - started:.1f} s", flush=True)
     for level, rows in panels.items():
         image = Image.new("RGB", (1920, len(rows) * 380))
