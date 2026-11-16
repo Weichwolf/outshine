@@ -13,7 +13,7 @@ from place_turn import turn_scenario
 
 PROFILES = {"rtx3060": (1920, 1080, 60), "iris": (1280, 720, 30),
             "a18": (1280, 720, 30)}
-CASES = (("Still", 1), ("Drehung", 1), ("Flug", 10))
+CASES = (("Still", 300), ("Drehung", 300), ("Flug", None))
 ERRORS = (OSError, ValueError, KeyError, TypeError, RuntimeError,
           subprocess.TimeoutExpired, ET.ParseError)
 
@@ -27,6 +27,29 @@ def number(value, budget=None):
         return "n/v"
     text = f"{value:.2f}"
     return f"**{text}**" if budget is not None and value > budget else text
+
+
+def startup_and_peak(reports, gpu=False):
+    windows = []
+    for report in reports:
+        if gpu:
+            if report["gpu_times"]["frame"] is None:
+                return {"startup_p99_ms": None, "max_ms": None, "worst_run": None,
+                        "worst_frame": None}
+            samples = sorted(report["gpu_times"]["samples"], key=lambda s: s["submission"])
+            values = [s["elapsed_ms"] for s in samples]
+        else:
+            values = [s["frame_ms"] for s in report["cpu_times"]["samples"]]
+        if not values or any(not math.isfinite(v) or v < 0 for v in values):
+            raise ValueError("frame samples must be finite, nonnegative and nonempty")
+        windows.append(values)
+    peaks = [max(values) for values in windows]
+    peak = median(peaks)
+    run = peaks.index(peak)
+    # Nearest-rank p99, matching native QuantileOf; all startup frames remain measured.
+    startup = [sorted(values[:10])[math.ceil(len(values[:10]) * .99) - 1] for values in windows]
+    return {"startup_p99_ms": median(startup), "max_ms": peak, "worst_run": run + 1,
+            "worst_frame": windows[run].index(peak) + 1}
 
 
 def driver_metadata():
@@ -59,16 +82,19 @@ def selected_driver(metadata, gpu, override):
 
 def declaration(source, profile, turning):
     width, height, rate = PROFILES[profile]
-    text, view, angular = turn_scenario(source, rate)
+    text, view, angular = turn_scenario(source, 300 if turning else rate)
     root = ET.fromstring(text)
     render = root.find("render")
     render.set("widthPx", str(width))
     render.set("heightPx", str(height))
+    render.set("fps", str(rate))
     if not turning:
         views = root.find("views")
         for extra in list(views)[1:]:
             views.remove(extra)
         angular = "0,0,0"
+    else:
+        angular = ",".join(format(float(v) * rate / 300, ".17g") for v in angular.split(","))
     return ET.tostring(root, encoding="unicode"), view, angular
 
 
@@ -88,11 +114,17 @@ def validate_report(report, options, frames, angular, linear):
     expected_gpu = {"rtx3060": "RTX 3060", "iris": "Iris", "a18": "A18"}[options.bench_profile]
     if expected_gpu not in report["gpu"]:
         raise ValueError(f"GPU {report['gpu']} does not match profile {options.bench_profile}")
+    if report["backend"] != ("Metal" if options.bench_profile == "a18" else "Vulkan"):
+        raise ValueError("native benchmark backend does not match the device profile")
+    if report["build"]["commit"] != options.commit:
+        raise ValueError("native benchmark build does not match the current clean commit")
     profile, motion = report["profile"], report["motion"]
     if (profile["width_px"], profile["height_px"], profile["fps"]) != (width, height, rate):
         raise ValueError("native benchmark used a different resolution or rate")
     if motion["frames"] != frames or len(report["cpu_times"]["samples"]) != frames:
         raise ValueError("native benchmark used a different measurement window")
+    if report["gpu_times"]["frame"] is not None and len(report["gpu_times"]["samples"]) != frames:
+        raise ValueError("native benchmark did not time every GPU frame")
     for distribution in (report["cpu_times"]["frame"], report["gpu_times"]["frame"]):
         if distribution is not None and any(not math.isfinite(distribution[k]) or distribution[k] < 0
                                             for k in ("p50_ms", "p99_ms")):
@@ -147,6 +179,8 @@ def summarize(reports):
         "gpu_p50_ms": field("gpu_times", "frame", "p50_ms"),
         "gpu_p99_ms": field("gpu_times", "frame", "p99_ms"),
         "cpu_encoding_ms": median(encoding),
+        "cpu_extremes": startup_and_peak(reports),
+        "gpu_extremes": startup_and_peak(reports, gpu=True),
         "draws_last": median([m.get("geometry draw records") for m in metrics]),
         "triangles_last": median(triangles),
         "peak_rss_bytes": field("process_memory", "peak_resident_bytes"),
@@ -159,7 +193,7 @@ def summarize(reports):
 
 
 def run_case(source, case, options, invoke, deadline, seed=None):
-    name, seconds = case
+    name, frames = case
     if name == "Flug" and seed is None:
         raise ValueError("flight needs a measured native start pose")
     work = options.reports / source.stem / name
@@ -168,6 +202,7 @@ def run_case(source, case, options, invoke, deadline, seed=None):
     prepared = work / "scene.scenario"
     prepared.write_text(text)
     rate = PROFILES[options.bench_profile][2]
+    frames = frames or rate * 10
     linear = forward_velocity(seed) if name == "Flug" else "0,0,0"
     reports = []
     # A full untabulated traversal warms the same persistent cache before all three runs.
@@ -176,16 +211,16 @@ def run_case(source, case, options, invoke, deadline, seed=None):
         if remaining <= 0:
             raise TimeoutError("benchmark exceeded --max-seconds")
         folder = work / ("warmup" if run == 0 else str(run))
-        report = invoke(prepared, view, options, folder, rate * seconds, angular, linear,
+        report = invoke(prepared, view, options, folder, frames, angular, linear,
                         timeout=remaining)
-        validate_report(report, options, rate * seconds, angular, linear)
+        validate_report(report, options, frames, angular, linear)
         if run:
             reports.append(report)
     identity = [(r["gpu"], r["cpu"], r["backend"], r["build"]["commit"]) for r in reports]
     if len(set(identity)) != 1:
         raise ValueError("device or build changed between repetitions")
     result = summarize(reports)
-    result.update({"place": source.stem, "case": name, "frames": rate * seconds,
+    result.update({"place": source.stem, "case": name, "frames": frames,
                    "report_paths": [str(work / str(run) / "benchmark.json") for run in (1, 2, 3)],
                    "gpu": reports[0]["gpu"], "cpu": reports[0]["cpu"],
                    "backend": reports[0]["backend"], "commit": reports[0]["build"]["commit"]})
@@ -196,6 +231,13 @@ def table_row(row, budget):
     values = [row["place"], row["case"]]
     values.extend(number(row.get(k), budget) for k in
                   ("cpu_p50_ms", "cpu_p99_ms", "gpu_p50_ms", "gpu_p99_ms"))
+    for key in ("cpu_extremes", "gpu_extremes"):
+        extreme = row.get(key, {})
+        values.append(number(extreme.get("startup_p99_ms"), budget))
+        peak = number(extreme.get("max_ms"), budget)
+        if extreme.get("worst_frame") is not None:
+            peak += f" (L{extreme['worst_run']}/F{extreme['worst_frame']})"
+        values.append(peak)
     values.extend(number(row.get(k), limit) for k, limit in
                   (("draws_last", 300), ("triangles_last", 1_500_000)))
     for key in ("peak_rss_bytes", "gpu_allocated_bytes_after"):
@@ -237,14 +279,18 @@ def benchmark_places(available, selected, options, invoke):
             print(f"{name}/{case[0]}: {'vollständig' if row['complete'] else 'unvollständig'}",
                   file=sys.stderr, flush=True)
     print(f"Profil {options.bench_profile}: {width}×{height}, {rate} fps, {budget:.2f} ms. "
-          "Drei Läufe, Median; fett = über Budget. Draws/Dreiecke: letzter Frame; "
+          "Drei Läufe, Median; fett = über Budget. Still/Drehung: 300 Frames, eine volle Drehung; "
+          "Flug: zehn Sekunden mit 100 m/s. Anlauf: erste zehn Frames, weiter im Gesamtergebnis. "
+          "Max: Median der Laufmaxima mit zugehörigem Lauf/Frame (1-basiert). "
+          "Draws/Dreiecke: letzter Frame; "
           "GPU-MiB: Allokation nach Messung, kein Peak. GPU-Passzeiten: noch nicht verfügbar.")
     for cpu, gpu, driver, commit in sorted(identities):
         print(f"CPU: {cpu}; GPU: {gpu}; Treiber: {driver}; Commit: {commit}.")
     print("\n| Place | Lastfall | CPU p50 ms | CPU p99 ms | GPU p50 ms | GPU p99 ms | "
+          "CPU Anlauf p99 ms | CPU Max ms (L/F) | GPU Anlauf p99 ms | GPU Max ms (L/F) | "
           "Draws (letzt.) | Dreiecke (letzt.) | Peak-RSS MiB | GPU MiB (danach) | "
           "Laden warm ms | Vollständig | CPU-Encoding ms | GPU-Pässe |")
-    print("|" + " --- |" * 14)
+    print("|" + " --- |" * 18)
     for row in output["rows"]:
         print(table_row(row, budget))
     print(f"\nJSON: {options.reports / 'results.json'}; Dauer: {output['elapsed_s']:.1f} s.")

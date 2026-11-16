@@ -24,7 +24,8 @@ class PlaceBench(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.options = SimpleNamespace(bench_profile="rtx3060", reports=self.root,
-                                       max_seconds=900, driver="test driver", check_budget=False)
+                                       max_seconds=900, driver="test driver", check_budget=False,
+                                       commit="test commit")
         self.source = ROOT / "test/outshine/data/places/Husum.scenario"
         self.calls = []
 
@@ -46,14 +47,17 @@ class PlaceBench(unittest.TestCase):
                        "start": {"world_from_camera": MATRIX, "position_m": [0, 0, 0]},
                        "finish": {"world_from_camera": MATRIX,
                                   "position_m": [v * frames / rate for v in velocity]}},
-            "cpu_times": {"frame": distribution, "samples": [{}] * frames},
-            "gpu_times": {"frame": distribution},
+            "cpu_times": {"frame": distribution, "samples": [{"frame_ms": timing}] * frames},
+            "gpu_times": {"frame": distribution,
+                          "samples": [{"submission": i + 1, "elapsed_ms": timing}
+                                      for i in range(frames)]},
             "process_memory": {"peak_resident_bytes": 2**20 * index},
             "gpu_memory": {"resource_allocated_bytes": 2**20 * index},
             "phases_ms": {"preload": timing}, "metrics": [],
             "measurement_complete": True, "world_complete": True, "unrefined_frames": 0,
             "gpu": {"rtx3060": "RTX 3060", "iris": "Iris Xe Graphics", "a18": "Apple A18 Pro"}
-                   [self.options.bench_profile], "cpu": "test CPU", "backend": "Vulkan",
+                   [self.options.bench_profile], "cpu": "test CPU",
+            "backend": "Metal" if self.options.bench_profile == "a18" else "Vulkan",
             "build": {"commit": "test commit"},
         }
         return copy.deepcopy(report)
@@ -67,7 +71,7 @@ class PlaceBench(unittest.TestCase):
                                     self.options, invoke or self.invoke)
         return code, json.loads((self.root / "results.json").read_text()), stdout.getvalue()
 
-    def test_profiles_measure_one_second_turn_and_ten_second_flight_three_times(self):
+    def test_profiles_measure_300_frame_turn_and_ten_second_flight_three_times(self):
         for profile, (width, height, rate) in PROFILES.items():
             with self.subTest(profile=profile):
                 self.options.bench_profile = profile
@@ -78,8 +82,9 @@ class PlaceBench(unittest.TestCase):
                 self.assertEqual(len(self.calls), 12)  # warmup + three repetitions per case
                 for case, run, frames, hz, angular, linear in self.calls:
                     self.assertEqual(hz, rate)
-                    self.assertEqual(frames, rate * (10 if case == "Flug" else 1))
-                    self.assertEqual(angular, "0,-360,0" if case == "Drehung" else "0,0,0")
+                    self.assertEqual(frames, rate * 10 if case == "Flug" else 300)
+                    self.assertEqual(angular, f"0,{-360 * rate // 300},0"
+                                     if case == "Drehung" else "0,0,0")
                     self.assertEqual(linear, "0,0,-100" if case == "Flug" else "0,0,0")
                 for row in result["rows"]:
                     self.assertEqual(row["cpu_p50_ms"], 7)
@@ -118,7 +123,7 @@ class PlaceBench(unittest.TestCase):
         self.assertTrue(all(not row["complete"] for row in result["rows"]))
 
     def test_wrong_profile_and_motion_fail_the_row(self):
-        for changed in ("profile", "motion", "gpu"):
+        for changed in ("profile", "motion", "gpu", "commit"):
             with self.subTest(changed=changed):
                 def wrong(*args, **kwargs):
                     report = self.invoke(*args, **kwargs)
@@ -126,8 +131,10 @@ class PlaceBench(unittest.TestCase):
                         report["profile"]["width_px"] = 32
                     elif changed == "motion":
                         report["motion"]["finish"]["position_m"] = [1, 0, 0]
-                    else:
+                    elif changed == "gpu":
                         report["gpu"] = "llvmpipe"
+                    else:
+                        report["build"]["commit"] = "old commit"
                     return report
 
                 code, result, _ = self.run_driver(wrong)
@@ -146,6 +153,26 @@ class PlaceBench(unittest.TestCase):
         self.assertTrue(all(row["gpu_p99_ms"] is None for row in result["rows"]))
         self.assertEqual(number(None), "n/v")
         self.assertEqual(number(17, 1000 / 60), "**17.00**")
+
+    def test_startup_and_peak_keep_spikes_and_their_actual_run_and_frame(self):
+        def spikes(*args, **kwargs):
+            report = self.invoke(*args, **kwargs)
+            run = int(args[3].name) if args[3].name != "warmup" else 0
+            report["cpu_times"]["samples"][0] = {"frame_ms": 30 + run}
+            report["cpu_times"]["samples"][-1] = {"frame_ms": 100 + run}
+            report["gpu_times"]["samples"][0]["elapsed_ms"] = 40 + run
+            report["gpu_times"]["samples"][-1]["elapsed_ms"] = 200 + run
+            report["gpu_times"]["samples"].reverse()
+            return report
+
+        code, result, table = self.run_driver(spikes)
+        self.assertEqual(code, 0)
+        for row in result["rows"]:
+            self.assertEqual(row["cpu_extremes"], {"startup_p99_ms": 32, "max_ms": 102,
+                                                   "worst_run": 2, "worst_frame": row["frames"]})
+            self.assertEqual(row["gpu_extremes"], {"startup_p99_ms": 42, "max_ms": 202,
+                                                   "worst_run": 2, "worst_frame": row["frames"]})
+        self.assertIn("**102.00** (L2/F300)", table)
 
 
 if __name__ == "__main__":
