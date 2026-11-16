@@ -250,12 +250,15 @@ id<MTLRenderCommandEncoder> Render(id self, SEL sel, MTLRenderPassDescriptor *de
   if ((encoder != nullptr) && !encoderPatched) {
     const Class cls = object_getClass(encoder);
     pipelineOriginal = Patch(cls, @selector(setRenderPipelineState:), (IMP)Pipeline);
-    indexedOriginal = Patch(cls,
-                            @selector(drawIndexedPrimitives:indexCount:indexType:indexBuffer:
-                                      indexBufferOffset:instanceCount:baseVertex:baseInstance:));
+    indexedOriginal =
+        Patch(cls,
+              @selector(drawIndexedPrimitives:
+                                   indexCount:indexType:indexBuffer:indexBufferOffset:instanceCount
+                                             :baseVertex:baseInstance:));
     indirectOriginal = Patch(cls,
-                             @selector(drawIndexedPrimitives:indexType:indexBuffer:
-                                       indexBufferOffset:indirectBuffer:indirectBufferOffset:),
+                             @selector(drawIndexedPrimitives:
+                                                   indexType:indexBuffer:indexBufferOffset
+                                                            :indirectBuffer:indirectBufferOffset:),
                              (IMP)Indirect);
     drawOriginal =
         Patch(cls, @selector(drawPrimitives:vertexStart:vertexCount:instanceCount:baseInstance:));
@@ -347,11 +350,11 @@ id<MTLComputeCommandEncoder> Compute(id self, SEL sel) {
     const Class cls = object_getClass(encoder);
     computePipelineOriginal = Patch(cls, @selector(setComputePipelineState:), (IMP)ComputePipeline);
     dispatchOriginal = Patch(cls, @selector(dispatchThreadgroups:threadsPerThreadgroup:));
-    indirectDispatchOriginal = Patch(
-        cls,
-        @selector(
-            dispatchThreadgroupsWithIndirectBuffer:indirectBufferOffset:threadsPerThreadgroup:),
-        (IMP)IndirectDispatch);
+    indirectDispatchOriginal =
+        Patch(cls,
+              @selector(dispatchThreadgroupsWithIndirectBuffer:
+                                          indirectBufferOffset:threadsPerThreadgroup:),
+              (IMP)IndirectDispatch);
     computeEncoderPatched = true;
   }
   if (encoder != nil) {

@@ -372,9 +372,7 @@ bool GeometryPageResidency::ValidateStore(TileCell address,
     error = "staged geometry cohort needs its canonical source cell anchor";
     return false;
   }
-  if (staged && !ValidateStage(address.Tile, baked, sourceKey, error)) {
-    return false;
-  }
+  if (staged && !ValidateStage(address.Tile, baked, sourceKey, error)) { return false; }
   if (!staged && address.Cell != 0) {
     const uint64_t cell = uint64_t{1} << (address.Cell - 1u);
     if (baked.OccupiedCells != 0 && baked.OccupiedCells != cell) {
