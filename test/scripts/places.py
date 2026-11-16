@@ -48,7 +48,7 @@ def keep_latest(image, directory, name):
 
 
 def benchmark_report(prepared, view, options, work, frames, angular="0,0,0",
-                     linear="0,0,0", timeout=240):
+                     linear="0,0,0", timeout=None):
     work.mkdir(parents=True, exist_ok=True)
     image = work / "image.png"
     report_path = work / "benchmark.json"
@@ -92,7 +92,8 @@ def benchmark_report(prepared, view, options, work, frames, angular="0,0,0",
             stdout=log,
             stderr=subprocess.STDOUT,
             env=environment,
-            timeout=min(options.preload_seconds + 120, timeout),
+            timeout=(options.preload_seconds + 120 if timeout is None
+                     else min(options.preload_seconds + 120, timeout)),
         )
     if result.returncode:
         raise RuntimeError(
