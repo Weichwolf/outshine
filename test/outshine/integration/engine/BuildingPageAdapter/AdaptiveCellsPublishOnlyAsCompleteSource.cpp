@@ -116,15 +116,11 @@ void RefineAndRestore(Fixture &fixture) {
         "fixed detail can coexist with its visible adaptive source cell");
   CHECK(fixture.Pieces.ActivateCells(
             kTile, {.Key = kNewSource, .Occupied = 3}, selected, fixture.Error) &&
-            fixture.Pieces.CellsActive(kTile, selected, kNewSource) &&
-            !fixture.Pieces.HasProjectedTile(
-                kTile, {.Key = kNewSource, .Occupied = 3}, {}, kProjection),
-        "a mixed adaptive/fixed selection is complete without claiming fully adaptive readiness");
+            fixture.Pieces.CellsActive(kTile, selected, kNewSource),
+        "a mixed adaptive/fixed selection covers the complete source");
   CHECK(fixture.Pieces.ActivateCells(
             kTile, {.Key = kNewSource, .Occupied = 3}, kCells, fixture.Error) &&
-            fixture.Depth() == depth &&
-            fixture.Pieces.HasProjectedTile(
-                kTile, {.Key = kNewSource, .Occupied = 3}, {}, kProjection),
+            fixture.Depth() == depth,
         "resident adaptive details restore without rebuilding or duplicating visible cells");
 }
 
@@ -137,7 +133,6 @@ void Publish(Fixture &fixture) {
             kTile, BuildingPageView(whole, fixture.Materials).View(), origin, error, kOldSource),
         "the previous complete source revision is visible");
   const auto oldDepth = fixture.Depth();
-  const auto oldDigest = pieces.Digest();
   CHECK(oldDepth > 0, "the old revision has real depth coverage");
   const auto first = Mesh(1, 1);
   const auto second = Mesh(1, 2);
@@ -150,7 +145,7 @@ void Publish(Fixture &fixture) {
                                                   .Footprints = std::nullopt};
   CHECK(!pieces.StageCell(
             kTile, 1, BuildingPageView(first, fixture.Materials).View(), origin, error, 0) &&
-            pieces.Digest() == oldDigest,
+            fixture.Depth() == oldDepth,
         "adaptive cell addresses still require a source revision");
   CHECK(PublishStructureSource(pieces, firstLanding, fixture.Materials, error) &&
             fixture.Depth() == oldDepth && fixture.Visible().size() == 1,
@@ -158,10 +153,8 @@ void Publish(Fixture &fixture) {
   CHECK(PublishStructureSource(pieces, firstLanding, fixture.Materials, error) &&
             fixture.Depth() == oldDepth && fixture.Visible().size() == 1,
         "restarting an incomplete source releases hidden children and preserves the old world");
-  CHECK(!pieces.HasProjectedTile(kTile, {.Key = kNewSource, .Occupied = 3}, {}, kProjection),
-        "an incomplete hidden source cannot claim a ready projected tile");
   CHECK(!pieces.ActivateCells(kTile, {.Key = kNewSource, .Occupied = 3}, kCells, error) &&
-            fixture.Depth() == oldDepth && pieces.Digest() == oldDigest,
+            fixture.Depth() == oldDepth && fixture.Visible().size() == 1,
         "missing children cannot replace the old complete world");
   CHECK(
       pieces.StageCell(
@@ -178,20 +171,6 @@ void Publish(Fixture &fixture) {
                                          !record.Detail;
                                 }),
         "visible capture provenance contains exactly the adaptive source cells");
-  CHECK(pieces.CellsActive(kTile, kCells, kNewSource) &&
-            pieces.HasProjectedTile(kTile, {.Key = kNewSource, .Occupied = 3}, {}, kProjection),
-        "the full active adaptive set satisfies the existing projected readiness query");
-  CHECK(!pieces.HasProjectedTile(kTile, {.Key = kOldSource, .Occupied = 3}, {}, kProjection) &&
-            !pieces.HasProjectedTile(kTile, {.Key = kNewSource, .Occupied = 1}, {}, kProjection),
-        "readiness rejects the old revision and incomplete source masks");
-  CHECK(
-      !pieces.HasProjectedTile(kTile,
-                               {.Key = kNewSource, .Occupied = 3},
-                               {.LongitudeDeg = 1, .LatitudeDeg = 0},
-                               kProjection) &&
-          !pieces.HasProjectedTile(
-              kTile, {.Key = kNewSource, .Occupied = 3}, {}, {.FocalPx = kProjection.FocalPx / 2}),
-      "adaptive readiness keeps camera-reuse and projection limits");
   RefineAndRestore(fixture);
   constexpr uint32_t kInitialTile = kTile + 1;
   StructureBuildQueue::Landing initial{.Tile = kInitialTile,

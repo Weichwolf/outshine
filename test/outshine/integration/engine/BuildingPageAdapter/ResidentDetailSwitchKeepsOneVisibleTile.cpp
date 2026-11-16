@@ -20,7 +20,6 @@ constexpr uint64_t kShellDigest = 22;
 constexpr uint64_t kRevisedDigest = 44, kAutomaticDigest = 33, kRefreshedDigest = 34;
 constexpr uint64_t kCellDigest = 55, kNextFirstDigest = 77, kNextSecondDigest = 88;
 constexpr uint64_t kProjectedDigest = 99, kWholeDigest = 111;
-constexpr double kLatitudeDeg = 47, kFocalPx = 720, kOutsideLongitudeDeg = 9.01;
 
 struct MeshInput {
   float NorthM;
@@ -455,41 +454,6 @@ void CheckIndependentCells(Fixture &fixture) {
         "forgetting the tile releases both resident variants");
 }
 
-void CheckProjectedCoverage(Fixture &fixture) {
-  auto projected =
-      MakeMesh({.NorthM = 0.0f, .Digest = kProjectedDigest, .Detail = LevelOfDetail::Fine});
-  projected.RequestedDetail.reset();
-  projected.OccupiedCells = 3;
-  projected.SelectedView = Generators::StructureSelectionDomain(
-      {.LongitudeDeg = 9, .LatitudeDeg = kLatitudeDeg}, {.FocalPx = kFocalPx});
-  CHECK(fixture.pieces.Upload(7,
-                              BuildingPageView(projected, fixture.materials).View(),
-                              fixture.frame.OriginEcef(),
-                              fixture.error,
-                              kAutomaticDigest),
-        "a selected plan product publishes as one native tile");
-  CHECK(fixture.pieces.HasProjectedTile(7,
-                                        {.Key = kAutomaticDigest, .Occupied = 3},
-                                        {.LongitudeDeg = 9, .LatitudeDeg = kLatitudeDeg},
-                                        {.FocalPx = kFocalPx}),
-        "the matching view reuses complete roundabout geometry without forced cell variants");
-  CHECK(!fixture.pieces.HasProjectedTile(
-            7,
-            {.Key = kAutomaticDigest, .Occupied = 3},
-            {.LongitudeDeg = kOutsideLongitudeDeg, .LatitudeDeg = kLatitudeDeg},
-            {.FocalPx = kFocalPx}) &&
-            !fixture.pieces.HasProjectedTile(7,
-                                             {.Key = kAutomaticDigest, .Occupied = 1},
-                                             {.LongitudeDeg = 9, .LatitudeDeg = kLatitudeDeg},
-                                             {.FocalPx = kFocalPx}) &&
-            !fixture.pieces.HasProjectedTile(7,
-                                             {.Key = kAutomaticDigest, .Occupied = 3},
-                                             {.LongitudeDeg = 9, .LatitudeDeg = kLatitudeDeg},
-                                             {.FocalPx = 1440}),
-        "movement, incomplete source coverage and changed projection cannot reuse the product");
-  fixture.pieces.Retire(7);
-}
-
 void CheckIntrinsicParents(Fixture &fixture) {
   constexpr uint64_t kSource = 123;
   auto first = MakeMesh({.NorthM = 0, .Digest = 201, .Detail = LevelOfDetail::Fine});
@@ -562,7 +526,6 @@ int main() {
       CheckSourceRevision(fixture);
       CheckWholeFallback(fixture);
       CheckIndependentCells(fixture);
-      CheckProjectedCoverage(fixture);
       CheckIntrinsicParents(fixture);
     }
   }

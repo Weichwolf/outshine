@@ -509,33 +509,6 @@ bool GeometryPageResidency::HasIntrinsicTile(uint32_t tile,
   return covered == source.Occupied;
 }
 
-bool GeometryPageResidency::HasProjectedTile(uint32_t tile,
-                                             CellSource source,
-                                             LongitudeLatitude eye,
-                                             ProjectedErrorBudget projection,
-                                             std::optional<Vec3> eyeEcef,
-                                             GeometryPasses passes) const noexcept {
-  if (source.Key == 0) { return false; }
-  const auto first = std::ranges::lower_bound(Pages_, std::pair{tile, uint32_t{0}}, {}, AddressOf);
-  const auto last = std::find_if(
-      first, Pages_.end(), [tile](const ResidentGeometryPage &held) { return held.Tile != tile; });
-  uint64_t covered = 0;
-  for (auto at = first; at != last; ++at) {
-    if (!at->Visible || (at->Passes != GeometryPasses::MainAndShadow && at->Passes != passes)) {
-      continue;
-    }
-    if (at->Detail || at->SourceKey != source.Key || !at->SelectedView ||
-        !at->SelectedView->Contains(eye, projection, eyeEcef)) {
-      return false;
-    }
-    if (at->Cell == 0) { return at->OccupiedCells == source.Occupied; }
-    if (at->Cell > kGeometryPageCellsMost) { return false; }
-    if (at->OccupiedCells == 0 || (covered & at->OccupiedCells) != 0) { return false; }
-    covered |= at->OccupiedCells;
-  }
-  return source.Occupied != 0 && covered == source.Occupied;
-}
-
 bool GeometryPageResidency::CellsActive(uint32_t tile,
                                         std::span<const CellSelection> selected,
                                         uint64_t sourceKey) const noexcept {

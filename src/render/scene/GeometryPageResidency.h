@@ -138,12 +138,6 @@ public:
                                       CellSource source,
                                       GeometryPasses passes = GeometryPasses::Main,
                                       bool includeHidden = false) const noexcept;
-  [[nodiscard]] bool HasProjectedTile(uint32_t tile,
-                                      CellSource source,
-                                      LongitudeLatitude eye,
-                                      ProjectedErrorBudget projection,
-                                      std::optional<Vec3> eyeEcef = std::nullopt,
-                                      GeometryPasses passes = GeometryPasses::Main) const noexcept;
   [[nodiscard]] bool CellsActive(uint32_t tile,
                                  std::span<const CellSelection> selected,
                                  uint64_t sourceKey) const noexcept;
