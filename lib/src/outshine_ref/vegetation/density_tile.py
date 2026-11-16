@@ -14,6 +14,7 @@ class DensityTile:
     height_m: np.ndarray
     forest_fraction: np.ndarray
     slope_deg: np.ndarray
+    available: object
 
 
 def spruce_density(wood, blocked, ground_nodes, bounds, latitude, *,
@@ -49,7 +50,7 @@ def spruce_density(wood, blocked, ground_nodes, bounds, latitude, *,
     present = density > 0
     return DensityTile(tuple(bounds), density, present.astype(np.uint8),
                        np.where(present, height_m, 0).astype(np.float32),
-                       fraction.astype(np.float32), slope.astype(np.float32))
+                       fraction.astype(np.float32), slope.astype(np.float32), available)
 
 
 def pack_density(tile, *, density_max, species_height_m):
@@ -70,10 +71,16 @@ def pack_density(tile, *, density_max, species_height_m):
 def canopy_inputs(tile, ground_nodes, *, crown_width_m, leaf_albedo_linear):
     """Terrain height offset, coverage and linear albedo; material bake inputs.
 
-    Coverage uses projected crown area and the declared stem density. The height
-    envelope retains the species top where trees occur; it is not ground height.
+    Crowns are clipped to available forest, with no spill into reservations.
+    Density is averaged over the complete cell; coverage is the available area
+    fraction times occupancy inside that area. Height nodes obey the same exact
+    footprint. Subcell reservations must still be retained by the native bake;
+    interpolation of this eight-metre reference alone cannot resolve thin paths.
     """
-    coverage = -np.expm1(-tile.density * np.pi * (crown_width_m / 2) ** 2)
+    fraction = tile.forest_fraction.astype(np.float64)
+    conditional_density = np.zeros_like(fraction)
+    np.divide(tile.density, fraction, out=conditional_density, where=fraction > 0)
+    coverage = fraction * -np.expm1(-conditional_density * np.pi * (crown_width_m / 2) ** 2)
     linear = np.asarray(leaf_albedo_linear, dtype=np.float64)
     if linear.shape != (3,) or not np.isfinite(linear).all() or np.any((linear < 0) | (linear > 1)):
         raise ValueError('energy-bounded linear leaf reflection required')
@@ -81,6 +88,10 @@ def canopy_inputs(tile, ground_nodes, *, crown_width_m, leaf_albedo_linear):
     for dy, dx in ((0, 0), (1, 0), (0, 1), (1, 1)):
         part = offset[dy:dy + tile.density.shape[0], dx:dx + tile.density.shape[1]]
         np.maximum(part, tile.height_m, out=part)
+    x0, y0, x1, y1 = tile.bounds
+    xx, yy = np.meshgrid(np.linspace(x0, x1, offset.shape[1]),
+                         np.linspace(y0, y1, offset.shape[0]))
+    offset[~shapely.intersects_xy(tile.available, xx, yy)] = 0
     return {'height_offset_m': offset.astype(np.float32),
             'coverage': coverage.astype(np.float32),
             'leaf_albedo_linear': np.broadcast_to(linear, (*tile.density.shape, 3)).astype(np.float32)}

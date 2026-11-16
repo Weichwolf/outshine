@@ -42,3 +42,17 @@ class VegetationDensity(unittest.TestCase):
         self.assertEqual(result['coverage'][-1, -1], 0)
         self.assertAlmostEqual(float(result['coverage'][0, 0]), 1 - np.exp(-.033 * np.pi * 9))
         np.testing.assert_allclose(result['leaf_albedo_linear'][0, 0], (.04, .09, .025))
+
+    def test_partial_forest_coverage_and_reserved_path_remain_open(self):
+        ground = np.full((3, 3), 1700.)
+        field = density(ground, wood=box(0, 0, 15, 20))
+        result = canopy_inputs(field, ground, crown_width_m=6,
+                               leaf_albedo_linear=(.04, .09, .025))
+        occupied = 1 - np.exp(-.033 * np.pi * 9)
+        np.testing.assert_allclose(result['coverage'][:, 1], .5 * occupied, rtol=1e-6)
+        self.assertTrue(np.all(result['height_offset_m'][:, -1] == 0))
+        road = density(ground, blocked=box(9, -1, 11, 21))
+        along_road = canopy_inputs(road, ground, crown_width_m=6,
+                                   leaf_albedo_linear=(.04, .09, .025))
+        np.testing.assert_allclose(along_road['coverage'], .9 * occupied, rtol=1e-6)
+        self.assertTrue(np.all(along_road['height_offset_m'][:, 1] == 0))

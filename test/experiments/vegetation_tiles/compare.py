@@ -6,6 +6,7 @@ Existing sources only. Diagnostic maps, no vegetation renderer or FPS claim.
 """
 
 import argparse
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -25,6 +26,7 @@ from outshine_ref.places.native_cache import cached_tile
 from outshine_ref.places.sources import covering_tiles
 from outshine_ref.vegetation.density_tile import canopy_inputs, pack_density, spruce_density
 from outshine_ref.vegetation.leaf_optics import LeafOpticsTable
+from outshine_ref.vegetation.octahedral_capture import capture_directions
 
 
 REVISION = '20261025_080012_pt'
@@ -123,6 +125,62 @@ def diagnostic(records, side, origin, camera, fov, bearing, output):
     image.save(output / 'forest-density-canopy.png')
 
 
+def canopy_edge_diagnostic(records, output):
+    record = max(records, key=lambda r: float((r['old_coverage'] - r['canopy']['coverage']).max()))
+    field = record['field']
+    delta = record['old_coverage'] - record['canopy']['coverage']
+    row, column = np.unravel_index(np.argmax(delta), delta.shape)
+    lo_y, lo_x = max(0, row - 4), max(0, column - 4)
+    hi_y, hi_x = min(len(delta), row + 5), min(len(delta), column + 5)
+    patch = (slice(lo_y, hi_y), slice(lo_x, hi_x))
+    pixels = 48
+    width, height = (hi_x - lo_x) * pixels, (hi_y - lo_y) * pixels
+    image = Image.new('RGB', (3 * width, height + 100), 'white')
+    draw = ImageDraw.Draw(image)
+    arrays = (field.forest_fraction[patch], record['old_coverage'][patch],
+              record['canopy']['coverage'][patch])
+    for index, (values, label) in enumerate(zip(arrays, ('Available area f', 'Before: 1-exp(-rho_mean*A)',
+                                                        'After: f*(1-exp(-rho_inside*A))'))):
+        draw.text((index * width + 8, 8), label, fill='black')
+        for y, values_row in enumerate(values[::-1]):
+            for x, value in enumerate(values_row):
+                left, top = index * width + x * pixels, 34 + y * pixels
+                green = int(value * 220)
+                draw.rectangle((left, top, left + pixels - 1, top + pixels - 1), fill=(15, green, 22))
+                draw.text((left + 4, top + 15), f'{value:.2f}', fill='white')
+    fraction = float(field.forest_fraction[row, column])
+    draw.text((8, height + 45), f'Largest correction in tile {record["tile"]}, cell {row}/{column}; '
+              f'f={fraction:.4f}, coverage {record["old_coverage"][row, column]:.4f}'
+              f' -> {record["canopy"]["coverage"][row, column]:.4f}', fill='black')
+    draw.text((8, height + 65), 'Each square is one approximately 8 m cell. Crowns are clipped to '
+              'the available forest footprint; no outward crown spill.', fill='black')
+    image.save(output / 'canopy-edge-correction.png')
+
+
+def capture_recipe(output):
+    directions = capture_directions()
+    recipe = {'recipe': 'full-octahedron-grid-8-v1',
+              'species_file': 'data/world/species/spruce.json',
+              'species_sha256': hashlib.sha256(Path('data/world/species/spruce.json').read_bytes()).hexdigest(),
+              'Shape': {'Pixels': 256, 'Views': 64}, 'ViewDirections': directions.tolist(),
+              'layout': {'columns': 8, 'rows': 8, 'view_index': 'row*8+column',
+                         'square_u': '2*column/7-1', 'square_v': '2*row/7-1',
+                         'axes': 'native y-up, unit vector from prototype toward eye',
+                         'boundary': 'full sphere; duplicated folded-edge samples are intentional',
+                         'image_texel_rows': 'existing native per-view top-down order, unchanged'},
+              'capture': {'source': 'TreePrototype::InstancedGeometryAt(0), existing Bark/Leaf/Placements',
+                          'baker': 'Render::ImpostorBaker::Capture, explicit ViewDirections',
+                          'projection': 'existing ProjectionFor centre and half extent; orthographic',
+                          'cache': 'include full-octahedron-grid-8-v1 in provenance; reject old horizontal-ring hits',
+                          'channels': 'retain existing ImpostorAtlas Texels (normal, depth, surface id), Materials '
+                                      '(linear BaseColour, Roughness, Metalness), Surfaces including thin-sheet '
+                                      'reflection/transmission; no baked illumination or new GPU image layout'},
+              'status': 'capture input, not a baked tree atlas or an image-quality acceptance',
+              'primary_sources': ['https://jcgt.org/published/0003/02/01/',
+                                  'https://dev.epicgames.com/documentation/en-us/unreal-engine/impostor-baker-plugin-in-unreal-engine']}
+    (output / 'spruce-capture.json').write_text(json.dumps(recipe, indent=2) + '\n')
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--cache', type=Path, required=True)
@@ -163,28 +221,42 @@ def main():
         canopy = canopy_inputs(field, ground, crown_width_m=species['spread_m'],
                                 leaf_albedo_linear=optical[0])
         packed = pack_density(field, density_max=density_max, species_height_m=species['height_m'])
+        old_coverage = -np.expm1(-field.density * np.pi * (species['spread_m'] / 2) ** 2)
         filename = '-'.join(map(str, tile)) + '.npz'
         np.savez(args.output / filename, density_r32_uint=packed.astype('<u4'),
-                 ground_asl_m=ground.astype('<f4'), **canopy)
+                 ground_asl_m=ground.astype('<f4'), available_fraction=field.forest_fraction, **canopy)
         statistics.append({'tile': tile, 'side_m': tile_side, 'cells': cells,
                            'cell_spacing_m': tile_side / cells, 'wood_m2': wood.area,
                            'available_wood_m2': wood.difference(blocked).area,
                            'expected_stems_whole_tile': float(field.density.sum() * (tile_side / cells) ** 2),
+                           'canopy_covered_m2': float(canopy['coverage'].sum() * (tile_side / cells) ** 2),
+                           'previous_canopy_covered_m2': float(old_coverage.sum() * (tile_side / cells) ** 2),
                            'view_expected_stems_no_occlusion': view_counts(
                                field, tile, side, camera, origin, fov, float(at.get('bearingDeg'))),
                            'asset_bytes': (args.output / filename).stat().st_size,
                            'sources': receipts})
         records.append({'tile': tile, 'field': field, 'water': water,
-                        'blocked': blocked, 'canopy': canopy})
+                        'blocked': blocked, 'canopy': canopy, 'old_coverage': old_coverage})
     diagnostic(records, side, origin, camera, fov, float(at.get('bearingDeg')), args.output)
+    canopy_edge_diagnostic(records, args.output)
+    capture_recipe(args.output)
     report = {'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
-              'recipe': 'spruce-mapped-forest-v1', 'vector_revision': REVISION,
+              'recipe': 'spruce-mapped-forest-v2', 'vector_revision': REVISION,
               'diagnostic_reference_side_m': side,
               'packing': {'format': 'R32_UINT', 'bits_0_15': 'density UNORM * density_max_m2',
                           'bits_16_23': 'species: 0 empty, 1 spruce',
                           'bits_24_31': 'height UNORM * species_height_m',
                           'rows': 'south to north', 'density_max_m2': density_max,
                           'species_height_m': species['height_m']},
+              'boundary_semantics': {'density': 'rho_mean = f*rho_inside, stems per complete cell square metre',
+                                     'coverage': 'f*(1-exp(-rho_inside*pi*crown_radius_m^2))',
+                                     'footprint': 'crowns clipped to wood minus reservations; no outward crown spill',
+                                     'height': 'top envelope only at nodes inside the available footprint',
+                                     'sampling': 'native sites use rho_inside=rho_mean/f at eligible predecessor points; '
+                                                 'uniform whole-cell scatter of rho_mean followed by rejection would '
+                                                 'incorrectly multiply expected stems by f again',
+                                     'available_fraction': 'offline bake input; existing R32 density/art/height layout unchanged',
+                                     'subcell': '8m inputs do not replace exact predecessor reservations for thin paths'},
               'camera': {'latitude': latitude, 'longitude': longitude, 'horizontal_fov_deg': fov,
                          'bearing_deg': float(at.get('bearingDeg'))},
               'canopy_material': {'leaf_reflection_linear': optical[0].tolist(),
