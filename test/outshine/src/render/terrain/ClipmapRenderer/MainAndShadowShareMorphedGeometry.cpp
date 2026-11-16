@@ -33,8 +33,10 @@ void Populate(ClipmapHeightCache &cache, Vec2 camera, bool warped) {
   const auto samples = update->Samples();
   const auto points = update->Positions();
   for (size_t i = 0; i < points.size(); ++i) {
-    samples[i] = static_cast<float>(0.2 + points[i][0] * kEastSlope + points[i][1] * kNorthSlope +
-                                    (warped ? 0.1 * std::sin(points[i][0] * 0.8) : 0));
+    const auto east = points[i][0] - camera[0];
+    const auto north = points[i][1] - camera[1];
+    samples[i] = static_cast<float>(0.2 + east * kEastSlope + north * kNorthSlope +
+                                    (warped ? 0.1 * std::sin(east * 0.8) : 0));
   }
   Require(cache.Validate(*update).has_value()
               ? Result<void>{}
@@ -105,7 +107,7 @@ struct OutputImages {
   Texture &Normal;
 };
 
-void CheckOutputs(Device &device, OutputImages images) {
+void CheckOutputs(Device &device, OutputImages images, bool warped) {
   const auto pixels = Read(device, images.Depth, 1);
   const auto shadowPixels = Read(device, images.Shadow, 1);
   CHECK(std::ranges::all_of(pixels, [](float value) { return value > 0; }),
@@ -113,6 +115,18 @@ void CheckOutputs(Device &device, OutputImages images) {
   for (size_t i = 0; i < pixels.size(); ++i) {
     CHECK(std::abs(pixels[i] - shadowPixels[i]) < 1e-6f,
           "main and shadow use the same morphed surface");
+  }
+  if (!warped) {
+    float largestError = 0;
+    for (uint32_t y = 0; y < kHeight; ++y) {
+      for (uint32_t x = 0; x < kWidth; ++x) {
+        const float east = 20 * (2 * (static_cast<float>(x) + .5f) / kWidth - 1);
+        const float north = 20 * (1 - 2 * (static_cast<float>(y) + .5f) / kHeight);
+        const float expected = .5f + .1f * (.2f + east * kEastSlope + north * kNorthSlope);
+        largestError = std::max(largestError, std::abs(pixels[size_t{y} * kWidth + x] - expected));
+      }
+    }
+    CHECK(largestError < 1e-5f, "every terrain pixel matches the independent analytic height");
   }
   auto normal = Vec3{{-kEastSlope, 1, kNorthSlope}};
   CHECK(Normalise(normal), "expected normal has a finite direction");
@@ -136,7 +150,11 @@ void Draw(Device &device,
   if (!heights || !normals) { Failed(); }
   Populate(*heights, camera, warped);
   Populate(*normals, camera, false);
-  auto records = MakeClipmapRings(*heights, *normals, {.Camera = camera, .PreviousCamera = camera});
+  const Vec3 shift{{-camera[0], 0, camera[1]}};
+  auto records = MakeClipmapRings(
+      *heights,
+      *normals,
+      {.Camera = camera, .PreviousCamera = camera, .Shift = shift, .PreviousShift = shift});
   CHECK(records.has_value(), "prepared fields bind to their ring records");
   if (!records) { Failed(); }
   const auto heightImage = HeightImage(device, *heights);
@@ -221,7 +239,7 @@ void Draw(Device &device,
     CHECK(std::ranges::all_of(Read(device, *shadow, 1), [](float value) { return value > 0; }),
           "the shadow pass retains terrain outside its depth range");
   } else {
-    CheckOutputs(device, {.Depth = *depth, .Shadow = *shadow, .Normal = *targets[1]});
+    CheckOutputs(device, {.Depth = *depth, .Shadow = *shadow, .Normal = *targets[1]}, warped);
   }
 }
 }
@@ -245,7 +263,8 @@ int main() {
       1);
   CHECK(!refused && refused.error().Kind == ErrorKind::Busy,
         "failed geometry admission keeps the previous drawable renderer");
-  for (const auto camera : {Vec2{{0.5, 0.5}}, Vec2{{2.5, 3.5}}, Vec2{{-1.5, -2.5}}}) {
+  for (const auto camera :
+       {Vec2{{0.5, 0.5}}, Vec2{{2.5, 3.5}}, Vec2{{-1.5, -2.5}}, Vec2{{1000000.5, 6000000.5}}}) {
     Draw(*device, renderer, camera, false);
     Draw(*device, renderer, camera, true);
   }

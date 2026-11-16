@@ -1,7 +1,7 @@
 layout(set = 0, binding = 0) uniform sampler2DArray clipmapHeights;
 
 float clipmapNode(ivec2 node, ivec4 address) {
-  ivec2 texel = ((node + address.xy) % address.z + address.z) % address.z;
+  ivec2 texel = (node + address.xy + address.z) % address.z;
   return texelFetch(clipmapHeights, ivec3(texel, address.w), 0).x;
 }
 
