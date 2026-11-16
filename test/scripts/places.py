@@ -188,9 +188,12 @@ def main():
     options.client = options.client.resolve()
     options.catalog = options.catalog.resolve()
     options.shots = options.shots.resolve()
-    options.reports = (
-        options.reports or Path(tempfile.mkdtemp(prefix="outshine-places-"))
-    ).resolve()
+    if options.reports is None:
+        commit = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
+                                         text=True).strip()
+        role = "mac" if options.bench and options.bench_profile == "a18" else "linux"
+        options.reports = Path(tempfile.mkdtemp(prefix=f"outshine-{role}-places-{commit}-"))
+    options.reports = options.reports.resolve()
     available = {path.stem: path for path in sorted(options.catalog.glob("*.scenario"))}
     selected = options.names or list(available)
     if not selected or any(name not in available for name in selected):

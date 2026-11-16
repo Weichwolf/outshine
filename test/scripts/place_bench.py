@@ -129,6 +129,11 @@ def summarize(reports):
 
     # These existing geometry metrics describe the final submitted frame only.
     metrics = [{m["name"]: m["value"] for m in r["metrics"]} for r in reports]
+    encoding = []
+    for report, metric in zip(reports, metrics, strict=True):
+        stages = [value for key, value in metric.items()
+                  if key.startswith("cost.stage.") and key.endswith(".total_ms")]
+        encoding.append(sum(stages) / report["motion"]["frames"] if stages else None)
     triangles = []
     for metric in metrics:
         keys = [f"{stage}, {kind} input triangles"
@@ -141,6 +146,7 @@ def summarize(reports):
         "cpu_p99_ms": field("cpu_times", "frame", "p99_ms"),
         "gpu_p50_ms": field("gpu_times", "frame", "p50_ms"),
         "gpu_p99_ms": field("gpu_times", "frame", "p99_ms"),
+        "cpu_encoding_ms": median(encoding),
         "draws_last": median([m.get("geometry draw records") for m in metrics]),
         "triangles_last": median(triangles),
         "peak_rss_bytes": field("process_memory", "peak_resident_bytes"),
@@ -154,6 +160,8 @@ def summarize(reports):
 
 def run_case(source, case, options, invoke, deadline, seed=None):
     name, seconds = case
+    if name == "Flug" and seed is None:
+        raise ValueError("flight needs a measured native start pose")
     work = options.reports / source.stem / name
     work.mkdir(parents=True, exist_ok=True)
     text, view, angular = declaration(source, options.bench_profile, name == "Drehung")
@@ -194,7 +202,7 @@ def table_row(row, budget):
         value = row.get(key)
         values.append(number(value / 2**20 if value is not None else None))
     values.extend((number(row.get("warm_load_ms")), "ja" if row["complete"] else "nein",
-                   "n/v"))
+                   number(row.get("cpu_encoding_ms")), "n/v"))
     return "| " + " | ".join(values) + " |"
 
 
@@ -235,12 +243,12 @@ def benchmark_places(available, selected, options, invoke):
         print(f"CPU: {cpu}; GPU: {gpu}; Treiber: {driver}; Commit: {commit}.")
     print("\n| Place | Lastfall | CPU p50 ms | CPU p99 ms | GPU p50 ms | GPU p99 ms | "
           "Draws (letzt.) | Dreiecke (letzt.) | Peak-RSS MiB | GPU MiB (danach) | "
-          "Laden warm ms | Vollständig | GPU-Pässe |")
-    print("|" + " --- |" * 13)
+          "Laden warm ms | Vollständig | CPU-Encoding ms | GPU-Pässe |")
+    print("|" + " --- |" * 14)
     for row in output["rows"]:
         print(table_row(row, budget))
     print(f"\nJSON: {options.reports / 'results.json'}; Dauer: {output['elapsed_s']:.1f} s.")
-    return int(any(not r["complete"] or
+    return int(len(identities) > 1 or any(not r["complete"] or
                    (options.check_budget and (r.get("cpu_p99_ms") is None or
                     r["cpu_p99_ms"] > budget or r.get("gpu_p99_ms") is None or
                     r["gpu_p99_ms"] > budget)) for r in output["rows"]))
