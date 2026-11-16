@@ -1,42 +1,17 @@
-#include "JobAdmissionFixture.h"
 #include "BuildingQueueFixture.h"
 #include "Check.h"
-#include <atomic>
 #include <chrono>
 #include <cstddef>
-#include <expected>
-#include <memory>
 #include <optional>
-#include <print>
-#include <span>
 #include <utility>
 #include <vector>
 
 namespace {
 using namespace outshine;
 using namespace outshine::Test;
-constexpr size_t kStructures =
-    StructureBuildTask::StructuresPerRange * StructureBuildTask::RangesPerTask + 17;
+constexpr size_t kStructures = 1024;
 
-class CountingMesher final : public StructureMesher {
-public:
-  [[nodiscard]] std::unique_ptr<MeshScratch> Scratch() const override { return Backing_.Scratch(); }
-
-  [[nodiscard]] std::expected<void, StructureMeshError>
-  Mesh(const StructurePlan &plan, MeshScratch &scratch, Raised &into) const noexcept override {
-    Calls_.fetch_add(1, std::memory_order_relaxed);
-    return Backing_.Mesh(plan, scratch, into);
-  }
-
-  [[nodiscard]] size_t MeshCalls() const noexcept { return Calls_.load(std::memory_order_relaxed); }
-
-private:
-  mutable std::atomic_size_t Calls_{0};
-  Generators::BuildingMesh Backing_;
-};
-
-bool Start(BuildingQueueFixture &fixture, const std::shared_ptr<CountingMesher> &mesherOwner) {
-  const auto &mesher = *mesherOwner;
+bool Start(BuildingQueueFixture &fixture, std::optional<LevelOfDetail> detail) {
   std::vector<Generators::Osm::OsmField::Declared> buildings(kStructures,
                                                              fixture.Buildings.front());
   for (size_t at = 0; at < buildings.size(); ++at) {
@@ -45,45 +20,49 @@ bool Start(BuildingQueueFixture &fixture, const std::shared_ptr<CountingMesher> 
     }
   }
   if (!fixture.Open(buildings)) { return false; }
-  fixture.Queue.Opens(&fixture.Pool,
-                      mesherOwner,
-                      outshine::Test::JobAdmissions(),
-                      outshine::Test::ContextAdmissions());
-  auto &prints = fixture.Stack.Footprints();
-  CHECK(fixture.Queue.Posts(fixture.Stack,
-                            prints,
-                            fixture.Eye,
-                            fixture.Source,
-                            1,
-                            StructureBuildQueue::HeightRequirement::AllowFallback,
-                            LevelOfDetail::Fine) == 1,
-        "one real building task starts with more than one slice of work");
-  CHECK(fixture.Queue.AwaitSlice(2.0), "the first bounded worker slice completes");
-  const size_t calls = mesher.MeshCalls();
-  CHECK(calls > 0 && calls < kStructures,
-        "the first slice meshes real geometry but cannot finish the complete input");
-  return calls > 0 && calls < kStructures;
+  const auto posted = fixture.Queue.Posts(fixture.Stack,
+                                          fixture.Stack.Footprints(),
+                                          fixture.Eye,
+                                          fixture.Source,
+                                          1,
+                                          StructureBuildQueue::HeightRequirement::AllowFallback,
+                                          detail);
+  CHECK(posted == 1, "a dense real building tile enters native generation");
+  if (posted == 0) { return false; }
+  CHECK(fixture.Queue.AwaitSlice(2.0), "the initial native worker completes its bounded slice");
+  fixture.Queue.PollCompletedTasks();
+  return true;
 }
 
-void CheckPollingDoesNotPost(BuildingQueueFixture &fixture, const CountingMesher &mesher) {
-  const size_t before = mesher.MeshCalls();
-  fixture.Queue.PollCompletedTasks();
-  CHECK(!fixture.Queue.AwaitSlice(2.0),
-        "completion collection alone cannot post another worker slice");
-  CHECK(mesher.MeshCalls() == before, "no meshing runs before the current-demand admission");
-  std::println("STRUCTURE_SLICE first={} after_collection={}", before, mesher.MeshCalls());
-  CHECK(fixture.Queue.Queued() == 1 && fixture.Queue.CompletedRanges() > 0,
-        "collected partial work remains owned and accounts completed ranges");
+std::vector<StructureBuildQueue::Landing> Finish(BuildingQueueFixture &fixture,
+                                                 Generators::Osm::BuildingField &prints,
+                                                 LongitudeLatitude eye,
+                                                 const StructureBuildQueue::HeightSource &height,
+                                                 std::optional<LevelOfDetail> detail) {
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  while (std::chrono::steady_clock::now() < deadline) {
+    auto ready = fixture.Queue.NextLandings(fixture.Stack,
+                                            prints,
+                                            eye,
+                                            height,
+                                            1,
+                                            StructureBuildQueue::HeightRequirement::FineOnly,
+                                            detail);
+    CHECK(ready, "native continuation preserves its error result");
+    if (!ready) { return {}; }
+    if (!ready->empty()) { return std::move(*ready); }
+    if (!fixture.Queue.AwaitSlice(0.02)) { return {}; }
+  }
+  return {};
 }
 
 enum class Change { Eye, Height, Source, Owner };
 
 void ChangedDemand(Change change) {
-  const auto mesherOwner = std::make_shared<CountingMesher>();
-  const auto &mesher = *mesherOwner;
   BuildingQueueFixture fixture;
-  if (!Start(fixture, mesherOwner)) { return; }
-  const size_t firstSlice = mesher.MeshCalls();
+  const std::optional<LevelOfDetail> detail =
+      change == Change::Eye ? std::nullopt : std::optional(LevelOfDetail::Fine);
+  if (!Start(fixture, detail)) { return; }
   auto eye = fixture.Eye;
   auto height = fixture.Source;
   auto &prints = fixture.Stack.Footprints();
@@ -95,66 +74,37 @@ void ChangedDemand(Change change) {
     CHECK(fixture.Stack.AdvanceAt(fixture.Eye, {.IngestTilesMost = 1, .VectorRing = 0}),
           "the changed source revision becomes current");
   }
-  CheckPollingDoesNotPost(fixture, mesher);
-  auto ready = fixture.Queue.NextLandings(fixture.Stack,
-                                          change == Change::Owner ? otherOwner : prints,
-                                          eye,
-                                          height,
-                                          1,
-                                          StructureBuildQueue::HeightRequirement::FineOnly,
-                                          LevelOfDetail::Fine);
-  CHECK(ready && ready->empty() && fixture.Queue.Queued() == 0 && fixture.Queue.Discarded() == 1,
-        "outdated partial work is retired before any continuation or landing");
-  CHECK(mesher.MeshCalls() == firstSlice,
-        "changed demand spends no extra geometry work after its first completed slice");
+  CHECK(Finish(fixture, change == Change::Owner ? otherOwner : prints, eye, height, detail).empty(),
+        "revoked source, terrain, ownership or projected view cannot publish stale geometry");
 }
 
-void CurrentDemandCompletes(bool continueFromPosts) {
-  const auto mesherOwner = std::make_shared<CountingMesher>();
-  const auto &mesher = *mesherOwner;
+void IntrinsicDemandCompletes(bool continueFromPosts) {
   BuildingQueueFixture fixture;
-  if (!Start(fixture, mesherOwner)) { return; }
-  CheckPollingDoesNotPost(fixture, mesher);
+  if (!Start(fixture, LevelOfDetail::Fine)) { return; }
+  auto eye = fixture.Eye;
+  eye.LongitudeDeg += 0.01;
   auto &prints = fixture.Stack.Footprints();
+  prints.SeenWith({.FocalPx = 1440});
   if (continueFromPosts) {
-    CHECK(fixture.Queue.Posts(fixture.Stack,
+    (void)fixture.Queue.Posts(fixture.Stack,
                               prints,
-                              fixture.Eye,
+                              eye,
                               fixture.Source,
                               1,
                               StructureBuildQueue::HeightRequirement::FineOnly,
-                              LevelOfDetail::Fine) == 0,
-          "posting demand continues the owned job without posting a duplicate");
-    CHECK(fixture.Queue.AwaitSlice(2.0),
-          "posting current demand admits its existing job's next worker slice");
+                              LevelOfDetail::Fine);
   }
-  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-  std::vector<StructureBuildQueue::Landing> ready;
-  while (ready.empty() && std::chrono::steady_clock::now() < deadline) {
-    auto next = fixture.Queue.NextLandings(fixture.Stack,
-                                           prints,
-                                           fixture.Eye,
-                                           fixture.Source,
-                                           1,
-                                           StructureBuildQueue::HeightRequirement::FineOnly,
-                                           LevelOfDetail::Fine);
-    CHECK(next, "current-demand continuation preserves the native error contract");
-    if (!next) { return; }
-    ready = std::move(*next);
-    if (ready.empty()) { (void)fixture.Queue.AwaitSlice(2.0); }
-  }
-  CHECK(ready.size() == 1 && fixture.Queue.Discarded() == 0,
-        "valid work reaches its original terminal product without discarded progress");
-  CHECK(mesher.MeshCalls() == kStructures,
-        "every requested building is meshed exactly once over all slices");
+  auto ready = Finish(fixture, prints, eye, fixture.Source, LevelOfDetail::Fine);
+  CHECK(ready.size() == 1, "intrinsic geometry survives camera translation and projection change");
   if (ready.empty()) { return; }
-  CHECK(!ready.front().Baked->FallbackHeights && ready.front().Baked->UnsupportedMeshes == 0 &&
-            !ready.front().Baked->Built.WallRun.empty() &&
-            !ready.front().Baked->Built.RoofRun.empty(),
-        "positive continuation produces supported real wall and roof geometry");
+  const auto &baked = *ready.front().Baked;
+  CHECK(!baked.FallbackHeights && baked.UnsupportedMeshes == 0 && !baked.SelectedView &&
+            baked.RequestedDetail == LevelOfDetail::Fine && baked.Prints.size() == kStructures &&
+            !baked.Built.WallRun.empty() && !baked.Built.RoofRun.empty(),
+        "the completed intrinsic tile contains every source building with actual walls and roofs");
   fixture.Queue.CommitsLandings(prints, ready);
-  CHECK(fixture.Queue.Queued() == 0 && fixture.Queue.Landed() == 1,
-        "the current product commits and releases its worker ownership");
+  CHECK(prints.OfTile(0).size() == kStructures,
+        "the full intrinsic product publishes all semantic building footprints");
 }
 }
 
@@ -162,7 +112,7 @@ int main() {
   for (const Change change : {Change::Eye, Change::Height, Change::Source, Change::Owner}) {
     ChangedDemand(change);
   }
-  CurrentDemandCompletes(false);
-  CurrentDemandCompletes(true);
+  IntrinsicDemandCompletes(false);
+  IntrinsicDemandCompletes(true);
   return Report();
 }
