@@ -12,6 +12,7 @@ import json
 import math
 from pathlib import Path
 import struct
+import subprocess
 import time
 
 import mapbox_vector_tile
@@ -222,6 +223,9 @@ def build_candidates(buildings, bounds, terrain, output):
                 started = time.perf_counter()
                 path = output / f"{level}-{name}-{index}.npz"
                 if level in ("fine", "middle"):
+                    if level == "middle" and name == "roof":
+                        members = [replace(b, roof_rise=0) if b.roof_rise <= 2 else b
+                                   for b in members]
                     value = extrusions(members, roofs=name != "flat",
                                        tolerance=0.0 if level == "fine" else 1.0)
                     size = save_mesh(path, value)
@@ -229,8 +233,9 @@ def build_candidates(buildings, bounds, terrain, output):
                     value = block_hulls(members, tile_bounds)
                     size = save_mesh(path, value)
                 else:
-                    ground = ground_nodes(tile_bounds, terrain)
-                    field = bake(members, tile_bounds, ground)
+                    cells = math.ceil((tile_bounds[2] - tile_bounds[0]) / 8) if level == "far" else 64
+                    ground = ground_nodes(tile_bounds, terrain, cells)
+                    field = bake(members, tile_bounds, ground, cells)
                     if level == "far":
                         size = save_bake(path, field, name == "height_albedo")
                         field = replace(field, colour=np.round(field.colour * 255) / 255)
@@ -396,6 +401,7 @@ def main():
             image.paste(row, (0, index * 380))
         image.save(args.output / f"{level}-comparison.png")
     result = {"raster": [1280, 720], "vertical_fov_deg": 55, "view_elevation_deg": 15,
+              "reference_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
               "roof_reference": "inferred gable: min(3 m, quarter OBB width, .3 height); flat >=30 m or >=900 m2",
               "limitations": "Unlit recipe reference, not native fine capture. Cache has no roof tags. Image comparison covers one z14 source window per city (fine z16, middle z14, coarse z15 windows, far z14 window); full z12 massing checked separately. Full z10 source coverage absent. No frame-time acceptance.",
               "elapsed_s": time.perf_counter() - started, "cases": report}
