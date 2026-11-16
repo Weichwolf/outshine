@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <optional>
@@ -158,6 +159,7 @@ std::optional<QueueSelection> SelectQueue(const Context &context, VkPhysicalDevi
 }
 
 Result<void> SelectPhysical(Context &context) {
+  const char *const requested = std::getenv("OUTSHINE_VULKAN_DEVICE");
   uint32_t count = 0;
   auto result = vkEnumeratePhysicalDevices(context.Instance, &count, nullptr);
   if (result != VK_SUCCESS) {
@@ -171,6 +173,10 @@ Result<void> SelectPhysical(Context &context) {
   for (auto *const physical : devices) {
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(physical, &properties);
+    if (requested != nullptr && *requested != '\0' &&
+        !std::string_view(properties.deviceName).contains(requested)) {
+      continue;
+    }
     const auto queue = SelectQueue(context, physical);
     if (properties.apiVersion < VK_API_VERSION_1_3 || !queue) { continue; }
     if (context.Physical != VK_NULL_HANDLE &&
@@ -184,8 +190,10 @@ Result<void> SelectPhysical(Context &context) {
     context.TimestampValidBits = queue->TimestampValidBits;
   }
   if (context.Physical == VK_NULL_HANDLE) {
-    return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
-                                 .Message = "Vulkan 1.3 graphics/compute device is unavailable"});
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported,
+              .Message = "Vulkan 1.3 graphics/compute device is unavailable" +
+                         (requested != nullptr ? std::string(": ") + requested : std::string{})});
   }
   vkGetPhysicalDeviceMemoryProperties(context.Physical, &context.MemoryProperties);
   return {};

@@ -26,6 +26,13 @@ class ScenarioBenchmark(unittest.TestCase):
                               env=env, capture_output=True, text=True, timeout=60,
                               check=False)
 
+    @unittest.skipUnless(os.uname().sysname == 'Linux', 'Vulkan device selection')
+    def test_explicit_missing_vulkan_device_never_falls_back(self):
+        result = self.invoke('--scenario', json.dumps(SCENE), '--frames', '1', '--offline',
+                             env=dict(os.environ, OUTSHINE_VULKAN_DEVICE='missing-outshine-device'))
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn('missing-outshine-device', result.stderr)
+
     def test_real_frames_motion_and_final_image(self):
         with tempfile.TemporaryDirectory(prefix='outshine-benchmark-motion-') as folder:
             output = Path(folder) / 'result.json'

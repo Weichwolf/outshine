@@ -85,6 +85,9 @@ def forward_velocity(report):
 
 def validate_report(report, options, frames, angular, linear):
     width, height, rate = PROFILES[options.bench_profile]
+    expected_gpu = {"rtx3060": "RTX 3060", "iris": "Iris", "a18": "A18"}[options.bench_profile]
+    if expected_gpu not in report["gpu"]:
+        raise ValueError(f"GPU {report['gpu']} does not match profile {options.bench_profile}")
     profile, motion = report["profile"], report["motion"]
     if (profile["width_px"], profile["height_px"], profile["fps"]) != (width, height, rate):
         raise ValueError("native benchmark used a different resolution or rate")

@@ -52,7 +52,8 @@ class PlaceBench(unittest.TestCase):
             "gpu_memory": {"resource_allocated_bytes": 2**20 * index},
             "phases_ms": {"preload": timing}, "metrics": [],
             "measurement_complete": True, "world_complete": True, "unrefined_frames": 0,
-            "gpu": "RTX 3060", "cpu": "test CPU", "backend": "Vulkan",
+            "gpu": {"rtx3060": "RTX 3060", "iris": "Iris Xe Graphics", "a18": "Apple A18 Pro"}
+                   [self.options.bench_profile], "cpu": "test CPU", "backend": "Vulkan",
             "build": {"commit": "test commit"},
         }
         return copy.deepcopy(report)
@@ -88,7 +89,7 @@ class PlaceBench(unittest.TestCase):
                     self.assertIsNone(row["triangles_last"])
                     self.assertIsNone(row["gpu_pass_ms"])
                     self.assertTrue(row["complete"])
-                self.assertIn("GPU: RTX 3060; Treiber: test driver", table)
+                self.assertIn(f"GPU: {result['rows'][0]['gpu']}; Treiber: test driver", table)
                 self.assertEqual(table.count("| Husum |"), 3)
 
     def test_failed_repetition_cannot_publish_a_successful_partial_median(self):
@@ -117,14 +118,16 @@ class PlaceBench(unittest.TestCase):
         self.assertTrue(all(not row["complete"] for row in result["rows"]))
 
     def test_wrong_profile_and_motion_fail_the_row(self):
-        for changed in ("profile", "motion"):
+        for changed in ("profile", "motion", "gpu"):
             with self.subTest(changed=changed):
                 def wrong(*args, **kwargs):
                     report = self.invoke(*args, **kwargs)
                     if changed == "profile":
                         report["profile"]["width_px"] = 32
-                    else:
+                    elif changed == "motion":
                         report["motion"]["finish"]["position_m"] = [1, 0, 0]
+                    else:
+                        report["gpu"] = "llvmpipe"
                     return report
 
                 code, result, _ = self.run_driver(wrong)

@@ -80,12 +80,18 @@ def benchmark_report(prepared, view, options, work, frames, angular="0,0,0",
         command.extend(("--cache-dir", str(options.cache_dir)))
     (work / "command.json").write_text(json.dumps(command, indent=2) + "\n")
     with (work / "run.log").open("w") as log:
+        environment = dict(os.environ)
+        if getattr(options, "bench", False) and options.bench_profile != "a18":
+            environment["OUTSHINE_VULKAN_DEVICE"] = options.device or {
+                "rtx3060": "RTX 3060", "iris": "Iris"
+            }[options.bench_profile]
         result = subprocess.run(
             command,
             check=False,
             cwd=ROOT,
             stdout=log,
             stderr=subprocess.STDOUT,
+            env=environment,
             timeout=min(options.preload_seconds + 120, timeout),
         )
     if result.returncode:
@@ -172,6 +178,7 @@ def main():
     parser.add_argument("--bench", action="store_true")
     parser.add_argument("--bench-profile", choices=("rtx3060", "iris", "a18"), default="rtx3060")
     parser.add_argument("--driver", help="selected GPU driver version, if not available from Vulkan")
+    parser.add_argument("--device", help="Vulkan device name substring (default: GPU of bench profile)")
     parser.add_argument("--max-seconds", type=float, default=900)
     options = parser.parse_args()
     if not math.isfinite(options.max_seconds) or options.max_seconds <= 0:

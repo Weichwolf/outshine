@@ -30,7 +30,8 @@ all: configure strip ## build the application through CMake/Ninja using all core
 shaders: configure ## build the native shader package
 	@$(CMAKE_BUILD) --target outshine_shaders
 
-bench: all ## benchmark twelve Places: still/turn/100 m/s flight; BENCH_PROFILE=rtx3060|iris|a18
+bench: ## benchmark twelve Places: still/turn/100 m/s flight; BENCH_PROFILE=rtx3060|iris|a18
+	@nice -n 10 $(MAKE) --no-print-directory all >&2
 	@cd "$(ROOT)" && python3 -B test/scripts/places.py --catalog "$(PLACES_CATALOG)" --client "$(BUILD_DIR)/outshine" --bench --bench-profile "$(BENCH_PROFILE)" $(BENCH_ARGS)
 
 db: configure ## generate the CMake compilation database
