@@ -99,8 +99,13 @@ using DistanceArithmetic::Subtract;
 
 std::optional<double> BoundPointDistance(const Vec3 &pointM, const Vec3 &targetM) noexcept {
   if (!Finite(pointM) || !Finite(targetM)) { return std::nullopt; }
-  const auto bound = Candidate(pointM, {targetM, targetM, targetM}, 0, 0);
-  return bound ? std::optional<double>(bound->UpperDistanceM) : std::nullopt;
+  std::array<Interval, 3> components;
+  for (size_t axis = 0; axis < components.size(); ++axis) {
+    components[axis] = Subtract({.Lower = pointM[axis], .Upper = pointM[axis]},
+                                {.Lower = targetM[axis], .Upper = targetM[axis]});
+  }
+  const double upper = DistanceArithmetic::UpperNorm(components);
+  return std::isfinite(upper) ? std::optional(upper) : std::nullopt;
 }
 
 std::optional<TriangleDistanceBound> BoundPointTriangleDistance(const Vec3 &pointM,
