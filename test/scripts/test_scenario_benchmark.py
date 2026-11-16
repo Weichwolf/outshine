@@ -33,6 +33,37 @@ class ScenarioBenchmark(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn('missing-outshine-device', result.stderr)
 
+    def test_native_pass_profile_matches_the_measured_gpu_submissions(self):
+        with tempfile.TemporaryDirectory(prefix='outshine-benchmark-passes-') as folder:
+            output = Path(folder) / 'result.json'
+            prefix = Path(folder) / 'gpu-profile'
+            environment = dict(os.environ, OUTSHINE_VULKAN_ENCODER_PROFILE=str(prefix))
+            result = self.invoke('--scenario', json.dumps(SCENE), '--frames', '8',
+                                 '--offline', '--output', str(output), env=environment)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            report = json.loads(output.read_text())
+            profiles = list(Path(folder).glob('gpu-profile.*.json'))
+            if report['backend'] != 'Vulkan':
+                self.assertEqual(profiles, [])
+                return
+            self.assertTrue(profiles)
+            submissions = {}
+            for path in profiles:
+                profile = json.loads(path.read_text())
+                self.assertEqual(profile['scope'], 'natural_render_pass_and_dispatch_boundaries')
+                for submission in profile['submissions']:
+                    submissions[profile['device'], submission['serial']] = submission
+            for frame in report['gpu_times']['samples']:
+                submission = submissions[frame['device'], frame['submission']]
+                self.assertEqual(submission['dropped_passes'], 0)
+                raster = [p for p in submission['passes'] if p['kind'] == 'render']
+                self.assertTrue(raster)
+                self.assertTrue(all(p['available'] and math.isfinite(p['gpu_ns'])
+                                    and p['gpu_ns'] >= 0 for p in submission['passes']))
+                self.assertGreaterEqual(sum(p['draw_calls'] for p in raster), 1)
+                self.assertTrue(all(p['input_primitives'] is not None for p in raster))
+                self.assertGreaterEqual(sum(p['input_primitives'] for p in raster), 1)
+
     def test_real_frames_motion_and_final_image(self):
         with tempfile.TemporaryDirectory(prefix='outshine-benchmark-motion-') as folder:
             output = Path(folder) / 'result.json'

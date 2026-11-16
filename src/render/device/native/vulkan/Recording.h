@@ -9,6 +9,7 @@
 #include "VulkanImage.h"
 #include "Pipeline.h"
 #include "Timing.h"
+#include "EncoderProfile.h"
 #include <memory>
 #include <span>
 #include <utility>
@@ -19,7 +20,10 @@ namespace outshine::Render::Native::Vulkan {
 class Recording final : public Commands {
 public:
   explicit Recording(std::shared_ptr<Context> context)
-      : Context_(std::move(context)), Timings_(*Context_), Storage_(Context_) {
+      : Context_(std::move(context)),
+        Timings_(*Context_),
+        Profiling_(*Context_, Context_->EncoderProfiling),
+        Storage_(Context_) {
     ++Context_->Recordings;
     ++Context_->OpenRecordings;
   }
@@ -46,6 +50,8 @@ public:
   }
 
   [[nodiscard]] const BindingWork &BindingCosts() const noexcept { return Storage_.Work(); }
+
+  void CollectProfile(uint64_t serial) { Profiling_.Collect(serial); }
 
   [[nodiscard]] Result<void>
   Copy(const Buffer &source, Buffer &destination, BufferCopy region) override;
@@ -130,6 +136,7 @@ private:
   std::optional<RenderState> Render_;
   std::shared_ptr<Context> Context_;
   TimingQueries Timings_;
+  EncoderProfile Profiling_;
   VkCommandPool Pool_ = VK_NULL_HANDLE;
   VkCommandBuffer Commands_ = VK_NULL_HANDLE;
   bool Finished_ = false;

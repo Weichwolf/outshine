@@ -39,7 +39,9 @@ struct CompletedTiming {
 class VulkanDevice final : public Device {
 public:
   VulkanDevice(std::shared_ptr<Context> context, std::unique_ptr<Presenter> presenter)
-      : Context_(std::move(context)), Graphics_(Context_), Presenter_(std::move(presenter)) {}
+      : Context_(std::move(context)), Graphics_(Context_), Presenter_(std::move(presenter)) {
+    Context_->EncoderProfiling = CreateEncoderProfileSession(*Context_);
+  }
 
   ~VulkanDevice() override {
     assert(OnOwner(*Context_));
@@ -291,6 +293,7 @@ private:
         return std::unexpected(*Failed_);
       }
       Completed_ = Pending_.front().Serial;
+      Pending_.front().Recorded->CollectProfile(Completed_);
       if (Context_->GpuTiming != GpuTimingMode::None) {
         if (Timings_.size() == kRetainedTimings) { Timings_.erase(Timings_.begin()); }
         Timings_.push_back({.Serial = Completed_,

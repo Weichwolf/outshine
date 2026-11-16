@@ -71,6 +71,19 @@ constexpr bool kGpuValidation = true;
 constexpr bool kGpuValidation = false;
 #endif
 
+bool ProfilePassLabels() {
+#ifdef __linux__
+  static const bool enabled = [] {
+    const auto *prefix =
+        SDL_GetEnvironmentVariable(SDL_GetEnvironment(), "OUTSHINE_VULKAN_ENCODER_PROFILE");
+    return prefix != nullptr && *prefix != '\0';
+  }();
+  return enabled;
+#else
+  return false;
+#endif
+}
+
 struct FrameAcquisition {
   const GpuSubmission &Submission;
   Native::Device *Device = nullptr;
@@ -973,9 +986,10 @@ SceneRenderer::EncodeStage(Stage stage, const FrameContext &ctx, const PassRecor
 
   const outshine::Heap::Tagged encoding(Row(stage).Name);
   const auto began = std::chrono::steady_clock::now();
-  if constexpr (kGpuValidation) { into.Commands->BeginLabel(Row(stage).Name); }
+  const bool labelled = kGpuValidation || ProfilePassLabels();
+  if (labelled) { into.Commands->BeginLabel(Row(stage).Name); }
   auto result = (this->*seat->Encode)(ctx, into);
-  if constexpr (kGpuValidation) { into.Commands->EndLabel(); }
+  if (labelled) { into.Commands->EndLabel(); }
   Effort &spent = PendingSpent_[static_cast<size_t>(stage)];
   spent.TookMs +=
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();

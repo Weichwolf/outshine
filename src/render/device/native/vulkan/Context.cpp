@@ -1,5 +1,6 @@
 #ifdef __linux__
 #include "Context.h"
+#include "EncoderProfile.h"
 #include "Surface.h"
 #include <array>
 #include <string_view>
@@ -254,6 +255,9 @@ Result<void> InitLogical(Context &context) {
   core.drawIndirectFirstInstance = features.features.drawIndirectFirstInstance;
   core.sampleRateShading = VK_TRUE;
   core.depthClamp = features.features.depthClamp;
+  core.pipelineStatisticsQuery =
+      EncoderProfilingRequested() ? features.features.pipelineStatisticsQuery : VK_FALSE;
+  context.PipelineStatistics = core.pipelineStatisticsQuery != VK_FALSE;
   context.DepthClamp = core.depthClamp != VK_FALSE;
   context.IndependentBlend = core.independentBlend != VK_FALSE;
   context.MultiDrawIndirect = core.multiDrawIndirect != VK_FALSE;

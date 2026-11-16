@@ -58,7 +58,10 @@ Result<void> Recording::Initialize() {
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   result = vkBeginCommandBuffer(Commands_, &begin);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkBeginCommandBuffer", result)); }
-  return Timings_.BeginSubmission(Commands_);
+  const auto timing = Timings_.BeginSubmission(Commands_);
+  if (!timing) { return timing; }
+  Profiling_.Initialize(Commands_);
+  return {};
 }
 
 Result<void> Recording::End() {
@@ -175,6 +178,7 @@ Result<void> Recording::Copy(const Buffer &source, Buffer &destination, BufferCo
 }
 
 void Recording::BeginLabel(std::string_view name) {
+  Profiling_.BeginLabel(name);
   if (!Context_->DebugMarkers) { return; }
   const auto begin = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(
       vkGetDeviceProcAddr(Context_->Logical, "vkCmdBeginDebugUtilsLabelEXT"));
@@ -187,6 +191,7 @@ void Recording::BeginLabel(std::string_view name) {
 }
 
 void Recording::EndLabel() {
+  Profiling_.EndLabel();
   if (!Context_->DebugMarkers) { return; }
   const auto end = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(
       vkGetDeviceProcAddr(Context_->Logical, "vkCmdEndDebugUtilsLabelEXT"));

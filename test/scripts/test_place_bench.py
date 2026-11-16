@@ -13,6 +13,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from place_bench import PROFILES, benchmark_places, number
+from place_gpu_profile import GROUPS, read_vulkan_profile
 
 ROOT = Path(__file__).resolve().parents[2]
 MATRIX = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
@@ -95,9 +96,9 @@ class PlaceBench(unittest.TestCase):
                     self.assertEqual(row["cpu_work_p50_ms"], 1.75)
                     self.assertEqual(row["gpu_p99_ms"], 14)
                     self.assertEqual(row["warm_load_ms"], 7)
-                    self.assertIsNone(row["draws_last"])
-                    self.assertIsNone(row["triangles_last"])
-                    self.assertIsNone(row["gpu_pass_ms"])
+                    self.assertIsNone(row["draws_max"])
+                    self.assertIsNone(row["triangles_max"])
+                    self.assertTrue(all(p["p99_ms"] is None for p in row["gpu_passes"].values()))
                     self.assertTrue(row["complete"])
                 self.assertIn(f"GPU: {result['rows'][0]['gpu']}; Treiber: test driver", table)
                 self.assertEqual(table.count("| Husum |"), 3)
@@ -218,6 +219,67 @@ class PlaceBench(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(result["cpu_work_budget_ms"], 8)
         self.assertEqual(result["gpu_budget_ms"], 20)
+
+    def test_profile_matches_measured_device_and_submissions_and_counts_all_passes(self):
+        passes = [{"label": name, "kind": "render", "available": True, "gpu_ns": ns,
+                   "draw_calls": calls, "input_primitives": triangles}
+                  for name, ns, calls, triangles in
+                  (("opaqueGeometry", 1e6, 3, 30), ("ground", 2e6, 4, 40),
+                   ("sun shadow", 3e6, 2, 20), ("sky", 4e6, 1, 1),
+                   ("transmissiveGeometry", 1e6, 1, 5), ("temporalResolve", 1e6, 1, 1))]
+        submissions = [{"serial": serial, "dropped_passes": 0, "passes": copy.deepcopy(passes)}
+                       for serial in (1, 10, 11, 20)]
+        submissions[0]["passes"][0]["draw_calls"] = 9999
+        submissions[-1]["passes"][0]["draw_calls"] = 9999
+        submissions[2]["passes"][0]["gpu_ns"] = 4e6
+        report = {"motion": {"frames": 2}, "gpu_times": {"samples": [
+            {"device": 1, "submission": 11}, {"device": 1, "submission": 10}]}}
+        path = self.root / "gpu-profile.1.json"
+        profile = {"schema": 1, "backend": "Vulkan", "device": 1, "submissions": submissions}
+        path.write_text(json.dumps(profile))
+        other = copy.deepcopy(profile)
+        other["device"] = 2
+        other["submissions"][1]["passes"][0]["draw_calls"] = 8888
+        (self.root / "gpu-profile.2.json").write_text(json.dumps(other))
+        measured = read_vulkan_profile(self.root, report)
+        self.assertEqual([f["submission"] for f in measured["frames"]], [10, 11])
+        self.assertEqual(measured["draws_max"], 12)
+        self.assertEqual(measured["triangles_max"], 97)
+        self.assertEqual(measured["gpu_passes"]["opaque"]["p50_ms"], 3)
+        self.assertEqual(measured["gpu_passes"]["opaque"]["p99_ms"], 6)
+        self.assertEqual(measured["gpu_passes"]["shadows"]["p99_ms"], 3)
+        submissions[1]["passes"][0]["available"] = False
+        submissions[1]["passes"][0]["gpu_ns"] = None
+        submissions[1]["passes"][0]["input_primitives"] = None
+        path.write_text(json.dumps(profile))
+        unavailable = read_vulkan_profile(self.root, report)
+        self.assertIsNone(unavailable["gpu_passes"]["opaque"])
+        self.assertIsNone(unavailable["triangles_max"])
+        self.assertEqual(unavailable["draws_max"], 12)
+        submissions.pop(2)
+        path.write_text(json.dumps(profile))
+        missing = read_vulkan_profile(self.root, report)
+        self.assertIsNone(missing["gpu_passes"])
+        self.assertIsNone(missing["draws_max"])
+        self.assertIn("every measured GPU submission", missing["error"])
+
+    def test_peak_frame_counts_and_gpu_pass_percentiles_use_three_run_medians(self):
+        def profiled(*args, **kwargs):
+            report = self.invoke(*args, **kwargs)
+            run = int(args[3].name) if args[3].name != "warmup" else 999
+            report["gpu_profile"] = {
+                "draws_max": run * 10, "triangles_max": run * 100,
+                "gpu_passes": {group: {"p50_ms": run, "p99_ms": run * 2, "mean_ms": run}
+                               for group in GROUPS}}
+            return report
+
+        code, result, table = self.run_driver(profiled)
+        self.assertEqual(code, 0)
+        for row in result["rows"]:
+            self.assertEqual(row["draws_max"], 20)
+            self.assertEqual(row["triangles_max"], 200)
+            self.assertEqual(row["gpu_passes"]["opaque"]["p99_ms"], 4)
+        self.assertIn("S=4.00, O=4.00, A=4.00, W=4.00, P=4.00", table)
 
 
 if __name__ == "__main__":

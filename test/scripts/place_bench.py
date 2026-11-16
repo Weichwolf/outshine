@@ -10,6 +10,7 @@ import time
 import xml.etree.ElementTree as ET
 
 from place_turn import turn_scenario
+from place_gpu_profile import GROUPS
 
 PROFILES = {"rtx3060": (1920, 1080, 60), "iris": (1280, 720, 30),
             "a18": (1280, 720, 30)}
@@ -166,7 +167,6 @@ def summarize(reports):
             values.append(value)
         return median(values)
 
-    # These existing geometry metrics describe the final submitted frame only.
     metrics = [{m["name"]: m["value"] for m in r["metrics"]} for r in reports]
     image_values = [r.get("image_row_variation") for r in reports]
     image_nonblank = all(v is not None and math.isfinite(v) and v > .1 for v in image_values)
@@ -175,13 +175,6 @@ def summarize(reports):
         stages = [value for key, value in metric.items()
                   if key.startswith("cost.stage.") and key.endswith(".total_ms")]
         encoding.append(sum(stages) / report["motion"]["frames"] if stages else None)
-    triangles = []
-    for metric in metrics:
-        keys = [f"{stage}, {kind} input triangles"
-                for stage in ("opaqueGeometry", "transmissiveGeometry")
-                for kind in ("direct", "indirect")]
-        triangles.append(sum(metric[k] for k in keys if k in metric)
-                         if any(k in metric for k in keys) else None)
     return {
         "cpu_p50_ms": field("cpu_times", "frame", "p50_ms"),
         "cpu_p99_ms": field("cpu_times", "frame", "p99_ms"),
@@ -192,15 +185,17 @@ def summarize(reports):
         "cpu_encoding_ms": median(encoding),
         "cpu_extremes": startup_and_peak(reports),
         "gpu_extremes": startup_and_peak(reports, gpu=True),
-        "draws_last": median([m.get("geometry draw calls") for m in metrics]),
-        "triangles_last": median(triangles),
+        "draws_max": field("gpu_profile", "draws_max"),
+        "triangles_max": field("gpu_profile", "triangles_max"),
         "image_nonblank": image_nonblank,
         "image_row_variation_min": min(image_values) if all(v is not None for v in image_values)
                                    else None,
         "peak_rss_bytes": field("process_memory", "peak_resident_bytes"),
         "gpu_allocated_bytes_after": field("gpu_memory", "resource_allocated_bytes"),
         "warm_load_ms": field("phases_ms", "preload"),
-        "gpu_pass_ms": None,
+        "gpu_passes": {group: {key: field("gpu_profile", "gpu_passes", group, key)
+                                 for key in ("p50_ms", "p99_ms", "mean_ms")}
+                        for group in GROUPS},
         "complete": len(reports) == 3 and image_nonblank and all(r["measurement_complete"] and r["world_complete"]
                                               and r["unrefined_frames"] == 0 for r in reports),
     }
@@ -254,14 +249,16 @@ def table_row(row, budget, cpu_budget, gpu_budget):
         if extreme.get("worst_frame") is not None:
             peak += f" (L{extreme['worst_run']}/F{extreme['worst_frame']})"
         values.append(peak)
-    values.extend(number(row.get(k), limit) for k, limit in
-                  (("draws_last", 300), ("triangles_last", 1_500_000)))
+    values.extend(number(row.get(k)) for k in ("draws_max", "triangles_max"))
     for key in ("peak_rss_bytes", "gpu_allocated_bytes_after"):
         value = row.get(key)
         values.append(number(value / 2**20 if value is not None else None))
+    passes = row.get("gpu_passes", {})
+    pass_text = ", ".join(f"{label}={number(passes.get(group, {}).get('p99_ms'))}" for group, label in
+                          zip(GROUPS, ("S", "O", "A", "W", "P"), strict=True))
     values.extend((number(row.get("warm_load_ms")), "ja" if row["complete"] else "nein",
                    "ja" if row.get("image_nonblank") else "nein",
-                   number(row.get("cpu_encoding_ms")), "n/v"))
+                   number(row.get("cpu_encoding_ms")), pass_text))
     return "| " + " | ".join(values) + " |"
 
 
@@ -303,15 +300,17 @@ def benchmark_places(available, selected, options, invoke):
           "Drei Läufe, Median; fett = über Budget. Still/Drehung: 300 Frames, eine volle Drehung; "
           "Flug: zehn Sekunden mit 100 m/s. Anlauf: erste zehn Frames, weiter im Gesamtergebnis. "
           "Max: Median der Laufmaxima mit zugehörigem Lauf/Frame (1-basiert). "
-          "Draws/Dreiecke: Geometrie im letzten Frame, ohne Terrain/Schatten. "
+          "Draws/Dreiecke: Median der Frame-Maxima über alle Rasterpässe, inklusive Terrain/Schatten/Post. "
           "Bildprüfung: mittlere horizontale RGB-Differenz > 0,1 in allen drei Bildern; "
-          "GPU-MiB: Allokation nach Messung, kein Peak. GPU-Passzeiten: noch nicht verfügbar.")
+          "GPU-MiB: Allokation nach Messung, kein Peak. GPU-Pässe: p99 der ausgeführten Frames in ms, "
+          "S=Schatten, O=Opaque/Culling, A=Atmosphäre, W=Wasser/Transparenz, P=TAA/Post/UI. "
+          "Inklusive Passintervalle können überlappen; ausgelassene/nicht messbare Pässe sind n/v.")
     for cpu, gpu, driver, commit in sorted(identities):
         print(f"CPU: {cpu}; GPU: {gpu}; Treiber: {driver}; Commit: {commit}.")
     print("\n| Place | Lastfall | Frame Wand p50 ms | Frame Wand p99 ms | CPU-Arbeit p50 ms | "
           "CPU-Arbeit p99 ms | GPU p50 ms | GPU p99 ms | "
           "CPU-Arbeit Anlauf p99 ms | CPU-Arbeit Max ms (L/F) | GPU Anlauf p99 ms | GPU Max ms (L/F) | "
-          "Geometrie-Draws (letzt.) | Geometrie-Dreiecke (letzt.) | Peak-RSS MiB | GPU MiB (danach) | "
+          "Draws (Frame-Max) | Dreiecke (Frame-Max) | Peak-RSS MiB | GPU MiB (danach) | "
           "Laden warm ms | Vollständig | Bildstruktur | CPU-Encoding ms | GPU-Pässe |")
     print("|" + " --- |" * 21)
     for row in output["rows"]:

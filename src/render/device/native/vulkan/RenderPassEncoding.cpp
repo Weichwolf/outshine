@@ -59,6 +59,7 @@ void Recording::EncodeRenderPass(RenderState &pass, bool final) {
   rendering.colorAttachmentCount = static_cast<uint32_t>(pass.Colours.size());
   rendering.pColorAttachments = colours.data();
   rendering.pDepthAttachment = pass.Depth ? &depth : nullptr;
+  const auto profile = Profiling_.Begin(Commands_, pass.Label, true);
   vkCmdBeginRendering(Commands_, &rendering);
   VkPipeline bound = VK_NULL_HANDLE;
   for (const auto &draw : pass.Draws) {
@@ -70,6 +71,7 @@ void Recording::EncodeRenderPass(RenderState &pass, bool final) {
     EncodeDraw(draw);
   }
   vkCmdEndRendering(Commands_);
+  Profiling_.End(Commands_, profile);
   pass.Draws.clear();
   if (final) {
     Render_.reset();

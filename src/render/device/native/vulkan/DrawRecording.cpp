@@ -124,6 +124,7 @@ void Recording::EncodeDraw(const DrawPacket &packet) {
                             nullptr);
   }
   if (!packet.Indices) {
+    Profiling_.Draw();
     vkCmdDraw(Commands_,
               packet.Direct.Count,
               packet.Direct.Instances,
@@ -134,6 +135,7 @@ void Recording::EncodeDraw(const DrawPacket &packet) {
   vkCmdBindIndexBuffer(
       Commands_, packet.Indices->Handle, packet.IndexBytes.Offset, packet.IndexFormat);
   if (!packet.Indirect) {
+    Profiling_.Draw();
     vkCmdDrawIndexed(Commands_,
                      packet.Indexed.Count,
                      packet.Indexed.Instances,
@@ -143,6 +145,7 @@ void Recording::EncodeDraw(const DrawPacket &packet) {
     return;
   }
   const auto &range = packet.IndirectBytes;
+  Profiling_.Draw(Context_->MultiDrawIndirect ? 1u : range.Count);
   if (Context_->MultiDrawIndirect) {
     vkCmdDrawIndexedIndirect(
         Commands_, packet.Indirect->Handle, range.Offset, range.Count, range.Stride);

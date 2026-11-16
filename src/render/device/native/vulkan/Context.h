@@ -15,6 +15,7 @@
 namespace outshine::Render::Native::Vulkan {
 
 struct WindowClaim;
+struct EncoderProfileSession;
 
 struct Context {
   VkInstance Instance = VK_NULL_HANDLE;
@@ -50,6 +51,8 @@ struct Context {
   VkPhysicalDeviceMemoryProperties MemoryProperties{};
   Capabilities Limits;
   std::shared_ptr<WindowClaim> SurfaceClaim;
+  bool PipelineStatistics = false;
+  std::shared_ptr<EncoderProfileSession> EncoderProfiling;
 
   Context() = default;
   ~Context();
