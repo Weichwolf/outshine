@@ -441,6 +441,7 @@ bool Engine::State::AdvanceBuildingFields() {
       World.GroundBuild || !World.GroundPublished.Current() || !World.Region) {
     return true;
   }
+  const auto publishedWorld = Picture.Device.PublishedWorld();
   const auto pipeline = Services.AssetPublications();
   if (!pipeline) { return true; }
   if (!World.BuildingFields) { World.BuildingFields = std::make_unique<BuildingFieldStreaming>(); }
