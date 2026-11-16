@@ -235,6 +235,7 @@ PreparedUrbanAreas::GatherSources(Work &work) {
   }
   bool pending = false;
   bool refused = false;
+  std::shared_ptr<const Data::SourceFailure> failure;
   for (size_t index = 0; index < work.SourceCount; ++index) {
     if (!work.Sources[index]) {
       const auto at = index == 0 ? work.Input.Owner : parent;
@@ -245,7 +246,10 @@ PreparedUrbanAreas::GatherSources(Work &work) {
       switch (source->Status) {
         case PreparedOsmTiles::State::Absent:
           return SourceDelivery{.Status = State::Absent, .Product = {}, .AssetKey = {}};
-        case PreparedOsmTiles::State::Refused: refused = true; break;
+        case PreparedOsmTiles::State::Refused:
+          refused = true;
+          if (source->Failure) { failure = source->Failure; }
+          break;
         case PreparedOsmTiles::State::Pending: pending = true; break;
         case PreparedOsmTiles::State::Ready:
           if (!source->Product) { return std::unexpected("ready urban source has no product"); }
@@ -254,7 +258,10 @@ PreparedUrbanAreas::GatherSources(Work &work) {
       }
     }
   }
-  if (refused) { return SourceDelivery{.Status = State::Refused, .Product = {}, .AssetKey = {}}; }
+  if (refused) {
+    return SourceDelivery{
+        .Status = State::Refused, .Product = {}, .AssetKey = {}, .Failure = std::move(failure)};
+  }
   if (pending) { return SourceDelivery{}; }
   return SourceDelivery{.Status = State::Ready, .Product = {}, .AssetKey = {}};
 }

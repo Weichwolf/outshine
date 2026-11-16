@@ -23,6 +23,11 @@ using namespace outshine::Generators::Osm;
 constexpr Data::TileId kOwner{.Zoom = 11, .X = 1023, .Y = 1024};
 enum class Availability { Ready, Unavailable, Absent, ParentAbsent, Refused };
 
+inline bool CompleteArea(const UrbanArea &area) {
+  return area.HasUrbanEvidence && area.Occupied > 0 && area.Inputs.size() == 2 &&
+         area.Inputs[0].Identity.Tile == kOwner && area.Inputs[1].Identity.Tile.Zoom == 5;
+}
+
 class NoTransport final : public SourceTransport {
 public:
   FetchStart Begin(const std::string & /*url*/) override { return Ticket::None; }
