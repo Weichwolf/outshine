@@ -39,7 +39,8 @@ RoadPageGeometry Triangle() {
                    .Index = {0, 1, 2}},
           .Swept = {},
           .Diagnostics = {},
-          .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = kPart}}};
+          .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = kPart}},
+          .Clusters = {}};
 }
 
 void CheckRecords(PreparedRoadPages &pages) {

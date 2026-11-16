@@ -10,7 +10,7 @@ using namespace outshine::Render;
 using namespace outshine::Test;
 
 void AffineBounds() {
-  ShadowDemand demand{.Regions = 1};
+  ShadowDemand demand{.Regions = 1, .EyeM = {}};
   const Box inside{.Min = {{-.1, -.2, .1}}, .Max = {{.3, .4, .9}}};
   CHECK(demand.MayContain(inside), "an intersecting caster remains needed");
   for (size_t axis = 0; axis < 3; ++axis) {
@@ -35,7 +35,7 @@ void AffineBounds() {
 
 void UnknownBounds() {
   const Box outside{.Min = {{10, 10, 10}}, .Max = {{11, 11, 11}}};
-  ShadowDemand demand{.Regions = 1};
+  ShadowDemand demand{.Regions = 1, .EyeM = {}};
   CHECK(demand.MayContain({}), "missing bounds never establish occlusion");
   demand.ClipFromScene[0][3] = .1;
   CHECK(demand.MayContain(outside), "a non-affine projection retains unknown work");
