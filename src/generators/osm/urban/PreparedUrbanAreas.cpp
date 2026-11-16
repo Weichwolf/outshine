@@ -237,25 +237,24 @@ PreparedUrbanAreas::GatherSources(Work &work) {
   bool refused = false;
   std::shared_ptr<const Data::SourceFailure> failure;
   for (size_t index = 0; index < work.SourceCount; ++index) {
-    if (!work.Sources[index]) {
-      const auto at = index == 0 ? work.Input.Owner : parent;
-      ++Worker_->SourcePolls;
-      auto source = Prepared_->Acquire({.X = static_cast<int>(at.X), .Y = static_cast<int>(at.Y)},
-                                       *work.Layouts[index]);
-      if (!source) { return std::unexpected(std::string(source.error())); }
-      switch (source->Status) {
-        case PreparedOsmTiles::State::Absent:
-          return SourceDelivery{.Status = State::Absent, .Product = {}, .AssetKey = {}};
-        case PreparedOsmTiles::State::Refused:
-          refused = true;
-          if (source->Failure) { failure = source->Failure; }
-          break;
-        case PreparedOsmTiles::State::Pending: pending = true; break;
-        case PreparedOsmTiles::State::Ready:
-          if (!source->Product) { return std::unexpected("ready urban source has no product"); }
-          work.Sources[index] = std::move(source->Product);
-          break;
-      }
+    if (work.Sources[index]) { continue; }
+    const auto at = index == 0 ? work.Input.Owner : parent;
+    ++Worker_->SourcePolls;
+    auto source = Prepared_->Acquire({.X = static_cast<int>(at.X), .Y = static_cast<int>(at.Y)},
+                                     *work.Layouts[index]);
+    if (!source) { return std::unexpected(std::string(source.error())); }
+    switch (source->Status) {
+      case PreparedOsmTiles::State::Absent:
+        return SourceDelivery{.Status = State::Absent, .Product = {}, .AssetKey = {}};
+      case PreparedOsmTiles::State::Refused:
+        refused = true;
+        if (source->Failure) { failure = source->Failure; }
+        break;
+      case PreparedOsmTiles::State::Pending: pending = true; break;
+      case PreparedOsmTiles::State::Ready:
+        if (!source->Product) { return std::unexpected("ready urban source has no product"); }
+        work.Sources[index] = std::move(source->Product);
+        break;
     }
   }
   if (refused) {
