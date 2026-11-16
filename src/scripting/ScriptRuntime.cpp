@@ -3,13 +3,19 @@
 #include <chrono>
 #include <cstddef>
 #include <string>
+#include <type_traits>
 
 namespace outshine::Script {
 namespace {
-int Interrupt(JSContext *context, void *opaque) {
-  return JS_GetContextOpaque(context) != opaque || static_cast<Runtime *>(opaque)->Exhausted() ? 1
-                                                                                               : 0;
-}
+constexpr auto Interrupt = [](auto *machine, void *opaque) {
+  void *owner = nullptr;
+  if constexpr (std::is_same_v<std::remove_pointer_t<decltype(machine)>, JSRuntime>) {
+    owner = JS_GetRuntimeOpaque(machine);
+  } else {
+    owner = JS_GetContextOpaque(machine);
+  }
+  return owner != opaque || static_cast<Runtime *>(opaque)->Exhausted() ? 1 : 0;
+};
 
 void TrackRejection(
     JSContext *context, JSValueConst promise, JSValueConst reason, bool handled, void *opaque) {
