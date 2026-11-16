@@ -8,8 +8,10 @@ GLSLANG ?= $(ROOT)/build/deps/install/bin/glslang
 CMAKE_ARGS ?=
 PLACES_CATALOG ?= $(ROOT)/test/outshine/data/places
 PREPARE_SECONDS ?= 1800
+BENCH_PROFILE ?= rtx3060
+BENCH_ARGS ?=
 CMAKE_BUILD := cmake --build "$(BUILD_DIR)" --parallel
-.PHONY: all configure db shaders strip format lint lint-all lint-docs test test-all suite clean spotless help
+.PHONY: all configure db shaders strip format lint lint-all lint-docs test test-all suite clean spotless help bench
 
 configure:
 	@mkdir -p "$(BUILD_DIR)/.cmake/api/v1/query"
@@ -21,6 +23,9 @@ all: configure strip ## build the application through CMake/Ninja using all core
 
 shaders: configure ## build the native shader package
 	@$(CMAKE_BUILD) --target outshine_shaders
+
+bench: all ## benchmark twelve Places: still/turn/100 m/s flight; BENCH_PROFILE=rtx3060|iris|a18
+	@cd "$(ROOT)" && python3 -B test/scripts/places.py --catalog "$(PLACES_CATALOG)" --client "$(BUILD_DIR)/outshine" --bench --bench-profile "$(BENCH_PROFILE)" $(BENCH_ARGS)
 
 db: configure ## generate the CMake compilation database
 	@cmake -S "$(ROOT)" -B "$(BUILD_DIR)" $(CMAKE_ARGS)
