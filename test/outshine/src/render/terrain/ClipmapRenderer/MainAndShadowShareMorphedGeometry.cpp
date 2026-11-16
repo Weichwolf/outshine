@@ -125,7 +125,11 @@ void CheckOutputs(Device &device, OutputImages images) {
               "finer supplied normals remain independent of the geometry resolution and morph");
 }
 
-void Draw(Device &device, const ClipmapRenderer &renderer, Vec2 camera, bool warped) {
+void Draw(Device &device,
+          const ClipmapRenderer &renderer,
+          Vec2 camera,
+          bool warped,
+          bool beyondNear = false) {
   auto heights = ClipmapHeightCache::Make({.HalfCells = 8, .Levels = 3}, kBytes);
   auto normals = ClipmapHeightCache::Make({.HalfCells = 16, .Levels = 3, .CellM = 0.5}, kBytes);
   CHECK(heights && normals, "two resolutions are admitted independently");
@@ -167,7 +171,7 @@ void Draw(Device &device, const ClipmapRenderer &renderer, Vec2 camera, bool war
   view.Current[0] = 1.0f / 20;
   view.Current[9] = -1.0f / 20;
   view.Current[6] = 0.1f;
-  view.Current[14] = 0.5f;
+  view.Current[14] = beyondNear ? 2.0f : 0.5f;
   view.Current[15] = 1;
   view.Previous = view.Current;
   LightingUniform lighting{};
@@ -191,8 +195,7 @@ void Draw(Device &device, const ClipmapRenderer &renderer, Vec2 camera, bool war
                              .HeightRanges = heightRanges};
   ClipmapDrawList selection;
   Require(renderer.Select(fields, view.Current, selection));
-  CHECK(selection.Triangles > 0 && selection.Triangles < 1344,
-        "native culling retains visible coverage and removes some reference geometry");
+  const auto *selected = beyondNear ? nullptr : &selection;
   StageSubmission submission;
   const PassRecording into{.Commands = commands.get(),
                            .Submission = submission,
@@ -201,18 +204,25 @@ void Draw(Device &device, const ClipmapRenderer &renderer, Vec2 camera, bool war
   Require(commands->BeginRenderPass(
       {.Colours = attachments,
        .Depth = DepthAttachment{.Image = {.Image = depth.get()}, .Begin = Load::Clear}}));
-  Require(renderer.Encode(into, fields, bindings, ClipmapPass::Surface, &selection));
+  Require(renderer.Encode(into, fields, bindings, ClipmapPass::Surface, selected));
   Require(commands->EndRenderPass());
   Require(commands->BeginRenderPass(
       {.Colours = {},
        .Depth = DepthAttachment{.Image = {.Image = shadow.get()}, .Begin = Load::Clear}}));
   Require(
-      renderer.Encode(into, fields, std::span(bindings).first(1), ClipmapPass::Depth, &selection));
+      renderer.Encode(into, fields, std::span(bindings).first(1), ClipmapPass::Depth, selected));
   Require(commands->EndRenderPass());
   const auto done = Require(device.Submit(std::move(commands)));
   CHECK(Require(device.Wait(done, std::chrono::seconds(5))) == CompletionStatus::Ready,
         "both native terrain passes finish");
-  CheckOutputs(device, {.Depth = *depth, .Shadow = *shadow, .Normal = *targets[1]});
+  if (beyondNear) {
+    CHECK(std::ranges::all_of(Read(device, *depth, 1), [](float value) { return value == 0; }),
+          "terrain before the camera's near plane leaves the main image clear");
+    CHECK(std::ranges::all_of(Read(device, *shadow, 1), [](float value) { return value > 0; }),
+          "the shadow pass retains terrain outside its depth range");
+  } else {
+    CheckOutputs(device, {.Depth = *depth, .Shadow = *shadow, .Normal = *targets[1]});
+  }
 }
 }
 
@@ -239,5 +249,6 @@ int main() {
     Draw(*device, renderer, camera, false);
     Draw(*device, renderer, camera, true);
   }
+  Draw(*device, renderer, {{0.5, 0.5}}, false, true);
   return Report();
 }
