@@ -6,10 +6,21 @@ Orbit bis zum Nahdetail, aus OSM, DEM und Wetterdaten, physikalisch basiert gere
 Gelände, Verkehr, Gebäude, Vegetation und Wetter zuerst; danach Fahrzeuge, NPCs, Physik,
 Skripte, Audio und Persistenz in derselben Welt.
 
-**Feste Bedingungen:** 1280×720, 60 fps einschließlich p99 (16,67 ms Gesamtframe), bis
-240 km Sichtweite, auf **A18 Pro/Metal** und **i5-1135G7/Iris Xe/Vulkan**, in der
-8-GB-Geräteklasse, auch in Bewegung. Wer das Budget reißt, braucht ein besseres Verfahren,
-keine gelockerte Bedingung und keine abgeschalteten Inhalte.
+**Feste Bedingungen:** bis 240 km Sichtweite, vollständige Inhalte, auch in Bewegung,
+jeweils einschließlich p99:
+
+| Gerät | Profil | Framebudget |
+|---|---|---|
+| A18 Pro / Metal | 1280×720, mindestens 30 fps | 33,33 ms |
+| i5-1135G7 / Iris Xe / Vulkan | 1280×720, mindestens 30 fps | 33,33 ms |
+| RTX 3060 12 GB / Vulkan | 1920×1080, 60 fps | 16,67 ms |
+
+A18 Pro und Iris Xe gehören zur 8-GB-Geräteklasse. Alle drei Geräte zeigen dieselben
+Inhalte und dieselbe Sichtweite; nur Auflösung, Rate und Qualitätsstufe unterscheiden
+sich – so beweist die Engine, dass sie mit der Hardware skaliert. 30 fps ist die
+Untergrenze; Reserve wird in Bildqualität oder höhere Rate umgesetzt. Wer das Budget
+reißt, braucht ein besseres Verfahren, keine gelockerte Bedingung und keine
+abgeschalteten Inhalte.
 
 Ich baue eine plausible, funktionale Erde, keinen digitalen Zwilling. Quellen liefern
 Verteilung, Großformen und Parameter; Rezepte ergänzen den Rest glaubwürdig.
@@ -35,7 +46,7 @@ Verteilung, Großformen und Parameter; Rezepte ergänzen den Rest glaubwürdig.
 | Rolle | Branch / Checkout | Verantwortung |
 |---|---|---|
 | **Mac** | `master` / `outshine` | Metal/A18 Pro, Integration und Merges, Bildabnahme der zwölf Places, Art Direction |
-| **Linux** | `outshine_engine` | gemeinsame C++-Engine, Vulkan/Iris Xe, Streaming, Asset-Cache, Benchmark-Werkzeug |
+| **Linux** | `outshine_engine` | gemeinsame C++-Engine, Vulkan auf Iris Xe und RTX 3060, Streaming, Asset-Cache, Benchmark-Werkzeug |
 | **Research** | `outshine_research` | Python: Verfahren an echten Daten entscheiden, Rezepte für Gebäude/Vegetation/Boden |
 
 Der Nutzer ist Regisseur; seine aktuellen Anweisungen gehen vor. Jede Rolle arbeitet
@@ -86,7 +97,8 @@ unterscheidet sich.
   datierte [Webcam-Aufnahmen](https://www.foto-webcam.eu/) vergleichen.
 - `make bench` (#1956) misst Still, Drehung und Flug je Place: CPU/GPU p50/p99, Draws,
   Dreiecke, Speicher, Pass-Zeiten. Diese Tabelle ist die einzige Leistungswahrheit.
-- Zahlen gelten nur für das Gerät, auf dem sie gemessen wurden.
+- Zahlen gelten nur für das Gerät und Profil, auf dem sie gemessen wurden; RTX-Werte
+  belegen nie das Iris-Xe-Profil.
 - Bilder in `README` und `doc/` nur auf ausdrücklichen Nutzerauftrag.
 
 ## Tests und Experimente
@@ -108,6 +120,9 @@ unterscheidet sich.
   `include/`-Baum. Funktionen höchstens 120 Zeilen.
 - Kein gebündelter Fremdcode; Bibliotheken aus Homebrew/apt, nur bei echtem Bedarf.
 - CPU/GPU-Layouts mit `static_assert` sichern.
+- **Nach jedem Fortschritt committen und pushen** – auf den eigenen Rollenbranch, auch
+  bei Zwischenständen. Was nicht auf GitHub liegt, ist für Nutzer und Koordination
+  unsichtbar und zählt nicht. Spätestens am Ende jedes Arbeitsblocks ist alles gepusht.
 - Kleine vollständige Commits mit Issuebezug, ohne KI-Attribution. Höchstens ein
   Themenbranch und ein offener PR je Rolle; integrierte Branches sofort löschen.
 - Builds und Lint neben Messungen mit `nice -n 10`; Messungen ohne Parallellast.
