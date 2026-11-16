@@ -2,9 +2,15 @@ SHELL := /bin/sh
 .DEFAULT_GOAL := all
 ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 BUILD_DIR ?= $(ROOT)/build
+ifeq ($(shell uname -s),Linux)
+LLVM_BIN ?= $(dir $(shell command -v clang-format-22 || command -v clang-format))
+GLSLANG ?= $(shell command -v glslang || command -v glslangValidator)
+PLATFORM_CMAKE_ARGS := -DCMAKE_TOOLCHAIN_FILE="$(ROOT)/cmake/Linux.cmake"
+else
 LLVM_BIN ?= /opt/homebrew/opt/llvm/bin
-CLANG_FORMAT ?= $(LLVM_BIN)/clang-format
 GLSLANG ?= $(ROOT)/build/deps/install/bin/glslang
+endif
+CLANG_FORMAT ?= $(LLVM_BIN)/clang-format
 CMAKE_ARGS ?=
 PLACES_CATALOG ?= $(ROOT)/test/outshine/data/places
 PREPARE_SECONDS ?= 1800
@@ -16,7 +22,7 @@ CMAKE_BUILD := cmake --build "$(BUILD_DIR)" --parallel
 configure:
 	@mkdir -p "$(BUILD_DIR)/.cmake/api/v1/query"
 	@test -f "$(BUILD_DIR)/.cmake/api/v1/query/codemodel-v2" || touch "$(BUILD_DIR)/.cmake/api/v1/query/codemodel-v2"
-	@test -f "$(BUILD_DIR)/CMakeCache.txt" || cmake -S "$(ROOT)" -B "$(BUILD_DIR)" -G Ninja -DBUILD_TESTING=ON $(CMAKE_ARGS)
+	@test -f "$(BUILD_DIR)/build.ninja" || cmake -S "$(ROOT)" -B "$(BUILD_DIR)" -G Ninja -DBUILD_TESTING=ON $(PLATFORM_CMAKE_ARGS) $(CMAKE_ARGS)
 
 all: configure strip ## build the application through CMake/Ninja using all cores
 	@$(CMAKE_BUILD) --target outshine
@@ -28,7 +34,7 @@ bench: all ## benchmark twelve Places: still/turn/100 m/s flight; BENCH_PROFILE=
 	@cd "$(ROOT)" && python3 -B test/scripts/places.py --catalog "$(PLACES_CATALOG)" --client "$(BUILD_DIR)/outshine" --bench --bench-profile "$(BENCH_PROFILE)" $(BENCH_ARGS)
 
 db: configure ## generate the CMake compilation database
-	@cmake -S "$(ROOT)" -B "$(BUILD_DIR)" $(CMAKE_ARGS)
+	@cmake -S "$(ROOT)" -B "$(BUILD_DIR)" $(PLATFORM_CMAKE_ARGS) $(CMAKE_ARGS)
 	@cmake -E rm -f "$(ROOT)/compile_commands.json"
 	@cmake -E create_symlink "$(BUILD_DIR)/compile_commands.json" "$(ROOT)/compile_commands.json"
 
@@ -40,7 +46,7 @@ format: strip ## format owned C++ files with clang-format
 
 lint lint-all: ## clang-format and CMake-integrated clang-tidy
 	@cd "$(ROOT)" && python3 test/scripts/format_sources.py --tool "$(CLANG_FORMAT)" --check
-	@cmake -S "$(ROOT)" -B "$(BUILD_DIR)/lint" -G Ninja -DBUILD_TESTING=OFF -DOUTSHINE_CLANG_TIDY=ON $(CMAKE_ARGS)
+	@cmake -S "$(ROOT)" -B "$(BUILD_DIR)/lint" -G Ninja -DBUILD_TESTING=OFF -DOUTSHINE_CLANG_TIDY=ON $(PLATFORM_CMAKE_ARGS) $(CMAKE_ARGS)
 	@cmake --build "$(BUILD_DIR)/lint" --target outshine --parallel $(if $(filter lint-all,$@),--clean-first)
 
 lint-docs: ## whitespace check for changed documentation

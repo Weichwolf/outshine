@@ -11,6 +11,12 @@
       }
     },
     {
+      "name": "linux",
+      "inherits": "native",
+      "condition": {"type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux"},
+      "toolchainFile": "${sourceDir}/cmake/Linux.cmake"
+    },
+    {
       "name": "lint",
       "inherits": "native",
       "binaryDir": "${sourceDir}/build/lint",
