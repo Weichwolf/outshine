@@ -45,12 +45,15 @@ Verteilung, Großformen und Parameter; Rezepte ergänzen den Rest glaubwürdig.
 ## Rollen
 | Rolle | Branch / Checkout | Verantwortung |
 |---|---|---|
-| **Mac** | `master` / `outshine` | Metal/A18 Pro, Integration und Merges, Bildabnahme der zwölf Places, Art Direction |
+| **Technical Lead** | – (nur Regeln/Doku auf `master`) | Architektur, Art Direction, Planung und Prioritäten, Abnahme von Bild und Messung; entwickelt nicht selbst |
+| **Mac** | `master` / `outshine` | Metal/A18 Pro, Integration und Merges, Places rendern und A18-Messung |
 | **Linux** | `outshine_engine` | gemeinsame C++-Engine, Vulkan auf Iris Xe und RTX 3060, Streaming, Asset-Cache, Benchmark-Werkzeug |
 | **Research** | `outshine_research` | Python: Verfahren an echten Daten entscheiden, Rezepte für Gebäude/Vegetation/Boden |
 
-Der Nutzer ist Regisseur; seine aktuellen Anweisungen gehen vor. Jede Rolle arbeitet
-selbstständig am eigenen aktiven Issue weiter und wartet nicht auf Einzelaufträge.
+Der Nutzer ist Regisseur; seine aktuellen Anweisungen gehen vor. Der Technical Lead
+entscheidet Verfahren, Reihenfolge und Bildprioritäten und schreibt sie in die Issues;
+Konflikte zwischen Rollen entscheidet er in #1971. Jede Rolle arbeitet selbstständig am
+eigenen aktiven Issue weiter und wartet nicht auf Einzelaufträge.
 Research liefert Entscheidungen und Rezepte, keine Solver-Familien; Linux und Mac setzen
 nativ um. Gemeinsame Shader und Verfahren gibt es einmal; nur die Geräteausführung
 unterscheidet sich.
@@ -59,13 +62,15 @@ unterscheidet sich.
 - [GitHub Issues](https://github.com/Weichwolf/outshine/issues) sind die einzige
   Aufgabenablage. **Höchstens 20 offene Issues.**
 - **Ein aktives Issue je Rolle** (Label `active`), dazu `owner:mac|linux|research`,
-  `priority:P0–P2`, `milestone:M1–M3`.
+  `priority:P0–P2`, `milestone:M1–M3`. Ohne aktives Issue: das höchstpriorisierte offene
+  eigene im frühesten Meilenstein nehmen, `active` setzen, anfangen.
 - Ein Issue beschreibt ein sichtbares oder messbares Ergebnis: Befund, Ergebnis,
   Anweisungen, „Fertig, wenn“. Höchstens 50 Zeilen. Varianten, Zwischenstände und
   Teilfragen sind Kommentare, keine neuen Issues.
 - Kommentare: Ergebnis, Zahl oder Bild, nächster Schritt. Fünf Zeilen genügen fast immer.
 - Fragen und Übergaben an andere Rollen: #1971, Format `[Absender → Empfänger]`.
-- Schließen erst, wenn „Fertig, wenn“ gemessen bzw. das Bild geöffnet ist.
+- „Fertig, wenn“ erfüllt: Beleg als Kommentar, `active` entfernen, nächstes Issue
+  beginnen. Der Technical Lead prüft den Beleg und schließt das Issue.
 
 ## Architektur in zehn Sätzen
 - **Die Kachel ist die Einheit.** Ein Quadtree trägt Speicherung, Streaming, LOD-Auswahl
@@ -98,7 +103,9 @@ unterscheidet sich.
 - `make bench` (#1956) misst Still, Drehung und Flug je Place: CPU/GPU p50/p99, Draws,
   Dreiecke, Speicher, Pass-Zeiten. Diese Tabelle ist die einzige Leistungswahrheit.
 - Zahlen gelten nur für das Gerät und Profil, auf dem sie gemessen wurden; RTX-Werte
-  belegen nie das Iris-Xe-Profil.
+  belegen nie das Iris-Xe-Profil, Software-Rasterizer (llvmpipe) belegen gar nichts.
+- Iris-Xe-Messungen laufen auf dem Host `VIRUS` (i5-1135G7), Checkout
+  `~/Git/outshine_engine`.
 - Bilder in `README` und `doc/` nur auf ausdrücklichen Nutzerauftrag.
 
 ## Tests und Experimente
