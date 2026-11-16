@@ -473,7 +473,7 @@ bool StructureBuildQueue::SourcesComplete(
 bool StructureBuildQueue::HasPendingSourceChanges(
     const ::outshine::Generators::Osm::BuildingField &footprints) const {
   return std::ranges::any_of(Context_.Queue, [&](const QueuedBuild &build) {
-    if (build.Revision.Purpose != BuildPurpose::ViewDetail ||
+    if (build.Revision.Purpose == BuildPurpose::TerrainContacts ||
         build.ReservationOwner != footprints.ReservationOwner()) {
       return true;
     }
@@ -548,7 +548,7 @@ void StructureBuildQueue::DiscardFront(::outshine::Generators::Osm::BuildingFiel
       if (!stale.Task.Raw().SourceInputs.Objects) {
         using Purpose = Generators::Osm::BuildingField::RefinementPurpose;
         const auto source = QualifiedSourceKey(prints, stale.Task.Tile());
-        const bool view = stale.Revision.Purpose == BuildPurpose::ViewDetail && source &&
+        const bool view = stale.Revision.Purpose != BuildPurpose::TerrainContacts && source &&
                           *source == stale.SourceKey;
         prints.RetryRefinement(stale.Task.Tile(), view ? Purpose::View : Purpose::Sources);
       }
@@ -834,7 +834,8 @@ StructureBuildQueue::VectorBuild(JobAdmission::Lease admission,
       (task.HeightQualified() || task.Raw().Structures.empty())) {
     task.UseNativeAssets(stack.BuildingAssets(), selected.Key, selected.RequestKey);
     if (revision.Purpose != BuildPurpose::TerrainContacts &&
-        (!revision.RequestedDetail || revision.RequestedDetail == LevelOfDetail::Fine)) {
+        (!revision.RequestedDetail || revision.RequestedDetail == LevelOfDetail::Fine ||
+         revision.Purpose == BuildPurpose::StaticParents)) {
       task.UseInitialCells(revision.OriginalCells);
     }
   }
@@ -849,6 +850,10 @@ StructureBuildQueue::VectorBuild(JobAdmission::Lease admission,
                           .Origin = &task.Raw().SourceInputs.Origin,
                           .PreparedAssetKey = task.PreparedAssetKey()});
   if (!selected.RequestKey.empty()) { Context_.NativeLookups.erase(selected.RequestKey); }
+  if (revision.Purpose == BuildPurpose::StaticParents && !selected.Key.empty() &&
+      !revision.FallbackHeights && (task.HeightQualified() || task.Raw().Structures.empty())) {
+    task.UseIntrinsicParents(sourceKey);
+  }
   return {.Revision = revision,
           .Task = std::move(task),
           .StreetDigest = selected.StreetDigest,
@@ -964,7 +969,7 @@ void StructureBuildQueue::PrepareViewRefinement(
     HeightRequirement requirement,
     BuildPurpose purpose,
     const std::function<bool(uint32_t)> &cellReady) const {
-  if (requirement == HeightRequirement::FineOnly && purpose == BuildPurpose::ViewDetail &&
+  if (requirement == HeightRequirement::FineOnly && purpose != BuildPurpose::TerrainContacts &&
       prints.RefinementComplete() && Context_.Queue.empty() &&
       !AcceptedViewCurrent(prints, eye, cellReady)) {
     prints.BeginRefinement(Generators::Osm::BuildingField::RefinementPurpose::View);
@@ -1007,7 +1012,7 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
                                            selected.Key,
                                            groundStands,
                                            remaining,
-                                           purpose == BuildPurpose::ViewDetail,
+                                           purpose != BuildPurpose::TerrainContacts,
                                            cellReady,
                                            replacement,
                                            candidatesMost);
@@ -1229,7 +1234,7 @@ StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
                   .Publish = bake.Revision.OriginalCells ? Landing::Publication::Products
                                                          : Landing::Publication::Source};
   if (!complete) { return landing; }
-  if (bake.Revision.Purpose == BuildPurpose::ViewDetail && landing.SourceKey != 0 &&
+  if (bake.Revision.Purpose != BuildPurpose::TerrainContacts && landing.SourceKey != 0 &&
       QualifiedSourceKey(prints, landing.Tile) == landing.SourceKey) {
     return landing;
   }
@@ -1282,7 +1287,7 @@ void StructureBuildQueue::CommitFootprints(
                                            std::move(bake.Task.Raw().Holes));
   }
   if (!landing.Footprints) {
-    assert(bake.Revision.Purpose == BuildPurpose::ViewDetail &&
+    assert(bake.Revision.Purpose != BuildPurpose::TerrainContacts &&
            QualifiedSourceKey(footprints, landing.Tile) == landing.SourceKey);
     return;
   }

@@ -39,7 +39,7 @@ class StructureBuildQueue {
 public:
   static constexpr size_t kCandidateWindow = 4;
   enum class HeightRequirement : uint8_t { AllowFallback, FineOnly };
-  enum class BuildPurpose : uint8_t { ViewDetail, TerrainContacts };
+  enum class BuildPurpose : uint8_t { ViewDetail, TerrainContacts, StaticParents };
 
   using BuildingAsset = std::variant<Generators::PreparedBuildingAssets::RequestedBasis,
                                      Generators::PreparedBuildingAssets::RequestedSource>;

@@ -159,9 +159,12 @@ public:
   [[nodiscard]] std::expected<Base, StructureBakeError>
   ResumeBase(BaseWrite &prepared, const std::atomic_bool &stopping);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
-  LoadGeometry(const std::string &baseKey, const PreparedStructureTile &base, const RawTile &view);
-  [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
-  LoadGeometry(const std::string &baseKey, Basis basis, const RawTile &view);
+  LoadGeometry(const std::string &baseKey,
+               const PreparedStructureTile &base,
+               const RawTile &view,
+               uint64_t sourceKey = 0);
+  [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError> LoadGeometry(
+      const std::string &baseKey, Basis basis, const RawTile &view, uint64_t sourceKey = 0);
   [[nodiscard]] std::expected<ProductWrite, StructureBakeError>
   PrepareGeometry(const std::string &baseKey,
                   const PreparedStructureTile &base,
@@ -193,8 +196,8 @@ private:
   [[nodiscard]] Basis LoadResidentBasis(const AssetRecord &record);
   [[nodiscard]] std::expected<Basis, StructureBakeError>
   LoadCachedBasis(const std::string &key, const std::string &requestKey);
-  [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
-  LoadGeometryArtifact(const std::string &baseKey, const RawTile &view, size_t coordinatePoints);
+  [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError> LoadGeometryArtifact(
+      const std::string &baseKey, const RawTile &view, size_t coordinatePoints, uint64_t sourceKey);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
   LoadContactArtifact(const std::string &baseKey,
                       std::span<const double> coordinates,

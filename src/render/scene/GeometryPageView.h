@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_SCENE_GEOMETRYPAGEVIEW_H
 #define OUTSHINE_RENDER_SCENE_GEOMETRYPAGEVIEW_H
 #include "PieceMesh.h"
+#include "GeometryErrorBound.h"
 #include "SourceCoverage.h"
 #include "GeometryPasses.h"
 #include "LevelOfDetail.h"
@@ -30,6 +31,7 @@ struct GeometryPageView {
   std::string_view AssetKey;
   bool FallbackHeights = false;
   std::optional<ViewReuseDomain> SelectedView;
+  std::optional<GeometryErrorBound> ErrorBound = std::nullopt;
   std::optional<LevelOfDetail> RequestedDetail;
   std::optional<uint32_t> RequestedCell;
   uint64_t OccupiedCells = 0;

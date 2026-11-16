@@ -53,6 +53,11 @@ BuildingFieldStreaming::State::BindOriginals(Context &context,
           return;
         }
         const auto &prints = context.Surface.Footprints();
+        if (page.Detail && page.Detail != LevelOfDetail::Fine &&
+            (!page.ErrorBound ||
+             !page.ErrorBound->Allows(sourceKey, WorldCamera(context).EyeM, prints.Projection()))) {
+          return;
+        }
         if (page.View && !page.View->Contains(eye, prints.Projection(), prints.EyeEcef())) {
           return;
         }

@@ -348,8 +348,14 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
             .count());
     if (World.Surface().Ingested()) {
       const auto postingAt = std::chrono::steady_clock::now();
-      (void)World.StructureBuilds.Posts(
-          World.Surface(), World.Surface().Footprints(), eye, heightAt, StructureCandidatesMost());
+      (void)World.StructureBuilds.Posts(World.Surface(),
+                                        World.Surface().Footprints(),
+                                        eye,
+                                        heightAt,
+                                        StructureCandidatesMost(),
+                                        StructureBuildQueue::HeightRequirement::AllowFallback,
+                                        std::nullopt,
+                                        StructureBuildQueue::BuildPurpose::TerrainContacts);
       Cost.BakePosting.Took(
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - postingAt)
               .count());
@@ -368,7 +374,8 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
                                                   heightAt,
                                                   std::min(landsMost, size_t{1}),
                                                   StructureBuildQueue::HeightRequirement::FineOnly,
-                                                  LevelOfDetail::Fine);
+                                                  LevelOfDetail::Shell,
+                                                  StructureBuildQueue::BuildPurpose::StaticParents);
   Cost.BakeLanding.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - landingAt)
           .count());
@@ -406,8 +413,8 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
       heightAt,
       StructureCandidatesMost(),
       StructureBuildQueue::HeightRequirement::FineOnly,
-      LevelOfDetail::Fine,
-      StructureBuildQueue::BuildPurpose::ViewDetail,
+      LevelOfDetail::Shell,
+      StructureBuildQueue::BuildPurpose::StaticParents,
       [this](uint32_t tile) { return StructureParentsReady(tile); },
       [this](uint32_t tile) -> std::optional<uint64_t> {
         const auto source =

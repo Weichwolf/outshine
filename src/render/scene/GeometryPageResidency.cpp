@@ -232,6 +232,7 @@ bool GeometryPageResidency::Store(uint32_t tile,
                              .FallbackHeights = baked.FallbackHeights,
                              .Detail = baked.RequestedDetail,
                              .SelectedView = baked.SelectedView,
+                             .ErrorBound = baked.ErrorBound,
                              .Coverage = baked.Coverage,
                              .Row = row,
                              .Visible = visible,
@@ -482,7 +483,9 @@ bool GeometryPageResidency::HasCell(uint32_t tile,
 bool GeometryPageResidency::HasIntrinsicTile(uint32_t tile,
                                              CellSource source,
                                              GeometryPasses passes,
-                                             bool includeHidden) const noexcept {
+                                             bool includeHidden,
+                                             std::optional<Vec3> eye,
+                                             ProjectedErrorBudget projection) const noexcept {
   if (source.Key == 0 || source.Occupied == 0) { return false; }
   const auto first = std::ranges::lower_bound(Pages_, std::pair{tile, uint32_t{0}}, {}, AddressOf);
   const auto last = std::find_if(
@@ -492,8 +495,11 @@ bool GeometryPageResidency::HasIntrinsicTile(uint32_t tile,
     if ((!at->Visible && !includeHidden) ||
         (passes != GeometryPasses::MainAndShadow && at->Passes != GeometryPasses::MainAndShadow &&
          at->Passes != passes) ||
-        at->Detail != LevelOfDetail::Fine || at->SourceKey != source.Key || at->FallbackHeights ||
-        at->SelectedView) {
+        !at->Detail || at->SourceKey != source.Key || at->FallbackHeights || at->SelectedView) {
+      continue;
+    }
+    if (at->Detail != LevelOfDetail::Fine &&
+        (!at->ErrorBound || !at->ErrorBound->Allows(source.Key, eye, projection))) {
       continue;
     }
     if (at->Cell == 0) {

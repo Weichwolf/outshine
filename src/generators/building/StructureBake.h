@@ -139,6 +139,7 @@ struct BakedTile {
   ClusteredMesh Walls, Roofs;
   uint64_t Digest = 0;
   std::string GeometryAssetKey;
+  std::optional<Box> WorldBounds = std::nullopt;
   bool FallbackHeights = false;
   std::optional<ViewReuseDomain> SelectedView;
   std::optional<LevelOfDetail> RequestedDetail;
@@ -162,6 +163,17 @@ struct BakedTile {
   size_t SkippedRings = 0;
   std::optional<StructureSurfaceErrorInterval> SurfaceError;
   std::optional<StructureSurfaceErrorFailure> SurfaceFailure;
+
+  [[nodiscard]] Box BoundsAt(const Vec3 &anchor) const {
+    Box bounds;
+    for (const auto *vertices : {&Built.WallCorners, &Built.RoofCorners}) {
+      for (const auto &vertex : *vertices) {
+        bounds.Cover(anchor + Vec3{{vertex.pos[0], vertex.pos[1], vertex.pos[2]}});
+      }
+    }
+    if (bounds.Empty()) { bounds.Cover(anchor); }
+    return bounds;
+  }
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
     size_t bytes = Built.HeapBytes() + Walls.HeapBytes() + Roofs.HeapBytes() +

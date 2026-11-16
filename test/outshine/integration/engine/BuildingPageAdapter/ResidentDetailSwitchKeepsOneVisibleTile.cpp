@@ -509,6 +509,64 @@ void CheckIntrinsicParents(Fixture &fixture) {
   fixture.pieces.Retire(7);
 }
 
+void CheckMeasuredParents(Fixture &fixture) {
+  constexpr uint64_t kSource = 123;
+  auto coarse = MakeMesh({.NorthM = 0, .Digest = 301, .Detail = LevelOfDetail::Shell});
+  coarse.RequestedCell = 1;
+  coarse.OccupiedCells = 1;
+  coarse.SurfaceError.emplace();
+  coarse.SurfaceError->Upper = {
+      .SourceKey = kSource, .ReferenceToVariantM = 0.05, .VariantToReferenceM = 0.05};
+  const auto anchor = fixture.frame.OriginEcef();
+  coarse.WorldBounds = Box{.Min = anchor - Vec3{{1, 1, 1}}, .Max = anchor + Vec3{{1, 1, 1}}};
+  CHECK(fixture.pieces.Upload(7,
+                              1,
+                              BuildingPageView(coarse, fixture.materials).View(),
+                              anchor,
+                              fixture.error,
+                              kSource) &&
+            fixture.Depth() > 0,
+        "a measured native coarse parent draws actual geometry");
+  const auto far = anchor + Vec3{{100, 0, 0}};
+  CHECK(fixture.pieces.HasIntrinsicTile(7,
+                                        {.Key = kSource, .Occupied = 1},
+                                        Render::GeometryPasses::Main,
+                                        false,
+                                        far,
+                                        {.FocalPx = 720}),
+        "measured error allows the coarse source parent at a sufficient distance");
+  CHECK(!fixture.pieces.HasIntrinsicTile(7,
+                                         {.Key = kSource, .Occupied = 1},
+                                         Render::GeometryPasses::Main,
+                                         false,
+                                         anchor,
+                                         {.FocalPx = 720}) &&
+            !fixture.pieces.HasIntrinsicTile(7,
+                                             {.Key = kSource, .Occupied = 1},
+                                             Render::GeometryPasses::Main,
+                                             false,
+                                             far,
+                                             {.FocalPx = 720, .AllowedErrorPx = 0}),
+        "a close eye or zero approximation allowance cannot certify the coarse image");
+  coarse.Digest = 302;
+  coarse.SurfaceError->Upper.SourceKey = kSource + 1;
+  CHECK(fixture.pieces.Upload(7,
+                              1,
+                              BuildingPageView(coarse, fixture.materials).View(),
+                              anchor,
+                              fixture.error,
+                              kSource) &&
+            fixture.Depth() > 0 &&
+            !fixture.pieces.HasIntrinsicTile(7,
+                                             {.Key = kSource, .Occupied = 1},
+                                             Render::GeometryPasses::Main,
+                                             false,
+                                             far,
+                                             {.FocalPx = 720}),
+        "an error certificate from another source cannot make visible geometry ready");
+  fixture.pieces.Retire(7);
+}
+
 }
 
 int main() {
@@ -527,6 +585,7 @@ int main() {
       CheckWholeFallback(fixture);
       CheckIndependentCells(fixture);
       CheckIntrinsicParents(fixture);
+      CheckMeasuredParents(fixture);
     }
   }
   SDL_Quit();

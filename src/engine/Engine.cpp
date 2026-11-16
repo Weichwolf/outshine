@@ -273,7 +273,9 @@ bool Engine::State::StructureParentsReady(uint32_t tile) const {
          World.Pieces.HasIntrinsicTile(tile,
                                        {.Key = *sourceKey, .Occupied = accepted->OccupiedCells},
                                        Render::GeometryPasses::MainAndShadow,
-                                       true);
+                                       true,
+                                       CurrentGeographicEyeEcef(),
+                                       footprints.Projection());
 }
 
 bool Engine::State::StructureProductsReady(uint32_t tile) const {
@@ -290,7 +292,11 @@ bool Engine::State::StructureProductsReady(uint32_t tile) const {
     return true;
   }
   return World.Pieces.HasIntrinsicTile(tile,
-                                       {.Key = *sourceKey, .Occupied = accepted->OccupiedCells});
+                                       {.Key = *sourceKey, .Occupied = accepted->OccupiedCells},
+                                       Render::GeometryPasses::Main,
+                                       false,
+                                       CurrentGeographicEyeEcef(),
+                                       footprints.Projection());
 }
 
 bool Engine::State::StructuresReady(const ::outshine::Generators::Osm::BuildingField &footprints,
