@@ -245,8 +245,8 @@ def geometric_error(reference, variant, radius=1.0):
     b, rb = surface_samples(variant, radius)
     if not len(a) or not len(b):
         raise ValueError("both surfaces must contain geometry")
-    ab = float(cKDTree(b).query(a, workers=1)[0].max())
-    ba = float(cKDTree(a).query(b, workers=1)[0].max())
+    ab = float(cKDTree(b).query(a, workers=4)[0].max())
+    ba = float(cKDTree(a).query(b, workers=4)[0].max())
     return {"epsilon_m": max(ab + ra, ba + rb) + 1e-6,
             "sampled_max_m": max(ab, ba), "cover_radius_m": max(ra, rb)}
 
