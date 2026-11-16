@@ -504,6 +504,7 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress AdvanceGroundBuildingContacts() const;
   [[nodiscard]] std::string_view GroundBuildStatus() const noexcept;
   [[nodiscard]] std::string GroundBuildDiagnostic() const;
+  [[nodiscard]] std::string StructureViewDiagnostic() const;
   [[nodiscard]] size_t StructureCandidatesMost() const noexcept;
   [[nodiscard]] bool CollectGroundBuildingContacts(size_t landsMost);
 

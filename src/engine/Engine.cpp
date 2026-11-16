@@ -370,6 +370,7 @@ std::string Engine::unsettledReasons(WorldQuality required) const {
   if (!reasons.empty() && required == WorldQuality::Refined) {
     reasons += "; " + S_->World.Surface().IngestionStatus();
     reasons += "; " + S_->GroundBuildDiagnostic();
+    reasons += "; " + S_->StructureViewDiagnostic();
     reasons += "; structure queue=" + std::to_string(S_->World.StructureBuilds.Queued()) +
                ", landed=" + std::to_string(S_->World.StructureBuilds.Landed()) + "/" +
                std::to_string(S_->World.StructureBuilds.Posted());
