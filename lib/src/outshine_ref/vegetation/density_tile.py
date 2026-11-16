@@ -67,15 +67,16 @@ def pack_density(tile, *, density_max, species_height_m):
     return density | (tile.species.astype(np.uint32) << 16) | (height << 24)
 
 
-def canopy_inputs(tile, ground_nodes, *, crown_width_m, leaf_srgb):
+def canopy_inputs(tile, ground_nodes, *, crown_width_m, leaf_albedo_linear):
     """Terrain height offset, coverage and linear albedo; material bake inputs.
 
     Coverage uses projected crown area and the declared stem density. The height
     envelope retains the species top where trees occur; it is not ground height.
     """
     coverage = -np.expm1(-tile.density * np.pi * (crown_width_m / 2) ** 2)
-    srgb = np.asarray(leaf_srgb, dtype=np.float64)
-    linear = np.where(srgb <= .04045, srgb / 12.92, ((srgb + .055) / 1.055) ** 2.4)
+    linear = np.asarray(leaf_albedo_linear, dtype=np.float64)
+    if linear.shape != (3,) or not np.isfinite(linear).all() or np.any((linear < 0) | (linear > 1)):
+        raise ValueError('energy-bounded linear leaf reflection required')
     offset = np.zeros_like(ground_nodes, dtype=np.float64)
     for dy, dx in ((0, 0), (1, 0), (0, 1), (1, 1)):
         part = offset[dy:dy + tile.density.shape[0], dx:dx + tile.density.shape[1]]

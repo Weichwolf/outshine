@@ -24,6 +24,7 @@ from outshine_ref.places.height import decode_terrarium
 from outshine_ref.places.native_cache import cached_tile
 from outshine_ref.places.sources import covering_tiles
 from outshine_ref.vegetation.density_tile import canopy_inputs, pack_density, spruce_density
+from outshine_ref.vegetation.leaf_optics import LeafOpticsTable
 
 
 REVISION = '20261025_080012_pt'
@@ -130,6 +131,12 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     world = json.loads(Path('data/world/vegetation.json').read_text())
     species = json.loads(Path('data/world/species/spruce.json').read_text())
+    optics = LeafOpticsTable.from_recipe(json.loads(Path(
+        'lib/src/outshine_ref/vegetation/data/leaf-optics-table-1.json').read_text()))
+    optical = optics.sample([[species.get('chlorophyll_ug_cm2', 45),
+                              species.get('anthocyanin_ug_cm2', .2)]])[0].reshape(2, 3)
+    optical *= [species.get(f'leaf_{c}', 1) for c in 'rgb']
+    optical /= max(1, optical.max(axis=1).sum())
     materials = json.loads(Path('data/world/ground-materials.json').read_text())
     density_max = next(t for t in world['templates'] if t['name'] == 'conifer_forest')['trees']['perM2']
     slope_limit = next(t for t in materials['classes'] if t['name'] == 'forest_floor')['slope']['plausibleDeg'][1]
@@ -154,7 +161,7 @@ def main():
                                height_m=species['height_m'], alpine_limit=world['alpineLimit'],
                                slope_limit_deg=slope_limit)
         canopy = canopy_inputs(field, ground, crown_width_m=species['spread_m'],
-                                leaf_srgb=[species[f'leaf_{c}'] for c in 'rgb'])
+                                leaf_albedo_linear=optical[0])
         packed = pack_density(field, density_max=density_max, species_height_m=species['height_m'])
         filename = '-'.join(map(str, tile)) + '.npz'
         np.savez(args.output / filename, density_r32_uint=packed.astype('<u4'),
@@ -180,6 +187,10 @@ def main():
                           'species_height_m': species['height_m']},
               'camera': {'latitude': latitude, 'longitude': longitude, 'horizontal_fov_deg': fov,
                          'bearing_deg': float(at.get('bearingDeg'))},
+              'canopy_material': {'leaf_reflection_linear': optical[0].tolist(),
+                                  'leaf_transmission_linear': optical[1].tolist(),
+                                  'roughness': species.get('leaf_roughness', .6),
+                                  'source': 'existing LeafOpticsTable and TreePrototype::LookOf recipe'},
               'limits': ['All mapped wood provisionally spruce, no inferred shore groups.',
                          'No treeline jitter; base altitude/latitude and slope ramps only.',
                          'Road full widths primary 8m, minor 6m, service/track 4m, path 2m are provisional reservations.',

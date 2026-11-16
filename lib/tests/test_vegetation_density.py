@@ -36,9 +36,9 @@ class VegetationDensity(unittest.TestCase):
     def test_canopy_adds_height_to_negative_terrain_only_where_forest_exists(self):
         ground = np.full((3, 3), -50.)
         result = canopy_inputs(density(ground, wood=box(0, 0, 10, 10)), ground,
-                               crown_width_m=6, leaf_srgb=(.4, .74, .55))
+                               crown_width_m=6, leaf_albedo_linear=(.04, .09, .025))
         self.assertEqual((ground + result['height_offset_m'])[0, 0], -15)
         self.assertEqual((ground + result['height_offset_m'])[-1, -1], -50)
         self.assertEqual(result['coverage'][-1, -1], 0)
         self.assertAlmostEqual(float(result['coverage'][0, 0]), 1 - np.exp(-.033 * np.pi * 9))
-        self.assertLess(float(result['leaf_albedo_linear'][0, 0, 0]), .4)
+        np.testing.assert_allclose(result['leaf_albedo_linear'][0, 0], (.04, .09, .025))
