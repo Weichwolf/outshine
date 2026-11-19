@@ -1,6 +1,7 @@
 """The Places table: native scenario runs, warm cache, three-run medians."""
 
 import json
+from copy import copy
 import math
 import platform
 import statistics
@@ -229,21 +230,30 @@ def run_case(source, case, options, invoke, deadline, seed=None):
     linear = (forward_velocity(seed, vertical, TRANSLATION[case][0])
               if case in TRANSLATION else "0,0,0")
     reports = []
+    offline = copy(options)
+    offline.online = False
     # A full untabulated traversal warms the same persistent cache before all three runs.
     for run in range(4):
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise TimeoutError("benchmark exceeded --max-seconds")
         folder = work / ("warmup" if run == 0 else str(run))
-        report = invoke(prepared, view, options, folder, frames, angular, linear,
+        report = invoke(prepared, view, options if run == 0 else offline, folder, frames, angular, linear,
                         timeout=remaining)
         validate_report(report, options, frames, angular, linear)
-        if run:
+        if run == 0:
+            preparation = report
+        else:
             reports.append(report)
     identity = [(r["gpu"], r["cpu"], r["backend"], r["build"]["commit"]) for r in reports]
     if len(set(identity)) != 1:
         raise ValueError("device or build changed between repetitions")
     result = summarize(reports)
+    result["warmup"] = {
+        "preload_ms": preparation["phases_ms"]["preload"],
+        "loading": preparation.get("loading", {}).get("prepared"),
+        "report": str(work / "warmup" / "benchmark.json"),
+    }
     result.update({"place": source.stem, "case": case, "frames": frames,
                    "report_paths": [str(work / str(run) / "benchmark.json") for run in (1, 2, 3)],
                    "gpu": reports[0]["gpu"], "cpu": reports[0]["cpu"],

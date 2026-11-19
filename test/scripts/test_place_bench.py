@@ -26,7 +26,7 @@ class PlaceBench(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.options = SimpleNamespace(bench_profile="rtx3060", reports=self.root,
                                        max_seconds=900, driver="test driver", check_budget=False,
-                                       commit="test commit")
+                                       commit="test commit", online=True)
         self.source = ROOT / "test/outshine/data/places/Husum.scenario"
         self.calls = []
 
@@ -34,6 +34,7 @@ class PlaceBench(unittest.TestCase):
         root = ET.fromstring(prepared.read_text())
         render = root.find("render")
         rate = int(render.get("fps"))
+        self.assertEqual(options.online, folder.name == "warmup")
         self.calls.append((folder.parent.name, folder.name, frames, rate, angular, linear))
         index = int(folder.name) if folder.name != "warmup" else 0
         # Three distinct values prove aggregation uses all runs, not just the last.

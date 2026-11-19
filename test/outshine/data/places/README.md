@@ -37,6 +37,8 @@ fehlende Quellen online, baut fehlende Assets und nimmt anschließend die Szene 
 `make bench` misst Stillstand, Drehung, Gehen und Flug offline mit drei Wiederholungen.
 Eine vollständige Drehung aktualisiert das Place-Bild. Ohne Ortsfilter nimmt der
 Benchmark den gesamten Katalog. `BENCH_ARGS` wählt Orte oder Treiberparameter.
+Mit `--online` darf der Vorlauf fehlende Quellen laden. Die drei gemessenen Läufe
+bleiben offline. Der Ergebnisbericht enthält den Vorlauf separat.
 Pro Ort bleibt das neueste erfolgreiche Hash-PNG unter build/shots/places erhalten.
 Private Berichte/Logdateien liegen im System-Tempverzeichnis. CPU/GPU-p99 und
 Vollständigkeit stehen im unveränderten nativen Benchmarkbericht; eine erfolgreiche
