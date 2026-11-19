@@ -13,6 +13,29 @@
 #include <string_view>
 
 namespace outshine {
+namespace {
+std::string GroundGeometryDiagnostic(WorldRegionBuildState &state) {
+  if (state.CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsGeometry) { return {}; }
+  if (state.RegionStatus() == WorldRegionBuildState::RegionPhase::Storing) {
+    return ", geometry waiting for region storage";
+  }
+  if (!state.RoadsRestored()) {
+    const auto &manifest = state.RoadManifest();
+    const auto *roads = state.RoadRestoration();
+    return std::format(", geometry restoring roads={}/{}",
+                       roads != nullptr ? roads->Pages() : 0,
+                       manifest ? manifest->Pages.size() : 0);
+  }
+  using Submission = WorldRegionBuildState::GeometrySubmission;
+  switch (state.GeometrySubmissionStep()) {
+    case Submission::Classes: return ", geometry preparing terrain classes";
+    case Submission::ClassRanges: return ", geometry uploading terrain classes";
+    case Submission::Begin: return ", geometry preparing render scene";
+    case Submission::Cook: return ", geometry uploading render scene";
+  }
+  return {};
+}
+}
 
 std::string_view Engine::State::GroundBuildStatus() const noexcept {
   return World.GroundBuild ? World.GroundBuild->Status() : "absent";
@@ -85,6 +108,7 @@ std::string Engine::State::GroundBuildDiagnostic() const {
     diagnostic += ", region absent";
   }
   if (!World.GroundBuild) { return diagnostic; }
+  diagnostic += GroundGeometryDiagnostic(*World.GroundBuild);
   if (const auto &published = World.GroundPublished.Current()) {
     diagnostic += ", candidate revision delta=" +
                   std::to_string(published->CandidateDifferenceMask(World.GroundBuild->Revision()));
