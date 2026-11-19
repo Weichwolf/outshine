@@ -11,6 +11,12 @@
 
 namespace outshine {
 
+inline constexpr double kEarthworkContactToleranceM = 1.e-6;
+
+[[nodiscard]] inline bool RejectsWithinPolygonOnly(const EarthworkStamp &stamp) noexcept {
+  return !stamp.Profile && stamp.Kind != EarthworkKind::Basin;
+}
+
 struct EarthworkStampQuery {
   std::vector<uint32_t> Candidates;
   std::vector<uint32_t> CoarseCandidates;
@@ -22,7 +28,11 @@ struct EarthworkStampQuery {
 
 class EarthworkStampIndex {
 public:
-  EarthworkStampIndex(std::span<const EarthworkStamp> stamps, std::span<const double> widthsM);
+  enum class Support : uint8_t { Aprons, Rejection };
+
+  EarthworkStampIndex(std::span<const EarthworkStamp> stamps,
+                      std::span<const double> widthsM,
+                      Support support = Support::Aprons);
 
   [[nodiscard]] std::span<const uint32_t> At(EastNorth point, EarthworkStampQuery &scratch) const;
   [[nodiscard]] size_t HeapBytes() const noexcept;

@@ -29,7 +29,6 @@ namespace outshine {
 namespace {
 
 constexpr double kSmoothstepPeakDerivative = 1.875;
-constexpr double kContactToleranceM = 1.e-6;
 
 bool HasSoftApron(const EarthworkStamp &stamp) {
   return stamp.Kind != EarthworkKind::Basin;
@@ -49,7 +48,7 @@ double SignedDistanceToRingM(std::span<const double> ring, EastNorth at) {
   const size_t corners = ring.size() / 2u;
   if (corners < 3) { return kBeyondAnyCoordinate; }
   bool inside = false;
-  double nearest = kBeyondAnyCoordinate;
+  double nearestSquared = kBeyondAnyCoordinate * kBeyondAnyCoordinate;
   for (size_t edge = 0, last = corners - 1u; edge < corners; last = edge++) {
     const double aE = ring[edge * 2u];
     const double aN = ring[edge * 2u + 1u];
@@ -68,14 +67,15 @@ double SignedDistanceToRingM(std::span<const double> ring, EastNorth at) {
             : 0.0;
     const double offE = at.EastM - (aE + runE * part);
     const double offN = at.NorthM - (aN + runN * part);
-    nearest = std::min(nearest, std::sqrt(offE * offE + offN * offN));
+    nearestSquared = std::min(nearestSquared, offE * offE + offN * offN);
   }
+  const double nearest = std::sqrt(nearestSquared);
   return inside ? -nearest : nearest;
 }
 
 double OutsideRingM(const EarthworkStamp &held, EastNorth at) {
   const double outer = SignedDistanceToRingM(held.RingEastNorthM, at);
-  if (std::abs(outer) <= kContactToleranceM) { return 0; }
+  if (std::abs(outer) <= kEarthworkContactToleranceM) { return 0; }
   if (outer >= 0.0) { return outer; }
   double insideM = -outer;
   for (const auto &hole : held.HoleRingsEastNorthM) {
@@ -265,21 +265,17 @@ struct PressWorkspace {
     }
   }
 
-  bool PlanAprons(std::span<const EarthworkStamp> stamps, double mostEarthworkM) {
-    bool changed = false;
+  void PlanAprons(std::span<const EarthworkStamp> stamps, double mostEarthworkM) {
     for (size_t which = 0; which < stamps.size(); ++which) {
       const auto &stamp = stamps[which];
       if ((stamp.Kind != EarthworkKind::Pad && stamp.Kind != EarthworkKind::Clearance) ||
           stamp.ApronM <= 0.0) {
         continue;
       }
-      const double widthM = std::hypot(stamp.ApronM,
-                                       kSmoothstepPeakDerivative *
-                                           std::min(ReliefM[which], mostEarthworkM) * kBatterRun);
-      changed = changed || widthM != WidthsM[which];
-      WidthsM[which] = widthM;
+      WidthsM[which] = std::hypot(stamp.ApronM,
+                                  kSmoothstepPeakDerivative *
+                                      std::min(ReliefM[which], mostEarthworkM) * kBatterRun);
     }
-    return changed;
   }
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
@@ -295,6 +291,11 @@ const ProfiledCorridorSpan *ProfileOf(const EarthworkStamp &stamp) {
       .value_or(nullptr);
 }
 
+bool OutsideBounds(const EarthworkStamp &stamp, EastNorth at, double reachM) {
+  return at.EastM < stamp.LowE - reachM || at.EastM > stamp.HighE + reachM ||
+         at.NorthM < stamp.LowN - reachM || at.NorthM > stamp.HighN + reachM;
+}
+
 void ProfilesAt(std::span<const EarthworkStamp> these,
                 std::span<const uint32_t> over,
                 std::span<const uint8_t> structures,
@@ -308,10 +309,7 @@ void ProfilesAt(std::span<const EarthworkStamp> these,
     const ProfiledCorridorSpan *profile = ProfileOf(held);
     if (profile == nullptr) { continue; }
     const double apronM = widthsM[which];
-    if (at.EastM < held.LowE - apronM || at.EastM > held.HighE + apronM ||
-        at.NorthM < held.LowN - apronM || at.NorthM > held.HighN + apronM) {
-      continue;
-    }
+    if (OutsideBounds(held, at, apronM)) { continue; }
     const auto offered = ProfiledCorridor::OfferAt(*profile, apronM, at);
     if (!offered) { continue; }
     const auto same = std::ranges::find_if(profiles, [profile](const NearestProfile &candidate) {
@@ -384,10 +382,7 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
     const EarthworkStamp &held = these[which];
     const double apronM = workspace.WidthsM[which];
     const double reachM = apronM + held.PlanarSupportM.value_or(0.0);
-    if (at.EastM < held.LowE - reachM || at.EastM > held.HighE + reachM ||
-        at.NorthM < held.LowN - reachM || at.NorthM > held.HighN + reachM || held.Profile) {
-      continue;
-    }
+    if (OutsideBounds(held, at, reachM) || held.Profile) { continue; }
     const Bid bid{.Which = which,
                   .OutsideM = OutsideRingM(held, at),
                   .WantsM = RoadBedAt(held, at, workspace.BedLimitsM[which])};
@@ -441,6 +436,23 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
   return ChooseHeight(bids, wasM);
 }
 
+std::optional<Bid> RejectionBid(const EarthworkStamp &stamp,
+                                uint32_t which,
+                                EastNorth at,
+                                const std::array<double, 2> &bedLimitsM) {
+  if (stamp.Profile) {
+    const auto offer = ProfiledCorridor::OfferAt(*stamp.Profile, stamp.ApronM, at);
+    if (!offer) { return std::nullopt; }
+    return Bid{.Which = which, .OutsideM = offer->OutsideM, .WantsM = offer->BedM};
+  }
+  if (RejectsWithinPolygonOnly(stamp) && OutsideBounds(stamp, at, kEarthworkContactToleranceM)) {
+    return std::nullopt;
+  }
+  return Bid{.Which = which,
+             .OutsideM = OutsideRingM(stamp, at),
+             .WantsM = RoadBedAt(stamp, at, bedLimitsM)};
+}
+
 void RejectAt(std::span<const EarthworkStamp> these,
               const EarthworkStampIndex &buckets,
               std::span<const EastNorth> at,
@@ -451,17 +463,10 @@ void RejectAt(std::span<const EarthworkStamp> these,
               PressWorkspace &workspace) {
   for (const uint32_t which : buckets.At(at[one], workspace.Query)) {
     const EarthworkStamp &stamp = these[which];
-    double outsideM = 0;
-    double bedM = 0;
-    if (stamp.Profile) {
-      const auto offered = ProfiledCorridor::OfferAt(*stamp.Profile, stamp.ApronM, at[one]);
-      if (!offered) { continue; }
-      outsideM = offered->OutsideM;
-      bedM = offered->BedM;
-    } else {
-      outsideM = OutsideRingM(stamp, at[one]);
-      bedM = RoadBedAt(stamp, at[one], workspace.BedLimitsM[which]);
-    }
+    const auto bid = RejectionBid(stamp, which, at[one], workspace.BedLimitsM[which]);
+    if (!bid) { continue; }
+    const double outsideM = bid->OutsideM;
+    const double bedM = bid->WantsM;
     if ((stamp.Kind == EarthworkKind::Pad || stamp.Kind == EarthworkKind::Clearance) &&
         outsideM <= 0.0) {
       const double reliefM = stamp.Fills && stamp.Kind != EarthworkKind::Clearance
@@ -546,7 +551,7 @@ struct EarthworkDeformationJob::State {
         UpM(upM),
         MostEarthworkM(mostEarthworkM),
         Workspace(these, mostEarthworkM),
-        Buckets(these, Workspace.WidthsM),
+        Buckets(these, Workspace.WidthsM, EarthworkStampIndex::Support::Rejection),
         Structures(these.size(), 0u) {
     if (these.empty() || at.size() != upM.size()) {
       Current = Phase::Done;
@@ -599,9 +604,8 @@ bool EarthworkDeformationJob::Advance(size_t pointsMost) {
     state.Result.LongestRejectMs = std::max(state.Result.LongestRejectMs, elapsed);
     if (state.Next < state.At.size()) { return false; }
     const auto planning = std::chrono::steady_clock::now();
-    if (state.Workspace.PlanAprons(state.These, state.MostEarthworkM)) {
-      state.Buckets = EarthworkStampIndex(state.These, state.Workspace.WidthsM);
-    }
+    state.Workspace.PlanAprons(state.These, state.MostEarthworkM);
+    state.Buckets = EarthworkStampIndex(state.These, state.Workspace.WidthsM);
     state.Result.BucketMs +=
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - planning)
             .count();

@@ -48,10 +48,14 @@ uint32_t EarthworkStampIndex::ShiftFor(const CellBounds &bounds) {
 }
 
 EarthworkStampIndex::EarthworkStampIndex(std::span<const EarthworkStamp> stamps,
-                                         std::span<const double> widthsM) {
+                                         std::span<const double> widthsM,
+                                         Support support) {
   for (size_t index = 0; index < stamps.size(); ++index) {
     const auto &stamp = stamps[index];
-    const double reachM = widthsM[index] + stamp.PlanarSupportM.value_or(0.0);
+    const double apronM = widthsM[index] + stamp.PlanarSupportM.value_or(0.0);
+    const double reachM = support == Support::Rejection && RejectsWithinPolygonOnly(stamp)
+                              ? std::min(apronM, kEarthworkContactToleranceM)
+                              : apronM;
     const CellBounds bounds{.LowE = CellOf(stamp.LowE - reachM),
                             .HighE = CellOf(stamp.HighE + reachM),
                             .LowN = CellOf(stamp.LowN - reachM),
@@ -62,13 +66,13 @@ EarthworkStampIndex::EarthworkStampIndex(std::span<const EarthworkStamp> stamps,
       Base_.Add(bounds, bounds.Stamp);
       continue;
     }
-    const auto support = static_cast<uint32_t>(CoarseSupports_.size());
+    const auto entry = static_cast<uint32_t>(CoarseSupports_.size());
     CoarseSupports_.push_back(bounds);
     const auto found = std::ranges::find(CoarseLevels_, shift, &CellLevel::Shift);
     if (found == CoarseLevels_.end()) {
-      CoarseLevels_.emplace_back(shift).Add(bounds, support);
+      CoarseLevels_.emplace_back(shift).Add(bounds, entry);
     } else {
-      found->Add(bounds, support);
+      found->Add(bounds, entry);
     }
   }
   Base_.Build();
