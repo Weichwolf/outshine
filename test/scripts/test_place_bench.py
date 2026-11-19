@@ -55,7 +55,8 @@ class PlaceBench(unittest.TestCase):
             "gpu_times": {"frame": distribution,
                           "samples": [{"submission": i + 1, "elapsed_ms": timing}
                                       for i in range(frames)]},
-            "process_memory": {"peak_resident_bytes": 2**20 * index},
+            "process_memory": {"peak_resident_bytes": 2**20 * index,
+                               "peak_footprint_bytes": 2**21 * index},
             "gpu_memory": {"resource_allocated_bytes": 2**20 * index},
             "phases_ms": {"preload": timing}, "metrics": [],
             "image_row_variation": 2.0,
@@ -76,7 +77,7 @@ class PlaceBench(unittest.TestCase):
                                     self.options, invoke or self.invoke)
         return code, json.loads((self.root / "results.json").read_text()), stdout.getvalue()
 
-    def test_profiles_measure_300_frame_turn_and_ten_second_flight_three_times(self):
+    def test_profiles_measure_still_turn_walk_and_flight_three_times(self):
         for profile, (width, height, rate) in PROFILES.items():
             with self.subTest(profile=profile):
                 self.options.bench_profile = profile
@@ -84,24 +85,26 @@ class PlaceBench(unittest.TestCase):
                 code, result, table = self.run_driver()
                 self.assertEqual(code, 0)
                 self.assertEqual((result["width_px"], result["height_px"]), (width, height))
-                self.assertEqual(len(self.calls), 12)  # warmup + three repetitions per case
+                self.assertEqual(len(self.calls), 16)  # warmup + three repetitions per case
                 for case, run, frames, hz, angular, linear in self.calls:
                     self.assertEqual(hz, rate)
-                    self.assertEqual(frames, rate * 10 if case == "Flug" else 300)
-                    self.assertEqual(angular, f"0,{-360 * rate // 300},0"
-                                     if case == "Drehung" else "0,0,0")
-                    self.assertEqual(linear, "0,0,-100" if case == "Flug" else "0,0,0")
+                    self.assertEqual(frames, {"Still": 300, "Drehung": rate,
+                                              "Gehen": rate * 10, "Flug": rate * 10}[case])
+                    self.assertEqual(angular, "0,-360,0" if case == "Drehung" else "0,0,0")
+                    self.assertEqual(linear, {"Gehen": "0,0,-1.5",
+                                              "Flug": "0,0,-200"}.get(case, "0,0,0"))
                 for row in result["rows"]:
                     self.assertEqual(row["cpu_p50_ms"], 7)
                     self.assertEqual(row["cpu_work_p50_ms"], 1.75)
                     self.assertEqual(row["gpu_p99_ms"], 14)
                     self.assertEqual(row["warm_load_ms"], 7)
+                    self.assertEqual(row["peak_footprint_bytes"], 2**22)
                     self.assertIsNone(row["draws_max"])
                     self.assertIsNone(row["triangles_max"])
                     self.assertTrue(all(p["p99_ms"] is None for p in row["gpu_passes"].values()))
                     self.assertTrue(row["complete"])
                 self.assertIn(f"GPU: {result['rows'][0]['gpu']}; Treiber: test driver", table)
-                self.assertEqual(table.count("| Husum |"), 3)
+                self.assertEqual(table.count("| Husum |"), 4)
 
     def test_failed_repetition_cannot_publish_a_successful_partial_median(self):
         def failing(*args, **kwargs):
@@ -111,7 +114,7 @@ class PlaceBench(unittest.TestCase):
 
         code, result, table = self.run_driver(failing)
         self.assertEqual(code, 1)
-        self.assertEqual(len(result["rows"]), 3)
+        self.assertEqual(len(result["rows"]), 4)
         self.assertTrue(all(not row["complete"] for row in result["rows"]))
         self.assertTrue(all("cpu_p50_ms" not in row for row in result["rows"]))
         self.assertIn("nein", table)
