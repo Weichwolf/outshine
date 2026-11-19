@@ -16,8 +16,9 @@ void TerrainRenderer::SyncInputs() {
 }
 
 Native::Result<void> TerrainRenderer::SetGrid(std::span<const float> fractions) {
+  const auto previous = Resident_->Generation();
   auto changed = Resident_->SetGrid(fractions);
-  if (changed) { SyncInputs(); }
+  if (changed && Resident_->Generation() != previous) { SyncInputs(); }
   return changed;
 }
 

@@ -1,14 +1,50 @@
 #include "TerrainLattice.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
+#include "WorldCandidate.h"
 #include "streaming/TerrainResidency.h"
 #include "Check.h"
 #include "test/harness/render/NativeUploadFaultDevice.h"
 #include <SDL3/SDL.h>
 #include <chrono>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
+
+namespace {
+void CheckCandidateRestoration(outshine::Render::SceneRenderer &renderer,
+                               outshine::Core::RuntimeScene &scene,
+                               outshine::Test::Gpu::UploadFailure &failure) {
+  using namespace outshine;
+  using namespace outshine::Test::Gpu;
+  Core::WorldCandidate candidate(renderer);
+  auto opened = candidate.Prepare(scene,
+                                  nullptr,
+                                  Render::SceneResources::PieceSources::Copy,
+                                  Core::GeometryRetention::All,
+                                  Core::ResourceRestoreMode::Deferred);
+  CHECK(opened, "replacement opens with the published terrain inputs");
+  if (!opened) { return; }
+  failure.Point = UploadFailurePoint::Acquire;
+  failure.Kind = Render::Native::ErrorKind::Busy;
+  failure.Skip = 1;
+  failure.Armed = true;
+  const auto waits = failure.Waits;
+  const auto submissions = failure.AcceptedSubmissions;
+  size_t nextPage = 0;
+  auto restored = candidate.AdvanceGroundResourceRestore(nextPage, 1);
+  CHECK(restored && !*restored && nextPage == 1 && !failure.Armed &&
+            failure.AcceptedSubmissions == submissions + 1,
+        "instance upload defers after admitting the page and reusing the grid");
+  if (!restored) { return; }
+  restored = candidate.AdvanceGroundResourceRestore(nextPage, 1);
+  CHECK(restored && *restored && nextPage == 1 && failure.Waits == waits &&
+            failure.AcceptedSubmissions == submissions + 2 &&
+            renderer.TerrainRendererTriangles() == Render::TerrainLattice::kIndices / 3u,
+        "retry uploads only the instances and completes the candidate without waiting");
+}
+}
 
 int main() {
   using namespace outshine;
@@ -32,7 +68,7 @@ int main() {
       patch.Sheets.push_back({.Tile = {.Zoom = 14, .X = 8192, .Y = 8192},
                               .Nodes = std::vector<float>(Render::TerrainLattice::kPageNodes, 3),
                               .Side = Render::TerrainLattice::kSide,
-                              .Postings = Render::TerrainLattice::kSide});
+                              .Postings = Render::TerrainLattice::kSide + 1});
       const TangentFrame frame = TangentFrame::At({});
       TerrainResidency residency;
       residency.Into(&renderer);
@@ -85,6 +121,7 @@ int main() {
                 renderer.HeightPageSourceBytes() == bytes &&
                 renderer.TerrainRendererTriangles() == Render::TerrainLattice::kIndices / 3u,
             "a real driver error stays an error and preserves the committed terrain");
+      CheckCandidateRestoration(renderer, *scene, failure);
       residency.Clear();
     }
   }

@@ -189,10 +189,16 @@ std::expected<bool, std::string> SceneResources::AdvanceTerrainRestore(GeometryR
   if (nextPage < HeightPages_.size()) { return false; }
   if (!GroundGrid_.empty()) {
     const auto uploaded = geometry.Ground().SetGrid(GroundGrid_);
-    if (!uploaded) { return std::unexpected(uploaded.error().Message); }
+    if (!uploaded) {
+      if (uploaded.error().Kind == Native::ErrorKind::Busy) { return false; }
+      return std::unexpected(uploaded.error().Message);
+    }
   }
   const auto restored = SetTerrainTiles(geometry, GroundReal_, GroundVirtual_);
-  if (!restored) { return std::unexpected(restored.error().Message); }
+  if (!restored) {
+    if (restored.error().Kind == Native::ErrorKind::Busy) { return false; }
+    return std::unexpected(restored.error().Message);
+  }
   return true;
 }
 

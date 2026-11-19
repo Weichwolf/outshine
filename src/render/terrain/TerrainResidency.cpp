@@ -45,6 +45,9 @@ Native::Result<void> TerrainResidency::SetGrid(std::span<const float> fractions)
         .Kind = Native::ErrorKind::Invalid,
         .Message = "ground grid requires a device and exactly one fraction per node"});
   }
+  if (Grid_ && PatchFractions_ && std::ranges::equal(fractions, Patches_.Fractions())) {
+    return {};
+  }
   auto patched = PatchFractions(fractions);
   if (!patched) { return std::unexpected(patched.error()); }
   std::shared_ptr<const Native::Buffer> grid;
