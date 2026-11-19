@@ -247,7 +247,9 @@ void SceneResources::ReleasePiece(GeometryRenderer &geometry, PieceHandle which)
   piece.State = state;
 }
 
-void SceneResources::CopySourcesFrom(const SceneResources &source, PieceSources pieces) {
+void SceneResources::CopySourcesFrom(const SceneResources &source,
+                                     PieceSources pieces,
+                                     bool reuseHeightPages) {
   CopyPrismSourcesFrom(source, pieces);
   FirstPieceToRestore_ = 0;
   if (pieces != PieceSources::Omit) {
@@ -264,7 +266,10 @@ void SceneResources::CopySourcesFrom(const SceneResources &source, PieceSources 
   }
   HeightPages_ = source.HeightPages_;
   FirstFreeHeightPage_ = source.FirstFreeHeightPage_;
-  for (HeightPage &page : HeightPages_) { page.Resident = kNoPage; }
+  FirstHeightPageToRestore_ = reuseHeightPages ? HeightPages_.size() : 0;
+  if (!reuseHeightPages) {
+    for (HeightPage &page : HeightPages_) { page.Resident = kNoPage; }
+  }
   GroundGrid_ = source.GroundGrid_;
   GroundReal_ = source.GroundReal_;
   GroundVirtual_ = source.GroundVirtual_;

@@ -124,6 +124,12 @@ void TerrainPatchBounds::Page(PageId page, std::span<const float> heights) {
   }
 }
 
+void TerrainPatchBounds::ReusePagesFrom(const TerrainPatchBounds &previous) {
+  Pages_ = previous.Pages_;
+  Revision_ = previous.Revision_;
+  ++Generation_;
+}
+
 void TerrainPatchBounds::Sources(std::span<const TerrainInstance> tiles, uint32_t real) {
   Tiles_.clear();
   Tiles_.reserve(tiles.size());

@@ -110,6 +110,10 @@ public:
   [[nodiscard]] Native::Result<void> ReuseInputsFrom(const TerrainRenderer &previous,
                                                      Native::Device &device);
 
+  [[nodiscard]] bool ReusePagesFrom(const TerrainRenderer &previous) {
+    return Resident_->ReusePagesFrom(*previous.Resident_);
+  }
+
   void UsePipelines(TerrainPipelines &pipelines) noexcept {
     Pipelines_ = &pipelines;
     Selection_.UsePipelines(pipelines.Selection());
@@ -171,6 +175,8 @@ public:
   }
 
   [[nodiscard]] uint32_t PagesStanding() const { return Resident_->PagesStanding(); }
+
+  [[nodiscard]] bool HasPage(PageId page) const noexcept { return Resident_->HasPage(page); }
 
   [[nodiscard]] uint32_t Triangles() const {
     if (!DrawEnabled_) { return 0; }

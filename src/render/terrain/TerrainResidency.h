@@ -22,6 +22,7 @@ public:
   [[nodiscard]] Native::Result<void> StandsOn(Native::Device &device);
   [[nodiscard]] Native::Result<void> ReuseInputsFrom(const TerrainResidency &previous,
                                                      Native::Device &device);
+  [[nodiscard]] bool ReusePagesFrom(const TerrainResidency &previous);
   [[nodiscard]] Native::Result<void> SetGrid(std::span<const float> fractions);
   [[nodiscard]] Native::Result<PageId> PlacePage(std::span<const float> nodes);
   [[nodiscard]] Native::Result<std::vector<PageId>>
@@ -36,14 +37,17 @@ public:
 
   [[nodiscard]] uint32_t PagesStanding() const noexcept { return PagesLive_; }
 
+  [[nodiscard]] bool HasPage(PageId page) const noexcept {
+    return page < PagesInUse_.size() && PagesInUse_[page] != 0;
+  }
+
   [[nodiscard]] uint64_t HeldBytes() const;
 
 private:
   friend class TerrainRenderer;
   [[nodiscard]] Native::Result<void> BuildGrid(std::span<const float> fractions,
                                                std::shared_ptr<const Native::Buffer> &into);
-  [[nodiscard]] Native::Result<void> BuildPages(uint32_t layers,
-                                                std::unique_ptr<Native::Texture> &into);
+  [[nodiscard]] Native::Result<std::unique_ptr<Native::Texture>> ReplacementPages(uint32_t pages);
   [[nodiscard]] Native::Result<void> BuildPatchGrid();
   [[nodiscard]] Native::Result<std::unique_ptr<Native::Buffer>>
   PatchFractions(std::span<const float> fractions);
@@ -54,8 +58,8 @@ private:
   UploadQueue *Uploads_ = nullptr;
   Native::Device *Device_ = nullptr;
   TerrainPatchBounds Patches_;
-  std::unique_ptr<Native::Texture> Pages_;
-  std::unique_ptr<Native::Sampler> Nearest_;
+  std::shared_ptr<Native::Texture> Pages_;
+  std::shared_ptr<Native::Sampler> Nearest_;
   std::shared_ptr<const Native::Buffer> Grid_, UniformGrid_, Index_, PatchGrid_, PatchIndex_,
       PatchFractions_;
   std::unique_ptr<Native::Buffer> Instances_;

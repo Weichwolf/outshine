@@ -304,15 +304,19 @@ bool SceneRenderer::BeginsWorldCandidate(std::string &error,
   }
   Candidate_.emplace();
   Candidate_->GroundInputs = ground;
-  if (pieces == SceneResources::PieceSources::Reuse) {
-    const auto &source = *State_.Content;
-    if (!source.Scene().Resources().CanReusePieceResidents(source.Geometry()) ||
-        !Candidate_->Content->Geometry().ReusePiecesFrom(source.Geometry())) {
-      pieces = SceneResources::PieceSources::Copy;
-    }
+  const auto &source = *State_.Content;
+  auto &candidate = *Candidate_->Content;
+  if (pieces == SceneResources::PieceSources::Reuse &&
+      (!source.Scene().Resources().CanReusePieceResidents(source.Geometry()) ||
+       !candidate.Geometry().ReusePiecesFrom(source.Geometry()))) {
+    pieces = SceneResources::PieceSources::Copy;
   }
-  Candidate_->Content->Scene().Resources().CopySourcesFrom(State_.Content->Scene().Resources(),
-                                                           pieces);
+  const auto &terrain = source.Geometry().Ground();
+  const bool reuseHeightPages = ground == GroundSources::Published &&
+                                source.Scene().Resources().CanReuseHeightPages(terrain) &&
+                                candidate.Geometry().Ground().ReusePagesFrom(terrain);
+  candidate.Scene().Resources().CopySourcesFrom(
+      source.Scene().Resources(), pieces, reuseHeightPages);
   error.clear();
   return true;
 }

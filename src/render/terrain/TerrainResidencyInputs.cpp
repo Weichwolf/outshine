@@ -3,6 +3,24 @@
 #include <utility>
 
 namespace outshine::Render {
+bool TerrainResidency::ReusePagesFrom(const TerrainResidency &previous) {
+  if (Pages_ || previous.PagesLive_ == 0 || !previous.Pages_ || !previous.Nearest_ ||
+      (Device_ != nullptr && Device_ != previous.Device_)) {
+    return false;
+  }
+  Device_ = previous.Device_;
+  Pages_ = previous.Pages_;
+  Nearest_ = previous.Nearest_;
+  Spare_ = previous.Spare_;
+  PagesInUse_ = previous.PagesInUse_;
+  PagesMade_ = previous.PagesMade_;
+  PageLayers_ = previous.PageLayers_;
+  PagesLive_ = previous.PagesLive_;
+  Patches_.ReusePagesFrom(previous.Patches_);
+  ++Generation_;
+  return true;
+}
+
 Native::Result<void> TerrainResidency::ReuseInputsFrom(const TerrainResidency &previous,
                                                        Native::Device &device) {
   if ((Device_ != nullptr && Device_ != &device) ||

@@ -94,6 +94,16 @@ PageId SceneResources::HeightPageResident(HeightPageHandle which) const noexcept
   return HasHeightPage(which) ? HeightPages_[which.Slot].Resident : kNoPage;
 }
 
+bool SceneResources::CanReuseHeightPages(const TerrainRenderer &terrain) const noexcept {
+  size_t count = 0;
+  for (const auto &page : HeightPages_) {
+    if (!page.State.Occupied) { continue; }
+    if (!terrain.HasPage(page.Resident)) { return false; }
+    ++count;
+  }
+  return count == terrain.PagesStanding();
+}
+
 Native::Result<size_t>
 SceneResources::RestoreHeightPageBatch(GeometryRenderer &geometry, size_t first, size_t pagesMost) {
   const size_t end =
@@ -103,7 +113,7 @@ SceneResources::RestoreHeightPageBatch(GeometryRenderer &geometry, size_t first,
   size_t count = 0;
   for (size_t at = first; at < end; ++at) {
     const auto &page = HeightPages_[at];
-    if (!page.State.Occupied) { continue; }
+    if (!page.State.Occupied || page.Resident != kNoPage) { continue; }
     nodes[count] = *page.Nodes;
     slots[count++] = at;
   }
@@ -180,6 +190,7 @@ std::expected<bool, std::string> SceneResources::AdvanceTerrainRestore(GeometryR
                                                                        size_t &nextPage,
                                                                        size_t pagesMost) {
   assert(nextPage <= HeightPages_.size());
+  nextPage = std::max(nextPage, FirstHeightPageToRestore_);
   auto advanced = RestoreHeightPageBatch(geometry, nextPage, pagesMost);
   if (!advanced) {
     if (advanced.error().Kind == Native::ErrorKind::Busy) { return false; }

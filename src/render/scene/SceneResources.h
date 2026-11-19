@@ -26,6 +26,7 @@
 namespace outshine::Render {
 
 class GeometryRenderer;
+class TerrainRenderer;
 
 struct GroundClassificationSource {
   std::shared_ptr<const uint32_t> Classes;
@@ -72,8 +73,9 @@ public:
                                        std::string &error);
   void ReleasePiece(GeometryRenderer &geometry, PieceHandle which);
 
-  void CopySourcesFrom(const SceneResources &source, PieceSources pieces);
+  void CopySourcesFrom(const SceneResources &source, PieceSources pieces, bool reuseHeightPages);
   [[nodiscard]] bool CanReusePieceResidents(const GeometryRenderer &geometry) const noexcept;
+  [[nodiscard]] bool CanReuseHeightPages(const TerrainRenderer &terrain) const noexcept;
   [[nodiscard]] bool RestorePieces(GeometryRenderer &geometry, std::string &error);
   [[nodiscard]] std::expected<bool, std::string>
   AdvancePieceRestore(GeometryRenderer &geometry, size_t &nextPiece, size_t piecesMost);
@@ -206,6 +208,7 @@ private:
   MaterialRegistry Materials_;
   std::vector<HeightPage> HeightPages_;
   uint32_t FirstFreeHeightPage_ = kNoResourceSlot;
+  size_t FirstHeightPageToRestore_ = 0;
   std::vector<PrismSource> PrismGrids_;
   uint32_t FirstFreePrismGrid_ = kNoResourceSlot;
   std::vector<float> GroundGrid_;

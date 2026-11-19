@@ -28,6 +28,7 @@ public:
   [[nodiscard]] std::span<const float> Fractions() const noexcept { return Fractions_; }
 
   void Page(PageId page, std::span<const float> heights);
+  void ReusePagesFrom(const TerrainPatchBounds &previous);
   void Sources(std::span<const TerrainInstance> tiles, uint32_t real);
   void Include(size_t tile, std::vector<Bounds> &into) const;
 

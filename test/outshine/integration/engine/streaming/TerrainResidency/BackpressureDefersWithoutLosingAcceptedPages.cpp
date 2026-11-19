@@ -4,8 +4,10 @@
 #include "WorldCandidate.h"
 #include "streaming/TerrainResidency.h"
 #include "Check.h"
+#include "test/harness/render/HeightPageReadback.h"
 #include "test/harness/render/NativeUploadFaultDevice.h"
 #include <SDL3/SDL.h>
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <memory>
@@ -18,6 +20,8 @@ void CheckCandidateRestoration(outshine::Render::SceneRenderer &renderer,
                                outshine::Test::Gpu::UploadFailure &failure) {
   using namespace outshine;
   using namespace outshine::Test::Gpu;
+  const auto *publishedAtlas = failure.LastHeightAtlas;
+  const auto publishedRegion = failure.LastHeightRegion;
   Core::WorldCandidate candidate(renderer);
   auto opened = candidate.Prepare(scene,
                                   nullptr,
@@ -28,21 +32,36 @@ void CheckCandidateRestoration(outshine::Render::SceneRenderer &renderer,
   if (!opened) { return; }
   failure.Point = UploadFailurePoint::Acquire;
   failure.Kind = Render::Native::ErrorKind::Busy;
-  failure.Skip = 1;
+  failure.Skip = 0;
   failure.Armed = true;
   const auto waits = failure.Waits;
   const auto submissions = failure.AcceptedSubmissions;
   size_t nextPage = 0;
   auto restored = candidate.AdvanceGroundResourceRestore(nextPage, 1);
   CHECK(restored && !*restored && nextPage == 1 && !failure.Armed &&
-            failure.AcceptedSubmissions == submissions + 1,
-        "instance upload defers after admitting the page and reusing the grid");
+            failure.AcceptedSubmissions == submissions,
+        "instance upload defers while the published page and grid remain available");
   if (!restored) { return; }
   restored = candidate.AdvanceGroundResourceRestore(nextPage, 1);
   CHECK(restored && *restored && nextPage == 1 && failure.Waits == waits &&
-            failure.AcceptedSubmissions == submissions + 2 &&
+            failure.AcceptedSubmissions == submissions + 1 &&
             renderer.TerrainRendererTriangles() == Render::TerrainLattice::kIndices / 3u,
         "retry uploads only the instances and completes the candidate without waiting");
+  if (!restored || !*restored || publishedAtlas == nullptr) { return; }
+  const std::vector<float> newPage(Render::TerrainLattice::kPageNodes, 7.0f);
+  const auto placed = renderer.PlaceHeightPage(newPage);
+  const auto *candidateAtlas = failure.LastHeightAtlas;
+  CHECK(placed && candidateAtlas != nullptr && candidateAtlas != publishedAtlas,
+        "a written page uses a private atlas");
+  if (!placed || candidateAtlas == nullptr) { return; }
+  const auto pageMatches = [](const std::vector<float> &page, float height) {
+    return page.size() == Render::TerrainLattice::kPageNodes &&
+           std::ranges::all_of(page, [height](float value) { return value == height; });
+  };
+  CHECK(pageMatches(ReadHeightPage(failure, *publishedAtlas, publishedRegion), 3.0f) &&
+            pageMatches(ReadHeightPage(failure, *candidateAtlas, publishedRegion), 3.0f) &&
+            pageMatches(ReadHeightPage(failure, *candidateAtlas, failure.LastHeightRegion), 7.0f),
+        "the two worlds keep their original terrain and the candidate adds its own height page");
 }
 }
 

@@ -14,9 +14,17 @@
 #include <vector>
 
 namespace outshine::Render {
-Native::Result<void> TerrainResidency::BuildPages(uint32_t layers,
-                                                  std::unique_ptr<Native::Texture> &into) {
-  auto pages = Device_->CreateTexture(
+Native::Result<std::unique_ptr<Native::Texture>>
+TerrainResidency::ReplacementPages(uint32_t pages) {
+  const uint32_t needed =
+      (pages + TerrainLattice::kPagesPerLayer - 1u) / TerrainLattice::kPagesPerLayer;
+  uint32_t layers = PageLayers_;
+  if (needed > layers) {
+    layers = std::min(TerrainLattice::kMaximumPageLayers, std::max({needed, layers * 2u, 1u}));
+  } else if (Pages_.use_count() <= 1) {
+    return std::unique_ptr<Native::Texture>{};
+  }
+  return Device_->CreateTexture(
       {.Width = static_cast<uint32_t>(TerrainLattice::kPageSide) * TerrainLattice::kPageColumns,
        .Height = static_cast<uint32_t>(TerrainLattice::kPageSide) * TerrainLattice::kPageColumns,
        .Layers = layers,
@@ -24,9 +32,6 @@ Native::Result<void> TerrainResidency::BuildPages(uint32_t layers,
        .Texels = Native::Format::R32Float,
        .Use = Native::TextureUse::Sampled | Native::TextureUse::CopySource |
               Native::TextureUse::CopyDestination});
-  if (!pages) { return std::unexpected(pages.error()); }
-  into = std::move(*pages);
-  return {};
 }
 
 Native::Result<std::vector<PageId>>
@@ -56,15 +61,9 @@ TerrainResidency::PlacePages(std::span<const HeightPageView> nodes) {
                               : PagesMade_ + static_cast<uint32_t>(at - recycled);
   }
   GrowCapacity(PagesInUse_, made);
-  uint32_t layers = PageLayers_;
-  std::unique_ptr<Native::Texture> candidate;
-  if (made > PageLayers_ * TerrainLattice::kPagesPerLayer) {
-    const uint32_t needed =
-        (made + TerrainLattice::kPagesPerLayer - 1u) / TerrainLattice::kPagesPerLayer;
-    layers = std::min(TerrainLattice::kMaximumPageLayers, std::max({needed, PageLayers_ * 2u, 1u}));
-    const auto created = BuildPages(layers, candidate);
-    if (!created) { return std::unexpected(created.error()); }
-  }
+  auto pagesForWrite = ReplacementPages(made);
+  if (!pagesForWrite) { return std::unexpected(pagesForWrite.error()); }
+  auto candidate = std::move(*pagesForWrite);
   std::unique_ptr<Native::Sampler> sampler;
   if (!Nearest_) {
     auto created = Device_->CreateSampler({.Min = Native::Filter::Nearest,
@@ -85,8 +84,8 @@ TerrainResidency::PlacePages(std::span<const HeightPageView> nodes) {
   const auto submitted = SubmitUpload(*Device_, Uploads_, std::move(*commands));
   if (!submitted) { return std::unexpected(submitted.error()); }
   if (candidate) {
+    PageLayers_ = candidate->Description().Layers;
     Pages_ = std::move(candidate);
-    PageLayers_ = layers;
   }
   if (sampler) { Nearest_ = std::move(sampler); }
   Spare_.resize(Spare_.size() - recycled);
