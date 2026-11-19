@@ -19,6 +19,16 @@ struct ClusteredMesh {
   std::vector<DagCluster> Clusters;
   std::vector<uint32_t> Index;
 
+  [[nodiscard]] bool HasDrawOrder(size_t originalCount) const noexcept {
+    return !Clusters.empty() && !Index.empty() &&
+           (originalCount == 0 || originalCount == Index.size());
+  }
+
+  [[nodiscard]] std::span<const uint32_t>
+  DrawIndices(std::span<const uint32_t> original) const noexcept {
+    return HasDrawOrder(original.size()) ? std::span<const uint32_t>(Index) : original;
+  }
+
   [[nodiscard]] size_t HeapBytes() const noexcept {
     return Clusters.capacity() * sizeof(DagCluster) + Index.capacity() * sizeof(uint32_t);
   }

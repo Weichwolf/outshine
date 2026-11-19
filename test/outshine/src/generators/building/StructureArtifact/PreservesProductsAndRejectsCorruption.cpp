@@ -93,6 +93,21 @@ int main() {
         "valid checksum cannot bypass bounded allocation");
   product.Built.WallRun.push_back(std::numeric_limits<uint32_t>::max());
   CHECK(!EncodeStructureArtifact(product, key), "invalid geometry cannot be published");
+  raw.ClusterTriangles = kClusterTriangles;
+  BakedTile clustered;
+  CHECK(BakeStructures(raw, *heights, mesher, *scratch, clustered) &&
+            !clustered.Built.WallRun.empty() && !clustered.Walls.Clusters.empty(),
+        "clustered building production supplies both index orders before publication");
+  const auto drawAsset = EncodeStructureArtifact(clustered, key);
+  const auto drawProduct = drawAsset ? DecodeStructureArtifact(*drawAsset, key, 29) : std::nullopt;
+  CHECK(drawProduct && drawProduct->Built.WallRun.empty() && drawProduct->Built.RoofRun.empty() &&
+            std::ranges::equal(drawProduct->Walls.DrawIndices(drawProduct->Built.WallRun),
+                               clustered.Walls.Index) &&
+            std::ranges::equal(drawProduct->Roofs.DrawIndices(drawProduct->Built.RoofRun),
+                               clustered.Roofs.Index) &&
+            drawProduct->Triangles() == clustered.Triangles() &&
+            drawProduct->GeometryBytes() == clustered.GeometryBytes(),
+        "published geometry retains every draw triangle and skips redundant source order");
   raw.Projection.FocalPx = 720;
   raw.RequestedDetail.reset();
   raw.RequestedCell.reset();

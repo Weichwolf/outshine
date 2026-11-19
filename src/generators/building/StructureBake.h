@@ -164,6 +164,16 @@ struct BakedTile {
   std::optional<StructureSurfaceErrorInterval> SurfaceError;
   std::optional<StructureSurfaceErrorFailure> SurfaceFailure;
 
+  [[nodiscard]] size_t Triangles() const noexcept {
+    return (Walls.DrawIndices(Built.WallRun).size() + Roofs.DrawIndices(Built.RoofRun).size()) / 3u;
+  }
+
+  [[nodiscard]] size_t GeometryBytes() const noexcept {
+    return Built.UsedBytes() + (Walls.DrawIndices(Built.WallRun).size() - Built.WallRun.size() +
+                                Roofs.DrawIndices(Built.RoofRun).size() - Built.RoofRun.size()) *
+                                   sizeof(uint32_t);
+  }
+
   [[nodiscard]] Box BoundsAt(const Vec3 &anchor) const {
     Box bounds;
     for (const auto *vertices : {&Built.WallCorners, &Built.RoofCorners}) {

@@ -11,10 +11,10 @@ Render::GeometryPagePartView BuildingPart(std::span<const StoredVertex> vertices
                                           const Render::PieceSurface &surface,
                                           std::span<const float> colours = {},
                                           std::span<const float> uv = {}) {
-  const bool cooked = mesh.Index.size() == indices.size() && !mesh.Clusters.empty();
+  const bool cooked = mesh.HasDrawOrder(indices.size());
   return {.Tangents = {},
           .Verts = vertices,
-          .Indices = cooked ? std::span<const uint32_t>(mesh.Index) : indices,
+          .Indices = mesh.DrawIndices(indices),
           .Clusters =
               cooked ? std::span<const DagCluster>(mesh.Clusters) : std::span<const DagCluster>(),
           .Colours = colours,

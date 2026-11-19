@@ -903,7 +903,16 @@ bool StructureBuildQueue::ResolveVectorHeights(const Generators::Osm::OsmField &
         sizeof(Ground::HeightField::Block) +
         (into.Terrain ? into.Terrain->HeapBytes() : into.Nodes.capacity() * sizeof(float));
     if (bytes > bytesMost - pending.Bytes) {
-      Context_.NativeFailure = Generators::StructureBakeErrorKind::ArtifactCapacityExceeded;
+      Log::Error(LogTag::World,
+                 "structure_height_capacity",
+                 {{"vectorTile", static_cast<long long>(pending.Tile)},
+                  {"heightZoom", at.Zoom},
+                  {"heightX", static_cast<long long>(at.X)},
+                  {"heightY", static_cast<long long>(at.Y)},
+                  {"pinnedBytes", static_cast<long long>(pending.Bytes)},
+                  {"nextBytes", static_cast<long long>(bytes)},
+                  {"limitBytes", static_cast<long long>(bytesMost)}});
+      Context_.NativeFailure = Generators::StructureBakeErrorKind::HeightInputCapacityExceeded;
       return false;
     }
     pending.Fields.emplace_back(at, into);
@@ -1148,7 +1157,15 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
     }
     if (RetryMissingNativeInputs(bake.Task.Result(), count, prints)) { continue; }
     if (!bake.Task.Result().Status) {
-      if (count == 0) { return std::unexpected(bake.Task.Result().Status.error()); }
+      if (count == 0) {
+        const auto &error = bake.Task.Result().Status.error();
+        Log::Error(LogTag::World,
+                   "structure_bake_failed",
+                   {{"vectorTile", static_cast<long long>(bake.Task.Tile())},
+                    {"cell", static_cast<long long>(bake.Task.Raw().RequestedCell.value_or(0))},
+                    {"reason", std::string(Generators::Describe(error))}});
+        return std::unexpected(error);
+      }
       break;
     }
     const auto &completed = bake.Task.Result().Tile;
@@ -1190,9 +1207,7 @@ StructureBuildQueue::ContactMetadata(const QueuedBuild &bake) noexcept {
           .CellBounds = baked.CellBounds,
           .CellMaxHeightM = baked.CellMaxHeightM,
           .CellShellErrorM = baked.CellShellErrorM,
-          .Triangles = bake.InitialCells
-                           ? bake.InitialCells->Triangles()
-                           : (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u,
+          .Triangles = bake.InitialCells ? bake.InitialCells->Triangles() : baked.Triangles(),
           .OsmHeights = baked.OsmHeights,
           .DefaultHeights = baked.DefaultHeights,
           .Fronted = baked.Fronted};
@@ -1331,7 +1346,7 @@ void StructureBuildQueue::CommitsLandings(::outshine::Generators::Osm::BuildingF
                {"defaultHeight", footprints.DefaultHeights()},
                {"vertsMB",
                 static_cast<double>(bake.InitialCells ? bake.InitialCells->GeometryBytes()
-                                                      : baked.Built.UsedBytes()) /
+                                                      : baked.GeometryBytes()) /
                     kBytesPerMB},
                {"lumped", baked.Lumped},
                {"blocks", baked.Blocks},

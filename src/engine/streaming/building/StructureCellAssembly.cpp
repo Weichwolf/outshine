@@ -32,8 +32,8 @@ void StructureCellAssembly::Collect(const Generators::BakedTile &child) {
   Metadata_.SkippedRings = std::max(Metadata_.SkippedRings, child.SkippedRings);
   Metadata_.NoGround = std::max(Metadata_.NoGround, child.NoGround);
   Metadata_.FallbackHeights = Metadata_.FallbackHeights || child.FallbackHeights;
-  Triangles_ += (child.Built.WallRun.size() + child.Built.RoofRun.size()) / 3u;
-  GeometryBytes_ += child.Built.UsedBytes();
+  Triangles_ += child.Triangles();
+  GeometryBytes_ += child.GeometryBytes();
   Collected_ |= bit;
 }
 }
