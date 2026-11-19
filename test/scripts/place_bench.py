@@ -138,13 +138,18 @@ def validate_report(report, options, frames, angular, linear):
                 not math.isclose(work + wait, wall, rel_tol=1e-10, abs_tol=1e-9)):
             raise ValueError("native CPU work and synchronous waiting do not partition frame wall time")
     for key, expected in (("angular_velocity_deg_s", angular), ("linear_velocity_mps", linear)):
-        if not all(math.isclose(a, float(b), rel_tol=1e-10, abs_tol=1e-10)
-                   for a, b in zip(motion[key], expected.split(","), strict=True)):
+        expected_vector = tuple(map(float, expected.split(",")))
+        if len(motion[key]) != len(expected_vector) or not all(
+            math.isclose(a, b, rel_tol=1e-10, abs_tol=1e-10)
+            for a, b in zip(motion[key], expected_vector)
+        ):
             raise ValueError("native benchmark used a different motion")
     duration = frames / rate
-    for start, finish, velocity in zip(motion["start"]["position_m"],
-                                       motion["finish"]["position_m"],
-                                       map(float, linear.split(",")), strict=True):
+    start_position = motion["start"]["position_m"]
+    finish_position = motion["finish"]["position_m"]
+    if len(start_position) != 3 or len(finish_position) != 3:
+        raise ValueError("native benchmark did not report a three-dimensional motion path")
+    for start, finish, velocity in zip(start_position, finish_position, map(float, linear.split(","))):
         if not math.isclose(finish, start + duration * velocity, rel_tol=1e-10, abs_tol=1e-6):
             raise ValueError("native camera did not complete the requested path")
     if linear == "0,0,0":
@@ -152,7 +157,7 @@ def validate_report(report, options, frames, angular, linear):
         finish = motion["finish"]["world_from_camera"]
         if len(start) != 16 or len(finish) != 16 or not all(
             math.isclose(a, b, rel_tol=1e-10, abs_tol=1e-10)
-            for a, b in zip(start, finish, strict=True)
+            for a, b in zip(start, finish)
         ):
             raise ValueError("still/complete turn did not retain the initial camera pose")
 
@@ -171,7 +176,7 @@ def summarize(reports):
     image_values = [r.get("image_row_variation") for r in reports]
     image_nonblank = all(v is not None and math.isfinite(v) and v > .1 for v in image_values)
     encoding = []
-    for report, metric in zip(reports, metrics, strict=True):
+    for report, metric in zip(reports, metrics):
         stages = [value for key, value in metric.items()
                   if key.startswith("cost.stage.") and key.endswith(".total_ms")]
         encoding.append(sum(stages) / report["motion"]["frames"] if stages else None)
@@ -191,6 +196,7 @@ def summarize(reports):
         "image_row_variation_min": min(image_values) if all(v is not None for v in image_values)
                                    else None,
         "peak_rss_bytes": field("process_memory", "peak_resident_bytes"),
+        "peak_footprint_bytes": field("process_memory", "peak_footprint_bytes"),
         "gpu_allocated_bytes_after": field("gpu_memory", "resource_allocated_bytes"),
         "warm_load_ms": field("phases_ms", "preload"),
         "gpu_passes": {group: {key: field("gpu_profile", "gpu_passes", group, key)
@@ -250,12 +256,12 @@ def table_row(row, budget, cpu_budget, gpu_budget):
             peak += f" (L{extreme['worst_run']}/F{extreme['worst_frame']})"
         values.append(peak)
     values.extend(number(row.get(k)) for k in ("draws_max", "triangles_max"))
-    for key in ("peak_rss_bytes", "gpu_allocated_bytes_after"):
+    for key in ("peak_rss_bytes", "peak_footprint_bytes", "gpu_allocated_bytes_after"):
         value = row.get(key)
         values.append(number(value / 2**20 if value is not None else None))
     passes = row.get("gpu_passes", {})
     pass_text = ", ".join(f"{label}={number(passes.get(group, {}).get('p99_ms'))}" for group, label in
-                          zip(GROUPS, ("S", "O", "A", "W", "P"), strict=True))
+                          zip(GROUPS, ("S", "O", "A", "W", "P")))
     values.extend((number(row.get("warm_load_ms")), "ja" if row["complete"] else "nein",
                    "ja" if row.get("image_nonblank") else "nein",
                    number(row.get("cpu_encoding_ms")), pass_text))
@@ -302,7 +308,8 @@ def benchmark_places(available, selected, options, invoke):
           "Max: Median der Laufmaxima mit zugehörigem Lauf/Frame (1-basiert). "
           "Draws/Dreiecke: Median der Frame-Maxima über alle Rasterpässe, inklusive Terrain/Schatten/Post. "
           "Bildprüfung: mittlere horizontale RGB-Differenz > 0,1 in allen drei Bildern; "
-          "GPU-MiB: Allokation nach Messung, kein Peak. GPU-Pässe: p99 der ausgeführten Frames in ms, "
+          "Footprint: physischer Prozess-Peak bei Unified Memory. GPU-MiB: Allokation nach Messung, "
+          "kein Peak, nicht zur Prozessbelegung addieren. GPU-Pässe: p99 der ausgeführten Frames in ms, "
           "S=Schatten, O=Opaque/Culling, A=Atmosphäre, W=Wasser/Transparenz, P=TAA/Post/UI. "
           "Inklusive Passintervalle können überlappen; ausgelassene/nicht messbare Pässe sind n/v.")
     for cpu, gpu, driver, commit in sorted(identities):
@@ -310,9 +317,9 @@ def benchmark_places(available, selected, options, invoke):
     print("\n| Place | Lastfall | Frame Wand p50 ms | Frame Wand p99 ms | CPU-Arbeit p50 ms | "
           "CPU-Arbeit p99 ms | GPU p50 ms | GPU p99 ms | "
           "CPU-Arbeit Anlauf p99 ms | CPU-Arbeit Max ms (L/F) | GPU Anlauf p99 ms | GPU Max ms (L/F) | "
-          "Draws (Frame-Max) | Dreiecke (Frame-Max) | Peak-RSS MiB | GPU MiB (danach) | "
+          "Draws (Frame-Max) | Dreiecke (Frame-Max) | Peak-RSS MiB | Peak-Footprint MiB | GPU MiB (danach) | "
           "Laden warm ms | Vollständig | Bildstruktur | CPU-Encoding ms | GPU-Pässe |")
-    print("|" + " --- |" * 21)
+    print("|" + " --- |" * 22)
     for row in output["rows"]:
         print(table_row(row, budget, cpu_budget, gpu_budget))
     print(f"\nJSON: {options.reports / 'results.json'}; Dauer: {output['elapsed_s']:.1f} s.")
