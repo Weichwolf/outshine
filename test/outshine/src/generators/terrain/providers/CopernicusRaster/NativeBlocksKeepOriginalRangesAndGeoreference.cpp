@@ -96,7 +96,7 @@ void SetGeoreference(TIFF &raster, uint32_t columns, uint32_t rows, bool noData)
 }
 
 std::array<float, size_t{16} * 16>
-TileHeights(uint32_t level, uint32_t row, uint32_t column, bool noData) {
+    TileHeights(uint32_t level, uint32_t row, uint32_t column, bool noData) {
   std::array<float, size_t{16} * 16> heights{};
   for (uint32_t y = 0; y < 16; ++y) {
     for (uint32_t x = 0; x < 16; ++x) {
