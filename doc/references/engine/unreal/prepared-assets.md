@@ -2,7 +2,10 @@
 
 Stand: 2026-10-26. Primärquellen unten sind Online-Dokumentation von Epic und ein
 SIGGRAPH-Paper. Diese Notiz fasst Verfahren zusammen; sie ist keine Kopie der Dokumentation.
-Den Outshine-Vertrag besitzt [#10](https://github.com/Weichwolf/outshine/issues/10).
+Aktuelle Umsetzung: [#1968](https://github.com/Weichwolf/outshine/issues/1968).
+Ergänzung 19.11.2026: [SQLite/R*Tree/WAL und etablierte Asset-DB-Muster](../asset-database.md).
+Runtime-Miss→Generator kombiniert bewährte Cache-/Ladeverfahren; das Forschungsfeld
+ist die Generierung des Inhalts, nicht eine neue Speicher- oder Streamingtheorie.
 
 ## Referenzen und Grenzen
 
@@ -27,7 +30,7 @@ dynamische Pose bleiben Laufzeitaufgaben. Treffer wiederholen keinen Quellen-Dec
 keine Anreicherung und keinen Rohling-Aufbau.
 
 Angenommene Rezepte und dauerhafte Weltentscheidungen sind keine wegwerfbaren
-abgeleiteten Daten. Ihre Speicherung und Pins besitzen #1230/#1231; erst daraus
+abgeleiteten Daten. Ziel #1974 und Sandbox #1969 erhalten diese Trennung; erst daraus
 reproduzierbare Produkte dürfen Cachebereinigung unterliegen. DDC/Zen Storage und
 Zen Loader haben verschiedene Aufgaben; keine Format-/Dienstübernahme folgt daraus.
 
