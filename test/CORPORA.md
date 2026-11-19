@@ -13,8 +13,8 @@ Vorbereitet, aber noch kein belastbarer Engine-Nachweis:
 
 | Referenz | Zweck und nächster Schritt |
 |---|---|
-| Clear-sky / Egbert und ASTM G173 | Manifest und Erwerb von Messdaten für Atmosphärenbeleuchtung; noch kein nativer Vergleich. Messgrößen und Randbedingungen besitzt [#7](https://github.com/Weichwolf/outshine/issues/7). |
-| OpenDRIVE / A9 | Manifest und Erwerb von Straßenprofilen/Verkehrsnetzen; noch kein nativer Vergleich. Anbindung an Netze/Geometrie besitzt [#11](https://github.com/Weichwolf/outshine/issues/11); keine Rekonstruktion der echten Straße verlangen. |
+| Clear-sky / Egbert und ASTM G173 | Manifest und Erwerb von Messdaten für Atmosphärenbeleuchtung; noch kein nativer Vergleich. |
+| OpenDRIVE / A9 | Manifest und Erwerb von Straßenprofilen/Verkehrsnetzen; noch kein nativer Vergleich. Keine Rekonstruktion der echten Straße verlangen. |
 
 `make corpus-prepare MANIFEST=...` bereitet deklarierte Daten vor.
 Das Pflichtgate `make test` prüft Weltverträge und Offline-Places.
