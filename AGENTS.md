@@ -3,6 +3,7 @@
 ## Ziel
 Outshine ist eine weltweite, datengetriebene Open-World-Sandbox: jeder Ort der Erde vom
 Orbit bis zum Nahdetail, aus OSM, DEM und Wetterdaten, physikalisch basiert gerendert.
+Die aktuelle Zieldefinition steht in [#1974](https://github.com/Weichwolf/outshine/issues/1974).
 Gelände, Verkehr, Gebäude, Vegetation und Wetter zuerst; danach Fahrzeuge, NPCs, Physik,
 Skripte, Audio und Persistenz in derselben Welt.
 
@@ -39,42 +40,54 @@ A18 über Metal portieren bzw. anpassen und für die integrierte GPU optimieren.
    sind kein Fortschritt.
 2. **Meilensteine in fester Reihenfolge** – Stand und Zuteilung stehen in der
    [Roadmap #1972](https://github.com/Weichwolf/outshine/issues/1972).
-   Erst Grundframe im Budget, dann Vegetation im Budget, dann Bildqualität, dann weltweit,
-   dann Sandbox. Nichts Späteres verdrängt etwas Früheres.
+   Erst Distanzdarstellung und Grundkosten, dann vollständige Umwelt/Bildqualität,
+   dann weltweite Bewegungs-/Geräteabnahme und Sandbox. Nichts Späteres verdrängt Früheres.
 3. **Bewährtes zuerst.** Clipmaps/CDLOD, Kachel-HLOD, LUT-Atmosphäre, Impostor, Clustered
    Shading. SIGGRAPH und Primärquellen nachschlagen, dann das etablierte Verfahren bauen.
-   Eigenentwicklung nur, wenn das Bewährte gemessen nicht reicht.
+   Präsentation und Asset-DB beruhen auf etablierten Verfahren. Unser Forschungsfeld ist
+   die weltweite plausible Asset-Generierung aus wenigen Daten; vorhandene eigene
+   Verfahren samt Grenzen referenzieren, konkrete Generierungslücken weiter erforschen.
 4. **Messen vor Optimieren.** Erst Pass-Zeiten und Abschalt-Experiment, dann der teuerste
    Posten. Jede Leistungsbehauptung zitiert die Benchmark-Tabelle (#1956) vorher/nachher,
    drei Läufe, Median, auf dem Zielgerät.
 5. **Zwei erfolglose Versuche → Verfahren wechseln.** Das Verworfene in einem Satz im
    Issue festhalten, damit es niemand wiederholt.
 
+**Jeder Algorithmus zuerst in Python**, auch übernommene Paper-Verfahren. Korrektheit
+und ausreichende Geschwindigkeit samt Arbeit/Speicher an repräsentativen Eingaben und
+Gegenfällen im benannten Geltungsbereich nachweisen; erst danach C++ implementieren
+und weiter optimieren. GLSL darf Teil der Python-Referenz sein und direkt von Python
+auf der GPU ausgeführt werden. Den geprüften Shaderkern nativ wiederverwenden,
+keine zweite Implementierung pflegen. GPU-Kosten auf der GPU messen; NumPy-Zeiten
+sind kein GPU-Beleg. Weitere Geräteabnahme bleibt nach der Integration nötig.
+
 ## Rollen
 | Rolle | Branch / Checkout | Verantwortung |
 |---|---|---|
 | **Technical Lead** | – (nur Regeln/Doku auf `master`) | Architektur, Art Direction, Planung und Prioritäten, Abnahme von Bild und Messung; entwickelt nicht selbst |
-| **Mac** | `master` / `outshine` | Metal/A18 Pro, Integration und Merges, Places rendern und A18-Messung |
-| **Linux** | `outshine_engine` | gemeinsame C++-Engine, Vulkan auf Iris Xe und RTX 3060, Streaming, Asset-Cache, Benchmark-Werkzeug |
-| **Research** | `outshine_research` | Python: Verfahren an echten Daten entscheiden, Rezepte für Gebäude/Vegetation/Boden |
+| **Engine / Rendering** | `master`, `outshine_engine` / bestehende Checkouts | Gemeinsame Engine, Rendering, native Integration, Assets, Werkzeuge, Merges und Bild-/Geräteabnahme; Besitz je Paket melden |
+| **Research** | `outshine_research` | Python/GLSL: Verfahren an echten Daten entscheiden, Rezepte und Generierungsmethoden entwickeln |
 
 Der Nutzer ist Regisseur; seine aktuellen Anweisungen gehen vor. Der Technical Lead
 entscheidet Verfahren, Reihenfolge und Bildprioritäten und schreibt sie in die Issues;
 Konflikte zwischen Rollen entscheidet er in #1971. Jede Rolle arbeitet selbstständig am
 eigenen aktiven Issue weiter und wartet nicht auf Einzelaufträge.
-Research liefert Entscheidungen und Rezepte, keine Solver-Familien; Linux und Mac setzen
-nativ um. Gemeinsame Shader und Verfahren gibt es einmal; nur die Geräteausführung
-unterscheidet sich.
+Research liefert geprüfte Verfahren und Rezepte; Engine-Mitwirkende übernehmen nativ.
+Keine Mac/Linux-Zuständigkeiten für gemeinsame Arbeit. Nur Backend-Ausführung wird
+nach Metal/Vulkan getrennt; gemeinsame Shader und Verfahren gibt es einmal.
 
 ## Backlog
 - [GitHub Issues](https://github.com/Weichwolf/outshine/issues) sind die einzige
   Aufgabenablage. **Höchstens 20 offene Issues.**
-- **Ein aktives Issue je Rolle** (Label `active`), dazu `owner:mac|linux|research`,
+- **Ein aktives Umsetzungspaket je Mitwirkendem** (Label `active`), dazu `owner:lead|engine|research`,
   `priority:P0–P2`, `milestone:M1–M3`. Ohne aktives Issue: das höchstpriorisierte offene
   eigene im frühesten Meilenstein nehmen, `active` setzen, anfangen.
 - Ein Issue beschreibt ein sichtbares oder messbares Ergebnis: Befund, Ergebnis,
   Anweisungen, „Fertig, wenn“. Höchstens 50 Zeilen. Varianten, Zwischenstände und
   Teilfragen sind Kommentare, keine neuen Issues.
+- Issues auf Englisch: benannte Methoden, konkrete lokale/primäre Referenzen,
+  vorhandene eigene Python-/GLSL-Verfahren und ausdrücklich noch nötige Forschung.
+  Präsentations-/DB-Integration von neuer Asset-Generierungsforschung unterscheiden.
 - Kommentare: Ergebnis, Zahl oder Bild, nächster Schritt. Fünf Zeilen genügen fast immer.
 - Fragen und Übergaben an andere Rollen: #1971, Format `[Absender → Empfänger]`.
 - „Fertig, wenn“ erfüllt: Beleg als Kommentar, `active` entfernen, nächstes Issue
@@ -83,11 +96,13 @@ unterscheidet sich.
 ## Architektur in zehn Sätzen
 - **Die Kachel ist die Einheit.** Ein Quadtree trägt Speicherung, Streaming, LOD-Auswahl
   und Draw für Gelände, Verkehr, Gebäude und Vegetation. Kacheln sind kameraneutral und
-  unveränderlich; Schlüssel = Quadkey, Stufe, Typ, Rezeptversion.
+  unveränderlich; Schlüssel umfassen Raum, Produkt/LOD und versionierte Erzeugungseingaben.
+  Blickabhängige Runtime-Caches haben einen getrennten begrenzten Lebenszyklus.
 - **Framearbeit ist O(sichtbare Kacheln)**, nie O(Objekte). Kein IO, keine Erzeugung,
   kein unbegrenztes Warten im Frame.
-- **Ferne ist Material, nicht Geometrie.** Was kleiner als wenige Pixel ist, wird in die
-  Terrain-Kachel gebacken (Höhe, Albedo, Normal, Roughness).
+- **Drei Distanzbereiche:** nahe Geometrie → Gruppen-Impostor → wiederverwendbares
+  Fernpanorama/Cubemap. Ferne darf weich sein; Silhouette, Deckung, Helligkeit und
+  Übergänge erhalten. Terrain-Material allein ersetzt keine erhöhte Skyline.
 - **Auswahl vor Arbeit.** Bedarf aus Kamera, Geschwindigkeit und Bildfehler bestimmt,
   was geladen wird; Eltern bleiben sichtbar, bis Kinder da sind.
 - **Cache:** Quellen und fertige Assets getrennt, beide mit Obergrenze und LRU. Ein
@@ -122,9 +137,10 @@ unterscheidet sich.
 - Keine Tests für interne Zähler, Bytegleichheit, Zwischenformate oder Altpfade. Wer ein
   Modul anfasst, löscht solche Tests mit.
 - Ein Experiment lebt in **einem** Verzeichnis unter `test/experiments/`, beantwortet
-  **eine** Frage und wird nach der nativen Übernahme gelöscht. Sein Ergebnis steht als
-  Kommentar im Issue, nicht als Markdown-Protokoll im Repository.
-- `make test` ist das Gate, `make lint` vor der Integration. Breite Läufe bündelt Mac.
+  **eine** Frage; entbehrliche Teile nach der nativen Übernahme löschen. Weiter benötigte
+  Referenzen, Gegenfälle und gemeinsam konsumierte GLSL-Kerne erhalten, ohne Kopien.
+  Ergebnisse stehen im Issue; `doc/references/` enthält Methoden und Quellen.
+- `make test` ist das Gate, `make lint` vor der Integration. Breite Läufe bündelt der zuständige Integrator.
 
 ## Code
 - C++23, native Metal/Vulkan, GLSL; SDL3 für Fenster, Eingabe, Audio. RAII, Composition,
