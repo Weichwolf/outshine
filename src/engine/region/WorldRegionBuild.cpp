@@ -138,7 +138,6 @@ constexpr size_t kTerrainSheetsPerFrame = 48;
 constexpr size_t kTerrainResidencySheetsPerFrame = 64;
 constexpr size_t kShapeCookItemsPerFrame = 262144;
 constexpr size_t kClassUploadBytesPerFrame = 1u << 20u;
-constexpr size_t kHaloNodesPerFrame = 32768;
 constexpr size_t kTerrainRefinementSourcesPerFrame = 8;
 constexpr size_t kGroundRestorePagesPerFrame = 64;
 constexpr size_t kPieceRestorePerFrame = 4;
@@ -569,13 +568,15 @@ Engine::State::BuildGroundBuildingStamps(const TangentFrame &standing,
   return GroundBuildProgress::Ready;
 }
 
-bool Engine::State::GroundDeformationPending() const noexcept {
+bool Engine::State::GroundSurfaceWorkPending() const noexcept {
   return World.GroundBuild && (World.GroundBuild->TerrainDeformation() != nullptr ||
-                               World.GroundBuild->BuildingEarthworks() != nullptr);
+                               World.GroundBuild->BuildingEarthworks() != nullptr ||
+                               World.GroundBuild->SheetWorker() != nullptr);
 }
 
-bool Engine::State::AwaitGroundDeformation(double seconds) const {
-  assert(GroundDeformationPending());
+bool Engine::State::AwaitGroundSurfaceWork(double seconds) const {
+  assert(GroundSurfaceWorkPending());
+  if (const auto *sheets = World.GroundBuild->SheetWorker()) { return sheets->AwaitSlice(seconds); }
   if (const auto *stamps = World.GroundBuild->BuildingEarthworks()) {
     return stamps->AwaitSlice(seconds);
   }
@@ -842,33 +843,51 @@ Engine::State::BeginGroundSheetRefinement(const TangentFrame &standing, Patchwor
   return GroundBuildProgress::Pending;
 }
 
-Engine::State::GroundBuildProgress
-Engine::State::AdvanceGroundSheetSurvey(const TangentFrame &standing, const Patchwork &patchwork) {
+Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheetWorker(
+    const TangentFrame &standing, Patchwork &patchwork, int finestZoom) {
   WorldRegionBuildState &state = *World.GroundBuild;
-  WorldRegionBuildState::GroundSurvey &survey = state.Surveying();
-  const auto began = std::chrono::steady_clock::now();
-  if (survey.NextSheet == 0) {
-    const auto nodes = patchwork.Sheets.size() * static_cast<size_t>(Render::TerrainLattice::kSide *
-                                                                     Render::TerrainLattice::kSide);
-    survey.Terrain.ProbePositionsM.reserve((nodes + kBounceProbeStride - 1) / kBounceProbeStride);
+  if (state.SheetWorker() == nullptr) {
+    state.BeginsSheets(std::make_unique<Generators::TerrainSheetTask>(
+        *Services.Compute,
+        state.TerrainInputs(),
+        patchwork,
+        Generators::TerrainSheetTask::Settings{
+            .Frame = standing,
+            .Layout = {.Side = Render::TerrainLattice::kSide, .Halo = 1},
+            .FinestZoom = finestZoom,
+            .ProbeStride = kBounceProbeStride}));
+    return GroundBuildProgress::Pending;
   }
-  const size_t end = std::min(survey.NextSheet + kTerrainSheetsPerFrame, patchwork.Sheets.size());
-  for (; survey.NextSheet < end; ++survey.NextSheet) {
-    Generators::SurveyTerrainSheet(survey.Terrain,
-                                   patchwork.Sheets[survey.NextSheet],
-                                   standing,
-                                   {.Side = Render::TerrainLattice::kSide, .Halo = 1},
-                                   kBounceProbeStride);
+  if (state.CurrentSheetPhase() == Core::GroundBuildSchedule::SheetPhase::NeedsHalos) {
+    if (state.SheetWorker()->HalosReady()) { state.AdvanceSheetPhase(); }
+    return GroundBuildProgress::Pending;
   }
-  const double sliceMs =
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-  survey.LongestSliceMs = std::max(survey.LongestSliceMs, sliceMs);
   state.SamplesProductPeak();
-  if (survey.NextSheet < patchwork.Sheets.size()) { return GroundBuildProgress::Pending; }
+  auto ready = state.SheetWorker()->Take(state.TerrainInputs(), patchwork);
+  if (!ready) { return GroundBuildProgress::Pending; }
+  state.FinishesSheets();
+  if (!*ready) {
+    Error = std::string(ready->error());
+    World.GroundBuild.reset();
+    return GroundBuildProgress::Failed;
+  }
+  auto &result = ready->value();
+  auto &build = state.Candidate().Products();
+  build.RimsMissing = state.TerrainInputs().RimsMissing();
+  state.Surveying() = std::move(result.Survey);
+  const auto &survey = state.Surveying();
   Published.RecordMetric(
-      "ground candidate: longest terrain survey slice", survey.LongestSliceMs, "ms");
+      "ground: sheets the lattice haloed", static_cast<double>(result.Haloed), "sheets");
+  Published.RecordMetric("ground: rims copied for want of a neighbour",
+                         static_cast<double>(build.RimsMissing),
+                         "sheets");
+  Published.RecordMetric("ground candidate: halo worker time", result.Halos.TotalMs, "ms");
+  Published.RecordMetric("ground candidate: survey worker time", result.Surveying.TotalMs, "ms");
+  Published.RecordMetric("ground candidate: longest halo slice", result.Halos.LongestSliceMs, "ms");
+  Published.RecordMetric(
+      "ground candidate: longest terrain survey slice", result.Surveying.LongestSliceMs, "ms");
   Published.RecordMetric("ground candidate: terrain lighting probes",
-                         static_cast<double>(survey.Terrain.ProbePositionsM.size()),
+                         static_cast<double>(survey.ProbePositionsM.size()),
                          "probes");
   if (Session.Declared.Render.Audits) {
     const uint64_t sourceSheets = DigestPatchwork(patchwork);
@@ -880,9 +899,9 @@ Engine::State::AdvanceGroundSheetSurvey(const TangentFrame &standing, const Patc
                            "digest");
   }
   Core::ReportGroundRelief(Published,
-                           {.TallestM = survey.Terrain.TallestM,
-                            .LowestM = survey.Terrain.LowestM,
-                            .TallestDistanceM = survey.Terrain.TallestDistanceM});
+                           {.TallestM = survey.TallestM,
+                            .LowestM = survey.LowestM,
+                            .TallestDistanceM = survey.TallestDistanceM});
   state.AdvanceSheetPhase();
   return GroundBuildProgress::Ready;
 }
@@ -913,7 +932,6 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
                                                                       Patchwork &patchwork,
                                                                       const Around &coverage) {
   WorldRegionBuildState &state = *World.GroundBuild;
-  GroundBuildProducts &build = state.Candidate().Products();
   if (state.HasReadyRegion() &&
       state.CurrentSheetPhase() == Core::GroundBuildSchedule::SheetPhase::NeedsMesh) {
     return AdvanceReadyGroundSheets(patchwork, state);
@@ -983,32 +1001,9 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
       state.AdvanceSheetPhase();
       return GroundBuildProgress::Pending;
     }
-    case Core::GroundBuildSchedule::SheetPhase::NeedsHalos: {
-      if (state.HaloJob() == nullptr) {
-        state.BeginsHalos(std::make_unique<Generators::TerrainInputPreparation::HaloBuildJob>(
-            state.TerrainInputs(), patchwork, coverage.Zoom));
-      }
-      const auto began = std::chrono::steady_clock::now();
-      Generators::TerrainInputPreparation::HaloBuildJob &job = *state.HaloJob();
-      const bool ready = job.Advance(kHaloNodesPerFrame);
-      state.SamplesHaloSlice(
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-              .count());
-      if (!ready) { return GroundBuildProgress::Pending; }
-      Published.RecordMetric(
-          "ground: sheets the lattice haloed", static_cast<double>(job.Haloed()), "sheets");
-      build.RimsMissing = state.TerrainInputs().RimsMissing();
-      Published.RecordMetric("ground: rims copied for want of a neighbour",
-                             static_cast<double>(build.RimsMissing),
-                             "sheets");
-      Published.RecordMetric(
-          "ground candidate: longest halo slice", state.LongestHaloSliceMs(), "ms");
-      state.FinishesHalos();
-      state.AdvanceSheetPhase();
-      return GroundBuildProgress::Pending;
-    }
+    case Core::GroundBuildSchedule::SheetPhase::NeedsHalos:
     case Core::GroundBuildSchedule::SheetPhase::NeedsMesh:
-      return AdvanceGroundSheetSurvey(standing, patchwork);
+      return AdvanceGroundSheetWorker(standing, patchwork, coverage.Zoom);
     case Core::GroundBuildSchedule::SheetPhase::Ready: return GroundBuildProgress::Ready;
   }
   return GroundBuildProgress::Failed;
@@ -1022,8 +1017,8 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundClasses() {
   GroundBuildProducts &build = state.Candidate().Products();
   static const Heap::Tag kClassingTag("ground-classify");
   const Heap::Tagged classing(kClassingTag);
-  Classed classed = Classify(state.Surveying().Terrain.ProbePositionsM, state.Candidate());
-  std::vector<Vec3f>{}.swap(state.Surveying().Terrain.ProbePositionsM);
+  Classed classed = Classify(state.Surveying().ProbePositionsM, state.Candidate());
+  std::vector<Vec3f>{}.swap(state.Surveying().ProbePositionsM);
   build.ClassPalette = std::move(classed.Palette);
   build.TerrainClassificationMap = std::move(classed.Structure);
   build.ClassUpload = std::move(classed.Upload);

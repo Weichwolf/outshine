@@ -149,6 +149,7 @@ WorldRegionBuildState::AdvanceWater(Tasks &pool,
 
 [[nodiscard]] bool WorldRegionBuildState::AdvancesRetirement(size_t sheetsMost) noexcept {
   BuildingEarthworks_.reset();
+  SheetWorker_.reset();
   if (WaterWorker_) {
     WaterWorker_->Cancel();
     if (!WaterWorker_->Complete()) { return false; }
@@ -212,12 +213,14 @@ void WorldRegionBuildState::SamplesClassComponents(
 
 [[nodiscard]] WorldRegionBuildState::ProductMemory
 WorldRegionBuildState::CurrentProductMemory() const noexcept {
+  const auto sheets =
+      SheetWorker_ ? SheetWorker_->PayloadMemory() : Generators::TerrainSheetTask::Memory{};
   return {.Candidate = BuildingEarthworks_ ? StampingCandidateHeapBytes_ : RetainedCandidateBytes(),
-          .TerrainSources = TerrainInputs_.HeapBytes(),
-          .Patchwork = Patchwork_ ? Patchwork_->HeapBytes() : 0u,
+          .TerrainSources = TerrainInputs_.HeapBytes() + sheets.Fields,
+          .Patchwork = RetainedPatchworkBytes() + sheets.Pages,
           .SourceCoverage = RoadHeightCoverage_.Tiles.capacity() * sizeof(Data::TileId) +
                             RoadHeightCoverage_.SelectedRouteIndices.capacity() * sizeof(size_t),
-          .Survey = Surveying_.Terrain.ProbePositionsM.capacity() * sizeof(Vec3f),
+          .Survey = RetainedSurveyBytes() + sheets.Probes,
           .BuildingStamps = BuildingEarthworks_ ? BuildingEarthworks_->HeapBytes() : 0u,
           .Deformation = TerrainDeformation_ ? TerrainDeformation_->HeapBytes() : 0u,
           .CorridorStamps = Corridors_.capacity() * sizeof(EarthworkStamp) + CorridorHeapBytes_,

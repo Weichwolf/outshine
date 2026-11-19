@@ -433,8 +433,8 @@ struct Engine::State {
   void BackoffPreload(double seconds);
   [[nodiscard]] bool AwaitWorldWorkerProgress(std::chrono::duration<double> patience,
                                               uint64_t workerEpoch) const;
-  [[nodiscard]] bool GroundDeformationPending() const noexcept;
-  [[nodiscard]] bool AwaitGroundDeformation(double seconds) const;
+  [[nodiscard]] bool GroundSurfaceWorkPending() const noexcept;
+  [[nodiscard]] bool AwaitGroundSurfaceWork(double seconds) const;
   [[nodiscard]] bool UpdateActiveCamera();
   [[nodiscard]] std::expected<std::optional<Vec3>, std::string_view>
   GeodeticCameraPosition(const Scenario::View &view) const;
@@ -608,8 +608,8 @@ struct Engine::State {
   [[nodiscard]] StructureBuildQueue::HeightSource StructureHeightSource();
   void PublishStreetGraphMeasurements(const Generators::Osm::StreetGraphBuilder::Built &mapped,
                                       double longestSliceMs);
-  [[nodiscard]] GroundBuildProgress AdvanceGroundSheetSurvey(const TangentFrame &standing,
-                                                             const Patchwork &patchwork);
+  [[nodiscard]] GroundBuildProgress
+  AdvanceGroundSheetWorker(const TangentFrame &standing, Patchwork &patchwork, int finestZoom);
   void PublishGroundCandidateMeasurements(const GroundWorldCandidate &candidate,
                                           const WorldRegionBuildState &state);
   void PublishGroundRenderMeasurements(std::chrono::steady_clock::time_point phaseAt);

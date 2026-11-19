@@ -13,7 +13,7 @@
 #include "TerrainDeformationTask.h"
 #include "TerrainRefinement.h"
 #include "TerrainInputPreparation.h"
-#include "TerrainMesh.h"
+#include "TerrainSheetTask.h"
 #include "WaterGeometryPreparation.h"
 #include "GroundRegionRequest.h"
 #include "WaterSurfaceBuilder.h"
@@ -63,12 +63,6 @@ public:
     bool ResidencyStarted = false;
     bool ResidencyReady = false;
     double LongestResidencySliceMs = 0.0;
-  };
-
-  struct GroundSurvey {
-    Generators::TerrainSurvey Terrain;
-    size_t NextSheet = 0;
-    double LongestSliceMs = 0.0;
   };
 
   WorldRegionBuildState(Render::SceneRenderer &renderer,
@@ -155,7 +149,7 @@ public:
 
   [[nodiscard]] ResidencyBuild &Residency() noexcept { return Residency_; }
 
-  [[nodiscard]] GroundSurvey &Surveying() noexcept { return Surveying_; }
+  [[nodiscard]] Generators::TerrainSurvey &Surveying() noexcept { return Surveying_; }
 
   [[nodiscard]] Generators::TerrainDeformationTask *TerrainDeformation() noexcept {
     return TerrainDeformation_.get();
@@ -282,7 +276,7 @@ public:
   }
 
   [[nodiscard]] size_t RetainedSurveyBytes() const noexcept {
-    return Surveying_.Terrain.ProbePositionsM.capacity() * sizeof(Vec3f);
+    return Surveying_.ProbePositionsM.capacity() * sizeof(Vec3f);
   }
 
   [[nodiscard]] bool AdvancesRetirement(size_t sheetsMost) noexcept;
@@ -379,22 +373,13 @@ public:
 
   void FinishesRefinement() noexcept { RefinementJob_.reset(); }
 
-  [[nodiscard]] Generators::TerrainInputPreparation::HaloBuildJob *HaloJob() noexcept {
-    return HaloJob_.get();
+  [[nodiscard]] Generators::TerrainSheetTask *SheetWorker() noexcept { return SheetWorker_.get(); }
+
+  void BeginsSheets(std::unique_ptr<Generators::TerrainSheetTask> job) noexcept {
+    SheetWorker_ = std::move(job);
   }
 
-  void
-  BeginsHalos(std::unique_ptr<Generators::TerrainInputPreparation::HaloBuildJob> job) noexcept {
-    HaloJob_ = std::move(job);
-  }
-
-  void FinishesHalos() noexcept { HaloJob_.reset(); }
-
-  void SamplesHaloSlice(double milliseconds) noexcept {
-    LongestHaloSliceMs_ = std::max(LongestHaloSliceMs_, milliseconds);
-  }
-
-  [[nodiscard]] double LongestHaloSliceMs() const noexcept { return LongestHaloSliceMs_; }
+  void FinishesSheets() noexcept { SheetWorker_.reset(); }
 
   void SamplesCorridorSlice(double milliseconds) noexcept {
     LongestCorridorSliceMs_ = std::max(LongestCorridorSliceMs_, milliseconds);
@@ -516,11 +501,11 @@ private:
   WaterPhase WaterPhase_ = WaterPhase::Awaiting;
   std::unique_ptr<WaterGeometryPreparation> WaterWorker_;
   std::unique_ptr<Generators::TerrainRefinementJob> RefinementJob_;
-  std::unique_ptr<Generators::TerrainInputPreparation::HaloBuildJob> HaloJob_;
+  std::unique_ptr<Generators::TerrainSheetTask> SheetWorker_;
   std::vector<EarthworkStamp> Corridors_;
   std::vector<EarthworkStamp> RoadEarthworks_;
   ResidencyBuild Residency_;
-  GroundSurvey Surveying_;
+  Generators::TerrainSurvey Surveying_;
   std::chrono::steady_clock::time_point Began_ = std::chrono::steady_clock::now();
   ProductMemory ProductPeak_;
   size_t StampingCandidateHeapBytes_ = 0;
@@ -535,7 +520,6 @@ private:
   Render::GroundClassUploadMetrics LongestClassComponents_;
   GeometrySubmission GeometrySubmission_ = GeometrySubmission::Classes;
   CorridorCompletion CorridorCompletion_ = CorridorCompletion::Build;
-  double LongestHaloSliceMs_ = 0.0;
   Core::GroundBuildSchedule Schedule_;
   uint64_t Id_ = 0;
 };

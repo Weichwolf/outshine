@@ -779,7 +779,7 @@ bool Engine::State::AwaitWorldWorkerProgress(std::chrono::duration<double> patie
   if (World.OsmTransport && World.OsmTransport->PendingCount() > 0) {
     return World.OsmTransport->AwaitProgress(seconds);
   }
-  if (GroundDeformationPending()) { return AwaitGroundDeformation(seconds); }
+  if (GroundSurfaceWorkPending()) { return AwaitGroundSurfaceWork(seconds); }
   if (World.UrbanAreas && !World.UrbanAreas->Ready()) {
     return World.UrbanAreas->AwaitProgress(seconds);
   }
@@ -787,7 +787,7 @@ bool Engine::State::AwaitWorldWorkerProgress(std::chrono::duration<double> patie
 }
 
 bool Engine::State::WorldPreparationPending() const {
-  return !TerrainClipmapsReady() || WeatherRunning() || GroundDeformationPending() ||
+  return !TerrainClipmapsReady() || WeatherRunning() || GroundSurfaceWorkPending() ||
          (World.BuildingFields && World.BuildingFields->Read().Pending != 0) ||
          World.RoadAlignmentBuilds.Busy() ||
          (World.OsmSource && World.OsmSource->PendingCount() > 0) ||

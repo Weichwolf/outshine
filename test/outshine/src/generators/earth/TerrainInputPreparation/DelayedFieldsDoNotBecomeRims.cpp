@@ -1,6 +1,8 @@
 #include "TilePool.h"
 #include "TerrainLoader.h"
 #include "TerrainInputPreparation.h"
+#include "TerrainSheetTask.h"
+#include "Tasks.h"
 #include "GroundMesher.h"
 #include "SourceSet.h"
 #include "DelayedTerrainSource.h"
@@ -28,6 +30,43 @@ constexpr int kAdmissionPollAttempts = 3000;
 constexpr size_t kHaloTurns = 100000;
 constexpr size_t kHaloSliceNodes = 257;
 constexpr long long kMostPosts = 100;
+
+void CheckSheetWorker(const Generators::TerrainInputPreparation &prepared,
+                      const Patchwork &unhaloed,
+                      const Patchwork &expected) {
+  constexpr Generators::TerrainPageLayout layout{.Side = kPatchGrid + 1, .Halo = 1};
+  constexpr size_t stride = 16;
+  const auto frame = TangentFrame::At({});
+  Generators::TerrainSurvey survey;
+  for (const auto &sheet : expected.Sheets) {
+    Generators::SurveyTerrainSheet(survey, sheet, frame, layout, stride);
+  }
+  auto inputs = prepared;
+  auto candidate = unhaloed;
+  Tasks workers(1);
+  Generators::TerrainSheetTask worker(
+      workers,
+      inputs,
+      candidate,
+      {.Frame = frame, .Layout = layout, .FinestZoom = 4, .ProbeStride = stride});
+  CHECK(candidate.Sheets.empty() && inputs.FieldAt(expected.Sheets.front().Tile) == nullptr,
+        "background work owns the pending candidate and its immutable source fields");
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+  auto result = worker.Take(inputs, candidate);
+  while (!result && std::chrono::steady_clock::now() < deadline) {
+    (void)worker.AwaitSlice(0.01);
+    result = worker.Take(inputs, candidate);
+  }
+  CHECK(result && *result, "the background worker returns a complete product");
+  if (!result || !*result) { return; }
+  CHECK(candidate.Sheets == expected.Sheets &&
+            inputs.FieldAt(expected.Sheets.front().Tile) != nullptr && inputs.RimsMissing() == 0 &&
+            !worker.Take(inputs, candidate),
+        "completed heights and their source owners transfer back once");
+  CHECK((*result)->Survey.ProbePositionsM == survey.ProbePositionsM &&
+            (*result)->Survey.Vertices == survey.Vertices,
+        "the worker samples lighting probes from the completed height pages");
+}
 
 void CheckSourceOwnership(const Generators::TerrainInputPreparation &sheets) {
   const std::array<Data::TileId, 1> routeTiles{{{.Zoom = 4, .X = 0, .Y = 0}}};
@@ -90,6 +129,7 @@ void CheckHalos(Generators::TerrainInputPreparation &sheets,
   CHECK(sheets.RefineByError(
             candidate, {.Side = (kPatchGrid + 1), .Halo = 1}, {}, kMaximumPatches, error),
         "resolved field refines the native candidate");
+  const Patchwork unhaloed = candidate;
   Patchwork interrupted = candidate;
   Generators::TerrainInputPreparation interruptedSheets = sheets;
   Generators::TerrainInputPreparation::HaloBuildJob haloJob(interruptedSheets, interrupted, 4);
@@ -103,6 +143,7 @@ void CheckHalos(Generators::TerrainInputPreparation &sheets,
   CHECK(interrupted.Sheets == candidate.Sheets &&
             interruptedSheets.RimsMissing() == sheets.RimsMissing(),
         "interrupted and one-shot halo preparation produce identical pages and rim counts");
+  CheckSheetWorker(sheets, unhaloed, candidate);
   for (const Sheet &sheet : candidate.Sheets) {
     CHECK(sheet.Nodes.size() == kPageNodes,
           "complete height page has all interior and rim samples");
