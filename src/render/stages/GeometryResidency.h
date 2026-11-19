@@ -175,14 +175,11 @@ struct GeometryResidency {
   }
 
   [[nodiscard]] Native::Result<void> StandsOn(Native::Device *device);
+  [[nodiscard]] bool ReusePieceStreamsFrom(const GeometryResidency &source);
 
   [[nodiscard]] Native::Device *Device() const { return Device_; }
 
-  [[nodiscard]] std::unique_ptr<Native::Buffer> &Buffer(Stream which) {
-    return Buffers_[static_cast<size_t>(which)];
-  }
-
-  [[nodiscard]] const std::unique_ptr<Native::Buffer> &Buffer(Stream which) const {
+  [[nodiscard]] const std::shared_ptr<Native::Buffer> &Buffer(Stream which) const {
     return Buffers_[static_cast<size_t>(which)];
   }
 
@@ -284,7 +281,7 @@ private:
   mutable size_t StagingAttempts_ = 0;
 
   struct BufferChanges {
-    std::array<std::unique_ptr<Native::Buffer>, kStreams> Buffers;
+    std::array<std::shared_ptr<Native::Buffer>, kStreams> Buffers;
     std::array<uint32_t, kStreams> Capacities{};
     std::array<bool, kStreams> Changed{};
   };
@@ -293,6 +290,7 @@ private:
                                                     BufferChanges &previous);
   void RestoreBuffers(BufferChanges &previous);
   void RetireBuffers(BufferChanges &previous);
+  [[nodiscard]] Native::Result<void> Resize(Stream which, Need need, bool writable);
   [[nodiscard]] Native::Result<void>
   PreserveBuffer(Native::Buffer &source, Native::Buffer &target, uint32_t bytes, bool deferred);
   [[nodiscard]] Native::Result<void> StageUploads(std::span<Crossing> what, uint32_t total);
@@ -333,7 +331,7 @@ private:
     return std::unexpected(std::move(error));
   }
 
-  std::array<std::unique_ptr<Native::Buffer>, kStreams> Buffers_;
+  std::array<std::shared_ptr<Native::Buffer>, kStreams> Buffers_;
   std::array<uint32_t, kStreams> Held_{};
   Shaping Shape_;
 
@@ -345,7 +343,7 @@ private:
   };
 
   std::vector<RetiredTransfer> Retired_;
-  std::vector<std::unique_ptr<Native::Buffer>> RetiredBuffers_;
+  std::vector<std::shared_ptr<Native::Buffer>> RetiredBuffers_;
   uint64_t DeviceCopyBytes_ = 0;
   uint32_t StagingBytes_ = 0;
   uint32_t StagingUsed_ = 0;

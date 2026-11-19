@@ -99,7 +99,7 @@ GroundWorldCandidate::Prepare(const Core::RuntimeScene &previous, const Ui::Font
     const Core::RuntimeScene &previous, const Ui::Font *font, RestoreBudget budget) {
   if (Prepared_) { return true; }
   if (!WorldPrepared_) {
-    if (PieceSources_ == Render::SceneResources::PieceSources::Copy) {
+    if (PieceSources_ != Render::SceneResources::PieceSources::Omit) {
       Products_.Pieces.BindRenderer(&World_.Renderer());
       Products_.Roads.BindRenderer(&World_.Renderer());
       std::string sourceError;

@@ -249,10 +249,15 @@ void SceneResources::ReleasePiece(GeometryRenderer &geometry, PieceHandle which)
 
 void SceneResources::CopySourcesFrom(const SceneResources &source, PieceSources pieces) {
   CopyPrismSourcesFrom(source, pieces);
-  if (pieces == PieceSources::Copy) {
+  FirstPieceToRestore_ = 0;
+  if (pieces != PieceSources::Omit) {
     Pieces_ = source.Pieces_;
     FirstFreePiece_ = source.FirstFreePiece_;
-    for (Piece &piece : Pieces_) { piece.Resident = kNoPiece; }
+    if (pieces == PieceSources::Reuse) {
+      FirstPieceToRestore_ = Pieces_.size();
+    } else {
+      for (Piece &piece : Pieces_) { piece.Resident = kNoPiece; }
+    }
   } else {
     Pieces_.clear();
     FirstFreePiece_ = kNoResourceSlot;
@@ -265,6 +270,16 @@ void SceneResources::CopySourcesFrom(const SceneResources &source, PieceSources 
   GroundVirtual_ = source.GroundVirtual_;
   GroundClassification_ = source.GroundClassification_;
   Materials_.CopySourcesFrom(source.Materials_);
+}
+
+bool SceneResources::CanReusePieceResidents(const GeometryRenderer &geometry) const noexcept {
+  size_t count = 0;
+  for (const auto &piece : Pieces_) {
+    if (!piece.State.Occupied) { continue; }
+    if (!geometry.HasNativePiece(piece.Resident)) { return false; }
+    ++count;
+  }
+  return count == geometry.PiecesStanding();
 }
 
 bool SceneResources::HasMaterialRegistration(const MaterialRegistration &material) const noexcept {
@@ -306,6 +321,7 @@ std::expected<bool, std::string> SceneResources::AdvancePieceRestore(GeometryRen
                                                                      size_t &nextPiece,
                                                                      size_t piecesMost) {
   if (piecesMost == 0) { return std::unexpected("piece restore budget is zero"); }
+  nextPiece = std::max(nextPiece, FirstPieceToRestore_);
   size_t visited = 0;
   while (nextPiece < Pieces_.size() && visited < piecesMost) {
     Piece &piece = Pieces_[nextPiece];

@@ -44,7 +44,7 @@ struct GroundClassificationSource {
 
 class SceneResources {
 public:
-  enum class PieceSources : uint8_t { Copy, Omit };
+  enum class PieceSources : uint8_t { Copy, Reuse, Omit };
   enum class PieceOwner : uint8_t { Independent, StructureTile };
 
   struct PieceRows {
@@ -73,6 +73,7 @@ public:
   void ReleasePiece(GeometryRenderer &geometry, PieceHandle which);
 
   void CopySourcesFrom(const SceneResources &source, PieceSources pieces);
+  [[nodiscard]] bool CanReusePieceResidents(const GeometryRenderer &geometry) const noexcept;
   [[nodiscard]] bool RestorePieces(GeometryRenderer &geometry, std::string &error);
   [[nodiscard]] std::expected<bool, std::string>
   AdvancePieceRestore(GeometryRenderer &geometry, size_t &nextPiece, size_t piecesMost);
@@ -148,6 +149,7 @@ public:
 
 private:
   [[nodiscard]] bool ValidatePieceRows(std::span<const PieceRows> pieces, std::string &error);
+  size_t FirstPieceToRestore_ = 0;
 
   struct PieceSource {
     std::vector<float> Tangents;

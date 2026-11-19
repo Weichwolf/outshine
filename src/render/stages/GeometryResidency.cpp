@@ -1,5 +1,6 @@
 #include "GeometryResidency.h"
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -8,6 +9,39 @@
 #include <vector>
 
 namespace outshine::Render {
+
+bool GeometryResidency::ReusePieceStreamsFrom(const GeometryResidency &source) {
+  if (&source == this || Device_ != nullptr || source.Device_ == nullptr ||
+      source.UploadCommands_ != nullptr || source.StagedCount_ != 0) {
+    return false;
+  }
+  constexpr std::array streams{Stream::Vertex,
+                               Stream::Normal,
+                               Stream::Index,
+                               Stream::Uv,
+                               Stream::Uv1,
+                               Stream::Colour,
+                               Stream::Tangent};
+  for (const auto stream : streams) {
+    const auto index = static_cast<size_t>(stream);
+    Buffers_[index] = source.Buffers_[index];
+    Held_[index] = source.Held_[index];
+  }
+  Device_ = source.Device_;
+  TopV_ = source.TopV_;
+  TopI_ = source.TopI_;
+  TopC_ = source.TopC_;
+  TopT_ = source.TopT_;
+  FreeV_ = source.FreeV_;
+  FreeI_ = source.FreeI_;
+  FreeC_ = source.FreeC_;
+  FreeT_ = source.FreeT_;
+  GiveVertices(source.MainVertexRange_);
+  GiveIndices(source.MainIndexRange_);
+  GiveColours(source.MainColourRange_);
+  GiveTangents(source.MainTangentRange_);
+  return true;
+}
 
 Native::Result<void> GeometryResidency::StandsOn(Native::Device *device) {
   if (device == nullptr || (UploadCommands_ != nullptr && device != Device_) ||

@@ -103,6 +103,14 @@ Native::Result<void> GeometryResidency::Cross(std::span<Crossing> what, bool def
     const auto flushed = SubmitPendingUploads();
     if (!flushed) { return UploadFailed(flushed.error()); }
   }
+  for (const auto &one : what) {
+    if (one.Bytes == 0 || !one.HasSource() || Buffer(one.Which).use_count() <= 1) { continue; }
+    const auto ready =
+        Resize(one.Which,
+               {.Usage = one.Usage, .Bytes = one.Offset + one.Bytes, .Deferred = deferred},
+               true);
+    if (!ready) { return UploadFailed(ready.error()); }
+  }
   BufferChanges previous;
   const auto prepared = PrepareBuffers(what, previous);
   if (!prepared) { return UploadFailed(prepared.error()); }
@@ -299,14 +307,21 @@ Native::Result<void> GeometryResidency::Submit(std::span<Crossing> what, uint32_
 }
 
 Native::Result<void> GeometryResidency::Grow(Stream which, Need need) {
+  return Resize(which, need, false);
+}
+
+Native::Result<void> GeometryResidency::Resize(Stream which, Need need, bool writable) {
   need.Deferred = need.Deferred || UploadCommands_ != nullptr;
   if (static_cast<size_t>(which) >= kStreams || Device_ == nullptr) {
     return UploadFailed(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                       .Message = "invalid resident stream growth"});
   }
-  auto &held = Buffer(which);
+  auto &held = Buffers_[static_cast<size_t>(which)];
   auto &stood = Held_[static_cast<size_t>(which)];
-  if (held && stood >= need.Bytes && MatchesUsage(*held, need.Usage)) { return {}; }
+  if (held && stood >= need.Bytes && MatchesUsage(*held, need.Usage) &&
+      (!writable || held.use_count() == 1)) {
+    return {};
+  }
   const auto preserve =
       static_cast<uint32_t>(held && need.Existing == ExistingContents::Preserve
                                 ? std::min(uint64_t{stood}, need.PreserveBytes.value_or(stood))

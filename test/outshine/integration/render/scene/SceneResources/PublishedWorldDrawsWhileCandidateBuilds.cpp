@@ -1,5 +1,6 @@
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
+#include "StoredVertex.h"
 #include "WorldCandidate.h"
 #include "Check.h"
 #include <SDL3/SDL.h>
@@ -8,7 +9,64 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
+
+namespace {
+void CheckPieceFork(outshine::Render::SceneRenderer &renderer,
+                    outshine::Core::RuntimeScene &scene) {
+  using namespace outshine;
+  constexpr std::array<uint32_t, 3> indices{0, 1, 2};
+  const auto vertex = [](float x, float y) {
+    return StoredVertex::Of({{x, y, 1}}, {}, {{0, 0, 1}});
+  };
+  Geometry materials;
+  Material material;
+  material.Unlit = true;
+  CHECK(materials.addSurface("piece", material), "piece material is valid");
+  const auto registered = renderer.RegisterPieceMaterials(std::move(materials));
+  CHECK(registered, "piece material is available in the published scene");
+  if (!registered) { return; }
+  std::array vertices{vertex(0, -1), vertex(1, -1), vertex(1, 1)};
+  Render::PieceMesh mesh{.Verts = vertices,
+                         .Indices = indices,
+                         .Surface = Render::PieceSurface::Registered(*registered)};
+  const auto original = renderer.PlacePiece(mesh);
+  CHECK(original, original ? "published piece is accepted" : original.error().c_str());
+  if (!original) { return; }
+  std::string error;
+  CHECK(scene.Draw(error), "published geometry flushes before building a candidate");
+  renderer.WaitForGpu();
+  std::vector<float> before;
+  CHECK(renderer.ReadSceneLinear(before) == Render::ReadState::Ready && !before.empty(),
+        "published scene with its piece is readable");
+  Core::WorldCandidate candidate(renderer);
+  const auto prepared = candidate.Prepare(scene,
+                                          nullptr,
+                                          Render::SceneResources::PieceSources::Reuse,
+                                          Core::GeometryRetention::All,
+                                          Core::ResourceRestoreMode::Deferred);
+  CHECK(prepared, "the candidate opens with the published piece");
+  if (!prepared) { return; }
+  {
+    const auto editing = renderer.EditWorldCandidate();
+    CHECK(renderer.HasPieceSource(*original) && renderer.PiecesStanding() == 1,
+          "the candidate retains the published piece handle and its native mesh");
+    renderer.ReleasePiece(*original);
+    vertices = {vertex(-1, -1), vertex(0, -1), vertex(-1, 1)};
+    CHECK(renderer.PlacePiece(mesh), "the candidate can replace the piece in its own scene");
+  }
+  const auto published = renderer.PublishedWorld();
+  CHECK(renderer.HasPieceSource(*original),
+        "the published piece remains live while its replacement is prepared");
+  const bool drew = scene.Draw(error);
+  CHECK(drew, drew ? "the published scene remains drawable" : error.c_str());
+  renderer.WaitForGpu();
+  std::vector<float> after;
+  CHECK(renderer.ReadSceneLinear(after) == Render::ReadState::Ready && after == before,
+        "editing retained piece streams cannot change the published pixels");
+}
+}
 
 int main() {
   using namespace outshine;
@@ -80,6 +138,7 @@ int main() {
       std::vector<float> moved;
       CHECK(renderer.ReadSceneLinear(moved) == Render::ReadState::Ready && moved != expected,
             "published camera changes do not disappear into the candidate");
+      CheckPieceFork(renderer, *scene);
     }
   }
   SDL_Quit();

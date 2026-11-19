@@ -304,6 +304,13 @@ bool SceneRenderer::BeginsWorldCandidate(std::string &error,
   }
   Candidate_.emplace();
   Candidate_->GroundInputs = ground;
+  if (pieces == SceneResources::PieceSources::Reuse) {
+    const auto &source = *State_.Content;
+    if (!source.Scene().Resources().CanReusePieceResidents(source.Geometry()) ||
+        !Candidate_->Content->Geometry().ReusePiecesFrom(source.Geometry())) {
+      pieces = SceneResources::PieceSources::Copy;
+    }
+  }
   Candidate_->Content->Scene().Resources().CopySourcesFrom(State_.Content->Scene().Resources(),
                                                            pieces);
   error.clear();

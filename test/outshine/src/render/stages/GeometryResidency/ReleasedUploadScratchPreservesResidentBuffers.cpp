@@ -8,6 +8,7 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <string>
 
 using namespace outshine;
@@ -18,6 +19,43 @@ using namespace outshine::Test::Gpu;
 
 namespace {
 constexpr std::array<uint32_t, 4> kInitialValues{17, 23, 31, 47};
+
+void CheckPieceStreamIsolation(Device &device) {
+  constexpr auto stream = GeometryResidency::Stream::Vertex;
+  GeometryResidency published;
+  Require(published.StandsOn(&device));
+  GeometryResidency::Crossing original{.Which = stream,
+                                       .Usage = BufferUse::Vertex,
+                                       .From = kInitialValues.data(),
+                                       .Bytes = sizeof(kInitialValues)};
+  Require(published.Cross(std::span(&original, 1), true));
+  GeometryResidency candidate;
+  CHECK(!candidate.ReusePieceStreamsFrom(published),
+        "a candidate may not borrow uploads that have yet to be submitted");
+  Require(published.SubmitPendingUploads());
+  const bool reused = candidate.ReusePieceStreamsFrom(published);
+  CHECK(reused, "candidate reuses published vertices");
+  if (!reused) { return; }
+  CHECK(candidate.Buffer(stream) == published.Buffer(stream),
+        "an unchanged candidate can draw from the published device buffer");
+  auto changed = kInitialValues;
+  ++changed[1];
+  GeometryResidency::Crossing write{.Which = stream,
+                                    .Usage = BufferUse::Vertex,
+                                    .From = &changed[1],
+                                    .Bytes = sizeof(changed[1]),
+                                    .Offset = sizeof(changed[0])};
+  Require(candidate.Cross(std::span(&write, 1), true));
+  Require(candidate.SubmitPendingUploads());
+  for (const auto *owner : {&published, &candidate}) {
+    auto transfer = Require(
+        ReadbackTransfer::Start(device, *owner->Buffer(stream), {.Bytes = sizeof(kInitialValues)}));
+    const auto read = Require(transfer.Wait(device, std::chrono::seconds(5)));
+    const auto &expected = owner == &published ? kInitialValues : changed;
+    CHECK(read && std::memcmp(read->data(), expected.data(), sizeof(expected)) == 0,
+          "changing one candidate range preserves neighbouring data and the published scene");
+  }
+}
 
 void Exercise(Device *device) {
   GeometryResidency residency;
@@ -62,7 +100,10 @@ void Exercise(Device *device) {
 int main() {
   {
     const auto device = Require(CreateDevice({.Validation = true}));
-    if (device) { Exercise(device.get()); }
+    if (device) {
+      Exercise(device.get());
+      CheckPieceStreamIsolation(*device);
+    }
   }
   return Report();
 }

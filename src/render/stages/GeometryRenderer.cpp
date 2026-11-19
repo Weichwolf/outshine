@@ -658,6 +658,22 @@ bool GeometryRenderer::ValidatePiece(const PieceMesh &piece, std::string &error)
   return true;
 }
 
+bool GeometryRenderer::ReusePiecesFrom(const GeometryRenderer &source) {
+  if (!Pieces_.empty() || !Bound().ReusePieceStreamsFrom(source.Bound())) { return false; }
+  Pieces_ = source.Pieces_;
+  Spare_ = source.Spare_;
+  PiecesLive_ = source.PiecesLive_;
+  PieceTriangles_ = source.PieceTriangles_;
+  PiecesVisible_ = source.PiecesVisible_;
+  for (auto &piece : Pieces_) {
+    piece.FirstBatch.reset();
+    piece.Emitted.reset();
+  }
+  TablesStale_ = true;
+  RowsStale_ = true;
+  return true;
+}
+
 Native::Result<PieceId> GeometryRenderer::PlacePiece(const PieceMesh &piece) {
   std::string error;
   if (!ValidatePiece(piece, error)) {

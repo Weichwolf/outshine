@@ -182,6 +182,12 @@ public:
   void SetPiecesVisible(bool visible);
 
   [[nodiscard]] Native::Result<PieceId> PlacePiece(const PieceMesh &piece);
+  [[nodiscard]] bool ReusePiecesFrom(const GeometryRenderer &source);
+
+  [[nodiscard]] bool HasNativePiece(PieceId id) const noexcept {
+    return id < Pieces_.size() && Pieces_[id].Live;
+  }
+
   void ReleasePiece(PieceId which);
   [[nodiscard]] bool SetPiecePasses(PieceId which, GeometryPasses passes, std::string &error);
   [[nodiscard]] bool SetPieceInstances(PieceId which,

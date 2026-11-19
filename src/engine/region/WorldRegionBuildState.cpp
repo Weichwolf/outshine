@@ -37,7 +37,7 @@ WorldRegionBuildState::WorldRegionBuildState(
     uint64_t id)
     : Coverage_(coverage),
       Revision_(revision),
-      Candidate_(renderer, world, footprints),
+      Candidate_(renderer, world, footprints, Render::SceneResources::PieceSources::Reuse),
       TransportSnapshot_(world.CurrentTransportReady() ? world.OsmTransport->Current() : nullptr),
       Id_(id) {
   if (!world.CurrentOriginalReady()) { return; }
