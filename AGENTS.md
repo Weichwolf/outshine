@@ -7,6 +7,14 @@ Die aktuelle Zieldefinition steht in [#1974](https://github.com/Weichwolf/outshi
 Gelände, Verkehr, Gebäude, Vegetation und Wetter zuerst; danach Fahrzeuge, NPCs, Physik,
 Skripte, Audio und Persistenz in derselben Welt.
 
+GTA VI ist die visuelle Referenz für einen überzeugenden Game-Look mit eigenem
+Weltinhalt. Für das Gameplay dienen Skyrim und Fallout als Orientierung:
+offenes Rollenspiel mit einem LLM als Game Master. Ein Szenario liefert einen
+oder mehrere Systemprompts für Setting, Story und NPC-Verhalten. Der Game Master
+steuert Story, Quests und NPC-Entscheidungen. Validierte Aktionen wirken auf die
+laufende Simulation. Akzeptierte Entscheidungen und generierte Rezepte bleiben
+im Spielstand erhalten.
+
 **Feste Bedingungen:** bis 240 km Sichtweite, vollständige Inhalte, auch in Bewegung,
 jeweils einschließlich p99:
 
@@ -40,8 +48,8 @@ A18 über Metal portieren bzw. anpassen und für die integrierte GPU optimieren.
    sind kein Fortschritt.
 2. **Meilensteine in fester Reihenfolge** – Stand und Zuteilung stehen in der
    [Roadmap #1972](https://github.com/Weichwolf/outshine/issues/1972).
-   Erst Distanzdarstellung und Grundkosten, dann vollständige Umwelt/Bildqualität,
-   dann weltweite Bewegungs-/Geräteabnahme und Sandbox. Nichts Späteres verdrängt Früheres.
+   Erst Distanzdarstellung und Grundkosten, dann die vollständige Umwelt mit
+   Nahdetail, weltweite Bewegung, spielbare Sandbox und Gesamtproduktabnahme.
 3. **Bewährtes zuerst.** Clipmaps/CDLOD, Kachel-HLOD, LUT-Atmosphäre, Impostor, Clustered
    Shading. SIGGRAPH und Primärquellen nachschlagen, dann das etablierte Verfahren bauen.
    Präsentation und Asset-DB beruhen auf etablierten Verfahren. Unser Forschungsfeld ist
@@ -78,9 +86,9 @@ nach Metal/Vulkan getrennt; gemeinsame Shader und Verfahren gibt es einmal.
 
 ## Backlog
 - [GitHub Issues](https://github.com/Weichwolf/outshine/issues) sind die einzige
-  Aufgabenablage. **Höchstens 20 offene Issues.**
+  Aufgabenablage. Offene Pakete decken die gesamte Produktvision ab.
 - **Ein aktives Umsetzungspaket je Mitwirkendem** (Label `active`), dazu `owner:lead|engine|research`,
-  `priority:P0–P2`, `milestone:M1–M3`. Ohne aktives Issue: das höchstpriorisierte offene
+  `priority:P0–P2`, `milestone:M1–M5`. Ohne aktives Issue: das höchstpriorisierte offene
   eigene im frühesten Meilenstein nehmen, `active` setzen, anfangen.
 - Ein Issue beschreibt ein sichtbares oder messbares Ergebnis: Befund, Ergebnis,
   Anweisungen, „Fertig, wenn“. Höchstens 50 Zeilen. Varianten, Zwischenstände und
@@ -130,10 +138,15 @@ nach Metal/Vulkan getrennt; gemeinsame Shader und Verfahren gibt es einmal.
 - Iris-Xe-Messungen laufen auf dem Host `VIRUS` (i5-1135G7), Checkout
   `~/Git/outshine_engine`.
 - Bilder in `README` und `doc/` nur auf ausdrücklichen Nutzerauftrag.
+- Die Gesamtproduktabnahme umfasst bewegte Szenen und Spielabläufe auf Augenhöhe,
+  in Innenräumen, aus Fahrzeugen und im Flug. Rendering, Simulation, Audio, Skripte,
+  Spielstand und LLM Game Master teilen auf jedem Zielgerät das Framebudget.
 
 ## Tests und Experimente
 - Tests schützen Produktverhalten: Places rendern vollständig, Cache-Miss und -Treffer,
   korrekte Geometrie der Generatoren, Shader-/GPU-Layouts, Absturzfreiheit.
+- Tests aus typischem Spiel- und Simulationsverhalten ableiten, etwa Reisen,
+  Interaktion, Quest-Entscheidungen, Wiederkehr und Speichern/Laden.
 - Keine Tests für interne Zähler, Bytegleichheit, Zwischenformate oder Altpfade. Wer ein
   Modul anfasst, löscht solche Tests mit.
 - Ein Experiment lebt in **einem** Verzeichnis unter `test/experiments/`, beantwortet
