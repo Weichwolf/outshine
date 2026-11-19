@@ -42,16 +42,14 @@ int main() {
         auto advanced =
             candidate.AdvancePreparation(*scene, nullptr, {.Pieces = 1, .HeightPages = 1});
         CHECK(advanced && !*advanced,
-              "first advance creates the candidate without restoring pages");
-        for (size_t restored = 0; restored < pages.size(); ++restored) {
-          advanced = candidate.AdvancePreparation(*scene, nullptr, {.Pieces = 1, .HeightPages = 1});
-          CHECK(advanced && (*advanced == (restored + 1 == pages.size())),
-                "each advance restores exactly one source page before completion");
-        }
+              "first advance creates the replacement without publishing it");
+        advanced = candidate.AdvancePreparation(*scene, nullptr, {.Pieces = 1, .HeightPages = 1});
+        CHECK(advanced && *advanced,
+              "all resident terrain is available immediately, even with a one-page upload budget");
       }
       CHECK(renderer.HasHeightPage(pages[0]) && renderer.HasHeightPage(pages[1]) &&
                 renderer.HasHeightPage(pages[2]),
-            "abandoning the paced candidate preserves every published page handle");
+            "abandoning the replacement preserves every published page handle");
     }
   }
   SDL_Quit();
