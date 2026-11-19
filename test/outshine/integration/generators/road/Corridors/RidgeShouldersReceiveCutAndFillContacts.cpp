@@ -2,6 +2,7 @@
 #include "Corridors.h"
 #include "EarthworkDeformation.h"
 #include "ProfiledRoadMesher.h"
+#include "TransportGeometry.h"
 
 #include <algorithm>
 #include <array>
@@ -60,7 +61,8 @@ int main() {
     const std::array<EastNorth, 2> samples{{{.EastM = -2, .NorthM = 0}, {.EastM = 2, .NorthM = 0}}};
     std::array<double, 2> heights{2 * slope, 2 * slope};
     const auto result = ApplyEarthworkStamps(earthworks, samples, heights, kMostEarthworkM);
-    CHECK(result.Structures == 0 && std::abs(heights[0]) < 0.001 && std::abs(heights[1]) < 0.001,
+    CHECK(result.Structures == 0 && std::abs(heights[0] + kPavementLipM) < 0.001 &&
+              std::abs(heights[1] + kPavementLipM) < 0.001,
           "both sides of the pavement meet its bed in a valley and on a ridge");
   }
   return Report();

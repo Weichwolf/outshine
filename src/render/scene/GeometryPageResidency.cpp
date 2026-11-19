@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cmath>
 #include <expected>
+#include <format>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -140,6 +141,23 @@ bool GeometryPageResidency::StageCell(uint32_t tile,
     error = "staged geometry cell needs one occupied source cell";
     return false;
   }
+  if (Renderer_ != nullptr && sourceKey != 0 && baked.RequestedCell == cell) {
+    const auto first = std::ranges::lower_bound(Pages_, std::pair{tile, cell}, {}, AddressOf);
+    const auto last = std::find_if(first, Pages_.end(), [tile, cell](const auto &held) {
+      return held.Tile != tile || held.Cell != cell;
+    });
+    const auto row = RowFor(anchorEcef, baked.Placement.get());
+    const auto resident = std::find_if(first, last, [&](const auto &held) {
+      return held.Mode == Publication::Cell && held.SourceKey == sourceKey &&
+             held.Detail == baked.RequestedDetail && held.Digest == baked.Digest &&
+             held.OccupiedCells == baked.OccupiedCells && held.Row == row;
+    });
+    if (resident != last) {
+      resident->SelectedView = baked.SelectedView;
+      std::rotate(first, resident, resident + 1);
+      return true;
+    }
+  }
   return Store(tile, cell, baked, anchorEcef, error, sourceKey, Publication::Cell);
 }
 
@@ -214,6 +232,7 @@ bool GeometryPageResidency::Store(uint32_t tile,
                              .FallbackHeights = baked.FallbackHeights,
                              .Detail = baked.RequestedDetail,
                              .SelectedView = baked.SelectedView,
+                             .ErrorBound = baked.ErrorBound,
                              .Coverage = baked.Coverage,
                              .Row = row,
                              .Visible = visible,
@@ -354,9 +373,7 @@ bool GeometryPageResidency::ValidateStore(TileCell address,
     error = "staged geometry cohort needs its canonical source cell anchor";
     return false;
   }
-  if (staged && !ValidateStage(address.Tile, baked, sourceKey, publication, error)) {
-    return false;
-  }
+  if (staged && !ValidateStage(address.Tile, baked, sourceKey, error)) { return false; }
   if (!staged && address.Cell != 0) {
     const uint64_t cell = uint64_t{1} << (address.Cell - 1u);
     if (baked.OccupiedCells != 0 && baked.OccupiedCells != cell) {
@@ -385,7 +402,6 @@ bool GeometryPageResidency::ValidateStore(TileCell address,
 bool GeometryPageResidency::ValidateStage(uint32_t tile,
                                           const GeometryPageView &baked,
                                           uint64_t sourceKey,
-                                          Publication publication,
                                           std::string &error) const {
   const auto first = std::ranges::lower_bound(Pages_, tile, {}, &ResidentGeometryPage::Tile);
   const auto last = std::find_if(
@@ -401,8 +417,16 @@ bool GeometryPageResidency::ValidateStage(uint32_t tile,
     }
     if (at->Cell == baked.RequestedCell && at->SourceKey == sourceKey &&
         at->Detail == baked.RequestedDetail && at->OccupiedCells == baked.OccupiedCells &&
-        (publication != Publication::Cohort || at->Digest == baked.Digest)) {
-      error = "geometry cell detail is already resident";
+        at->Digest == baked.Digest) {
+      error = std::format("geometry cell detail is already resident: tile={} cell={} source={} "
+                          "held_digest={} incoming_digest={} held_asset={} incoming_asset={}",
+                          tile,
+                          at->Cell,
+                          sourceKey,
+                          at->Digest,
+                          baked.Digest,
+                          at->AssetKey,
+                          baked.AssetKey);
       return false;
     }
   }
@@ -456,31 +480,39 @@ bool GeometryPageResidency::HasCell(uint32_t tile,
   });
 }
 
-bool GeometryPageResidency::HasProjectedTile(uint32_t tile,
+bool GeometryPageResidency::HasIntrinsicTile(uint32_t tile,
                                              CellSource source,
-                                             LongitudeLatitude eye,
-                                             ProjectedErrorBudget projection,
-                                             std::optional<Vec3> eyeEcef,
-                                             GeometryPasses passes) const noexcept {
-  if (source.Key == 0) { return false; }
+                                             GeometryPasses passes,
+                                             bool includeHidden,
+                                             std::optional<Vec3> eye,
+                                             ProjectedErrorBudget projection) const noexcept {
+  if (source.Key == 0 || source.Occupied == 0) { return false; }
   const auto first = std::ranges::lower_bound(Pages_, std::pair{tile, uint32_t{0}}, {}, AddressOf);
   const auto last = std::find_if(
       first, Pages_.end(), [tile](const ResidentGeometryPage &held) { return held.Tile != tile; });
   uint64_t covered = 0;
   for (auto at = first; at != last; ++at) {
-    if (!at->Visible || (at->Passes != GeometryPasses::MainAndShadow && at->Passes != passes)) {
+    if ((!at->Visible && !includeHidden) ||
+        (passes != GeometryPasses::MainAndShadow && at->Passes != GeometryPasses::MainAndShadow &&
+         at->Passes != passes) ||
+        !at->Detail || at->SourceKey != source.Key || at->FallbackHeights || at->SelectedView) {
       continue;
     }
-    if (at->Detail || at->SourceKey != source.Key || !at->SelectedView ||
-        !at->SelectedView->Contains(eye, projection, eyeEcef)) {
+    if (at->Detail != LevelOfDetail::Fine &&
+        (!at->ErrorBound || !at->ErrorBound->Allows(source.Key, eye, projection))) {
+      continue;
+    }
+    if (at->Cell == 0) {
+      if (at->OccupiedCells == source.Occupied) { return true; }
+      continue;
+    }
+    if (at->Cell > kGeometryPageCellsMost ||
+        at->OccupiedCells != (uint64_t{1} << (at->Cell - 1u))) {
       return false;
     }
-    if (at->Cell == 0) { return at->OccupiedCells == source.Occupied; }
-    if (at->Cell > kGeometryPageCellsMost) { return false; }
-    if (at->OccupiedCells == 0 || (covered & at->OccupiedCells) != 0) { return false; }
     covered |= at->OccupiedCells;
   }
-  return source.Occupied != 0 && covered == source.Occupied;
+  return covered == source.Occupied;
 }
 
 bool GeometryPageResidency::CellsActive(uint32_t tile,

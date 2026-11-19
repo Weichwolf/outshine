@@ -11,6 +11,12 @@
       }
     },
     {
+      "name": "linux",
+      "inherits": "native",
+      "condition": {"type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux"},
+      "toolchainFile": "${sourceDir}/cmake/Linux.cmake"
+    },
+    {
       "name": "lint",
       "inherits": "native",
       "binaryDir": "${sourceDir}/build/lint",
@@ -22,9 +28,11 @@
   ],
   "buildPresets": [
     {"name": "native", "configurePreset": "native", "jobs": 0},
+    {"name": "linux", "configurePreset": "linux", "jobs": 0},
     {"name": "lint", "configurePreset": "lint", "jobs": 0}
   ],
   "testPresets": [
-    {"name": "native", "configurePreset": "native", "output": {"outputOnFailure": true}}
+    {"name": "native", "configurePreset": "native", "output": {"outputOnFailure": true}},
+    {"name": "linux", "configurePreset": "linux", "output": {"outputOnFailure": true}}
   ]
 }

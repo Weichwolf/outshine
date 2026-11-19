@@ -17,8 +17,8 @@ int main() {
   report.Frame = {.WidthPx = 32, .HeightPx = 32};
   report.InspectionMs = 1'000'000;
   report.Scenario = "quote\" and newline\n";
-  report.Frames = {{.WallMs = 3, .AdvanceMs = 1, .RenderMs = 2, .Refined = true},
-                   {.WallMs = 4, .AdvanceMs = 1, .RenderMs = 3, .Refined = true}};
+  report.Frames = {{.WallMs = 3, .AdvanceMs = 1, .RenderMs = 2, .SyncWaitMs = 1, .Refined = true},
+                   {.WallMs = 4, .AdvanceMs = 1, .RenderMs = 3, .SyncWaitMs = 3, .Refined = true}};
   report.GpuSamples = {{.Device = 1, .Submission = 9, .ElapsedMs = 1},
                        {.Device = 1, .Submission = 12, .ElapsedMs = 2}};
   report.Measures = {{.Name = "capture.gpu.render_frames", .Value = 2, .Unit = "frames"},
@@ -49,6 +49,10 @@ int main() {
   CHECK(json["cpu_times"]["frame"]["p50_ms"] == 3 && json["cpu_times"]["frame"]["p99_ms"] == 4 &&
             json["gpu_times"]["frame"]["p50_ms"] == 1 && json["gpu_times"]["frame"]["p99_ms"] == 2,
         "CPU and GPU retain their own nearest-rank durations without adding asynchronous phases");
+  CHECK(json["cpu_times"]["work"]["p50_ms"] == 1 && json["cpu_times"]["work"]["p99_ms"] == 2 &&
+            json["cpu_times"]["sync_wait"]["p99_ms"] == 3 &&
+            json["cpu_times"]["samples"][1]["cpu_work_ms"] == 1,
+        "CPU work excludes each frame's explicit synchronous waiting before aggregation");
   CHECK(json["build"]["host_load_before"].is_null(),
         "unavailable host load is not fabricated as zero");
   CHECK(json["profile"]["pacing"] == "unpaced" && json["phases_ms"].contains("unpaced_window") &&

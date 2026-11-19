@@ -26,6 +26,44 @@ class ScenarioBenchmark(unittest.TestCase):
                               env=env, capture_output=True, text=True, timeout=60,
                               check=False)
 
+    @unittest.skipUnless(os.uname().sysname == 'Linux', 'Vulkan device selection')
+    def test_explicit_missing_vulkan_device_never_falls_back(self):
+        result = self.invoke('--scenario', json.dumps(SCENE), '--frames', '1', '--offline',
+                             env=dict(os.environ, OUTSHINE_VULKAN_DEVICE='missing-outshine-device'))
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn('missing-outshine-device', result.stderr)
+
+    def test_native_pass_profile_matches_the_measured_gpu_submissions(self):
+        with tempfile.TemporaryDirectory(prefix='outshine-benchmark-passes-') as folder:
+            output = Path(folder) / 'result.json'
+            prefix = Path(folder) / 'gpu-profile'
+            environment = dict(os.environ, OUTSHINE_VULKAN_ENCODER_PROFILE=str(prefix))
+            result = self.invoke('--scenario', json.dumps(SCENE), '--frames', '8',
+                                 '--offline', '--output', str(output), env=environment)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            report = json.loads(output.read_text())
+            profiles = list(Path(folder).glob('gpu-profile.*.json'))
+            if report['backend'] != 'Vulkan':
+                self.assertEqual(profiles, [])
+                return
+            self.assertTrue(profiles)
+            submissions = {}
+            for path in profiles:
+                profile = json.loads(path.read_text())
+                self.assertEqual(profile['scope'], 'natural_render_pass_and_dispatch_boundaries')
+                for submission in profile['submissions']:
+                    submissions[profile['device'], submission['serial']] = submission
+            for frame in report['gpu_times']['samples']:
+                submission = submissions[frame['device'], frame['submission']]
+                self.assertEqual(submission['dropped_passes'], 0)
+                raster = [p for p in submission['passes'] if p['kind'] == 'render']
+                self.assertTrue(raster)
+                self.assertTrue(all(p['available'] and math.isfinite(p['gpu_ns'])
+                                    and p['gpu_ns'] >= 0 for p in submission['passes']))
+                self.assertGreaterEqual(sum(p['draw_calls'] for p in raster), 1)
+                self.assertTrue(all(p['input_primitives'] is not None for p in raster))
+                self.assertGreaterEqual(sum(p['input_primitives'] for p in raster), 1)
+
     def test_real_frames_motion_and_final_image(self):
         with tempfile.TemporaryDirectory(prefix='outshine-benchmark-motion-') as folder:
             output = Path(folder) / 'result.json'
@@ -47,6 +85,14 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(report['profile']['fps'], 120)
             self.assertEqual(report['motion']['frames'], 8)
             self.assertEqual(len(report['cpu_times']['samples']), 8)
+            work = []
+            for sample in report['cpu_times']['samples']:
+                self.assertGreaterEqual(sample['sync_wait_ms'], 0)
+                self.assertGreaterEqual(sample['cpu_work_ms'], 0)
+                self.assertAlmostEqual(sample['cpu_work_ms'] + sample['sync_wait_ms'],
+                                       sample['frame_ms'], places=9)
+                work.append(sample['cpu_work_ms'])
+            self.assertEqual(report['cpu_times']['work']['p99_ms'], max(work))
             self.assertEqual(report['gpu_times']['rendered_frames'], 8)
             duration = 8 / 120
             for actual, expected in zip(report['motion']['finish']['position_m'],
@@ -73,6 +119,8 @@ class ScenarioBenchmark(unittest.TestCase):
             png = image.read_bytes()
             self.assertEqual(png[:8], b'\x89PNG\r\n\x1a\n')
             self.assertEqual(struct.unpack('>II', png[16:24]), (32, 32))
+            self.assertTrue(math.isfinite(report['image_row_variation']))
+            self.assertGreaterEqual(report['image_row_variation'], 0)
             metrics = {metric['name']: metric['value'] for metric in report['metrics']}
             self.assertEqual(metrics.get('cull snapshot: available'), 0)
             self.assertGreaterEqual(report['phases_ms']['final_inspection'], 0)

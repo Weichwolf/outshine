@@ -15,6 +15,21 @@
 #include <vector>
 
 namespace outshine {
+namespace {
+bool OriginalSupportsView(const Render::GeometryPageResidency::DigestRecord &page,
+                          uint64_t sourceKey,
+                          const Generators::Osm::BuildingField &prints,
+                          LongitudeLatitude eye,
+                          const Vec3 &worldEye) {
+  if (page.Detail && page.Detail != LevelOfDetail::Fine &&
+      (page.ErrorBound == nullptr ||
+       !page.ErrorBound->Allows(sourceKey, worldEye, prints.Projection()))) {
+    return false;
+  }
+  return page.View == nullptr || page.View->Contains(eye, prints.Projection(), prints.EyeEcef());
+}
+}
+
 std::expected<SourceCoverage, std::string>
 BuildingFieldStreaming::State::OriginalCoverage(const Tile &tile, uint64_t cells) {
   if (!tile.Coverage || (cells & ~tile.Source.Cells) != 0) {
@@ -53,7 +68,7 @@ BuildingFieldStreaming::State::BindOriginals(Context &context,
           return;
         }
         const auto &prints = context.Surface.Footprints();
-        if (page.View && !page.View->Contains(eye, prints.Projection(), prints.EyeEcef())) {
+        if (!OriginalSupportsView(page, sourceKey, prints, eye, WorldCamera(context).EyeM)) {
           return;
         }
         OriginalProduct product{.Legacy = {.Cell = page.Cell,

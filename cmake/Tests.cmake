@@ -1,7 +1,6 @@
 file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/test-output")
 include("${PROJECT_SOURCE_DIR}/cmake/AssetExperiments.cmake")
 include("${PROJECT_SOURCE_DIR}/cmake/BuildingFieldExperiments.cmake")
-include("${PROJECT_SOURCE_DIR}/cmake/RenderExperiments.cmake")
 file(STRINGS "${PROJECT_SOURCE_DIR}/test/world-gate.txt" gate_scopes)
 file(GLOB_RECURSE cases CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/test/outshine/src/*.cpp"
   "${PROJECT_SOURCE_DIR}/test/outshine/integration/*.cpp")
@@ -370,8 +369,11 @@ foreach(source IN LISTS cases)
   if(name IN_LIST building_field_gpu_cases)
     add_dependencies(${target} outshine_shaders)
   endif()
-  if(name STREQUAL "outshine/integration/render/impostor/ImpostorViewAssets/CachedViewsPreservePublishedWorlds")
+  if(name MATCHES "^outshine/integration/render/impostor/(ImpostorSurface/|ImpostorBaker/ComposedMaterialsReachTheCard$|ImpostorViewAssets/CachedViewsPreservePublishedWorlds$)")
     target_link_libraries(${target} PRIVATE outshine_engine)
+  endif()
+  if(name STREQUAL "outshine/integration/render/impostor/ImpostorBaker/SourcePlanesCarryOriginalMaterials")
+    target_link_libraries(${target} PRIVATE outshine_generators_building)
   endif()
   if(name MATCHES "^outshine/integration/content/assets/ImpostorViewAssets/(FixedViewsLoadOnlyTheirSelectedDetail|SharedViewJobsRetainOwnersAndRejectStaleMetadata)$")
     target_link_libraries(${target} PRIVATE outshine_render)
@@ -413,9 +415,6 @@ foreach(source IN LISTS cases)
   if(name STREQUAL "outshine/integration/generators/water/WaterHeightFit/RoadAndWaterSolversKeepIndependentMatrixStorage"
       OR name STREQUAL "outshine/integration/generators/osm/MvtTransportSnapshot/NativeSourcesReachCoreSelection")
     target_link_libraries(${target} PRIVATE outshine_generators_road)
-  endif()
-  if(name STREQUAL "outshine/src/render/stages/GeometryCullStage/HierarchyQueuesPreserveStableGeometry")
-    add_dependencies(${target} outshine_experiment_serial_geometry_scan)
   endif()
   target_link_libraries(${target} PRIVATE ${component})
   if(name MATCHES "^outshine/src/render/pipelines/")
@@ -519,12 +518,6 @@ target_compile_options(test_harness_building_source_counter PRIVATE -fno-excepti
 target_link_libraries(test_harness_building_source_counter PRIVATE
   outshine_generators_osm)
 
-add_executable(test_harness_transport_source_export EXCLUDE_FROM_ALL
-  test/experiments/transport/native_transport_export.cpp
-  test/experiments/transport/native_transport_snapshot_json.cpp
-  test/experiments/transport/native_transport_facts_json.cpp)
-target_compile_options(test_harness_transport_source_export PRIVATE -fno-exceptions)
-target_link_libraries(test_harness_transport_source_export PRIVATE outshine_generators_osm)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   add_test(NAME outshine/src/generators/osm/MvtTransportSnapshot/OriginalPointFactsSurviveUnavailableProvider
     COMMAND $<TARGET_FILE:test_outshine_src_generators_osm_MvtTransportSnapshot_OriginalPointFactsMatchIndependentWire>
@@ -532,14 +525,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   set_tests_properties(outshine/src/generators/osm/MvtTransportSnapshot/OriginalPointFactsSurviveUnavailableProvider
     PROPERTIES WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}" LABELS "generators/osm")
 endif()
-add_dependencies(outshine_tests test_harness_transport_source_export)
-add_dependencies(outshine_gate test_harness_transport_source_export)
-add_test(NAME experiments/transport/NativeSourceFactsExport
-  COMMAND "${Python3_EXECUTABLE}" -B
-  "${PROJECT_SOURCE_DIR}/test/experiments/transport/test_native_transport_export.py"
-  --exporter $<TARGET_FILE:test_harness_transport_source_export>)
-set_tests_properties(experiments/transport/NativeSourceFactsExport PROPERTIES
-  TIMEOUT "${OUTSHINE_TEST_TIMEOUT}" LABELS "experiments/transport;world-gate")
 
 if(APPLE)
   add_library(test_harness_metal_work_profile SHARED EXCLUDE_FROM_ALL

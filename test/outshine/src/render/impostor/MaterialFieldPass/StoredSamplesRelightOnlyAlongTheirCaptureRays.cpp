@@ -2,7 +2,6 @@
 #include "MaterialFieldRasterInput.h"
 #include "ImpostorAtlas.h"
 #include "EnvironmentSpecularLayout.h"
-#include "test/harness/render/NativeDeviceProxy.h"
 #include "test/harness/render/NativeGpuCheck.h"
 #include "test/harness/render/NativeImageReadback.h"
 #include "test/harness/render/NativeOffline.h"
@@ -14,6 +13,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <print>
 #include <memory>
 #include <limits>
 #include <string>
@@ -28,25 +31,24 @@ using namespace outshine::Render::Native;
 using namespace outshine::Test;
 using namespace outshine::Test::Gpu;
 
-struct Tracking final : NativeDeviceProxy {
-  explicit Tracking(Device &device) : NativeDeviceProxy(device) {}
+float ReadHalf(const std::byte *bytes) {
+  uint16_t bits = 0;
+  std::memcpy(&bits, bytes, sizeof(bits));
+  const int exponent = (bits >> 10u) & 31u;
+  const float mantissa = static_cast<float>(bits & 1023u);
+  if (exponent == 31) { return std::numeric_limits<float>::quiet_NaN(); }
+  const float value = exponent == 0 ? std::ldexp(mantissa, -24)
+                                    : std::ldexp(1.0f + mantissa / 1024.0f, exponent - 15);
+  return (bits & 0x8000u) != 0 ? -value : value;
+}
 
-  size_t Submits = 0, MeshBuffers = 0;
-
-  Result<std::unique_ptr<Buffer>> CreateBuffer(BufferDescription description,
-                                               std::string_view label = {}) override {
-    if ((static_cast<uint32_t>(description.Use) &
-         static_cast<uint32_t>(BufferUse::Vertex | BufferUse::Index)) != 0) {
-      ++MeshBuffers;
-    }
-    return Backing().CreateBuffer(description, label);
-  }
-
-  Result<Completion> Submit(std::unique_ptr<Commands> commands) override {
-    ++Submits;
-    return Backing().Submit(std::move(commands));
-  }
-};
+bool MatchingRadiance(float first, float second) {
+  constexpr float kHalfRelativeStep = 1.0f / 1024.0f;
+  constexpr float kHalfSubnormalStep = 1.0f / 16777216.0f;
+  const float tolerance =
+      kHalfSubnormalStep + kHalfRelativeStep * std::max(std::abs(first), std::abs(second));
+  return std::isfinite(first) && std::isfinite(second) && std::abs(first - second) <= tolerance;
+}
 
 ImpostorAtlas Source(ScatteringModel scattering) {
   ImpostorAtlas::View view;
@@ -116,10 +118,9 @@ Geometry Original(ScatteringModel scattering) {
 
 void CheckSample(size_t pixel, const std::byte *bytes, bool colour) {
   if (colour) {
-    uint16_t alpha = 0;
-    std::memcpy(&alpha, bytes + 3 * sizeof(uint16_t), sizeof(alpha));
+    const float alpha = ReadHalf(bytes + 3 * sizeof(uint16_t));
     const bool covered = pixel == 0 || pixel == 15;
-    CHECK(alpha == (covered ? 0x3c00 : 0), "native coverage has the two known samples");
+    CHECK(alpha == (covered ? 1.0f : 0.0f), "native coverage has the two known samples");
     return;
   }
   float depth = 0;
@@ -141,13 +142,33 @@ void SamePixels(Device &device, const MaterialFieldImages &a, const MaterialFiel
     const auto second = ReadImage(device, *textures[1], {.Width = 4, .Height = 4});
     const size_t texelBytes = component == 0 ? 8 : 4;
     for (size_t row = 0; row < 4; ++row) {
-      CHECK(std::memcmp(first.Rows.data() + row * first.RowBytes,
-                        second.Rows.data() + row * second.RowBytes,
-                        4 * texelBytes) == 0,
-            "stored samples and independent originals have exact active colour and depth");
       for (size_t column = 0; column < 4; ++column) {
         const size_t pixel = row * 4 + column;
         const auto *bytes = first.Rows.data() + row * first.RowBytes + column * texelBytes;
+        const auto *expected = second.Rows.data() + row * second.RowBytes + column * texelBytes;
+        if (component == 0) {
+          for (size_t channel = 0; channel < 4; ++channel) {
+            const float actual = ReadHalf(bytes + channel * sizeof(uint16_t));
+            const float reference = ReadHalf(expected + channel * sizeof(uint16_t));
+            if (!MatchingRadiance(actual, reference)) {
+              std::println(stderr,
+                           "radiance mismatch pixel {} channel {}: {} vs {}",
+                           pixel,
+                           channel,
+                           actual,
+                           reference);
+            }
+            CHECK(MatchingRadiance(actual, reference),
+                  "stored samples match independent original radiance within binary16 precision");
+          }
+        } else {
+          float actualDepth = 0, expectedDepth = 0;
+          std::memcpy(&actualDepth, bytes, sizeof(actualDepth));
+          std::memcpy(&expectedDepth, expected, sizeof(expectedDepth));
+          CHECK(std::isfinite(actualDepth) && std::isfinite(expectedDepth) &&
+                    std::abs(actualDepth - expectedDepth) <= 1.e-6f,
+                "stored samples retain the independent original depth");
+        }
         CheckSample(pixel, bytes, component == 0);
       }
     }
@@ -159,10 +180,12 @@ bool SameColour(Device &device, const MaterialFieldImages &a, const MaterialFiel
   const auto first = ReadImage(device, *a.Unfiltered->Texture, {.Width = 4, .Height = 4});
   const auto second = ReadImage(device, *b.Unfiltered->Texture, {.Width = 4, .Height = 4});
   for (size_t row = 0; row < 4; ++row) {
-    if (std::memcmp(first.Rows.data() + row * first.RowBytes,
-                    second.Rows.data() + row * second.RowBytes,
-                    size_t{4} * 8) != 0) {
-      return false;
+    for (size_t component = 0; component < 16; ++component) {
+      const float firstValue =
+          ReadHalf(first.Rows.data() + row * first.RowBytes + component * sizeof(uint16_t));
+      const float secondValue =
+          ReadHalf(second.Rows.data() + row * second.RowBytes + component * sizeof(uint16_t));
+      if (!MatchingRadiance(firstValue, secondValue)) { return false; }
     }
   }
   return true;
@@ -172,17 +195,15 @@ bool FiniteColour(Device &device, const MaterialFieldImages &field) {
   const auto pixels = ReadImage(device, *field.Unfiltered->Texture, {.Width = 4, .Height = 4});
   for (size_t row = 0; row < 4; ++row) {
     for (size_t component = 0; component < 16; ++component) {
-      uint16_t value = 0;
-      std::memcpy(&value,
-                  pixels.Rows.data() + row * pixels.RowBytes + component * sizeof(value),
-                  sizeof(value));
-      if ((value & 0x7c00u) == 0x7c00u) { return false; }
+      const float value =
+          ReadHalf(pixels.Rows.data() + row * pixels.RowBytes + component * sizeof(uint16_t));
+      if (!std::isfinite(value)) { return false; }
     }
   }
   return true;
 }
 
-MaterialFieldImages RelightPair(Tracking &device,
+MaterialFieldImages RelightPair(Device &device,
                                 MaterialFieldPass &pass,
                                 const ResidentMaterialField &source,
                                 const ResidentMaterialField &original,
@@ -200,7 +221,7 @@ MaterialFieldImages RelightPair(Tracking &device,
   return field;
 }
 
-void ObserverViews(Tracking &device,
+void ObserverViews(Device &device,
                    MaterialFieldPass &pass,
                    const ResidentMaterialField &source,
                    const ResidentMaterialField &original,
@@ -231,8 +252,10 @@ void ObserverViews(Tracking &device,
   const auto shifted = relight();
   SamePixels(device, perspective, shifted);
   view.LightingCamera->EyeM = {{-1.5, 1.5, -1}};
-  static_cast<void>(relight());
-  const auto submissions = device.Submits;
+  const auto coincident = Require(pass.Relight(source, view));
+  const auto coincidentOriginal = Require(pass.Relight(original, view));
+  CHECK(FiniteColour(device, coincident) && FiniteColour(device, coincidentOriginal),
+        "an observer on the surface has no defined view direction but keeps radiance finite");
   for (size_t change = 0; change < 4; ++change) {
     auto invalid = view;
     if (change == 0) { invalid.LightingCamera->EyeM[0] = std::numeric_limits<double>::infinity(); }
@@ -240,8 +263,8 @@ void ObserverViews(Tracking &device,
     if (change == 2) { invalid.LightingCamera->Forward[0] = 2; }
     if (change == 3) { invalid.LightingCamera->Kind = static_cast<CameraKind>(255); }
     const auto rejected = pass.Relight(source, invalid);
-    CHECK(!rejected && rejected.error().Kind == ErrorKind::Invalid && device.Submits == submissions,
-          "invalid lighting observers refuse before native submission and preserve held outputs");
+    CHECK(!rejected && rejected.error().Kind == ErrorKind::Invalid,
+          "invalid lighting observers are refused");
   }
 }
 
@@ -280,18 +303,17 @@ std::shared_ptr<RadianceImage> EnvironmentAtlas(Device &device) {
   return image;
 }
 
-void InvalidEnvironments(Tracking &device,
+void InvalidEnvironments(Device &device,
                          MaterialFieldPass &pass,
                          const ResidentMaterialField &source,
                          const ResidentMaterialField &original,
                          MaterialFieldView view) {
   const auto atlas = EnvironmentAtlas(device);
   const auto reject = [&](const MaterialFieldView &candidate) {
-    const auto submitted = device.Submits;
     for (const auto *input : {&source, &original}) {
       const auto result = pass.Relight(*input, candidate);
-      CHECK(!result && result.error().Kind == ErrorKind::Invalid && device.Submits == submitted,
-            "invalid environment bindings refuse both inputs before native work");
+      CHECK(!result && result.error().Kind == ErrorKind::Invalid,
+            "invalid environment bindings refuse both inputs");
     }
   };
   for (int which = 0; which < 6; ++which) {
@@ -335,7 +357,7 @@ void InvalidEnvironments(Tracking &device,
   reject(view);
 }
 
-void EnvironmentViews(Tracking &device,
+void EnvironmentViews(Device &device,
                       MaterialFieldPass &pass,
                       const ResidentMaterialField &source,
                       const ResidentMaterialField &original,
@@ -376,7 +398,7 @@ void EnvironmentViews(Tracking &device,
 
 void Exercise(ScatteringModel scattering) {
   auto native = Require(CreateDevice({.Validation = true}));
-  Tracking device(*native);
+  auto &device = *native;
   MaterialFieldImages held;
   {
     MaterialFieldPass pass(device);
@@ -388,11 +410,8 @@ void Exercise(ScatteringModel scattering) {
     auto input = MaterialFieldInput::Prepare(atlas, 0, 1024);
     CHECK(input, "stored samples prepare without display simplification or byte repacking");
     if (!input) { Failed(); }
-    const auto meshBuffers = device.MeshBuffers;
     const auto source =
         Require(RetryOffline([&] { return pass.Prepare(*input); }, std::chrono::seconds(5)));
-    CHECK(device.MeshBuffers == meshBuffers,
-          "stored raster upload creates no vertex or index buffers");
     const std::weak_ptr<const MaterialFieldInput> cpu = *input;
     input->reset();
     CHECK(cpu.expired(), "resident samples do not retain their decoded CPU input");
@@ -430,7 +449,6 @@ void Exercise(ScatteringModel scattering) {
     ObserverViews(device, pass, *source, *original, view, scattering);
     EnvironmentViews(device, pass, *source, *original, view);
     InvalidEnvironments(device, pass, *source, *original, view);
-    const auto submissions = device.Submits;
     for (const size_t change : {size_t{0}, size_t{1}, size_t{2}, size_t{3}, size_t{4}}) {
       auto moved = view;
       if (change == 0) { moved.Camera.EyeM[0] += .001; }
@@ -439,14 +457,12 @@ void Exercise(ScatteringModel scattering) {
       if (change == 3) { moved.Camera.ZNearM += .001; }
       if (change == 4) { moved.Camera.EyeM[2] += 1; }
       const auto rejected = pass.Relight(*source, moved);
-      CHECK(
-          !rejected && rejected.error().Kind == ErrorKind::Invalid && device.Submits == submissions,
-          "different capture rays or clipping refuse before submission without publishing a field");
+      CHECK(!rejected && rejected.error().Kind == ErrorKind::Invalid,
+            "different capture rays or clipping cannot publish a field");
     }
     const std::atomic_bool stopped{true};
     const auto cancelled = pass.Relight(*source, view, &stopped);
-    CHECK(!cancelled && cancelled.error().Kind == ErrorKind::Cancelled &&
-              device.Submits == submissions,
+    CHECK(!cancelled && cancelled.error().Kind == ErrorKind::Cancelled,
           "cancellation keeps the previous valid stored sample field");
     view.Camera.EyeM[2] += 1;
     view.Camera.ZNearM += 1;

@@ -14,6 +14,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from place_turn import turn_scenario
+from place_gpu_profile import read_vulkan_profile
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -47,15 +48,9 @@ def keep_latest(image, directory, name):
     return latest, digest
 
 
-def capture(source, options):
-    name = source.stem
-    if re.fullmatch(r"[A-Za-z0-9_-]+", name) is None:
-        raise ValueError(f"{source}: invalid capture name")
-    work = options.reports / name
+def benchmark_report(prepared, view, options, work, frames, angular="0,0,0",
+                     linear="0,0,0", timeout=None):
     work.mkdir(parents=True, exist_ok=True)
-    declaration, view, velocity = turn_scenario(source, options.fps)
-    prepared = work / "scene.scenario"
-    prepared.write_text(declaration)
     image = work / "image.png"
     report_path = work / "benchmark.json"
     image.unlink(missing_ok=True)
@@ -68,9 +63,11 @@ def capture(source, options):
         "--view",
         view,
         "--frames",
-        str(options.fps),
+        str(frames),
         "--angular-velocity",
-        velocity,
+        angular,
+        "--linear-velocity",
+        linear,
         "--preload-seconds",
         str(options.preload_seconds),
         "--image",
@@ -84,21 +81,50 @@ def capture(source, options):
         command.extend(("--cache-dir", str(options.cache_dir)))
     (work / "command.json").write_text(json.dumps(command, indent=2) + "\n")
     with (work / "run.log").open("w") as log:
+        environment = dict(os.environ)
+        if getattr(options, "bench", False) and options.bench_profile != "a18":
+            environment["OUTSHINE_VULKAN_DEVICE"] = options.device or {
+                "rtx3060": "RTX 3060", "iris": "Iris"
+            }[options.bench_profile]
+            for old in work.glob("gpu-profile.*.json"):
+                if old.is_file() and not old.is_symlink():
+                    old.unlink()
+            environment["OUTSHINE_VULKAN_ENCODER_PROFILE"] = str(work.resolve() / "gpu-profile")
         result = subprocess.run(
             command,
             check=False,
             cwd=ROOT,
             stdout=log,
             stderr=subprocess.STDOUT,
-            timeout=options.preload_seconds + 120,
+            env=environment,
+            timeout=(options.preload_seconds + 120 if timeout is None
+                     else min(options.preload_seconds + 120, timeout)),
         )
     if result.returncode:
         raise RuntimeError(
-            f"{name}: benchmark exited {result.returncode}; {work / 'run.log'}"
+            f"{work.name}: benchmark exited {result.returncode}; {work / 'run.log'}"
         )
     report = json.loads(report_path.read_text())
     if report.get("benchmark_version") != 2 or report.get("mode") != "scenario":
-        raise RuntimeError(f"{name}: unsupported benchmark report; {report_path}")
+        raise RuntimeError(f"{work.name}: unsupported benchmark report; {report_path}")
+    if getattr(options, "bench", False) and options.bench_profile != "a18":
+        report["gpu_profile"] = read_vulkan_profile(work, report)
+        report_path.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+    return report
+
+
+def capture(source, options):
+    name = source.stem
+    if re.fullmatch(r"[A-Za-z0-9_-]+", name) is None:
+        raise ValueError(f"{source}: invalid capture name")
+    work = options.reports / name
+    work.mkdir(parents=True, exist_ok=True)
+    declaration, view, velocity = turn_scenario(source, options.fps)
+    prepared = work / "scene.scenario"
+    prepared.write_text(declaration)
+    report = benchmark_report(prepared, view, options, work, options.fps, velocity)
+    report_path = work / "benchmark.json"
+    image = work / "image.png"
     if (
         not report["measurement_complete"]
         or not report["world_complete"]
@@ -124,6 +150,9 @@ def capture(source, options):
     )
     if not same_pose:
         raise RuntimeError(f"{name}: complete turn did not return to the starting pose")
+    variation = report.get("image_row_variation")
+    if variation is None or not math.isfinite(variation) or variation <= .1:
+        raise RuntimeError(f"{name}: place image lacks visible horizontal structure; {report_path}")
     saved, digest = keep_latest(image, options.shots, name)
     gpu = report["gpu_times"]["frame"]
     return {
@@ -158,19 +187,35 @@ def main():
     parser.add_argument("--preload-seconds", type=float, default=120)
     parser.add_argument("--online", action="store_true")
     parser.add_argument("--check-budget", action="store_true")
+    parser.add_argument("--bench", action="store_true")
+    parser.add_argument("--bench-profile", choices=("rtx3060", "iris", "a18"), default="rtx3060")
+    parser.add_argument("--driver", help="selected GPU driver version, if not available from Vulkan")
+    parser.add_argument("--device", help="Vulkan device name substring (default: GPU of bench profile)")
+    parser.add_argument("--max-seconds", type=float, default=900)
     options = parser.parse_args()
+    if not math.isfinite(options.max_seconds) or options.max_seconds <= 0:
+        parser.error("--max-seconds must be finite and positive")
     if not math.isfinite(options.preload_seconds) or options.preload_seconds <= 0:
         parser.error("--preload-seconds must be finite and positive")
     options.client = options.client.resolve()
     options.catalog = options.catalog.resolve()
     options.shots = options.shots.resolve()
-    options.reports = (
-        options.reports or Path(tempfile.mkdtemp(prefix="outshine-places-"))
-    ).resolve()
+    options.commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT,
+                                             text=True).strip()
+    if options.bench and subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT).strip():
+        parser.error("benchmark needs a clean committed checkout so its build identity is reproducible")
+    if options.reports is None:
+        role = "mac" if options.bench and options.bench_profile == "a18" else "linux"
+        options.reports = Path(tempfile.mkdtemp(prefix=f"outshine-{role}-places-{options.commit[:9]}-"))
+    options.reports = options.reports.resolve()
     available = {path.stem: path for path in sorted(options.catalog.glob("*.scenario"))}
     selected = options.names or list(available)
     if not selected or any(name not in available for name in selected):
         parser.error("catalogue is empty or a requested place is missing")
+    if options.bench:
+        from place_bench import benchmark_places
+
+        return benchmark_places(available, selected, options, benchmark_report)
     results = []
     for name in selected:
         try:

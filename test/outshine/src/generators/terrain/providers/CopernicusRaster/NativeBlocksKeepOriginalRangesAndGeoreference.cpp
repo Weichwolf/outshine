@@ -26,6 +26,10 @@ using namespace outshine::Test;
 constexpr std::string_view kRevision = "\"original-fixture\"";
 constexpr std::string_view kObjectKey = "synthetic:original";
 
+char kPixelScale[] = "PixelScale";
+char kTiePoint[] = "TiePoint";
+char kGeoKeys[] = "GeoKeys";
+char kNoData[] = "NoData";
 constexpr std::array<TIFFFieldInfo, 4> kFields = {{{.field_tag = 33550,
                                                     .field_readcount = TIFF_VARIABLE2,
                                                     .field_writecount = TIFF_VARIABLE2,
@@ -33,7 +37,7 @@ constexpr std::array<TIFFFieldInfo, 4> kFields = {{{.field_tag = 33550,
                                                     .field_bit = FIELD_CUSTOM,
                                                     .field_oktochange = 1,
                                                     .field_passcount = 1,
-                                                    .field_name = "PixelScale"},
+                                                    .field_name = kPixelScale},
                                                    {.field_tag = 33922,
                                                     .field_readcount = TIFF_VARIABLE2,
                                                     .field_writecount = TIFF_VARIABLE2,
@@ -41,7 +45,7 @@ constexpr std::array<TIFFFieldInfo, 4> kFields = {{{.field_tag = 33550,
                                                     .field_bit = FIELD_CUSTOM,
                                                     .field_oktochange = 1,
                                                     .field_passcount = 1,
-                                                    .field_name = "TiePoint"},
+                                                    .field_name = kTiePoint},
                                                    {.field_tag = 34735,
                                                     .field_readcount = TIFF_VARIABLE2,
                                                     .field_writecount = TIFF_VARIABLE2,
@@ -49,7 +53,7 @@ constexpr std::array<TIFFFieldInfo, 4> kFields = {{{.field_tag = 33550,
                                                     .field_bit = FIELD_CUSTOM,
                                                     .field_oktochange = 1,
                                                     .field_passcount = 1,
-                                                    .field_name = "GeoKeys"},
+                                                    .field_name = kGeoKeys},
                                                    {.field_tag = TIFFTAG_GDAL_NODATA,
                                                     .field_readcount = TIFF_VARIABLE2,
                                                     .field_writecount = TIFF_VARIABLE2,
@@ -57,7 +61,7 @@ constexpr std::array<TIFFFieldInfo, 4> kFields = {{{.field_tag = 33550,
                                                     .field_bit = FIELD_CUSTOM,
                                                     .field_oktochange = 1,
                                                     .field_passcount = 1,
-                                                    .field_name = "NoData"}}};
+                                                    .field_name = kNoData}}};
 
 void SetRasterTags(TIFF &raster, uint32_t columns, uint32_t rows, uint32_t level) {
   CHECK(TIFFSetField(&raster, TIFFTAG_IMAGEWIDTH, columns) == 1 &&
@@ -92,7 +96,7 @@ void SetGeoreference(TIFF &raster, uint32_t columns, uint32_t rows, bool noData)
 }
 
 std::array<float, size_t{16} * 16>
-    TileHeights(uint32_t level, uint32_t row, uint32_t column, bool noData) {
+TileHeights(uint32_t level, uint32_t row, uint32_t column, bool noData) {
   std::array<float, size_t{16} * 16> heights{};
   for (uint32_t y = 0; y < 16; ++y) {
     for (uint32_t x = 0; x < 16; ++x) {

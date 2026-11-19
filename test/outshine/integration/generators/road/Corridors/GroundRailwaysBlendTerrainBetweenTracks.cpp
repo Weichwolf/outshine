@@ -2,6 +2,7 @@
 #include "Corridors.h"
 #include "EarthworkDeformation.h"
 #include "ProfiledRoadMesher.h"
+#include "TransportGeometry.h"
 
 #include <algorithm>
 #include <array>
@@ -101,9 +102,10 @@ int main() {
   const auto result = ApplyEarthworkStamps(contacts, points, heights, kMostEarthworkM);
   CHECK(result.Refused.empty() || std::ranges::none_of(result.Refused, [](auto v) { return v; }),
         "compatible parallel track beds are not discarded");
-  CHECK(std::abs(heights[0] - 10) < 0.001 && std::abs(heights[2] - 10) < 0.001,
+  CHECK(std::abs(heights[0] - (10 - kPavementLipM)) < 0.001 &&
+            std::abs(heights[2] - (10 - kPavementLipM)) < 0.001,
         "the physical railway heights remain fixed");
-  CHECK(heights[1] >= 10 && heights[1] < 10.1,
+  CHECK(heights[1] >= 10 - kPavementLipM && heights[1] < 10.1 - kPavementLipM,
         "nearby compatible track beds do not leave a thin source-height ridge between them");
   CHECK(std::abs(heights[3] - Terrain(points[3])) < 0.001 &&
             std::abs(heights[4] - Terrain(points[4])) < 0.001,
@@ -111,8 +113,10 @@ int main() {
   const auto flat = Contacts(false, [](EastNorth) -> std::optional<double> { return 10; });
   heights.fill(10);
   (void)ApplyEarthworkStamps(flat, points, heights, kMostEarthworkM);
-  CHECK(std::ranges::all_of(heights, [](double h) { return std::abs(h - 10) < 0.001; }),
-        "a matching flat source remains flat inside and outside railway footprints");
+  CHECK(std::abs(heights[0] - (10 - kPavementLipM)) < 0.001 &&
+            std::abs(heights[2] - (10 - kPavementLipM)) < 0.001 &&
+            std::abs(heights[3] - 10) < 0.001 && std::abs(heights[4] - 10) < 0.001,
+        "flat source terrain meets the railway beds and stays unchanged outside their aprons");
   const auto bridge = Contacts(true, Terrain);
   CHECK(std::ranges::all_of(bridge,
                             [](const auto &stamp) {

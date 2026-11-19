@@ -134,12 +134,12 @@ public:
   SelectDetail(uint32_t tile, uint32_t cell, LevelOfDetail detail, std::string &error);
   [[nodiscard]] bool
   HasCell(uint32_t tile, uint32_t cell, LevelOfDetail detail, uint64_t sourceKey) const noexcept;
-  [[nodiscard]] bool HasProjectedTile(uint32_t tile,
+  [[nodiscard]] bool HasIntrinsicTile(uint32_t tile,
                                       CellSource source,
-                                      LongitudeLatitude eye,
-                                      ProjectedErrorBudget projection,
-                                      std::optional<Vec3> eyeEcef = std::nullopt,
-                                      GeometryPasses passes = GeometryPasses::Main) const noexcept;
+                                      GeometryPasses passes = GeometryPasses::Main,
+                                      bool includeHidden = false,
+                                      std::optional<Vec3> eye = std::nullopt,
+                                      ProjectedErrorBudget projection = {}) const noexcept;
   [[nodiscard]] bool CellsActive(uint32_t tile,
                                  std::span<const CellSelection> selected,
                                  uint64_t sourceKey) const noexcept;
@@ -159,6 +159,7 @@ public:
     std::string_view AssetKey;
     const SourceCoverage *Coverage = nullptr;
     const ViewReuseDomain *View = nullptr;
+    const GeometryErrorBound *ErrorBound = nullptr;
   };
 
   template <typename Each>
@@ -181,7 +182,8 @@ public:
                         .Passes = stood.Passes,
                         .AssetKey = stood.AssetKey,
                         .Coverage = stood.Coverage ? &*stood.Coverage : nullptr,
-                        .View = stood.SelectedView ? &*stood.SelectedView : nullptr});
+                        .View = stood.SelectedView ? &*stood.SelectedView : nullptr,
+                        .ErrorBound = stood.ErrorBound ? &*stood.ErrorBound : nullptr});
     }
   }
 
@@ -239,6 +241,7 @@ private:
     bool FallbackHeights = false;
     std::optional<LevelOfDetail> Detail;
     std::optional<ViewReuseDomain> SelectedView;
+    std::optional<GeometryErrorBound> ErrorBound = std::nullopt;
     std::optional<SourceCoverage> Coverage;
     CoverageSource CoverageFrom = CoverageSource::Product;
     Mat4 Row;
@@ -275,7 +278,6 @@ private:
   [[nodiscard]] bool ValidateStage(uint32_t tile,
                                    const GeometryPageView &baked,
                                    uint64_t sourceKey,
-                                   Publication publication,
                                    std::string &error) const;
   [[nodiscard]] bool ValidateActivation(uint32_t tile,
                                         CellSource source,

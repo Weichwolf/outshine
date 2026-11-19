@@ -137,7 +137,9 @@ Result<void> Recording::Dispatch(const ComputePipeline &pipeline,
   if (auto bound = BindCompute(pipeline, bindings); !bound) { return bound; }
   const auto query = Timings_.Begin(Commands_);
   if (!query) { return std::unexpected(query.error()); }
+  const auto profile = Profiling_.Begin(Commands_, "dispatch", false);
   vkCmdDispatch(Commands_, groups.X, groups.Y, groups.Z);
+  Profiling_.End(Commands_, profile);
   Timings_.End(Commands_, *query);
   return {};
 }
@@ -169,7 +171,9 @@ Result<void> Recording::DispatchIndirect(const ComputePipeline &pipeline,
        .Access = VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT});
   const auto query = Timings_.Begin(Commands_);
   if (!query) { return std::unexpected(query.error()); }
+  const auto profile = Profiling_.Begin(Commands_, "dispatchIndirect", false);
   vkCmdDispatchIndirect(Commands_, (*buffer)->Handle, offset);
+  Profiling_.End(Commands_, profile);
   Timings_.End(Commands_, *query);
   return {};
 }

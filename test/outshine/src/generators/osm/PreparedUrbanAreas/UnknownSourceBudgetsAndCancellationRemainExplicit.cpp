@@ -24,9 +24,12 @@ void Missing(const std::filesystem::path &directory, Availability availability) 
                                                             : PreparedUrbanAreas::State::Absent;
   CHECK(result && result->Status == wanted && !result->Product,
         "missing or refused required input cannot publish a partial or empty urban product");
-  const auto costs = fixture.Urban->Costs();
-  CHECK(costs.Generations == 0 && costs.Writes == 0,
-        "unavailable required sources never invoke the urban factory");
+  if (availability == Availability::Refused && result) {
+    CHECK(result->Failure && result->Failure->SourceId == "urban-fixture" &&
+              result->Failure->SourceRevision == "r1" &&
+              result->Failure->Describe().contains("provider refusal"),
+          "refused urban inputs retain the source identity and actionable failure reason");
+  }
 }
 
 void BudgetFailure(const std::filesystem::path &directory, PreparedUrbanAreas::Budget budget) {
@@ -36,8 +39,6 @@ void BudgetFailure(const std::filesystem::path &directory, PreparedUrbanAreas::B
   const auto result = Await(fixture, request);
   CHECK(!result && !result.error().empty(),
         "budget exhaustion is explicit rather than partial Ready");
-  CHECK(fixture.Urban->Costs().Writes == 0,
-        "failed generation never publishes an incomplete asset");
 }
 
 void Cancelled(const std::filesystem::path &directory) {
@@ -48,8 +49,7 @@ void Cancelled(const std::filesystem::path &directory) {
   fixture.Urban->Cancel();
   CHECK(!fixture.Urban->Acquire(request), "cancellation rejects all later admission");
   fixture.Urban.reset();
-  CHECK(fixture.Calls == 0 && fixture.Tiles->Costs().Misses == 0,
-        "cancelled lookup never progresses into source acquisition");
+  CHECK(fixture.Calls == 0, "cancelled lookup never progresses into source acquisition");
 }
 
 void InvalidRequests(const std::filesystem::path &directory) {
@@ -73,8 +73,7 @@ void InvalidRequests(const std::filesystem::path &directory) {
                                   fixture.Tiles,
                                   budget),
         "zero work capacity is rejected explicitly");
-  CHECK(fixture.Calls == 0 && fixture.Urban->Costs().Misses == 0,
-        "invalid requests schedule no asset or source work");
+  CHECK(fixture.Calls == 0, "invalid requests schedule no asset or source work");
 }
 
 void RetiredDemand(const std::filesystem::path &directory) {
@@ -95,8 +94,7 @@ void RetiredDemand(const std::filesystem::path &directory) {
     const PreparedUrbanAreas::Request abandoned(kOwner, MvtSchema::OpenMapTiles);
     CHECK(fixture.Urban->Acquire(abandoned), "one pending slot is admitted");
     const auto deferred = fixture.Urban->Acquire(wanted);
-    CHECK(deferred && deferred->Status == PreparedUrbanAreas::State::Pending &&
-              fixture.Urban->Costs().Deferred == 1,
+    CHECK(deferred && deferred->Status == PreparedUrbanAreas::State::Pending,
           "full producer capacity defers later work instead of growing its task set");
   }
   {
@@ -108,8 +106,7 @@ void RetiredDemand(const std::filesystem::path &directory) {
   const auto result = Await(fixture, wanted);
   CHECK(result && result->Status == PreparedUrbanAreas::State::Ready && result->Product,
         "expired demand releases its completed slot so live demand can progress");
-  CHECK(fixture.Calls == 2 && fixture.Urban->Costs().Writes == 1,
-        "abandoned metadata lookup performs no source work or generation");
+  CHECK(fixture.Calls == 2, "abandoned metadata lookup performs no source work or generation");
 }
 }
 

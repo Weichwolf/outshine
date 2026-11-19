@@ -7,7 +7,7 @@
 namespace outshine::Generators::Osm {
 
 [[nodiscard]] inline Data::SourceProvider PreferredVectorSource() {
-  const std::string revision = "20261025_080012_pt";
+  const std::string revision = "20261101_080013_pt";
   return {.Kind = "vector",
           .Revision = revision,
           .Missing = Data::MissingDataPolicy::Fail,

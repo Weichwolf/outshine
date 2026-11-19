@@ -24,7 +24,7 @@ int main() {
   if (!built) { return Report(); }
   const auto hierarchy = std::make_shared<const PlanHierarchy>(std::move(*built));
   std::array<SourceProductSelection::Source, 4> sources;
-  sources.fill({.Cohort = 1000, .FieldSupported = true});
+  sources.fill({.Cohort = 1000, .FieldSupported = true, .ShellErrorM = std::nullopt});
   auto selected = SourceProductSelection::Of(hierarchy, sources, "source-revision");
   CHECK(selected, "opaque cohort tags need no World building-cell limit");
   if (!selected) { return Report(); }

@@ -1,3 +1,5 @@
+#include "GeometryErrorBound.h"
+#include "StructureSourceErrorTask.h"
 #include "StructureBuildTask.h"
 #include "PreparedStructureTile.h"
 #include "PreparedBuildingAssets.h"
@@ -86,6 +88,13 @@ struct StructureBuildTask::Comparison {
 
   explicit Comparison(ProofRequest request) : Request(request) {}
 
+  void PrepareCell(const Generators::RawTile &raw) {
+    if (Cell == raw.RequestedCell) { return; }
+    const auto request = Request;
+    *this = Comparison(request);
+    Cell = raw.RequestedCell;
+  }
+
   void Finish(Output &output, std::optional<Generators::StructureSurfaceErrorFailure> failure) {
     assert(Variant.has_value());
     Variant->SurfaceFailure = failure;
@@ -114,34 +123,83 @@ struct StructureBuildTask::Comparison {
     ReferenceRaw.Projection.AllowedErrorPx = 0.0;
   }
 
-  void Advance(const Ground::HeightField &heights,
+  void Advance(const Ground::HeightField *heights,
                const StructureMesher &mesher,
                MeshScratch &scratch,
                Output &output,
-               const std::atomic_bool &stopping) {
+               const std::atomic_bool &stopping,
+               const Generators::PreparedStructureTile *base) {
     using namespace Generators;
+    assert(Variant.has_value());
     if (stopping.load(std::memory_order_relaxed)) {
       Surface.Cancel();
       output.Status = std::unexpected(StructureBakeErrorKind::Cancelled);
       return;
     }
+    if (base != nullptr && Variant->RequestedDetail == LevelOfDetail::Shell) {
+      AdvanceSources(*base, mesher, scratch, output, stopping);
+      return;
+    }
     if (Phase_ == Phase::Reference) {
-      AdvanceReference(heights, mesher, scratch, output, stopping);
+      AdvanceReference(heights, mesher, scratch, output, stopping, base);
     } else {
       AdvanceSurface(output, stopping);
     }
   }
 
-  void AdvanceReference(const Ground::HeightField &heights,
+  void AdvanceSources(const Generators::PreparedStructureTile &base,
+                      const StructureMesher &mesher,
+                      MeshScratch &scratch,
+                      Output &output,
+                      const std::atomic_bool &stopping) {
+    using namespace Generators;
+    assert(Variant.has_value());
+    if (!Sources) {
+      Sources = std::make_unique<StructureSourceErrorTask>();
+      RawTile view;
+      view.RequestedDetail = Variant->RequestedDetail;
+      view.RequestedCell = ReferenceRaw.RequestedCell;
+      view.ClusterTriangles = ReferenceRaw.ClusterTriangles;
+      const auto reset = Sources->Reset(base, view, Request.SourceKey, Request.Limits);
+      if (!reset) {
+        Finish(output, reset.error());
+        return;
+      }
+    }
+    const auto began = std::chrono::steady_clock::now();
+    for (size_t unit = 0; unit < 128; ++unit) {
+      const auto advanced = Sources->Step(mesher, scratch, stopping);
+      if (!advanced) {
+        Finish(output, advanced.error());
+        return;
+      }
+      if (*advanced == StructureSurfaceErrorProgress::Complete) {
+        Variant->SurfaceError = Sources->Bound(Request.SourceKey);
+        Finish(output,
+               Variant->SurfaceError
+                   ? std::nullopt
+                   : std::optional{StructureSurfaceErrorFailure::InvalidGeometry});
+        return;
+      }
+      if (std::chrono::steady_clock::now() - began >= std::chrono::milliseconds(2)) { return; }
+    }
+  }
+
+  void AdvanceReference(const Ground::HeightField *heights,
                         const StructureMesher &mesher,
                         MeshScratch &scratch,
                         Output &output,
-                        const std::atomic_bool &stopping) {
+                        const std::atomic_bool &stopping,
+                        const Generators::PreparedStructureTile *base) {
     using namespace Generators;
     for (size_t range = 0; range < RangesPerTask; ++range) {
       const auto began = std::chrono::steady_clock::now();
-      const auto advanced = ReferenceProgress.AdvanceStructures(
-          ReferenceRaw, heights, mesher, scratch, StructuresPerRange, &stopping);
+      const auto advanced =
+          base != nullptr
+              ? ReferenceProgress.AdvancePrepared(
+                    *base, ReferenceRaw, mesher, scratch, StructuresPerRange, &stopping)
+              : ReferenceProgress.AdvanceStructures(
+                    ReferenceRaw, *heights, mesher, scratch, StructuresPerRange, &stopping);
       output.LastRangeMs = std::max(
           output.LastRangeMs,
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
@@ -221,17 +279,18 @@ struct StructureBuildTask::Comparison {
   }
 
   void Bake(const Generators::RawTile &raw,
-            const Ground::HeightField &heights,
+            const Ground::HeightField *heights,
             const StructureMesher &mesher,
             MeshScratch &scratch,
             Generators::StructureBakeProgress &progress,
             Output &output,
-            const std::shared_ptr<std::atomic_bool> &stopping) {
+            const std::shared_ptr<std::atomic_bool> &stopping,
+            const Generators::PreparedStructureTile *base = nullptr) {
     if (Variant) {
-      Advance(heights, mesher, scratch, output, *stopping);
+      Advance(heights, mesher, scratch, output, *stopping, base);
       return;
     }
-    BakeVariant(&raw, &heights, mesher, &scratch, &progress, &output, stopping);
+    BakeVariant(&raw, heights, mesher, &scratch, &progress, &output, stopping, base);
     if (!output.Tile) { return; }
     auto variant = std::move(*output.Tile);
     output.Tile.reset();
@@ -239,11 +298,13 @@ struct StructureBuildTask::Comparison {
   }
 
   ProofRequest Request;
+  std::optional<uint32_t> Cell;
   Generators::RawTile ReferenceRaw;
   Generators::StructureBakeProgress ReferenceProgress;
   std::optional<Generators::BakedTile> Variant;
   std::optional<Generators::BakedTile> Reference;
   Generators::StructureSurfaceRefinementTask Surface;
+  std::unique_ptr<Generators::StructureSourceErrorTask> Sources;
   Phase Phase_ = Phase::Reference;
 };
 
@@ -378,7 +439,27 @@ struct StructureBuildTask::NativeProducts {
     return true;
   }
 
-  bool Lookup(const Generators::RawTile &raw,
+  bool QualifyParent(Generators::RawTile &raw, Output &output) {
+    if (ParentSourceKey == 0 || !output.Tile || raw.RequestedDetail == LevelOfDetail::Fine) {
+      return true;
+    }
+    auto &tile = *output.Tile;
+    if (tile.SurfaceError) { tile.SurfaceError->Upper.SourceKey = ParentSourceKey; }
+    if (!tile.SurfaceFailure && tile.SurfaceError && tile.WorldBounds &&
+        GeometryErrorBound{.SourceKey = ParentSourceKey,
+                           .Bounds = *tile.WorldBounds,
+                           .UpperM = tile.SurfaceError->UpperDistanceM()}
+            .Allows(
+                ParentSourceKey, raw.EyeEcef, raw.Projection, Generators::kStructureEyeReuseM)) {
+      return true;
+    }
+    output.Tile.reset();
+    raw.RequestedDetail = LevelOfDetail::Fine;
+    Current = Phase::Lookup;
+    return false;
+  }
+
+  bool Lookup(Generators::RawTile &raw,
               const Generators::PreparedStructureTile *base,
               const Generators::PreparedBuildingAssets::Basis &basis,
               Output &output,
@@ -388,8 +469,8 @@ struct StructureBuildTask::NativeProducts {
         return basis != nullptr ? Cache->LoadTerrainContacts(Key, basis)
                                 : Cache->LoadTerrainContacts(Key, *base);
       }
-      return basis != nullptr ? Cache->LoadGeometry(Key, basis, raw)
-                              : Cache->LoadGeometry(Key, *base, raw);
+      return basis != nullptr ? Cache->LoadGeometry(Key, basis, raw, ParentSourceKey)
+                              : Cache->LoadGeometry(Key, *base, raw, ParentSourceKey);
     }();
     if (!cached) {
       if (Busy(cached.error())) {
@@ -475,6 +556,7 @@ struct StructureBuildTask::NativeProducts {
       return;
     }
     if (!output.Tile || Current != Phase::Generating) { return; }
+    output.Tile->WorldBounds = output.Tile->BoundsAt(raw.AnchorEcef);
     auto prepared = Kind == Generators::PreparedBuildingAssets::ProductKind::TerrainContacts
                         ? Cache->PrepareTerrainContacts(Key, base, *output.Tile)
                         : Cache->PrepareGeometry(Key, base, raw, *output.Tile);
@@ -494,6 +576,7 @@ struct StructureBuildTask::NativeProducts {
   std::shared_ptr<Generators::PreparedBuildingAssets> Cache;
   std::string Key;
   std::string RequestKey;
+  uint64_t ParentSourceKey = 0;
   Phase Current = Phase::Lookup;
   std::optional<uint64_t> Cells;
   std::optional<uint64_t> Selection;
@@ -554,6 +637,43 @@ struct StructureBuildTask::Payload {
   }
 
   std::shared_ptr<const void> Lifetime;
+
+  bool RestoreNativeProduct() {
+    if (!Native ||
+        !Native->BeforeProduction(*Raw, Heights.get(), Base, Basis, *Result, *Stopping)) {
+      return false;
+    }
+    if (SurfaceComparison) { SurfaceComparison->PrepareCell(*Raw); }
+    if (!Native->QualifyParent(*Raw, *Result)) { *Progress = {}; }
+    return true;
+  }
+
+  void Produce() {
+    if (SurfaceComparison) { SurfaceComparison->PrepareCell(*Raw); }
+    const bool compare = SurfaceComparison && (!Native || Native->ParentSourceKey == 0 ||
+                                               Raw->RequestedDetail != LevelOfDetail::Fine);
+    if (Requested == Product::TerrainContacts) {
+      CollectContacts();
+    } else if (compare) {
+      SurfaceComparison->Bake(
+          *Raw, Heights.get(), *Mesher, *Scratch, *Progress, *Result, Stopping, Base.get());
+    } else {
+      BakeVariant(Raw.get(),
+                  Heights.get(),
+                  *Mesher,
+                  Scratch.get(),
+                  Progress.get(),
+                  Result.get(),
+                  Stopping,
+                  Base.get());
+    }
+    if (Native) {
+      Native->AfterProduction(*Raw, *Base, *Result, *Stopping);
+      if (!Native->QualifyParent(*Raw, *Result)) { *Progress = {}; }
+    }
+    if (SurfaceComparison) { Comparison::CancelIfStopping(*Result, *Stopping); }
+  }
+
   JobAdmission::Lease Admission;
   std::shared_ptr<const StructureMesher> Mesher;
   std::unique_ptr<Generators::RawTile> Raw;
@@ -743,9 +863,18 @@ void StructureBuildTask::UseTerrainContacts() {
   if (Payload_->Native) { Payload_->Native->Kind = Payload_->Requested; }
 }
 
+void StructureBuildTask::UseIntrinsicParents(uint64_t sourceKey) {
+  assert(State_ == State::Ready && Payload_->Native && sourceKey != 0 &&
+         Payload_->Raw->RequestedDetail == LevelOfDetail::Shell);
+  Payload_->Native->ParentSourceKey = sourceKey;
+  Payload_->SurfaceComparison = std::make_unique<Comparison>(
+      ProofRequest{.SourceKey = sourceKey, .Limits = {.TargetUncertaintyM = 0.5}});
+}
+
 void StructureBuildTask::UseInitialCells(std::optional<uint64_t> selected) {
-  assert(State_ == State::Ready && Payload_->Native && !Payload_->Raw->RequestedCell &&
-         !Payload_->Raw->RequestedDetail);
+  assert(
+      State_ == State::Ready && Payload_->Native && !Payload_->Raw->RequestedCell &&
+      (!Payload_->Raw->RequestedDetail || *Payload_->Raw->RequestedDetail <= LevelOfDetail::Shell));
   Payload_->Native->Cells = 0;
   Payload_->Native->Selection = selected;
 }
@@ -757,11 +886,14 @@ uint64_t StructureBuildTask::InitialCells() const noexcept {
 
 void StructureBuildTask::SelectNextCell(uint32_t cell) {
   assert(State_ == State::Completed && Payload_->Native && Payload_->Native->Cells &&
-         !Payload_->SurfaceComparison && Payload_->Result->Status && Payload_->Result->Tile &&
+         Payload_->Result->Status && Payload_->Result->Tile &&
          !Payload_->Stopping->load(std::memory_order_relaxed));
   assert(cell > 0 && cell <= Generators::kStructureCellsPerTile &&
          (InitialCells() & (uint64_t{1} << (cell - 1u))) != 0);
   Payload_->Raw->RequestedCell = cell;
+  if (Payload_->Native->ParentSourceKey != 0) {
+    Payload_->Raw->RequestedDetail = LevelOfDetail::Shell;
+  }
   *Payload_->Result = {};
   Payload_->Progress = std::make_unique<Generators::StructureBakeProgress>();
   Payload_->Native->Current = NativeProducts::Phase::Lookup;
@@ -777,16 +909,8 @@ void StructureBuildTask::Posts(Tasks &pool) {
   (void)pool.PostDetached([completion, posted] {
     completion->Started = true;
     const auto &payload = completion->Value;
-    Generators::RawTile *const raw = payload->Raw.get();
-    const Ground::HeightField *const heights = payload->Heights.get();
-    auto *const base = &payload->Base;
-    const auto &basis = payload->Basis;
     NativeProducts *const native = payload->Native.get();
-    const auto &mesher = payload->Mesher;
-    MeshScratch *const scratch = payload->Scratch.get();
-    Generators::StructureBakeProgress *const progress = payload->Progress.get();
     Output *const output = payload->Result.get();
-    Comparison *const comparison = payload->SurfaceComparison.get();
     const auto &stopping = payload->Stopping;
     const auto began = std::chrono::steady_clock::now();
     output->LastQueueMs = std::chrono::duration<double, std::milli>(began - posted).count();
@@ -803,24 +927,14 @@ void StructureBuildTask::Posts(Tasks &pool) {
       }
       return;
     }
-    if (native && native->BeforeProduction(*raw, heights, *base, basis, *output, *stopping)) {
+    if (payload->RestoreNativeProduct()) {
       output->LastTaskMs =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
               .count();
       output->BakeMs += output->LastTaskMs;
       return;
     }
-    if (payload->Requested == Payload::Product::TerrainContacts) {
-      payload->CollectContacts();
-    } else if (*base) {
-      BakeVariant(raw, heights, *mesher, scratch, progress, output, stopping, base->get());
-    } else if (comparison) {
-      comparison->Bake(*raw, *heights, *mesher, *scratch, *progress, *output, stopping);
-    } else {
-      BakeVariant(raw, heights, *mesher, scratch, progress, output, stopping);
-    }
-    if (native != nullptr) { native->AfterProduction(*raw, **base, *output, *stopping); }
-    if (comparison != nullptr) { Comparison::CancelIfStopping(*output, *stopping); }
+    payload->Produce();
     const double taskMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
     output->LastTaskMs = taskMs;

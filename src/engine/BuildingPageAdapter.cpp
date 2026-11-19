@@ -44,6 +44,11 @@ BuildingPageView::BuildingPageView(const Generators::BakedTile &baked,
            .RequestedDetail = baked.RequestedDetail,
            .RequestedCell = baked.RequestedCell,
            .OccupiedCells = baked.OccupiedCells};
+  if (baked.SurfaceError && !baked.SurfaceFailure && baked.WorldBounds) {
+    Page_.ErrorBound = GeometryErrorBound{.SourceKey = baked.SurfaceError->Upper.SourceKey,
+                                          .Bounds = *baked.WorldBounds,
+                                          .UpperM = baked.SurfaceError->UpperDistanceM()};
+  }
 }
 
 Render::GeometryPageView BuildingPageView::View() const noexcept {

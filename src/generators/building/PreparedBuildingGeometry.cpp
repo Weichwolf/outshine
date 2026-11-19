@@ -28,7 +28,12 @@ std::string GeometryKey(const std::string &base, const RawTile &view) {
     return std::isfinite(value) && bytes.Number(value == 0.0 ? 0.0 : value);
   };
   const bool intrinsic = view.RequestedDetail.has_value();
-  if (!text(intrinsic ? "building-static-lod-3" : "building-lod-6") || !text(base) ||
+  std::string_view family = "building-lod-6";
+  if (intrinsic) {
+    family = view.RequestedDetail == LevelOfDetail::Fine ? "building-static-lod-4"
+                                                         : "building-static-lod-5";
+  }
+  if (!text(family) || !text(base) ||
       !bytes.Number(view.RequestedDetail ? static_cast<int>(*view.RequestedDetail) : -1) ||
       !bytes.Number(view.RequestedCell.value_or(0)) || !bytes.Number(view.ClusterTriangles)) {
     return {};
@@ -46,19 +51,6 @@ std::string GeometryKey(const std::string &base, const RawTile &view) {
     }
   }
   return Sha256Hex(bytes.Bytes().data(), bytes.Bytes().size());
-}
-
-Box GeometryBounds(const BakedTile &tile, const Vec3 &anchor) {
-  Box bounds;
-  const auto cover = [&](const auto &vertices) {
-    for (const auto &vertex : vertices) {
-      bounds.Cover(anchor + Vec3{{vertex.pos[0], vertex.pos[1], vertex.pos[2]}});
-    }
-  };
-  cover(tile.Built.WallCorners);
-  cover(tile.Built.RoofCorners);
-  if (bounds.Empty()) { bounds.Cover(anchor); }
-  return bounds;
 }
 
 bool ValidCeilings(const BakedTile &tile, size_t points) {
@@ -101,6 +93,7 @@ void PreparedBuildingAssets::RestoreCoordinates(BakedTile &tile, Basis basis) {
 
 std::expected<std::optional<BakedTile>, StructureBakeError>
 PreparedBuildingAssets::LoadGeometryArtifact(const std::string &baseKey,
+                                             uint64_t sourceKey,
                                              const RawTile &view,
                                              size_t coordinatePoints) {
   const auto key = GeometryKey(baseKey, view);
@@ -111,8 +104,9 @@ PreparedBuildingAssets::LoadGeometryArtifact(const std::string &baseKey,
   if (*loaded && (**loaded).Record().Parent == baseKey && (**loaded).Record().Kind == kind &&
       (**loaded).Record().Level ==
           static_cast<uint32_t>(view.RequestedDetail.value_or(LevelOfDetail::Fine))) {
-    auto tile = DecodeStructureArtifact((**loaded).Bytes(), key, 0);
+    auto tile = DecodeStructureArtifact((**loaded).Bytes(), key, sourceKey);
     if (tile && ValidCeilings(*tile, coordinatePoints)) {
+      tile->WorldBounds = (**loaded).Record().Bounds;
       ++GeometryHits_;
       GeometryReadBytes_ += (**loaded).Bytes().size();
       return std::move(tile);
@@ -122,17 +116,20 @@ PreparedBuildingAssets::LoadGeometryArtifact(const std::string &baseKey,
   return std::optional<BakedTile>{};
 }
 
-std::expected<std::optional<BakedTile>, StructureBakeError> PreparedBuildingAssets::LoadGeometry(
-    const std::string &baseKey, const PreparedStructureTile &base, const RawTile &view) {
-  auto loaded = LoadGeometryArtifact(baseKey, view, base.PointsLatLon.size() / 2u);
+std::expected<std::optional<BakedTile>, StructureBakeError>
+PreparedBuildingAssets::LoadGeometry(const std::string &baseKey,
+                                     const PreparedStructureTile &base,
+                                     const RawTile &view,
+                                     uint64_t sourceKey) {
+  auto loaded = LoadGeometryArtifact(baseKey, sourceKey, view, base.PointsLatLon.size() / 2u);
   if (loaded && *loaded) { RestoreCoordinates(**loaded, base); }
   return loaded;
 }
 
-std::expected<std::optional<BakedTile>, StructureBakeError>
-PreparedBuildingAssets::LoadGeometry(const std::string &baseKey, Basis basis, const RawTile &view) {
+std::expected<std::optional<BakedTile>, StructureBakeError> PreparedBuildingAssets::LoadGeometry(
+    const std::string &baseKey, Basis basis, const RawTile &view, uint64_t sourceKey) {
   if (!basis) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
-  auto loaded = LoadGeometryArtifact(baseKey, view, basis->PointsLatLon.size() / 2u);
+  auto loaded = LoadGeometryArtifact(baseKey, sourceKey, view, basis->PointsLatLon.size() / 2u);
   if (loaded && *loaded) { RestoreCoordinates(**loaded, std::move(basis)); }
   return loaded;
 }
@@ -150,7 +147,7 @@ PreparedBuildingAssets::PrepareGeometry(const std::string &baseKey,
   return PrepareProduct(
       {.Key = std::move(key),
        .Kind = view.RequestedDetail ? "building-static-lod" : "building-lod",
-       .Bounds = view.RequestedDetail ? GeometryBounds(tile, base.AnchorEcef) : Bounds(base),
+       .Bounds = view.RequestedDetail ? tile.BoundsAt(base.AnchorEcef) : Bounds(base),
        .Package = {},
        .Level = static_cast<uint32_t>(view.RequestedDetail.value_or(LevelOfDetail::Fine)),
        .Parent = baseKey},

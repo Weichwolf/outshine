@@ -1,10 +1,14 @@
 #include "GroundQuality.h"
 #include "StreetGraphRequest.h"
 #include "WorldRegionBuildState.h"
+#include "BuildingFieldStreaming.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cmath>
+#include <format>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -12,6 +16,50 @@ namespace outshine {
 
 std::string_view Engine::State::GroundBuildStatus() const noexcept {
   return World.GroundBuild ? World.GroundBuild->Status() : "absent";
+}
+
+std::string Engine::State::StructureViewDiagnostic() const {
+  const auto &prints = World.Surface().Footprints();
+  const auto eye = CurrentGeographicFocus();
+  const auto eyeEcef = CurrentGeographicEyeEcef();
+  for (const auto tile : prints.AcceptedTiles()) {
+    if (StructureProductsReady(tile)) { continue; }
+    const auto source = StructureBuildQueue::QualifiedSourceKey(prints, tile).value_or(0);
+    std::string diagnostic = std::format("unready structure tile={}, source={}", tile, source);
+    const auto needed = World.BuildingFields
+                            ? World.BuildingFields->OriginalCells({.Tile = tile, .Key = source})
+                            : std::nullopt;
+    diagnostic += ", needed original cells=" + (needed ? std::to_string(*needed) : "unknown");
+    bool described = false;
+    World.Pieces.ForEachDigest(
+        [&](const auto &page) {
+          if (described || page.Tile != tile) { return; }
+          if (page.SourceKey == source && !page.Detail && page.View &&
+              page.View->Contains(eye, prints.Projection(), eyeEcef)) {
+            return;
+          }
+          described = true;
+          diagnostic += std::format(", visible original cell={}, source={}, detail={}",
+                                    page.Cell,
+                                    page.SourceKey,
+                                    page.Detail ? static_cast<int>(*page.Detail) : -1);
+          if (page.View == nullptr) { return; }
+          diagnostic += std::format(", view radius={}, focal={}/{}, error={}/{}",
+                                    page.View->EyeRadiusM,
+                                    page.View->Projection.FocalPx,
+                                    prints.Projection().FocalPx,
+                                    page.View->Projection.AllowedErrorPx,
+                                    prints.Projection().AllowedErrorPx);
+          if (page.View->EyeEcef && eyeEcef) {
+            const auto offset = *page.View->EyeEcef - *eyeEcef;
+            diagnostic +=
+                ", view distance=" + std::to_string(std::hypot(offset[0], offset[1], offset[2]));
+          }
+        },
+        Render::GeometryPasses::Shadow);
+    return diagnostic;
+  }
+  return "structure products current";
 }
 
 std::string Engine::State::GroundBuildDiagnostic() const {

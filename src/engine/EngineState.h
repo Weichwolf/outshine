@@ -506,6 +506,7 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress AdvanceGroundBuildingContacts() const;
   [[nodiscard]] std::string_view GroundBuildStatus() const noexcept;
   [[nodiscard]] std::string GroundBuildDiagnostic() const;
+  [[nodiscard]] std::string StructureViewDiagnostic() const;
   [[nodiscard]] size_t StructureCandidatesMost() const noexcept;
   [[nodiscard]] bool CollectGroundBuildingContacts(size_t landsMost);
 
@@ -592,7 +593,8 @@ struct Engine::State {
   [[nodiscard]] bool AdvanceUrbanAreas();
   [[nodiscard]] std::string_view UrbanWorldBlocker() const noexcept;
   [[nodiscard]] bool WorldPreparationPending() const;
-  [[nodiscard]] bool StructureProductsReady(uint32_t tile, LongitudeLatitude eye) const;
+  [[nodiscard]] bool StructureParentsReady(uint32_t tile) const;
+  [[nodiscard]] bool StructureProductsReady(uint32_t tile) const;
   [[nodiscard]] bool UpdateTriggers();
   [[nodiscard]] bool Updates(bool simulate);
   [[nodiscard]] bool Draws();

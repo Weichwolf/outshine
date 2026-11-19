@@ -2,6 +2,7 @@
 #include "Corridors.h"
 #include "EarthworkDeformation.h"
 #include "ProfiledRoadMesher.h"
+#include "TransportGeometry.h"
 
 #include <array>
 #include <cmath>
@@ -31,7 +32,7 @@ void CheckBoundaryContinuity(std::span<const outshine::EarthworkStamp> contacts)
                                            .NorthM = edge.NorthM - stepM * runE / lengthM}}};
   std::array<double, 2> heights{10, 10};
   (void)ApplyEarthworkStamps(contacts, samples, heights, kMostEarthworkM);
-  CHECK(std::abs(heights[0] - 10) < contactToleranceM,
+  CHECK(std::abs(heights[0] - (10 - kPavementLipM)) < contactToleranceM,
         "the neighboring cut preserves the physical path contact");
   CHECK(std::abs(heights[1] - heights[0]) / (2 * stepM) < maximumSlope,
         "an adjacent earthwork cannot create a step outside an unchanged path");
@@ -114,7 +115,7 @@ int main() {
   std::array<double, 4> heights{{10, 10, 10, 10}};
   (void)ApplyEarthworkStamps(contacts, samples, heights, kMostEarthworkM);
   for (size_t at = 0; at < 3; ++at) {
-    CHECK(std::abs(heights[at] - 10) < contactToleranceM,
+    CHECK(std::abs(heights[at] - (10 - kPavementLipM)) < contactToleranceM,
           "the neighboring cut apron cannot remove terrain under the unchanged path");
   }
   CHECK(heights.back() < 10 && heights.back() > 8,

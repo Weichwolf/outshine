@@ -117,6 +117,7 @@ Result<void> Recording::BeginRenderPass(const RenderPassDescription &description
     pass.Depth = std::move(*attachment);
   }
   pass.Labelled = !description.Label.empty();
+  if (Context_->EncoderProfiling) { pass.Label = description.Label; }
   Render_ = std::move(pass);
   if (Render_->Labelled) { BeginLabel(description.Label); }
   return {};

@@ -73,6 +73,9 @@ int main() {
       RoundedCase{Vec3{{-0x1.05e77c0bf1e76p+3, -0x1.1a03582c62552p+3, 0x1.f7dac9527e348p+0}},
                   0x1.85fd581f7432cp+3}};
   for (const auto &test : roundedCases) {
+    const auto pointBound = BoundPointDistance(test.Point, a);
+    CHECK(pointBound && *pointBound >= test.Ceiling && *pointBound < test.Ceiling + 1e-12,
+          "point distance encloses the independently upward-rounded Decimal norm tightly");
     const auto bound = BoundPointTriangleDistance(test.Point, a, a, a);
     CHECK(bound && bound->UpperDistanceM >= test.Ceiling,
           "outward intermediate arithmetic encloses high-precision norm controls");

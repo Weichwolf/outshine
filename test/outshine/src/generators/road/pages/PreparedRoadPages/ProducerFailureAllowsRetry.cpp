@@ -37,7 +37,8 @@ RoadPageGeometry Triangle(uint32_t part) {
                    .Index = {0, 1, 2}},
           .Swept = {},
           .Diagnostics = {},
-          .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = part}}};
+          .Parts = {{.Kind = RoadPagePartKind::Interval, .Index = part}},
+          .Clusters = {}};
 }
 
 void CheckRetry(PreparedRoadPages &pages) {

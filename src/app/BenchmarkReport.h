@@ -17,6 +17,7 @@ struct BenchmarkFrameSample {
   double WallMs = 0;
   double AdvanceMs = 0;
   double RenderMs = 0;
+  double SyncWaitMs = 0;
   bool Refined = false;
 };
 
@@ -38,6 +39,7 @@ struct ScenarioBenchmarkReport {
   double FlushMs = 0;
   double InspectionMs = 0;
   double ImageMs = 0;
+  std::optional<double> ImageRowVariation;
   double HardwareMs = 0;
   std::optional<std::array<double, 3>> LoadBefore;
   std::optional<std::array<double, 3>> LoadAfter;

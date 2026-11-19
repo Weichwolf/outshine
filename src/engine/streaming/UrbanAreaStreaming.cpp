@@ -109,9 +109,11 @@ std::expected<bool, std::string> UrbanAreaStreaming::PollSource() {
     area.SourceDelivery = std::move(*delivery);
     if (area.SourceDelivery.Status == State::Absent ||
         area.SourceDelivery.Status == State::Refused) {
-      return std::unexpected("urban source unavailable at " + std::to_string(area.Owner.Zoom) +
-                             "/" + std::to_string(area.Owner.X) + "/" +
-                             std::to_string(area.Owner.Y));
+      return std::unexpected(
+          "urban source unavailable at " + std::to_string(area.Owner.Zoom) + "/" +
+          std::to_string(area.Owner.X) + "/" + std::to_string(area.Owner.Y) +
+          (area.SourceDelivery.Failure ? ": " + area.SourceDelivery.Failure->Describe()
+                                       : std::string{}));
     }
     if (area.SourceDelivery.Status != State::Ready) { return false; }
     if (!area.SourceDelivery.Product) {

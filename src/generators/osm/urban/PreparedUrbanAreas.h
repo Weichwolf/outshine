@@ -44,6 +44,7 @@ public:
     State Status = State::Pending;
     std::shared_ptr<const UrbanArea> Product;
     std::string AssetKey;
+    std::shared_ptr<const Data::SourceFailure> Failure = nullptr;
   };
 
   struct Budget {

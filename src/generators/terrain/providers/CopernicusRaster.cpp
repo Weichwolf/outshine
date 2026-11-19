@@ -154,7 +154,9 @@ RasterHandle Open(Reader &reader) {
   if (!options) { return {nullptr, &TIFFClose}; }
   TIFFOpenOptionsSetMaxSingleMemAlloc(options.get(), kMostAllocationBytes);
   TIFFOpenOptionsSetMaxCumulatedMemAlloc(options.get(), kMostTiffBytes);
+#if TIFFLIB_AT_LEAST(4, 7, 1)
   TIFFOpenOptionsSetWarnAboutUnknownTags(options.get(), 0);
+#endif
   constexpr auto quiet = +[]([[maybe_unused]] TIFF *raster,
                              [[maybe_unused]] void *context,
                              [[maybe_unused]] const char *const unit,

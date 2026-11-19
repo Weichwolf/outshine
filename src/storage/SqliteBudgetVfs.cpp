@@ -15,7 +15,7 @@ namespace outshine {
 namespace {
 using State = SqliteFileBudget::State;
 
-struct alignas(std::max_align_t) File : sqlite3_file {
+struct File : sqlite3_file {
   std::shared_ptr<State> Owner;
   sqlite3_file *Native = nullptr;
   sqlite3_io_methods Relay{};
@@ -24,6 +24,9 @@ struct alignas(std::max_align_t) File : sqlite3_file {
   bool Temporary = false;
   bool Wal = false;
 };
+
+static_assert(alignof(File) <= 8);
+static_assert(sizeof(File) % alignof(sqlite3_file) == 0);
 
 File &Of(sqlite3_file *file) {
   return *static_cast<File *>(file);

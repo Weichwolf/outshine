@@ -190,15 +190,14 @@ void Engine::State::Inspected() {
   const uint64_t structures = World.Pieces.Digest();
   size_t structureTiles = 0;
   size_t structurePages = 0;
-  size_t projectedTiles = 0;
+  size_t completeTiles = 0;
   std::optional<uint32_t> previousTile;
-  const auto eye = CurrentGeographicFocus();
   World.Pieces.ForEachDigest([&](Render::GeometryPageResidency::DigestRecord record) {
     ++structurePages;
     if (previousTile == record.Tile) { return; }
     previousTile = record.Tile;
     ++structureTiles;
-    if (StructureProductsReady(record.Tile, eye)) { ++projectedTiles; }
+    if (StructureProductsReady(record.Tile)) { ++completeTiles; }
   });
   Published.RecordMetric(
       "world: live structure digest high half", static_cast<double>(structures >> 32u), "digest");
@@ -210,7 +209,7 @@ void Engine::State::Inspected() {
   Published.RecordMetric(
       "world: live structure pages", static_cast<double>(structurePages), "pages");
   Published.RecordMetric(
-      "world: projected structure tiles", static_cast<double>(projectedTiles), "tiles");
+      "world: complete structure tiles", static_cast<double>(completeTiles), "tiles");
   Published.RecordMetric("world: live structure source binding",
                          World.Region &&
                                  World.Region->MatchesLiveSources(World.Surface().Vectors(),

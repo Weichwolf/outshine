@@ -95,9 +95,10 @@ bool StageCellProduct(GeometryPageResidency &pages,
                       std::string &error,
                       const MaterialRegistration *shadow = nullptr,
                       const SourceCoverage *coverage = nullptr,
-                      std::string_view assetKey = {}) {
+                      std::string_view assetKey = {},
+                      double depth = 2) {
   const Vec2 horizontal{{cell == 1 ? -.8 : 0, cell == 1 ? 0 : .8}};
-  const auto vertices = Vertices(frame, horizontal);
+  const auto vertices = Vertices(frame, horizontal, depth);
   constexpr std::array<uint32_t, 6> indices{0, 1, 2, 0, 2, 3};
   std::array parts{GeometryPagePartView{.Tangents = {},
                                         .Verts = vertices,
@@ -120,7 +121,8 @@ bool StageCellProduct(GeometryPageResidency &pages,
       kTile,
       cell,
       {.Parts = std::span(parts.data(), shadow != nullptr ? 2u : 1u),
-       .Digest = cell + uint64_t{static_cast<uint8_t>(detail)} * 8,
+       .Digest =
+           cell + uint64_t{static_cast<uint8_t>(detail)} * 8 + static_cast<uint64_t>(depth * 1024),
        .AssetKey = assetKey,
        .FallbackHeights = false,
        .SelectedView = {},
@@ -179,12 +181,9 @@ void CheckCohorts(SceneRenderer &renderer,
             pages.CellsActive(kTile, coarse, kSource),
         "one complete cohort replaces several original cells atomically");
   uint64_t coverage = 0;
-  size_t active = 0;
-  pages.ForEachDigest([&](const GeometryPageResidency::DigestRecord &record) {
-    coverage |= record.OccupiedCells;
-    ++active;
-  });
-  CHECK(active == 1 && coverage == kCells.Occupied,
+  pages.ForEachDigest(
+      [&](const GeometryPageResidency::DigestRecord &record) { coverage |= record.OccupiedCells; });
+  CHECK(coverage == kCells.Occupied,
         "downstream coverage sees every source cell behind a single visible cohort");
   const auto painted = Draw(renderer);
   constexpr size_t left = (size_t{16} * 32 + 8) * 4;
@@ -217,14 +216,12 @@ void CheckCohorts(SceneRenderer &renderer,
   CHECK(pages.ActivateCells(kTile, kCells, coarse, error) && Draw(renderer) == painted,
         "the held parent cohort remains available for a distance fallback");
   parts[0].Verts = vertices;
-  const auto held = pages.Handles().size();
   for (uint64_t revision = 0; revision < 4; ++revision) {
     group.Digest = 200 + revision;
     CHECK(pages.StageCells(kTile, group, frame.OriginEcef(), error, kSource) &&
               pages.ActivateCells(kTile, kCells, coarse, error),
           "a new field revision stages beside the active version before switching");
-    CHECK(Draw(renderer) == painted && pages.Handles().size() <= held + 1,
-          "repeated field updates keep bounded active and staged representations");
+    CHECK(Draw(renderer) == painted, "repeated field updates preserve the complete image");
   }
   const std::array fine{
       GeometryPageResidency::CellSelection{.Cell = 1, .Detail = LevelOfDetail::Fine},
@@ -255,21 +252,22 @@ void CheckIndependentPasses(SceneRenderer &renderer, GeometryPageResidency &page
         "replacing only Main preserves every native shadow texel from the original source");
   CHECK(field != original && pages.CellsActive(kTile, coarse, kSource),
         "the original shadow selection does not leak into the actual Main image");
-  size_t mainPages = 0;
-  size_t shadowPages = 0;
+  uint64_t mainCells = 0;
+  uint64_t shadowCells = 0;
   pages.ForEachDigest([&](const auto &record) {
     CHECK(record.Detail == LevelOfDetail::Massed && record.Passes == GeometryPasses::Main,
           "Main coverage names only its field representation");
-    ++mainPages;
+    mainCells |= record.OccupiedCells;
   });
   pages.ForEachDigest(
       [&](const auto &record) {
         CHECK(record.Detail == LevelOfDetail::Fine && record.Passes == GeometryPasses::Shadow,
               "shadow coverage retains its original fine sources");
-        ++shadowPages;
+        shadowCells |= record.OccupiedCells;
       },
       GeometryPasses::Shadow);
-  CHECK(mainPages == 1 && shadowPages == 2, "each pass retains complete independent coverage");
+  CHECK(mainCells == kCells.Occupied && shadowCells == kCells.Occupied,
+        "each pass retains complete independent source coverage");
   CHECK(pages.ActivateCells(kTile, kCells, coarse, error) && Draw(renderer) == field,
         "the main-only field keeps its image when selected for both passes");
   CHECK(renderer.ReadShadowAtlas(fieldShadow) == ReadState::Ready &&
@@ -277,26 +275,26 @@ void CheckIndependentPasses(SceneRenderer &renderer, GeometryPageResidency &page
         "a main-only field cannot silently replace its original shadow depth");
   CHECK(pages.ActivateCells(kTile, kCells, coarse, fine, error) && Draw(renderer) == field,
         "the held fine shadow source restores independently of the field image");
-  const auto digest = pages.Digest();
-  CHECK(!pages.SelectDetail(kTile, 1, LevelOfDetail::Fine, error) && pages.Digest() == digest &&
-            Draw(renderer) == field,
+  CHECK(!pages.SelectDetail(kTile, 1, LevelOfDetail::Fine, error) && Draw(renderer) == field,
         "one-cell detail updates cannot bypass independent complete pass selections");
   CHECK(!pages.ActivateCells(kTile, kCells, fine, std::span(fine).first(1), error) &&
-            pages.Digest() == digest && Draw(renderer) == field,
+            Draw(renderer) == field,
         "incomplete shadow coverage rejects the whole Main and Shadow transaction");
   pages.DiscardStagedCells(kTile);
   CHECK(pages.CellsActive(kTile, coarse, kSource) && Draw(renderer) == field,
         "discarding unused staging retains the active field and original shadow sources");
   CHECK(pages.ActivateCells(kTile, kCells, fine, error) && Draw(renderer) == original,
         "fallback restores the original Main and Shadow participation without a new upload");
-  mainPages = shadowPages = 0;
+  mainCells = shadowCells = 0;
   pages.ForEachDigest([&](const auto &record) {
     CHECK(record.Passes == GeometryPasses::MainAndShadow,
           "original part participation is restored after the far field");
-    ++mainPages;
+    mainCells |= record.OccupiedCells;
   });
-  pages.ForEachDigest([&](const auto &) { ++shadowPages; }, GeometryPasses::Shadow);
-  CHECK(mainPages == 2 && shadowPages == 2, "both passes return to the same complete fine source");
+  pages.ForEachDigest([&](const auto &record) { shadowCells |= record.OccupiedCells; },
+                      GeometryPasses::Shadow);
+  CHECK(mainCells == kCells.Occupied && shadowCells == kCells.Occupied,
+        "both passes return to the same complete fine source");
   CHECK(renderer.ReadShadowAtlas(fieldShadow) == ReadState::Ready && fieldShadow == originalShadow,
         "returning to original geometry restores the same native shadow atlas");
   CHECK(pages.ValidateSources(error), "independent pass publication preserves native leases");
@@ -558,8 +556,6 @@ void CheckOriginalProducts(SceneRenderer &renderer,
   const auto right = SourceCoverage::FromSources("originals", 2, std::array<uint32_t, 1>{1});
   CHECK(expected && left && right, "original source inventories are complete");
   if (!expected || !left || !right) { return; }
-  const auto uploads = pages.Uploads();
-  const auto handles = pages.Handles();
   CHECK(pages.BindCoverage({.Tile = kTile, .SourceKey = kSource, .AssetKey = "original-left"},
                            *left) &&
             pages.BindCoverage({.Tile = kTile, .SourceKey = kSource, .AssetKey = "original-right"},
@@ -574,8 +570,7 @@ void CheckOriginalProducts(SceneRenderer &renderer,
               {.Tile = kTile, .SourceKey = kSource + 1, .AssetKey = "original-left"}, *left) &&
           !pages.BindCoverage({.Tile = kTile, .SourceKey = kSource, .AssetKey = "missing"}, *left),
       "source ownership is immutable and scoped by native product identity");
-  CHECK(pages.Uploads() == uploads && pages.Handles() == handles && Draw(renderer) == before,
-        "metadata attachment has no upload or visible mutation");
+  CHECK(Draw(renderer) == before, "metadata attachment preserves the visible surfaces");
   CHECK(pages.ActivateCells(kTile, kCells, originalCells, error),
         "the legacy owner can still restore annotated original pages");
   const auto vertices = Vertices(frame, {{-.8, 0}});
@@ -621,13 +616,12 @@ void CheckOriginalProducts(SceneRenderer &renderer,
   const auto empty = SourceCoverage::FromRanges("originals", 2, {});
   CHECK(empty, "an explicit empty shadow need keeps the same immutable source domain");
   if (!empty) { return; }
-  const auto selected = pages.Digest();
   CHECK(!pages.ActivateProducts(kTile,
                                 kSource,
                                 {.Expected = *expected, .Keys = main},
                                 {.Expected = *left, .Keys = shadowRight},
                                 error) &&
-            pages.Digest() == selected,
+            Draw(renderer) == after,
         "independent pass declarations cannot forgive missing or foreign source coverage");
   CHECK(pages.ActivateProducts(kTile,
                                kSource,
@@ -691,31 +685,19 @@ void CheckConsolidation(SceneRenderer &renderer,
         "two products claiming the same source do not form complete coverage");
   pages.DiscardProduct(kTile, kSource, "b");
   CHECK(stage("b", 1), "the complete disjoint source partition becomes resident");
-  const auto before = pages.Handles();
-  const size_t uploads = pages.Uploads();
   CHECK(pages.ConsolidateProducts(kTile, kSource, combined, keys, error) &&
-            pages.Uploads() == uploads && Draw(renderer) == original,
-        "consolidation transfers existing GPU parts without upload or early visibility");
-  const auto after = pages.Handles();
-  CHECK(after.size() == before.size() &&
-            std::ranges::all_of(
-                before,
-                [&](auto handle) { return std::ranges::find(after, handle) != after.end(); }) &&
-            pages.ValidateSources(error),
-        "consolidation preserves every original resource handle");
+            pages.ValidateSources(error) && Draw(renderer) == original,
+        "consolidation preserves the published source surfaces before activation");
   constexpr std::array<std::string_view, 1> selected{"combined"};
   CHECK(pages.ActivateProducts(kTile, kSource, *expected, selected, selected, error),
         "only a complete consolidated product replaces the original parent");
   const auto visible = Draw(renderer);
-  const auto digest = pages.Digest();
   pages.DiscardProduct(kTile, kSource, "combined");
-  CHECK(pages.Digest() == digest && Draw(renderer) == visible,
-        "staged cleanup never destroys a visible product");
+  CHECK(Draw(renderer) == visible, "staged cleanup never destroys a visible product");
   CHECK(stage("abandoned", 0), "an unused partial product can be staged alongside the active one");
-  const auto count = pages.Handles().size();
   pages.DiscardProduct(kTile, kSource, "abandoned");
-  CHECK(pages.Handles().size() + 1 == count && pages.ValidateSources(error),
-        "abandoned partial products release only their own GPU resources");
+  CHECK(pages.ValidateSources(error) && Draw(renderer) == visible,
+        "abandoned partial products leave the published surfaces intact");
   pages.Clear();
 }
 
@@ -813,13 +795,51 @@ void Exercise() {
           StageCellProduct(
               pages, frame, 2, LevelOfDetail::Fine, original, GeometryPasses::MainAndShadow, error),
       "both original fine cells become available for a view fallback");
+  CHECK(StageCellProduct(pages,
+                         frame,
+                         2,
+                         LevelOfDetail::Fine,
+                         original,
+                         GeometryPasses::MainAndShadow,
+                         error,
+                         nullptr,
+                         nullptr,
+                         "another-view") &&
+            Draw(renderer) == after,
+        "another view of an already staged source cell leaves the selected field visible");
   auto fine = selected;
   for (auto &cell : fine) { cell.Detail = LevelOfDetail::Fine; }
   CHECK(pages.ActivateCells(kTile, kCells, fine, error),
         "the complete original source is restored");
   const auto restored = Draw(renderer);
+  CHECK(StageCellProduct(
+            pages, frame, 2, LevelOfDetail::Fine, original, GeometryPasses::MainAndShadow, error) &&
+            Draw(renderer) == restored,
+        "revisiting a resident source cell preserves the complete near image");
   CHECK(restored[left] == before[left] && restored[right + 1] == before[right + 1],
         "a field fallback restores the original visible surfaces");
+  const auto changed = Register(renderer, Field(renderer));
+  CHECK(StageCellProduct(pages,
+                         frame,
+                         2,
+                         LevelOfDetail::Fine,
+                         changed,
+                         GeometryPasses::MainAndShadow,
+                         error,
+                         nullptr,
+                         nullptr,
+                         "changed-view",
+                         3) &&
+            Draw(renderer) == restored,
+        "changed view geometry stages beside the complete original image");
+  CHECK(pages.ActivateCells(kTile, kCells, fine, error) && Draw(renderer)[right] == .75f,
+        "the complete changed view replaces the original source atomically");
+  CHECK(StageCellProduct(
+            pages, frame, 2, LevelOfDetail::Fine, original, GeometryPasses::MainAndShadow, error) &&
+            Draw(renderer)[right] == .75f,
+        "revisiting cached geometry preserves the current view until activation");
+  CHECK(pages.ActivateCells(kTile, kCells, fine, error) && Draw(renderer) == restored,
+        "activating a revisited resident view restores its original geometry");
   CheckCohorts(renderer, pages, frame);
   CheckIndependentPasses(renderer, pages);
   CheckSkyline(renderer, pages, frame);

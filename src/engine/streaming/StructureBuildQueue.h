@@ -39,7 +39,7 @@ class StructureBuildQueue {
 public:
   static constexpr size_t kCandidateWindow = 4;
   enum class HeightRequirement : uint8_t { AllowFallback, FineOnly };
-  enum class BuildPurpose : uint8_t { ViewDetail, TerrainContacts };
+  enum class BuildPurpose : uint8_t { ViewDetail, TerrainContacts, StaticParents };
 
   using BuildingAsset = std::variant<Generators::PreparedBuildingAssets::RequestedBasis,
                                      Generators::PreparedBuildingAssets::RequestedSource>;
@@ -144,8 +144,8 @@ public:
       return (InputObjects != nullptr ? InputObjects == inputObjects
                                       : vectors != nullptr && Vectors == vectors->Generation()) &&
              HeightSource == heightSource &&
-             ((RequestedDetail && *RequestedDetail != LevelOfDetail::Fine) ||
-              Purpose != BuildPurpose::ViewDetail || Projection == footprints.Projection()) &&
+             (RequestedDetail.has_value() || Purpose != BuildPurpose::ViewDetail ||
+              Projection == footprints.Projection()) &&
              TileSpanM == footprints.TileSpanM();
     }
 

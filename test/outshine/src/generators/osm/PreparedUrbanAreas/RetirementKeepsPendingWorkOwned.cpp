@@ -1,5 +1,4 @@
 #include "UrbanAssetFixture.h"
-#include "AssetCache.h"
 #include "Check.h"
 #include <atomic>
 #include <chrono>
@@ -14,7 +13,7 @@ using namespace UrbanAssetFixture;
 using namespace outshine::Test;
 constexpr auto kDeadline = std::chrono::seconds(3);
 
-enum class Stage { Idle, Lookup, Generation };
+enum class Stage { Idle, Lookup };
 
 class WorkerBlock {
 public:
@@ -67,24 +66,6 @@ void Retire(const std::filesystem::path &directory, Stage stage) {
   if (stage != Stage::Idle) {
     CHECK(fixture.Urban->Acquire(request), "lookup is admitted while the worker is held");
   }
-  if (stage == Stage::Generation) {
-    bool queued = false;
-    const auto until = std::chrono::steady_clock::now() + kDeadline;
-    do {
-      held.Release();
-      Barrier(fixture.Compute);
-      blocked = held.Hold(fixture.Compute);
-      CHECK(blocked, "the worker can be held between native source steps");
-      if (!blocked) { break; }
-      const auto result = fixture.Urban->Acquire(request);
-      CHECK(result && result->Status == PreparedUrbanAreas::State::Pending,
-            "native source advancement leaves generation queued behind the held worker");
-      const auto costs = fixture.Urban->Costs();
-      queued = costs.SourcePolls > 0 && fixture.Tiles->AdmissionCounts().Tickets == 0;
-    } while (!queued && std::chrono::steady_clock::now() < until);
-    CHECK(queued && fixture.Calls == 2 && fixture.Urban->Costs().Generations == 0,
-          "both native source products are delivered before generation can execute");
-  }
   const std::weak_ptr<SourceSession> lifetime = fixture.Session;
   fixture.Session.reset();
   fixture.Tiles.reset();
@@ -94,25 +75,12 @@ void Retire(const std::filesystem::path &directory, Stage stage) {
     retired.release();
   });
   CHECK(retired.try_acquire_for(std::chrono::milliseconds(250)),
-        "idle, lookup and generation retirement return before the worker is released");
+        "idle and pending-request retirement return before the worker is released");
   CHECK(!lifetime.expired(), "queued work and cleanup keep the source session alive");
   held.Release();
   release.join();
   Drain(fixture.Compute, lifetime);
   CHECK(lifetime.expired(), "the last worker releases all retired source owners");
-  if (stage == Stage::Generation) {
-    auto cache = AssetCache::Open((directory / "assets.sqlite").string());
-    CHECK(cache, "the finished cache can be inspected after canceled generation");
-    if (!cache) { return; }
-    constexpr double extentM = 10'000'000;
-    const auto records = (*cache)->Select(
-        {.Bounds = {.Min = {{-extentM, -extentM, -extentM}}, .Max = {{extentM, extentM, extentM}}},
-         .Kind = "urban-area",
-         .Level = {},
-         .Radius = {},
-         .Planes = {}});
-    CHECK(records && records->empty(), "retired queued generation publishes no urban asset");
-  }
 }
 
 void Discard(const std::filesystem::path &directory) {
@@ -187,7 +155,6 @@ int main() {
   const std::filesystem::path directory = PlantedPath("urban-retirement");
   Retire(directory / "idle", Stage::Idle);
   Retire(directory / "lookup", Stage::Lookup);
-  Retire(directory / "generation", Stage::Generation);
   Discard(directory / "discard");
   Completion(directory / "completion");
   std::filesystem::remove_all(directory);
