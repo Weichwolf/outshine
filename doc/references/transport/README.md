@@ -1,8 +1,15 @@
 # Procedural transport from map inputs
 
-Owner: [#11](https://github.com/Weichwolf/outshine/issues/11).
+Owner: [#1964](https://github.com/Weichwolf/outshine/issues/1964).
 OSM supplies placement, distribution, classes and available parameters. Recipes construct
 plausible functional transport; reconstruction of an exact digital twin is not the goal.
+
+Outshine's OSM/MVT topology reconstruction, endpoint-port/junction recipes and coupled
+grade/profile fitting are our own development, not an implementation supplied wholesale
+by Galin or Chen. [Current Python/native artifacts and generation research gaps](../procedural/outshine-generation.md)
+identify the procedures and limits. Every new or revised algorithm first demonstrates
+correctness and adequate cost in Python; shared GLSL may be tested on the GPU there.
+The older investigations below retain historical context, not current acceptance claims.
 
 | Reference | Relevant method | Boundary |
 |---|---|---|

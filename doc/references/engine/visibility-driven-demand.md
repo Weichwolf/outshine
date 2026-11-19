@@ -1,6 +1,6 @@
 # Hierarchischer Bedarf vor Download und Geometrie
 
-Codeprüfung: 2026-10-07. Besitzer: WI [#12](https://github.com/Weichwolf/outshine/issues/12) (Bedarf), [#10](https://github.com/Weichwolf/outshine/issues/10) (Assets), [#9](https://github.com/Weichwolf/outshine/issues/9) (API).
+Codeprüfung: 2026-10-07. Aktuelle Umsetzung: [#1958](https://github.com/Weichwolf/outshine/issues/1958) (Darstellung), [#1968](https://github.com/Weichwolf/outshine/issues/1968) (Assets), [#1977](https://github.com/Weichwolf/outshine/issues/1977) (weltweite Auswahl).
 MapLibre und CesiumJS wurden im Quellcode geprüft; Cesium Native ergänzt eine
 Originaldokumentationsprüfung vom 2026-10-26. Keine lokalen Laufzeitbenchmarks dieser Projekte.
 Keine Aussage über deren konkreten Durchsatz auf dieser Maschine oder A18 Pro.

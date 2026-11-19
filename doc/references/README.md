@@ -1,6 +1,6 @@
 # Forschungsgrundlage für Outshine
 
-Literaturbewertung: 2026-10-27; Arbeitsvorgaben aktualisiert am 16.11.2026.
+Literaturbewertung: 2026-10-27; Methoden-/Quellenabgleich aktualisiert am 19.11.2026.
 Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
 Papers, Kurse und Produktdokumentation sind als solche bezeichnet; Links und lokale PDFs bleiben erhalten.
 Die Einträge dokumentieren die damalige Relevanzbewertung, keine Machbarkeitsbestätigung.
@@ -8,9 +8,9 @@ Historische Issue-Verweise und Architekturentscheidungen hier sind keine Arbeits
 Maßgeblich sind [AGENTS.md](../../AGENTS.md), die aktuellen Issues und
 [Roadmap #1972](https://github.com/Weichwolf/outshine/issues/1972).
 
-**Prüfstand: 70 von 71 Einträgen bewertet.** Alle Bereiche sind eingeordnet;
-ein Normalenartikel bleibt wegen fehlender Volltext-/Abbildungsprüfung ausdrücklich
-unter „Bewertung ausstehend“, ohne Relevanzurteil.
+**Historischer Prüfstand: 70 von 71 damaligen Einträgen bewertet.** Neue Ergänzungen
+und ihre Prüfgrenzen sind unten separat ausgewiesen. Der Normalenartikel unter
+„Bewertung ausstehend“ erhält weiterhin kein unbelegtes Relevanzurteil.
 Bewertete Einträge folgen absteigend dem aktuellen Nutzen innerhalb jeder Stufe:
 
 | Relevanz | Bedeutung |
@@ -19,6 +19,28 @@ Bewertete Einträge folgen absteigend dem aktuellen Nutzen innerhalb jeder Stufe
 | Mittel | Nützlicher Baustein mit konkretem Anpassungs- oder späterem Integrationsbedarf |
 | Gering | Spezialfall oder gemessen ungünstiger Ansatz im aktuellen Pfad |
 | Nicht relevant | Veröffentlichtes Verfahren passt nicht zu Eingaben, Ziel oder Kosten |
+
+## Aktueller Methodeneinstieg
+
+**Forschungsfeld:** weltweite plausible Asset-Generierung aus wenigen OSM-/DEM-/Wetter-
+und Kontexteingaben. **Präsentation und Asset-DB:** etablierte Verfahren übernehmen,
+anpassen und messen; keine neue Grundlagentheorie voraussetzen.
+Jeder Algorithmus zuerst in Python mit Korrektheits- und ausreichendem Kostennachweis;
+GLSL darf Teil dieser Referenz sein und von Python auf der GPU ausgeführt werden.
+Den geprüften Kern anschließend nativ wiederverwenden und optimieren.
+
+| Bereich / aktuelle Issues | Methoden und konkrete Quellen |
+|---|---|
+| Ziel/Roadmap #1974 / #1972 | Gemeinsamer Referenzkern unten; [eigene Generierung und Python/GLSL-Ablauf](procedural/outshine-generation.md) |
+| Bedarf / Assets #1958 / #1968 / #1977 | [Cesium/MapLibre-Auswahl](engine/visibility-driven-demand.md), [DDC/Zen/R*Tree/WAL](engine/asset-database.md) |
+| Gruppen-Impostor / Fernpanorama #1975 / #1976 | [Hierarchical Image Caching, LDI, Impostor Baker](geometry/image-based-distance.md) |
+| Terrain #1957 | [Geometry Clipmaps 2004](terrain/siggraph/2004-geometry-clipmaps.pdf); eigene Kontakt-/Höhenrekonstruktion [separat](procedural/outshine-generation.md) |
+| Material / Licht #1962 / #1965 | [Frostbite PBR](lighting/siggraph/2014-frostbite-pbr-course-notes.pdf), [Surface Gradients](materials/jcgt/2020-surface-gradient-bump-mapping.pdf), [Clustered Shading](lighting/hpg/2012-clustered-shading.pdf) |
+| Transport / Gebäude / Vegetation #1964 / #1963 / #1961 | [Eigene Python-/native Verfahren und offene Generierungsfragen](procedural/outshine-generation.md), [Transportvorbilder](transport/README.md) |
+| Wasser / Wetter #1966 / #1967 | [Wellenverfahren](water/game-water-rendering.md), [Atmosphäre](atmosphere/egsr/2020-production-ready-atmosphere.pdf), [Wolken](clouds/siggraph/2015-horizon-volumetric-cloudscapes.pdf) |
+| Messung / Geräte #1956 / #1960 | [GPU-Zeitstempel und Python/GLSL-Vergleiche](engine/profiling.md) |
+| Sandbox / NPC #1969 / #1978 | [Navigation/Steering/Physik](animation/autonomous-actors.md), [Spatial Audio](audio/bounded-spatial-audio.md) |
+| Koordination #1971 | [Gemeinsame Methoden-/Referenzregeln](../../AGENTS.md); Aufgabenbesitz und Abhängigkeitsgraph, keine neue Algorithmusforschung |
 
 Maßstab sind vollständige bewegte Welten bis 240 km. Algorithmen, Features und Vulkan
 werden zunächst auf RTX 3060 bei 1920×1080/60 entwickelt und optimiert. Iris Xe/Vulkan
@@ -52,6 +74,7 @@ Sie begründen Verfahren, keine vollständige Bestands- oder Geräteabnahme.
 |---|---|---|
 | Fertige räumliche Produkte | [Unreal DDC / World Partition / HLOD](engine/unreal/prepared-assets.md): regenerierbare Produkte, Zellen und vorbereitete Proxies | Runtime-Miss→Generator ist unsere Anpassung; dauerhafte Rezepte/Weltentscheidungen separat sichern |
 | Bedarf vor Content-IO | [Cesium Native Selection](engine/visibility-driven-demand.md#cesium-native-selection): Hierarchie/SSE und verfügbare Ersatzabdeckung | Fallback und Rundumabdeckung explizit wählen; geometrischer Fehler ist kein Material-/Funktionsfehler |
+| Billige Ferne | [Hierarchical Image Caching 1996 / LDI / Impostor Baker](geometry/image-based-distance.md): Gruppenbilder, Blickgültigkeit, Wiederverwendung und Tiefenreprojektion | Auflösung, Schichten und Erneuerung aus Bildwirkung/Gesamtkosten wählen; kein Welt- oder Geräteleistungsbeweis |
 | Residente Renderauswahl | [GPU-Driven Rendering Pipelines 2015](geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf): Instanz-/Clusterwahl, Kompaktion, indirekte Submission | Spart vorheriges IO/Decode/Upload nicht automatisch; gemeinsame Metal-/Vulkan-Verträge |
 | Bewegliches Höhenfeld | [Geometry Clipmaps 2004](terrain/siggraph/2004-geometry-clipmaps.pdf): toroidale Wiederverwendung und begrenzte Randupdates | Bei Überlast fällt Feindetail zurück; kein allgemeines Gebäude-/Transport-LOD |
 | Physikalische Bildantwort | [Frostbite PBR, Revision 3](lighting/siggraph/2014-frostbite-pbr-course-notes.pdf): Material-/Licht-/Kameraeinheiten und unabhängiger Referenzvergleich | Geometrie-SSE ersetzt keine Materialfehlerprüfung; historische Pass-/Pufferkosten neu messen |
@@ -74,6 +97,16 @@ Fachbesitz: [Vegetation #1](https://github.com/Weichwolf/outshine/issues/1),
 Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
 
 ## Relevanz: Hoch
+
+- **Hierarchical Image Caching for Accelerated Walkthroughs of Complex Environments**,
+  Shade / Lischinski / Salesin / DeRose / Snyder, SIGGRAPH 1996.
+  [Autorenprojekt](https://pages.cs.huji.ac.il/danix-lab/cglab/research/wa/) ·
+  [Autoren-PDF](https://grail.cs.washington.edu/projects/hic/walkthru/www/Shade96.pdf) ·
+  [PDF](geometry/siggraph/1996-hierarchical-image-caching.pdf).
+
+  - **Einsatz:** Hierarchische Gruppenbilder; bildabhängige Wiederverwendung; amortisierte Erzeugungs-/Darstellungskosten.
+  - **Grenzen:** Statische Geometrie, historischer BSP-/Hardwarepfad; aktuelle Bewegungs-/Licht-/Speicherkosten messen.
+  - **Prüfung:** Algorithmus/Fehlermodell und Abbildungen auf PDF-Seiten 3, 4, 6–8 gelesen/geöffnet; [Übertragung](geometry/image-based-distance.md), #1958/#1975/#1976.
 
 - **GigaVoxels: Ray-Guided Streaming for Efficient and Detailed Voxel Rendering**,
   Crassin et al., I3D 2009.
@@ -420,7 +453,7 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
   - **Grenzen:** BRDF-/Texturlichtfit-Fehler; Horizont-Clipping/Verdeckung zusätzlich; eigener
     GGX-Kernvergleich nutzt nur Randintegration und scheitert an Resttermen: weder Gesamt-LTC
     verwerfen noch Shaderport ableiten.
-  - **Bezüge:** [GGX-Kernvergleich](../../test/experiments/render/relief_finite.md).
+  - **Bezüge:** [Archivierter GGX-Kernvergleich](https://github.com/Weichwolf/outshine/blob/d1fbec4fe/test/experiments/render/relief_finite.md).
 
 - **Moment Shadow Mapping**, Peters / Klein, ACM SIGGRAPH I3D 2015.
   [Autoren/Errata](https://momentsingraphics.de/I3D2015.html) ·
@@ -765,7 +798,7 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
   - **Einsatz:** Reserve für diskrete Rezeptwahl/Zählung; konkrete Reduktions- und
     Parameterprüfung [#1835](https://github.com/Weichwolf/outshine/issues/1835).
   - **Grenzen:** Keine aktuelle Solverübernahme, kontinuierliche Geometrie oder
-    Laufzeit-/8-GB-Ableitung. [Lokaler Screen](../../test/experiments/transport/recipe_cnf_screen.md).
+    Laufzeit-/8-GB-Ableitung. [Archivierter Screen](https://github.com/Weichwolf/outshine/blob/d1fbec4fe/test/experiments/transport/recipe_cnf_screen.md).
 
 - **Tutorial 15: Publish web scenes**, Esri 2013, Produktdokumentation.
   [Quelle](https://resources.arcgis.com/en/help/pdf/cityengine/10.2/tutorial_15_publish_web_scenes.pdf) ·
@@ -890,6 +923,16 @@ Implementierungswissen ersetzen.
   - **Bezüge:** [#40](https://github.com/Weichwolf/outshine/issues/40) · [Autorenpreprint](https://escholarship.org/uc/item/7657d8h3) · [#919](https://github.com/Weichwolf/outshine/issues/919).
 
 ## Weitere Primärquellen und Fachnotizen
+
+### Ergänzungen vom 19.11.2026
+
+- **Hoch — Bildbasierte Distanzdarstellung:** [Methodenvergleich](geometry/image-based-distance.md), mit Epic Impostor Baker und NVIDIA *True Impostors* als Produkt-/Buchreferenzen; das 1996-Paper steht oben.
+- **Hoch — Asset-DB:** [DDC/Zen, räumlicher Index, WAL und physische Rückgewinnung](engine/asset-database.md); offizielle Epic-/SQLite-Dokumentation, kein neues PDF-Paper behauptet.
+- **Hoch — Licht/Schatten:** [PBR, Clustered Shading, PSSM und Schatten-Cache-Invalidierung](lighting/established-lighting.md); bestehende Verfahren statt neuer Beleuchtungstheorie.
+- **Hoch — Messverfahren:** [Vulkan-/Metal-Zeitstempel, Python/GLSL-Vergleich](engine/profiling.md); offizielle API-Dokumentation.
+- **Hoch — Eigene Generierung:** [Benannte Transport-/Gebäude-/Vegetations-/Wasserverfahren und Forschungslücken](procedural/outshine-generation.md); aktuelle Code-/PR-Artefakte statt gelöschter Experimentpfade.
+- **Mittel — Wasserpräsentation:** [GPU Gems: Effective Water Simulation from Physical Models](water/game-water-rendering.md); analytische/Gerstner-Wellen als etablierter Einstieg, Wasserstand/Geometrie bleiben Generierung.
+- **Später — NPCs:** Reynolds, GDC 1999, [Steering Behaviors for Autonomous Characters](animation/gdc/1999-steering-autonomous-characters.pdf); [Autor](https://www.red3d.com/cwr/steer/gdc99/). Zusammen mit [Recast/Detour und vorhandener Physikliteratur](animation/autonomous-actors.md); PDF-Seiten 2–3 zur Trennung von Zielwahl/Steering/Locomotion geöffnet.
 
 ### Assets und Sichtbedarf — WI [#10](https://github.com/Weichwolf/outshine/issues/10) / [#12](https://github.com/Weichwolf/outshine/issues/12)
 
