@@ -38,17 +38,21 @@ struct RegionSources {
 class PublishedRegion {
 public:
   PublishedRegion(RegionSources sources, BuildingField footprints)
+      : PublishedRegion(std::make_shared<const RegionSources>(std::move(sources)),
+                        std::move(footprints)) {}
+
+  PublishedRegion(std::shared_ptr<const RegionSources> sources, BuildingField footprints)
       : Sources_(std::move(sources)), Footprints_(std::move(footprints)) {}
 
-  [[nodiscard]] const OsmField *Vectors() const noexcept { return Sources_.Vectors.get(); }
+  [[nodiscard]] const OsmField *Vectors() const noexcept { return Sources_->Vectors.get(); }
 
   [[nodiscard]] const std::shared_ptr<const OsmField> &VectorSnapshot() const noexcept {
-    return Sources_.Vectors;
+    return Sources_->Vectors;
   }
 
-  [[nodiscard]] const StreetField &Ways() const noexcept { return Sources_.Ways; }
+  [[nodiscard]] const StreetField &Ways() const noexcept { return Sources_->Ways; }
 
-  [[nodiscard]] const WaterAsset &WaterBodies() const noexcept { return Sources_.WaterBodies; }
+  [[nodiscard]] const WaterAsset &WaterBodies() const noexcept { return Sources_->WaterBodies; }
 
   [[nodiscard]] const BuildingField &Footprints() const noexcept { return Footprints_; }
 
@@ -74,11 +78,11 @@ public:
   }
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
-    return Sources_.HeapBytes() + Footprints_.HeapBytes();
+    return Sources_->HeapBytes() + Footprints_.HeapBytes();
   }
 
 private:
-  RegionSources Sources_;
+  std::shared_ptr<const RegionSources> Sources_;
   BuildingField Footprints_;
 };
 

@@ -571,11 +571,13 @@ Engine::State::BuildGroundBuildingStamps(const TangentFrame &standing,
 bool Engine::State::GroundSurfaceWorkPending() const noexcept {
   return World.GroundBuild && (World.GroundBuild->TerrainDeformation() != nullptr ||
                                World.GroundBuild->BuildingEarthworks() != nullptr ||
-                               World.GroundBuild->SheetWorker() != nullptr);
+                               World.GroundBuild->SheetWorker() != nullptr ||
+                               World.GroundBuild->RoadPlanning() != nullptr);
 }
 
 bool Engine::State::AwaitGroundSurfaceWork(double seconds) const {
   assert(GroundSurfaceWorkPending());
+  if (const auto *roads = World.GroundBuild->RoadPlanning()) { return roads->AwaitSlice(seconds); }
   if (const auto *sheets = World.GroundBuild->SheetWorker()) { return sheets->AwaitSlice(seconds); }
   if (const auto *stamps = World.GroundBuild->BuildingEarthworks()) {
     return stamps->AwaitSlice(seconds);

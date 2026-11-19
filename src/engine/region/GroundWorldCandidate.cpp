@@ -52,13 +52,21 @@ GroundWorldCandidate::GroundWorldCandidate(
                 .RimsMissing = world.RimsMissing,
                 .Surfaces = world.StructureSurfaces},
       World_(renderer),
-      Sources_(::outshine::Generators::Osm::RegionSources::Snapshot(
-          world.Surface().Vectors(),
-          world.Surface().Ways(),
-          world.Surface().WaterBodies(),
-          world.Region ? world.Region->VectorSnapshot() : nullptr)),
+      Sources_(
+          std::make_shared<Generators::Osm::RegionSources>(Generators::Osm::RegionSources::Snapshot(
+              world.Surface().Vectors(),
+              world.Surface().Ways(),
+              world.Surface().WaterBodies(),
+              world.Region ? world.Region->VectorSnapshot() : nullptr))),
       SharedVectors_(world.Region ? world.Region->Vectors() : nullptr),
       PieceSources_(pieces) {}
+
+void GroundWorldCandidate::RestoreWater(Generators::WaterAsset water) {
+  if (Sources_.use_count() != 1) {
+    Sources_ = std::make_shared<Generators::Osm::RegionSources>(*Sources_);
+  }
+  Sources_->WaterBodies = std::move(water);
+}
 
 [[nodiscard]] bool GroundWorldCandidate::BeginGroundClasses(
     std::shared_ptr<const Render::PackedTerrainClassification> packed,
@@ -151,7 +159,7 @@ GroundWorldCandidate::Publish(WorldRegionState &world,
   if (!reconciled) { return std::unexpected(reconciled.error()); }
   PublicationMetrics_.OrphanStructurePieces = *reconciled;
   auto region = std::make_shared<const ::outshine::Generators::Osm::PublishedRegion>(
-      std::move(Sources_), Products_.Footprints.SnapshotAccepted());
+      SourceSnapshot(), Products_.Footprints.SnapshotAccepted());
   auto phaseAt = std::chrono::steady_clock::now();
   if (auto publishedWorld = World_.Publish(published); !publishedWorld) { return publishedWorld; }
   PublicationMetrics_.WorldMs =

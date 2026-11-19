@@ -72,16 +72,21 @@ public:
   [[nodiscard]] const GroundBuildProducts &Products() const noexcept { return Products_; }
 
   [[nodiscard]] const ::outshine::Generators::Osm::RegionSources &Sources() const noexcept {
+    return *Sources_;
+  }
+
+  [[nodiscard]] std::shared_ptr<const Generators::Osm::RegionSources>
+  SourceSnapshot() const noexcept {
     return Sources_;
   }
 
-  void RestoreWater(Generators::WaterAsset water) { Sources_.WaterBodies = std::move(water); }
+  void RestoreWater(Generators::WaterAsset water);
 
   [[nodiscard]] size_t OwnedHeapBytes() const noexcept {
-    const size_t sharedVectors = Sources_.Vectors && Sources_.Vectors.get() == SharedVectors_
-                                     ? Sources_.Vectors->HeapBytes()
+    const size_t sharedVectors = Sources_->Vectors && Sources_->Vectors.get() == SharedVectors_
+                                     ? Sources_->Vectors->HeapBytes()
                                      : 0;
-    return Products_.OwnedHeapBytes() + Sources_.HeapBytes() - sharedVectors;
+    return Products_.OwnedHeapBytes() + Sources_->HeapBytes() - sharedVectors;
   }
 
   void Grounding(const Vec3 &albedo) { World_.Grounding(albedo); }
@@ -150,7 +155,7 @@ public:
 private:
   GroundBuildProducts Products_;
   Core::WorldCandidate World_;
-  ::outshine::Generators::Osm::RegionSources Sources_;
+  std::shared_ptr<Generators::Osm::RegionSources> Sources_;
   const ::outshine::Generators::Osm::OsmField *SharedVectors_ = nullptr;
   Render::SceneResources::PieceSources PieceSources_ = Render::SceneResources::PieceSources::Copy;
   size_t NextPiece_ = 0;

@@ -7,6 +7,7 @@
 #include "RoadPageRestoration.h"
 #include "RoadGeometryPublication.h"
 #include "RoadHeightCoverage.h"
+#include "RoadPlanTask.h"
 #include "GroundWorldCandidate.h"
 #include "GroundBuildSchedule.h"
 #include "BuildingFoundationTask.h"
@@ -294,6 +295,14 @@ public:
     CorridorJob_ = std::move(job);
   }
 
+  [[nodiscard]] RoadPlanTask *RoadPlanning() const noexcept { return RoadPlanning_.get(); }
+
+  void BeginRoadPlanning(std::unique_ptr<RoadPlanTask> task) noexcept {
+    RoadPlanning_ = std::move(task);
+  }
+
+  void FinishRoadPlanning() noexcept { RoadPlanning_.reset(); }
+
   void HoldRoadManifest(std::shared_ptr<const Generators::RoadPageManifest> manifest) noexcept {
     RoadManifest_ = std::move(manifest);
   }
@@ -487,6 +496,7 @@ private:
   std::unique_ptr<Generators::BuildingFoundationTask> BuildingEarthworks_;
   std::unique_ptr<Generators::TerrainDeformationTask> TerrainDeformation_;
   std::unique_ptr<Generators::Corridors::Job> CorridorJob_;
+  std::unique_ptr<RoadPlanTask> RoadPlanning_;
   std::unique_ptr<RoadPageConstruction> RoadPages_;
   std::unique_ptr<RoadPageRestoration> RoadRestoration_;
   std::unique_ptr<RoadGeometryPublication> RoadPublication_;

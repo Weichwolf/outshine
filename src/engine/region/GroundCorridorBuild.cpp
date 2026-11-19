@@ -20,35 +20,53 @@ namespace {
 constexpr size_t kCorridorLanesPerFrame = 128;
 constexpr size_t kCorridorNodesPerFrame = 64;
 
-void BeginCorridorJob(WorldRegionBuildState &state,
-                      const Generators::Corridors::Site &site,
-                      Core::DiagnosticLedger &published) {
-  const auto jobAt = std::chrono::steady_clock::now();
-  state.BeginsCorridors(Generators::Corridors::Begin(site));
-  published.RecordMetric(
-      "ground candidate: corridor job admission",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - jobAt).count(),
-      "ms");
-  const auto inventoryAt = std::chrono::steady_clock::now();
-  state.SamplesProductPeak();
-  published.RecordMetric(
-      "ground candidate: corridor product inventory",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - inventoryAt)
-          .count(),
-      "ms");
-}
-
 std::expected<void, std::string>
-AcceptRoadPlan(WorldRegionBuildState &state,
-               const Generators::Corridors::Site &site,
-               Tasks *pool,
-               const std::shared_ptr<Generators::PreparedRoadPages> &assets,
-               std::shared_ptr<AssetPipeline> publications) {
+AdvanceRoadPlan(EngineServices &services,
+                const Generators::Corridors::Site &site,
+                const Around &coverage,
+                WorldRegionBuildState &state,
+                const std::shared_ptr<Generators::PreparedRoadPages> &assets,
+                Core::DiagnosticLedger &published) {
+  auto *pool = services.Compute.get();
+  if (state.RoadPlanning() == nullptr) {
+    if (pool == nullptr) { return std::unexpected("road planning has no worker pool"); }
+    const auto began = std::chrono::steady_clock::now();
+    state.BeginRoadPlanning(std::make_unique<RoadPlanTask>(
+        *pool,
+        RoadPlanTask::Input{.Sources = state.Candidate().SourceSnapshot(),
+                            .Network = state.Candidate().Products().StreetGraph,
+                            .Classes = site.Classes,
+                            .Materials = site.Materials,
+                            .SurfaceRecipes = site.Vegetation,
+                            .Terrain = state.TerrainInputs(),
+                            .Frame = site.Standing,
+                            .Projection = site.Projection,
+                            .Began = site.CensusAt,
+                            .Eye = {.LongitudeDeg = site.EyeLonDeg, .LatitudeDeg = site.EyeLatDeg},
+                            .SheetZoom = coverage.Zoom,
+                            .DemZoom = site.Ground->BlockZoom()}));
+    published.RecordMetric(
+        "ground candidate: corridor job admission",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
+        "ms");
+    return {};
+  }
+  auto result = state.RoadPlanning()->Take();
+  if (!result) { return {}; }
+  state.FinishRoadPlanning();
+  if (!*result) { return std::unexpected(std::move(result->error())); }
+  published.RecordMetric("ground candidate: road plan worker", (*result)->WorkerMs, "ms");
+  published.RecordMetric(
+      "ground candidate: road plan worker longest step", (*result)->LongestStepMs, "ms");
+  state.BeginsCorridors(std::move((*result)->Plan));
+  for (const auto &one : Generators::Corridors::PlanMeasures(*state.CorridorJob())) {
+    published.RecordMetric(one.Name, one.Value, one.Unit.c_str());
+  }
   auto contacts = Generators::Corridors::TakeTerrainContacts(*state.CorridorJob());
   if (!contacts) { return std::unexpected(std::string(contacts.error())); }
   if (assets && pool != nullptr && !state.RegionKey().empty()) {
     auto pages = RoadPageConstruction::Begin(
-        *pool, assets, *state.CorridorJob(), site, state.RegionKey(), std::move(publications));
+        *pool, assets, *state.CorridorJob(), site, state.RegionKey(), services.AssetPublications());
     if (!pages) { return std::unexpected(std::move(pages.error())); }
     state.BeginRoadPages(std::move(*pages));
   }
@@ -108,17 +126,13 @@ std::expected<bool, std::string> AdvanceRoadProducts(const Generators::Corridors
                                                      std::vector<EarthworkStamp> &contacts,
                                                      std::vector<DiagnosticSample> &notes) {
   if (auto *pages = state.RoadPages()) { return pages->Advance(*state.CorridorJob(), site); }
-  const auto ready =
-      !state.CorridorsPlanned()
-          ? generator.AdvancePlan(
-                *state.CorridorJob(), site, kCorridorLanesPerFrame, kCorridorNodesPerFrame)
-          : generator.Advance(*state.CorridorJob(),
-                              site,
-                              kCorridorLanesPerFrame,
-                              kCorridorNodesPerFrame,
-                              ground,
-                              contacts,
-                              notes);
+  const auto ready = generator.Advance(*state.CorridorJob(),
+                                       site,
+                                       kCorridorLanesPerFrame,
+                                       kCorridorNodesPerFrame,
+                                       ground,
+                                       contacts,
+                                       notes);
   if (!ready) { return std::unexpected(std::string(ready.error())); }
   return *ready;
 }
@@ -171,14 +185,18 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
       .EyeLatDeg = coverage.LatitudeDeg,
       .EyeLonDeg = coverage.LongitudeDeg,
       .Projection = build.Footprints.Projection()};
-  if (state.CorridorJob() == nullptr) {
-    BeginCorridorJob(state, site, Published);
+  if (!state.CorridorsPlanned()) {
+    const auto plan =
+        AdvanceRoadPlan(Services, site, coverage, state, World.Surface().RoadAssets(), Published);
+    if (!plan) {
+      Error = plan.error();
+      return false;
+    }
     state.SamplesCorridorSlice(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
             .count());
     return true;
   }
-  const bool planning = !state.CorridorsPlanned();
   const auto paved =
       AdvanceRoadProducts(World.Builtins.Corridors(), state, site, build.Ground, corridors, notes);
   state.SamplesProductPeak();
@@ -195,22 +213,6 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
     state.SamplesCorridorSlice(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
             .count());
-    return true;
-  }
-  if (planning) {
-    for (const auto &one : Generators::Corridors::PlanMeasures(*state.CorridorJob())) {
-      Published.RecordMetric(one.Name, one.Value, one.Unit.c_str());
-    }
-    const auto accepted =
-        AcceptRoadPlan(state,
-                       site,
-                       Services.Compute.get(),
-                       World.Surface().RoadAssets(),
-                       World.Surface().RoadAssets() ? Services.AssetPublications() : nullptr);
-    if (!accepted) {
-      Error = accepted.error();
-      return false;
-    }
     return true;
   }
   for (const DiagnosticSample &one : notes) {
