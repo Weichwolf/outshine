@@ -27,6 +27,8 @@ enum class RoadPageRecipeCodecError {
 
 [[nodiscard]] size_t RoadPageRecipeCapacityBytes(const RoadPageRecipe &recipe);
 [[nodiscard]] std::string RoadPageRecipeKey(const RoadPageAddress &address);
+[[nodiscard]] std::expected<std::string, RoadPageRecipeCodecError>
+IdentifyRoadPageShape(RoadPageRecipe &recipe, std::vector<uint64_t> &sources, size_t bytesMost);
 [[nodiscard]] std::expected<size_t, RoadPageRecipeCodecError>
 RoadPageRecipeDecodeCapacity(size_t bytes);
 [[nodiscard]] std::expected<std::vector<uint8_t>, RoadPageRecipeCodecError>

@@ -25,6 +25,7 @@ constexpr uint64_t kDisplayFormat = 0x0003314d4452ULL;
 constexpr uint64_t kOriginalBodiesFormat = 0x0004314d4452ULL;
 constexpr uint64_t kClusteredFormat = 0x0005314d4452ULL;
 constexpr uint64_t kStoredSurfaceFormat = 0x0006314d4452ULL;
+constexpr uint64_t kSharedShapeFormat = 0x0007314d4452ULL;
 constexpr size_t kAppearanceBytes = sizeof(uint32_t) + 64;
 constexpr size_t kReferenceBytes =
     sizeof(uint32_t) + 64 + 6 * sizeof(double) + sizeof(uint64_t) + 2 * sizeof(uint32_t);
@@ -33,6 +34,14 @@ bool Key(const std::string &key) {
   return key.size() == 64 && std::ranges::all_of(key, [](char value) {
            return (value >= '0' && value <= '9') || (value >= 'a' && value <= 'f');
          });
+}
+
+bool ValidSources(const RoadPageReference &page) {
+  if (page.ShapeKey.empty()) { return page.Sources.empty(); }
+  const auto order = [](const RoadPagePart &part) { return std::pair(part.Kind, part.Index); };
+  return Key(page.ShapeKey) && page.Sources.size() == page.Parts.size() &&
+         std::ranges::is_sorted(page.Parts, {}, order) &&
+         std::ranges::adjacent_find(page.Parts) == page.Parts.end();
 }
 
 bool Valid(const RoadPageManifest &manifest) {
@@ -52,17 +61,8 @@ bool Valid(const RoadPageManifest &manifest) {
   std::unordered_set<std::string> keys;
   for (const auto &page : manifest.Pages) {
     if (!Key(page.Key) || !keys.insert(page.Key).second || page.ByteCount == 0 ||
-        page.Appearance.index() != manifest.Appearance.index() ||
-        RoadPageKey({.PlanKey = manifest.PlanKey,
-                     .MaterialKey = manifest.MaterialKey,
-                     .MaterialIndex = 0,
-                     .Anchor = manifest.Anchor,
-                     .Level = page.Level,
-                     .Parts = page.Parts,
-                     .Appearance = page.Appearance,
-                     .PositionErrorM = page.PositionErrorM,
-                     .DisplayPolicy = page.DisplayPolicy,
-                     .Clustered = page.Clustered}) != page.Key) {
+        !ValidSources(page) || page.Appearance.index() != manifest.Appearance.index() ||
+        RoadPageKey(StoredRoadPageAddress(manifest, page)) != page.Key) {
       return false;
     }
     for (size_t axis = 0; axis < 3; ++axis) {
@@ -81,7 +81,8 @@ bool ReferenceFields(BinaryValueWriter &archive,
                      const RoadPageReference &page,
                      bool display,
                      bool policies,
-                     bool clustered) {
+                     bool clustered,
+                     bool shared) {
   if (page.Parts.size() > std::numeric_limits<uint32_t>::max() || !archive.Text(page.Key) ||
       !WriteRoadPageAppearance(archive, page.Appearance) ||
       !archive(page.Bounds.Min.Axis,
@@ -97,6 +98,9 @@ bool ReferenceFields(BinaryValueWriter &archive,
   }
   if (policies && !archive(page.DisplayPolicy)) { return false; }
   if (clustered && !archive(page.Clustered)) { return false; }
+  if (shared && (!archive.Text(page.ShapeKey) || !archive.Array<uint64_t>(page.Sources))) {
+    return false;
+  }
   return std::ranges::all_of(page.Parts,
                              [&](const auto &part) { return archive(part.Kind, part.Index); });
 }
@@ -106,7 +110,8 @@ bool ReferenceFields(BinaryValueReader &archive,
                      bool appearance,
                      bool display,
                      bool policies,
-                     bool clustered) {
+                     bool clustered,
+                     bool shared) {
   uint32_t count = 0;
   if (!archive.Text(page.Key) || !ReadRoadPageAppearance(archive, appearance, page.Appearance) ||
       !archive(page.Bounds.Min.Axis, page.Bounds.Max.Axis, page.ByteCount, page.Level, count) ||
@@ -124,10 +129,32 @@ bool ReferenceFields(BinaryValueReader &archive,
   }
   if (policies && !archive(page.DisplayPolicy)) { return false; }
   if (clustered && !archive(page.Clustered)) { return false; }
+  if (shared && (!archive.Text(page.ShapeKey) || !archive.Array(page.Sources))) { return false; }
+  if (count > archive.In.Remaining() / (2 * sizeof(uint32_t))) { return false; }
   page.Parts.resize(count);
   return std::ranges::all_of(page.Parts,
                              [&](auto &part) { return archive(part.Kind, part.Index); });
 }
+}
+
+RoadPageAddress StoredRoadPageAddress(const RoadPageManifest &manifest,
+                                      const RoadPageReference &page) {
+  RoadPageAddress address{.PlanKey = page.ShapeKey.empty() ? manifest.PlanKey : page.ShapeKey,
+                          .MaterialKey = manifest.MaterialKey,
+                          .MaterialIndex = 0,
+                          .Anchor = manifest.Anchor,
+                          .Level = page.Level,
+                          .Parts = page.Parts,
+                          .Appearance = page.Appearance,
+                          .PositionErrorM = page.PositionErrorM,
+                          .DisplayPolicy = page.DisplayPolicy,
+                          .Clustered = page.Clustered};
+  if (!page.ShapeKey.empty()) {
+    for (size_t at = 0; at < address.Parts.size(); ++at) {
+      address.Parts[at].Index = static_cast<uint32_t>(at);
+    }
+  }
+  return address;
 }
 
 std::string RoadPageManifestAppearanceKey(std::span<const RoadPageReference> pages) {
@@ -165,7 +192,9 @@ std::optional<std::vector<uint8_t>> EncodeRoadPageManifest(const RoadPageManifes
   const bool stored = std::ranges::any_of(manifest.Pages, [](const auto &page) {
     return page.DisplayPolicy == RoadDisplayPolicy::StoredSurfaceEnvelope;
   });
-  const bool flags = clustered || stored;
+  const bool shared =
+      std::ranges::any_of(manifest.Pages, [](const auto &page) { return !page.ShapeKey.empty(); });
+  const bool flags = clustered || stored || shared;
   const bool display = flags || std::ranges::any_of(manifest.Pages, [](const auto &page) {
                          return page.PositionErrorM.has_value();
                        });
@@ -177,15 +206,17 @@ std::optional<std::vector<uint8_t>> EncodeRoadPageManifest(const RoadPageManifes
   if (policies) { format = kOriginalBodiesFormat; }
   if (clustered) { format = kClusteredFormat; }
   if (stored) { format = kStoredSurfaceFormat; }
+  if (shared) { format = kSharedShapeFormat; }
   if (!out(format) || !out.Text(manifest.PlanKey) || !out.Text(manifest.MaterialKey) ||
       (display && !out(static_cast<uint32_t>(appearance))) ||
       !WriteRoadPageAppearance(out, manifest.Appearance) ||
       !out(manifest.Anchor.LongitudeDeg,
            manifest.Anchor.LatitudeDeg,
            static_cast<uint32_t>(manifest.Pages.size())) ||
-      !std::ranges::all_of(
-          manifest.Pages,
-          [&](const auto &page) { return ReferenceFields(out, page, display, policies, flags); }) ||
+      !std::ranges::all_of(manifest.Pages,
+                           [&](const auto &page) {
+                             return ReferenceFields(out, page, display, policies, flags, shared);
+                           }) ||
       !out.Array<uint8_t>(*materials)) {
     return std::nullopt;
   }
@@ -202,12 +233,13 @@ std::optional<RoadPageManifest> DecodeRoadPageManifest(std::span<const uint8_t> 
   if (!in(format) ||
       (format != kLegacyFormat && format != kAppearanceFormat && format != kDisplayFormat &&
        format != kOriginalBodiesFormat && format != kClusteredFormat &&
-       format != kStoredSurfaceFormat) ||
+       format != kStoredSurfaceFormat && format != kSharedShapeFormat) ||
       !in.Text(manifest.PlanKey) || !in.Text(manifest.MaterialKey)) {
     return std::nullopt;
   }
   const bool stored = format == kStoredSurfaceFormat;
-  const bool clustered = format == kClusteredFormat || stored;
+  const bool shared = format == kSharedShapeFormat;
+  const bool clustered = format == kClusteredFormat || stored || shared;
   const bool policies = format == kOriginalBodiesFormat || clustered;
   const bool display = format == kDisplayFormat || policies;
   uint32_t appearance = format == kAppearanceFormat ? 1 : 0;
@@ -222,13 +254,13 @@ std::optional<RoadPageManifest> DecodeRoadPageManifest(std::span<const uint8_t> 
   }
   manifest.Pages.resize(count);
   if (!std::ranges::all_of(manifest.Pages, [&](auto &page) {
-        return ReferenceFields(in, page, appearance != 0, display, policies, clustered);
+        return ReferenceFields(in, page, appearance != 0, display, policies, clustered, shared);
       })) {
     return std::nullopt;
   }
-  if (stored != std::ranges::any_of(manifest.Pages, [](const auto &page) {
-        return page.DisplayPolicy == RoadDisplayPolicy::StoredSurfaceEnvelope;
-      })) {
+  if (!shared && stored != std::ranges::any_of(manifest.Pages, [](const auto &page) {
+                   return page.DisplayPolicy == RoadDisplayPolicy::StoredSurfaceEnvelope;
+                 })) {
     return std::nullopt;
   }
   std::vector<uint8_t> materials;

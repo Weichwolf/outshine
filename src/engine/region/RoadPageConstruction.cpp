@@ -1,5 +1,6 @@
 #include "RoadPageConstruction.h"
 #include "RoadPageMeshProducer.h"
+#include "RoadPageRecipeCodec.h"
 #include "Sha256.h"
 #include <GeometryProductCodec.h>
 #include <algorithm>
@@ -45,15 +46,12 @@ RoadPageConstruction::Begin(Tasks &pool,
   }
   const auto encoded = EncodeGeometryProduct(materials, 4096);
   if (!encoded) { return std::unexpected("could not identify the shared road material"); }
-  result->Address_.PlanKey = Sha256Hex("world-road-pages-1\n" + planKey);
-  result->Address_.MaterialKey = Sha256Hex(encoded->data(), encoded->size());
-  result->Address_.Anchor = site.Standing.Anchor();
-  result->Address_.Clustered = true;
-  result->Manifest_.PlanKey = result->Address_.PlanKey;
-  result->Manifest_.MaterialKey = result->Address_.MaterialKey;
-  result->Manifest_.Anchor = result->Address_.Anchor;
+  result->Manifest_.PlanKey = Sha256Hex("world-road-pages-1\n" + planKey);
+  result->Manifest_.MaterialKey = Sha256Hex(encoded->data(), encoded->size());
+  result->Manifest_.Anchor = site.Standing.Anchor();
   result->Manifest_.Materials = std::move(materials);
   result->Manifest_.Pages.resize(result->Pages_.size());
+  result->UniqueShapes_.reserve(result->Pages_.size());
   return result;
 }
 
@@ -64,50 +62,69 @@ RoadPageConstruction::Advance(const Generators::Corridors::Job &plan,
   if (auto collected = Collect(); !collected) {
     return std::unexpected(std::move(collected.error()));
   }
-  if (auto bakes = RequestBakes(plan, site, until); !bakes) {
+  if (auto bakes = RequestBakes(until); !bakes) {
     return std::unexpected(std::move(bakes.error()));
   }
-  if (auto lookups = RequestLookups(until); !lookups) {
+  if (auto lookups = RequestLookups(plan, site, until); !lookups) {
     return std::unexpected(std::move(lookups.error()));
   }
   return PageCount_ == Pages_.size();
 }
 
-Generators::RoadPageAddress RoadPageConstruction::AddressOf(size_t index) const {
-  auto address = Address_;
-  address.Parts = Pages_[index];
-  return address;
+std::expected<RoadPageConstruction::Pending, std::string> RoadPageConstruction::PreparePage(
+    const Generators::Corridors::Job &plan, const Generators::Corridors::Site &site, size_t index) {
+  auto &parts = Pages_[index];
+  auto recipe = Generators::Corridors::PageRecipe(plan, site, parts);
+  if (!recipe) { return std::unexpected(std::string(recipe.error())); }
+  auto &reference = Manifest_.Pages[index];
+  auto shape = Generators::IdentifyRoadPageShape(*recipe, reference.Sources, PageBytesMost);
+  if (!shape) { return std::unexpected("road recipe cannot be addressed by shape"); }
+  if (UniqueShapes_.insert(*shape).second) {
+    reference.ShapeKey = std::move(*shape);
+  } else {
+    recipe = Generators::Corridors::PageRecipe(plan, site, parts);
+    if (!recipe) { return std::unexpected(std::string(recipe.error())); }
+    reference.Sources.clear();
+  }
+  reference.Parts = std::move(parts);
+  reference.Clustered = true;
+  auto address = Generators::StoredRoadPageAddress(Manifest_, reference);
+  auto key = Generators::RoadPageKey(address);
+  return Pending{.Index = index,
+                 .Key = std::move(key),
+                 .Address = std::move(address),
+                 .Recipe = std::move(*recipe),
+                 .Producer = {}};
 }
 
 std::expected<void, std::string>
-RoadPageConstruction::RequestLookups(std::chrono::steady_clock::time_point until) {
+RoadPageConstruction::RequestLookups(const Generators::Corridors::Job &plan,
+                                     const Generators::Corridors::Site &site,
+                                     std::chrono::steady_clock::time_point until) {
   while (Requested_ < Pages_.size() && Pending_.size() < PendingMost_ &&
          std::chrono::steady_clock::now() < until) {
-    auto address = AddressOf(Requested_);
-    auto key = Generators::RoadPageKey(address);
-    if (!Queue_.RequestMetadata(std::move(address))) {
+    auto pending = PreparePage(plan, site, Requested_);
+    if (!pending) { return std::unexpected(std::move(pending.error())); }
+    if (!Queue_.RequestMetadata(pending->Address)) {
       return std::unexpected("road page lookup admission failed");
     }
-    Pending_.push_back({.Index = Requested_, .Key = std::move(key), .Producer = {}});
+    Pending_.push_back(std::move(*pending));
     ++Requested_;
   }
   return {};
 }
 
 std::expected<void, std::string>
-RoadPageConstruction::RequestBakes(const Generators::Corridors::Job &plan,
-                                   const Generators::Corridors::Site &site,
-                                   std::chrono::steady_clock::time_point until) {
+RoadPageConstruction::RequestBakes(std::chrono::steady_clock::time_point until) {
   for (auto &pending : Pending_) {
     if (std::chrono::steady_clock::now() >= until) { break; }
     if (pending.Phase != Stage::NeedsBake) { continue; }
-    if (!pending.Producer) {
-      auto recipe = Generators::Corridors::PageRecipe(plan, site, Pages_[pending.Index]);
-      if (!recipe) { return std::unexpected(std::string(recipe.error())); }
-      pending.Producer =
-          std::make_shared<const Generators::RoadPageMeshProducer>(pending.Key, std::move(*recipe));
+    if (pending.Recipe) {
+      pending.Producer = std::make_shared<const Generators::RoadPageMeshProducer>(
+          pending.Key, std::move(*pending.Recipe));
+      pending.Recipe.reset();
     }
-    const auto admitted = Queue_.RequestRecord({.Address = AddressOf(pending.Index),
+    const auto admitted = Queue_.RequestRecord({.Address = pending.Address,
                                                 .Parent = {},
                                                 .RequestKey = {},
                                                 .NativeBytesMost = PageBytesMost},
@@ -145,17 +162,15 @@ RoadPageConstruction::SavePage(Pending &pending, const RoadPageQueue::Completed 
   }
   const auto *receipt = std::get_if<RoadPageQueue::Receipt>(&**completed.Result);
   const auto *record = receipt != nullptr && *receipt ? receipt->get() : nullptr;
-  if (record == nullptr || record->Key != pending.Key || record->Level != Address_.Level ||
+  if (record == nullptr || record->Key != pending.Key || record->Level != pending.Address.Level ||
       record->ByteCount == 0 || record->ByteCount > PageBytesMost) {
     return std::unexpected("road page metadata differs from its admitted native request");
   }
   NativeBytes_ += static_cast<size_t>(record->ByteCount);
-  Manifest_.Pages[pending.Index] = {.Key = std::move(pending.Key),
-                                    .Bounds = record->Bounds,
-                                    .ByteCount = record->ByteCount,
-                                    .Level = record->Level,
-                                    .Parts = std::move(Pages_[pending.Index]),
-                                    .Clustered = Address_.Clustered};
+  auto &reference = Manifest_.Pages[pending.Index];
+  reference.Key = std::move(pending.Key);
+  reference.Bounds = record->Bounds;
+  reference.ByteCount = record->ByteCount;
   ++PageCount_;
   return {};
 }

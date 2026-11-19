@@ -116,7 +116,7 @@ std::expected<bool, std::string>
 Advance(RoadPageRestoration &reader, Geometry &geometry, GeometryClusters *clusters = nullptr) {
   return reader.Advance(
       [&](const RoadPageAsset &page,
-          std::string_view,
+          const RoadPageReference &,
           std::chrono::steady_clock::time_point) -> std::expected<bool, std::string> {
         const auto &mesh = page.Geometry.Mesh;
         if (mesh.Index.empty()) { return true; }
@@ -189,9 +189,10 @@ void CheckConsumerRetention(Tasks &pool, const Fixture &fixture) {
   size_t offered = 0;
   const auto consume =
       [&](const RoadPageAsset &page,
-          std::string_view key,
+          const RoadPageReference &reference,
           std::chrono::steady_clock::time_point) -> std::expected<bool, std::string> {
-    CHECK(key == fixture.Manifest->Pages[0].Key, "the consumer receives the bound native identity");
+    CHECK(reference.Key == fixture.Manifest->Pages[0].Key,
+          "the consumer receives the bound native identity");
     if (held == nullptr) { held = &page; }
     CHECK(held == &page, "backpressure retains the same decoded page until acceptance");
     ++offered;

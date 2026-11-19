@@ -8,7 +8,9 @@
 #include <cstddef>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace outshine {
@@ -39,6 +41,8 @@ private:
   struct Pending {
     size_t Index;
     std::string Key;
+    Generators::RoadPageAddress Address;
+    std::optional<Generators::RoadPageRecipe> Recipe;
     Stage Phase = Stage::Lookup;
     std::shared_ptr<const Generators::RoadPageProducer> Producer;
   };
@@ -46,13 +50,16 @@ private:
   RoadPageConstruction(Tasks &pool,
                        std::shared_ptr<Generators::PreparedRoadPages> pages,
                        std::shared_ptr<AssetPipeline> publications);
-  [[nodiscard]] Generators::RoadPageAddress AddressOf(size_t index) const;
+  [[nodiscard]] std::expected<Pending, std::string>
+  PreparePage(const Generators::Corridors::Job &plan,
+              const Generators::Corridors::Site &site,
+              size_t index);
   [[nodiscard]] std::expected<void, std::string>
-  RequestLookups(std::chrono::steady_clock::time_point until);
+  RequestLookups(const Generators::Corridors::Job &plan,
+                 const Generators::Corridors::Site &site,
+                 std::chrono::steady_clock::time_point until);
   [[nodiscard]] std::expected<void, std::string>
-  RequestBakes(const Generators::Corridors::Job &plan,
-               const Generators::Corridors::Site &site,
-               std::chrono::steady_clock::time_point until);
+  RequestBakes(std::chrono::steady_clock::time_point until);
   [[nodiscard]] std::expected<void, std::string> Collect();
   [[nodiscard]] std::expected<void, std::string>
   SavePage(Pending &pending, const RoadPageQueue::Completed &completed);
@@ -60,9 +67,9 @@ private:
   static constexpr size_t PartsMost = 64;
   size_t PendingMost_;
   RoadPageQueue Queue_;
-  Generators::RoadPageAddress Address_;
   std::vector<std::vector<Generators::RoadPagePart>> Pages_;
   std::vector<Pending> Pending_;
+  std::unordered_set<std::string> UniqueShapes_;
   Generators::RoadPageManifest Manifest_;
   size_t Requested_ = 0;
   size_t PageCount_ = 0;

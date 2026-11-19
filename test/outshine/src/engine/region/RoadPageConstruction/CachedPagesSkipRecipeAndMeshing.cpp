@@ -53,7 +53,7 @@ bool Complete(RoadPageRestoration &restore, const RoadPageManifest &manifest, Ge
   if (!surface) { return false; }
   const RoadPageRestoration::Consumer consume =
       [&](const RoadPageAsset &page,
-          std::string_view,
+          const RoadPageReference &,
           std::chrono::steady_clock::time_point) -> std::expected<bool, std::string> {
     const auto &mesh = page.Geometry.Mesh;
     if (mesh.Index.empty()) { return true; }
@@ -269,7 +269,7 @@ void CheckWarm(Tasks &pool,
       pool, pages, plan, site, key, outshine::Test::RoadPublications(pool));
   CHECK(warm && Prepare(**warm, plan, site) && (*warm)->MissRequests() == 0 &&
             (*warm)->Pages() == expected.Pages.size(),
-        "warm construction uses only native index hits without source recipes or meshing");
+        "warm construction reuses native meshes without baking");
   if (!warm) { return; }
   const auto restored = (*warm)->TakeManifest();
   const auto original = EncodeRoadPageManifest(expected, PreparedRoadPages::ManifestBytesMost);
@@ -278,6 +278,20 @@ void CheckWarm(Tasks &pool,
                            : std::nullopt;
   CHECK(original && encoded && *original == *encoded,
         "metadata-only construction retains exactly the same complete manifest words");
+
+  auto neighbour = RoadPageConstruction::Begin(
+      pool, pages, plan, site, std::string(64, 'b'), outshine::Test::RoadPublications(pool));
+  CHECK(neighbour && Prepare(**neighbour, plan, site) && (*neighbour)->MissRequests() == 0,
+        "a different region identity reuses every equivalent native road mesh");
+  if (!neighbour) { return; }
+  const auto other = (*neighbour)->TakeManifest();
+  CHECK(other && other->PlanKey != expected.PlanKey &&
+            std::ranges::equal(other->Pages,
+                               expected.Pages,
+                               std::ranges::equal_to{},
+                               &RoadPageReference::Key,
+                               &RoadPageReference::Key),
+        "reused meshes have the same addresses under independent coverage manifests");
 }
 
 void CheckBindings(RoadPageManifest &manifest) {

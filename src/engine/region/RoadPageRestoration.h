@@ -33,8 +33,10 @@ public:
         std::string manifestKey = {},
         std::optional<Vec3> eye = std::nullopt,
         Limits limits = {.PendingMost = 4, .NativeBytesMost = size_t{8} * 1024u * 1024u});
-  using Consumer = std::function<std::expected<bool, std::string>(
-      const Generators::RoadPageAsset &, std::string_view, std::chrono::steady_clock::time_point)>;
+  using Consumer =
+      std::function<std::expected<bool, std::string>(const Generators::RoadPageAsset &,
+                                                     const Generators::RoadPageReference &,
+                                                     std::chrono::steady_clock::time_point)>;
   [[nodiscard]] std::expected<bool, std::string> Advance(const Consumer &consume);
 
   [[nodiscard]] bool Missing() const noexcept { return Missing_; }

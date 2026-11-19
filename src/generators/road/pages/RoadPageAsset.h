@@ -28,6 +28,7 @@ struct RoadPageAddress {
   std::optional<double> PositionErrorM = std::nullopt;
   RoadDisplayPolicy DisplayPolicy = RoadDisplayPolicy::UpperOnly;
   bool Clustered = false;
+  [[nodiscard]] bool operator==(const RoadPageAddress &) const = default;
 };
 
 struct RoadPageAsset {

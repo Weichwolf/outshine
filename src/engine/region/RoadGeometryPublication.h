@@ -27,7 +27,7 @@ public:
         const TangentFrame &frame);
   [[nodiscard]] std::expected<bool, std::string>
   Advance(const Generators::RoadPageAsset &page,
-          std::string_view key,
+          const Generators::RoadPageReference &reference,
           std::chrono::steady_clock::time_point until);
   [[nodiscard]] std::expected<void, std::string> Finish();
   [[nodiscard]] size_t HeapBytes() const noexcept;

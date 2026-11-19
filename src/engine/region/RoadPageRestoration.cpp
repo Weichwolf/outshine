@@ -130,7 +130,7 @@ std::expected<bool, std::string> RoadPageRestoration::Advance(const Consumer &co
       if (const auto loaded = Collect(); !loaded) { return std::unexpected(loaded.error()); }
       if (!Loaded_ || Missing_) { return false; }
     }
-    const auto accepted = consume(*Loaded_, Manifest_->Pages[Selected_[Next_]].Key, until);
+    const auto accepted = consume(*Loaded_, Manifest_->Pages[Selected_[Next_]], until);
     if (!accepted) { return std::unexpected(accepted.error()); }
     if (!*accepted) { return false; }
     FinishPage();
@@ -188,26 +188,21 @@ std::expected<void, std::string> RoadPageRestoration::Collect() {
     return std::unexpected("road restoration received metadata instead of payload");
   }
   Loaded_ = std::move(loaded->Page);
-  if (!Loaded_ || Loaded_->Address.PlanKey != Manifest_->PlanKey ||
-      Loaded_->Address.MaterialKey != Manifest_->MaterialKey ||
-      Loaded_->Address.Appearance != reference.Appearance || Loaded_->Address.MaterialIndex != 0 ||
-      Loaded_->Address.Anchor.LongitudeDeg != Manifest_->Anchor.LongitudeDeg ||
-      Loaded_->Address.Anchor.LatitudeDeg != Manifest_->Anchor.LatitudeDeg ||
-      Loaded_->Address.Level != reference.Level || Loaded_->Address.Parts != reference.Parts ||
-      Loaded_->Address.PositionErrorM != reference.PositionErrorM ||
-      Loaded_->Address.DisplayPolicy != reference.DisplayPolicy ||
-      Loaded_->Address.Clustered != reference.Clustered ||
-      loaded->NativeBytes != reference.ByteCount) {
+  if (!Loaded_ || Loaded_->Address != Generators::StoredRoadPageAddress(*Manifest_, reference) ||
+      loaded->NativeBytes != reference.ByteCount ||
+      (!reference.ShapeKey.empty() && reference.Sources.size() != reference.Parts.size())) {
     return std::unexpected(
         "road restoration product differs from its plan, material, appearance or frame");
   }
   NativeBytes_ += loaded->NativeBytes;
   Meshing_ += Loaded_->Geometry.Swept;
   for (const auto &diagnostic : Loaded_->Geometry.Diagnostics) {
+    const bool shared = !reference.ShapeKey.empty();
+    const auto index = diagnostic.Part.Index;
     Log::Warn(LogTag::World,
               "road_page_part_rejected",
-              {{"source", std::to_string(diagnostic.Source)},
-               {"part", static_cast<int64_t>(diagnostic.Part.Index)},
+              {{"source", std::to_string(shared ? reference.Sources[index] : diagnostic.Source)},
+               {"part", static_cast<int64_t>(shared ? reference.Parts[index].Index : index)},
                {"reason", diagnostic.Empty ? "empty_native_mesh" : "partial_native_mesh"},
                {"refused", static_cast<int64_t>(diagnostic.Stats.Refused)}});
   }

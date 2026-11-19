@@ -28,6 +28,8 @@ struct RoadPageReference {
   std::optional<double> PositionErrorM = std::nullopt;
   RoadDisplayPolicy DisplayPolicy = RoadDisplayPolicy::UpperOnly;
   bool Clustered = false;
+  std::string ShapeKey;
+  std::vector<uint64_t> Sources;
 };
 
 struct RoadPageManifest {
@@ -41,6 +43,8 @@ struct RoadPageManifest {
 };
 
 [[nodiscard]] std::string RoadPageManifestAppearanceKey(std::span<const RoadPageReference> pages);
+[[nodiscard]] RoadPageAddress StoredRoadPageAddress(const RoadPageManifest &manifest,
+                                                    const RoadPageReference &page);
 
 [[nodiscard]] std::optional<std::vector<uint8_t>>
 EncodeRoadPageManifest(const RoadPageManifest &manifest, size_t bytesMost);

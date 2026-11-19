@@ -194,6 +194,34 @@ size_t RoadPageRecipeCapacityBytes(const RoadPageRecipe &recipe) {
   return result;
 }
 
+std::expected<std::string, RoadPageRecipeCodecError>
+IdentifyRoadPageShape(RoadPageRecipe &recipe, std::vector<uint64_t> &sources, size_t bytesMost) {
+  constexpr auto limit = std::numeric_limits<uint32_t>::max();
+  if (recipe.Intervals.size() > limit ||
+      recipe.Junctions.size() > limit - recipe.Intervals.size()) {
+    return std::unexpected(RoadPageRecipeCodecError::CapacityExceeded);
+  }
+  sources.clear();
+  sources.reserve(recipe.Intervals.size() + recipe.Junctions.size());
+  for (auto &interval : recipe.Intervals) {
+    const auto local = static_cast<uint32_t>(sources.size());
+    sources.push_back(interval.Lane);
+    interval.Edge = local;
+    interval.Lane = local;
+    for (auto &station : interval.Stations) { station.Node = 0; }
+  }
+  for (auto &junction : recipe.Junctions) {
+    const auto local = static_cast<uint32_t>(sources.size());
+    sources.push_back(junction.Node);
+    junction.Index = local;
+    junction.Node = local;
+  }
+  static const auto domain = Sha256Hex("road-render-shape-1");
+  const auto bytes = EncodeRoadPageRecipe(domain, recipe, bytesMost);
+  if (!bytes) { return std::unexpected(bytes.error()); }
+  return Sha256Hex(bytes->data(), bytes->size());
+}
+
 std::expected<size_t, RoadPageRecipeCodecError> RoadPageRecipeDecodeCapacity(size_t bytes) {
   constexpr size_t expansion = std::max(
       {size_t{1},

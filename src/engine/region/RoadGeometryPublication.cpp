@@ -111,8 +111,9 @@ RoadGeometryPublication::Begin(Render::SceneRenderer &renderer,
 
 std::expected<bool, std::string>
 RoadGeometryPublication::Advance(const Generators::RoadPageAsset &page,
-                                 std::string_view key,
+                                 const Generators::RoadPageReference &reference,
                                  std::chrono::steady_clock::time_point until) {
+  const std::string_view key = reference.Key;
   const auto began = std::chrono::steady_clock::now();
   const auto &mesh = page.Geometry.Mesh;
   const size_t sourceVertices = mesh.PositionM.size() / 3;
@@ -143,7 +144,7 @@ RoadGeometryPublication::Advance(const Generators::RoadPageAsset &page,
   PackingMs_ += std::chrono::duration<double, std::milli>(packed - began).count();
   if (Packed_.size() != vertices) { return false; }
   auto coverage = SourceCoverage::FromRanges(
-      std::string(Expected_.Revision()), Expected_.SourceCount(), Ranges(page.Address.Parts));
+      std::string(Expected_.Revision()), Expected_.SourceCount(), Ranges(reference.Parts));
   if (!coverage || !Expected_.Contains(*coverage)) {
     return std::unexpected("road publication has foreign source coverage");
   }

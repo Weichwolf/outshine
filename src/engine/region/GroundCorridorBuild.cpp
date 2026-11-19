@@ -284,9 +284,10 @@ Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
   }
   auto *restore = state.RoadRestoration();
   auto *publication = state.RoadPublication();
-  const auto advanced = restore->Advance([publication](const auto &page, auto key, auto until) {
-    return publication->Advance(page, key, until);
-  });
+  const auto advanced =
+      restore->Advance([publication](const auto &page, const auto &reference, auto until) {
+        return publication->Advance(page, reference, until);
+      });
   state.SamplesProductPeak();
   if (!advanced) {
     Error = advanced.error();
