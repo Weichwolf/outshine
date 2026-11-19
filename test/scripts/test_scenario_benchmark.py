@@ -102,8 +102,9 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(report['cpu_times']['work']['p99_ms'], max(work))
             self.assertEqual(report['gpu_times']['rendered_frames'], 8)
             duration = 8 / 120
-            for actual, expected in zip(report['motion']['finish']['position_m'],
-                                        [duration, -2 * duration, 4 + 3 * duration], strict=True):
+            position = report['motion']['finish']['position_m']
+            self.assertEqual(len(position), 3)
+            for actual, expected in zip(position, [duration, -2 * duration, 4 + 3 * duration]):
                 self.assertAlmostEqual(actual, expected, places=9)
             self.assertAlmostEqual(report['motion']['start']['perspective_fov_deg'], 70, places=9)
             self.assertAlmostEqual(report['motion']['finish']['perspective_fov_deg'], 70, places=9)
@@ -131,8 +132,7 @@ class ScenarioBenchmark(unittest.TestCase):
             metrics = {metric['name']: metric['value'] for metric in report['metrics']}
             self.assertEqual(metrics.get('cull snapshot: available'), 0)
             self.assertGreaterEqual(report['phases_ms']['final_inspection'], 0)
-            for axis, value in zip(('east', 'up', 'south'),
-                                   report['motion']['finish']['position_m'], strict=True):
+            for axis, value in zip(('east', 'up', 'south'), position):
                 self.assertAlmostEqual(metrics[f'render last submitted camera: eye {axis}'],
                                        value, places=9)
 

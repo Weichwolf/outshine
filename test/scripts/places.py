@@ -9,6 +9,7 @@ import os
 import re
 import stat
 import subprocess
+import sys
 import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -193,7 +194,8 @@ def main():
     parser.add_argument("--online", action="store_true")
     parser.add_argument("--check-budget", action="store_true")
     parser.add_argument("--bench", action="store_true")
-    parser.add_argument("--bench-profile", choices=("rtx3060", "iris", "a18"), default="rtx3060")
+    parser.add_argument("--bench-profile", choices=("rtx3060", "iris", "a18"),
+                        default="a18" if sys.platform == "darwin" else "rtx3060")
     parser.add_argument("--driver", help="selected GPU driver version, if not available from Vulkan")
     parser.add_argument("--device", help="Vulkan device name substring (default: GPU of bench profile)")
     parser.add_argument("--max-seconds", type=float, default=900)
@@ -220,7 +222,7 @@ def main():
     if options.bench:
         from place_bench import benchmark_places
 
-        return benchmark_places(available, selected, options, benchmark_report)
+        return benchmark_places(available, selected, options, benchmark_report, keep_latest)
     results = []
     for name in selected:
         try:

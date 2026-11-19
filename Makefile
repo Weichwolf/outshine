@@ -6,15 +6,16 @@ ifeq ($(shell uname -s),Linux)
 LLVM_BIN ?= $(dir $(shell command -v clang-format-22 || command -v clang-format))
 GLSLANG ?= $(shell command -v glslang || command -v glslangValidator)
 PLATFORM_CMAKE_ARGS := -DCMAKE_TOOLCHAIN_FILE="$(ROOT)/cmake/Linux.cmake"
+BENCH_PROFILE ?= rtx3060
 else
 LLVM_BIN ?= /opt/homebrew/opt/llvm/bin
 GLSLANG ?= $(ROOT)/build/deps/install/bin/glslang
+BENCH_PROFILE ?= a18
 endif
 CLANG_FORMAT ?= $(LLVM_BIN)/clang-format
 CMAKE_ARGS ?=
 PLACES_CATALOG ?= $(ROOT)/test/outshine/data/places
 PREPARE_SECONDS ?= 1800
-BENCH_PROFILE ?= rtx3060
 BENCH_ARGS ?=
 CMAKE_BUILD := cmake --build "$(BUILD_DIR)" --parallel
 .PHONY: all configure db shaders strip format lint lint-all lint-docs test test-all suite clean spotless help bench
@@ -30,7 +31,7 @@ all: configure strip ## build the application through CMake/Ninja using all core
 shaders: configure ## build the native shader package
 	@$(CMAKE_BUILD) --target outshine_shaders
 
-bench: ## benchmark twelve Places: still/turn/100 m/s flight; BENCH_PROFILE=rtx3060|iris|a18
+bench: ## benchmark twelve Places: still/turn/walk/flight; BENCH_PROFILE=rtx3060|iris|a18
 	@nice -n 10 $(MAKE) --no-print-directory all >&2
 	@cd "$(ROOT)" && python3 -B test/scripts/places.py --catalog "$(PLACES_CATALOG)" --client "$(BUILD_DIR)/outshine" --bench --bench-profile "$(BENCH_PROFILE)" $(BENCH_ARGS)
 

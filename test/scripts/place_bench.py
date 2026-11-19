@@ -205,6 +205,9 @@ def summarize(reports):
         "peak_footprint_bytes": field("process_memory", "peak_footprint_bytes"),
         "gpu_allocated_bytes_after": field("gpu_memory", "resource_allocated_bytes"),
         "warm_load_ms": field("phases_ms", "preload"),
+        "source_remote_starts": field("loading", "prepared", "remote_starts"),
+        "source_fetched_mib": field("loading", "prepared", "fetched_mib"),
+        "structure_wait_ms": field("loading", "prepared", "waits", "structure", "ms"),
         "gpu_passes": {group: {key: field("gpu_profile", "gpu_passes", group, key)
                                  for key in ("p50_ms", "p99_ms", "mean_ms")}
                         for group in GROUPS},
@@ -274,7 +277,7 @@ def table_row(row, budget, cpu_budget, gpu_budget):
     return "| " + " | ".join(values) + " |"
 
 
-def benchmark_places(available, selected, options, invoke):
+def benchmark_places(available, selected, options, invoke, publish_shot=None):
     began = time.monotonic()
     deadline = began + options.max_seconds
     metadata = driver_metadata()
@@ -296,6 +299,10 @@ def benchmark_places(available, selected, options, invoke):
                 driver = selected_driver(metadata, row["gpu"], options.driver)
                 row["driver"] = driver
                 identities.add((row["cpu"], row["gpu"], driver, row["commit"]))
+                if publish_shot is not None and case == "Drehung" and row["complete"]:
+                    last_image = options.reports / name / case / str(output["runs"]) / "image.png"
+                    image, digest = publish_shot(last_image, options.shots, name)
+                    row.update({"image": str(image), "sha256": digest})
             except ERRORS as error:
                 row = {"place": name, "case": case, "complete": False, "error": str(error)}
                 print(f"{name}/{case}: {error}", file=sys.stderr, flush=True)

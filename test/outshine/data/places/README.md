@@ -26,6 +26,7 @@ geodätische Kamera, feste Uhr und positive Rendergröße.
 ```sh
 make shots PLACE=Wien
 make prepare-place PLACE=Wien PREPARE_SECONDS=1800
+make bench BENCH_PROFILE=a18 BENCH_ARGS=Wien
 python3 -B test/scripts/places.py --catalog test/outshine/data/places Wien Tokyo
 ```
 
@@ -33,6 +34,9 @@ python3 -B test/scripts/places.py --catalog test/outshine/data/places Wien Tokyo
 fehlende Quellen online, baut fehlende Assets und nimmt anschließend die Szene auf.
 `PLACES_CATALOG` wählt einen anderen Katalog, `OUTSHINE_CACHE_DIR` den Quellcache.
 `SHOTS_ARGS` übergibt zusätzliche Treiberparameter, etwa `--check-budget`.
+`make bench` misst Stillstand, Drehung, Gehen und Flug offline mit drei Wiederholungen.
+Eine vollständige Drehung aktualisiert das Place-Bild. Ohne Ortsfilter nimmt der
+Benchmark den gesamten Katalog. `BENCH_ARGS` wählt Orte oder Treiberparameter.
 Pro Ort bleibt das neueste erfolgreiche Hash-PNG unter build/shots/places erhalten.
 Private Berichte/Logdateien liegen im System-Tempverzeichnis. CPU/GPU-p99 und
 Vollständigkeit stehen im unveränderten nativen Benchmarkbericht; eine erfolgreiche
@@ -48,5 +52,5 @@ Die übrigen erhaltenen Szenarien liegen unter test/outshine/data/diagnostic-pla
 der Treiber wählt sie mit `--catalog test/outshine/data/diagnostic-places`. Ihre bisherigen roten Befunde bleiben offen. Geräteabnahme:
 vollständige vorbereitete Welten, schnellstmöglicher Aufbau mit begründeten Ladezielen je Szene,
 genau Ziel-fps Frames/360 Grad in einer Sekunde, p99 <=1000/Ziel-fps ms. A18-Pro-Ziel:
-1280×720/60 einschließlich p99. Internet-Erwerb separat messen.
+1280×720/30 einschließlich p99. Internet-Erwerb separat messen.
 Fehlende Cachebytes sind eine unerfüllte Voraussetzung, kein Beleg für zu langsamen Warmaufbau.
