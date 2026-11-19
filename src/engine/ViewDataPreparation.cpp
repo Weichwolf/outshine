@@ -73,6 +73,18 @@ Holds<std::vector<Around>> Engine::State::ViewPreparationPath(const Scenario::Vi
 }
 
 Result Engine::prepareViewData(double durationS, double patienceS) {
+  return prepareViewData(durationS, patienceS, {});
+}
+
+Result Engine::prepareCameraPathData(std::span<const Vec3> positionsM, double patienceS) {
+  if (positionsM.empty() || positionsM.size() > TerrainPathPlan::MaximumPoints) {
+    return std::unexpected("view data path has an invalid point count");
+  }
+  return prepareViewData(0.0, patienceS, positionsM);
+}
+
+Result
+Engine::prepareViewData(double durationS, double patienceS, std::span<const Vec3> positionsM) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   if (!std::isfinite(durationS) || durationS < 0.0 || !std::isfinite(patienceS) ||
@@ -91,7 +103,18 @@ Result Engine::prepareViewData(double durationS, double patienceS) {
   const auto &view = S_->Session.Views->Active();
   const auto deadline =
       began + std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(patienceS));
-  auto path = S_->ViewPreparationPath(view, durationS, deadline);
+  auto path = [&] -> Holds<std::vector<Around>> {
+    if (positionsM.empty()) { return S_->ViewPreparationPath(view, durationS, deadline); }
+    std::vector<Around> coverage;
+    coverage.reserve(positionsM.size());
+    for (const Vec3 &position : positionsM) {
+      if (!std::ranges::all_of(position.Axis, [](double value) { return std::isfinite(value); })) {
+        return std::unexpected("view data path has a nonfinite camera position");
+      }
+      coverage.push_back(S_->TerrainCoverageAt(S_->GeographicFocusFor(position)));
+    }
+    return coverage;
+  }();
   if (!path) { return std::unexpected(path.error()); }
   std::vector<Data::TileId> roadTiles;
   if (S_->World.OsmTransport && S_->World.OsmTransport->Current()) {

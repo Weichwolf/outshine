@@ -256,6 +256,7 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
       {"phases_ms",
        {{"setup", report.SetupMs},
         {"preload", report.PreloadMs},
+        {"path_preparation", report.PathPreparationMs},
         {"unpaced_window", report.WindowMs},
         {"final_gpu_flush", report.FlushMs},
         {"final_inspection", report.InspectionMs},

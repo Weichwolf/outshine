@@ -40,6 +40,7 @@ struct ScenarioBenchmarkReport {
   double InspectionMs = 0;
   double ImageMs = 0;
   std::optional<double> ImageRowVariation;
+  double PathPreparationMs = 0;
   double HardwareMs = 0;
   std::optional<std::array<double, 3>> LoadBefore;
   std::optional<std::array<double, 3>> LoadAfter;

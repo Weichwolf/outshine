@@ -79,6 +79,29 @@ std::expected<double, std::string> FrameSyncWait(std::span<const DiagnosticSampl
   return found->Value;
 }
 
+Result PrepareMotionData(Engine &engine,
+                         const BenchmarkMotion &motion,
+                         const ScenarioBenchmarkOptions &options,
+                         ScenarioBenchmarkReport &report) {
+  if (!engine.declaration().Ground.Declared || report.Motion.LinearVelocityMps == Vec3{}) {
+    return {};
+  }
+  const auto began = Clock::now();
+  std::vector<Vec3> positions;
+  positions.reserve(report.Motion.Frames + 1);
+  positions.push_back(report.Start.PositionM);
+  for (size_t at = 0; at < report.Motion.Frames; ++at) {
+    auto current = motion.At(at);
+    if (!current) { return std::unexpected(std::string(current.error())); }
+    positions.push_back(current->PositionM);
+  }
+  const double leftS = options.PreloadSeconds - (report.PreloadMs + ElapsedMs(began)) / 1000.0;
+  if (leftS <= 0) { return std::unexpected("no preload time remains for the camera path"); }
+  const auto prepared = engine.prepareCameraPathData(positions, leftS);
+  report.PathPreparationMs = ElapsedMs(began);
+  return prepared;
+}
+
 Result MeasureFrames(Engine &engine,
                      const BenchmarkMotion &motion,
                      ScenarioBenchmarkReport &report,
@@ -238,12 +261,15 @@ RunScenarioBenchmark(const ScenarioBenchmarkOptions &options) {
     return std::unexpected("the initial benchmark view is not fully refined");
   }
   report.PreloadMs = ElapsedMs(preloadAt);
-  report.Prepared = engine.loading();
   if (!engine.renderer().camera(report.Start)) {
     return std::unexpected("scenario benchmark has no prepared camera");
   }
   const auto motion = BenchmarkMotion::Make(report.Start, report.Motion);
   if (!motion) { return std::unexpected(std::string(motion.error())); }
+  if (const auto ready = PrepareMotionData(engine, *motion, options, report); !ready) {
+    return std::unexpected(ready.error());
+  }
+  report.Prepared = engine.loading();
   if (const auto measured = MeasureFrames(engine, *motion, report, *timing); !measured) {
     return std::unexpected(measured.error());
   }

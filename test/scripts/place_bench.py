@@ -205,7 +205,11 @@ def summarize(reports):
         "peak_rss_bytes": field("process_memory", "peak_resident_bytes"),
         "peak_footprint_bytes": field("process_memory", "peak_footprint_bytes"),
         "gpu_allocated_bytes_after": field("gpu_memory", "resource_allocated_bytes"),
-        "warm_load_ms": field("phases_ms", "preload"),
+        "warm_load_ms": median([
+            r["phases_ms"]["preload"] + r["phases_ms"].get("path_preparation", 0)
+            for r in reports
+        ]),
+        "path_preparation_ms": field("phases_ms", "path_preparation"),
         "source_remote_starts": field("loading", "prepared", "remote_starts"),
         "source_fetched_mib": field("loading", "prepared", "fetched_mib"),
         "structure_wait_ms": field("loading", "prepared", "waits", "structure", "ms"),
@@ -251,6 +255,7 @@ def run_case(source, case, options, invoke, deadline, seed=None):
     result = summarize(reports)
     result["warmup"] = {
         "preload_ms": preparation["phases_ms"]["preload"],
+        "path_preparation_ms": preparation["phases_ms"].get("path_preparation"),
         "loading": preparation.get("loading", {}).get("prepared"),
         "report": str(work / "warmup" / "benchmark.json"),
     }

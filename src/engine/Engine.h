@@ -228,6 +228,8 @@ public:
 
   [[nodiscard]] Result prepareViewData(double durationS, double patienceS);
 
+  [[nodiscard]] Result prepareCameraPathData(std::span<const Vec3> positionsM, double patienceS);
+
   [[nodiscard]] Loading loading() const;
 
   [[nodiscard]] double loadProgress() const;
@@ -286,6 +288,8 @@ private:
   [[nodiscard]] Result preloadWithQuality(double patienceS,
                                           WorldQuality required,
                                           const std::function<void(const Loading &)> &tell);
+  [[nodiscard]] Result
+  prepareViewData(double durationS, double patienceS, std::span<const Vec3> positionsM);
   [[nodiscard]] Result render(Extent frame);
   [[nodiscard]] Result readPixels(std::vector<uint8_t> &rgba);
   [[nodiscard]] Result readPixels(Buffer which, std::vector<float> &out);
