@@ -115,8 +115,8 @@ int main() {
     if (!all || !one) { continue; }
     actual = std::move(*all);
     expected = std::move(*one);
-    CHECK(actual.Prints.size() == 2 && actual.UnsupportedMeshes == 1,
-          "the source and its explicit omission remain counted");
+    CHECK(actual.Prints.size() == 2 && actual.UnsupportedMeshes == 0,
+          "verified empty recipes preserve source coverage without an unsupported mesh");
     CHECK(actual.Digest == expected.Digest && actual.OccupiedCells == expected.OccupiedCells,
           "known-empty input adds no Fine, Shell, Massed or projected geometry");
     CHECK(actual.CellShellErrorM[cellAt] == expected.CellShellErrorM[cellAt] &&

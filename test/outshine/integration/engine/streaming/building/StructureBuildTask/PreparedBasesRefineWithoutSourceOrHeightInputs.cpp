@@ -787,10 +787,9 @@ void UnsupportedMass() {
   const auto ready = BakePreparedStructures(*restored, raw, mesher, *scratch);
   AttachPreparedContacts(reference, *base);
   CHECK(original && ready && ready->Digest == reference.Digest &&
-            ready->Prints == reference.Prints &&
-            ready->UnsupportedMeshes == reference.UnsupportedMeshes,
-        "native unknown shape preserves valid neighbours, footprints and the original mesh "
-        "diagnostic");
+            ready->Prints == reference.Prints && ready->UnsupportedMeshes == 0 &&
+            reference.UnsupportedMeshes == 1,
+        "the verified empty mass preserves the neighbouring meshes and both source footprints");
 }
 
 }

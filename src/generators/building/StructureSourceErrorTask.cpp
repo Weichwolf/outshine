@@ -1,4 +1,5 @@
 #include "StructureSourceErrorTask.h"
+#include "PreparedStructurePlan.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -57,6 +58,7 @@ std::expected<void, StructureSurfaceErrorFailure> StructureSourceErrorTask::Sele
         Base_->Structures[Source_].Layout.Cell.Index != *View_.RequestedCell) {
       continue;
     }
+    if (KnownEmptyPreparedStructure(*Base_, Source_)) { continue; }
     Phase_ = Phase::Reference;
     return BeginMesh();
   }

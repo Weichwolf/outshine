@@ -31,7 +31,7 @@ std::string GeometryKey(const std::string &base, const RawTile &view) {
   std::string_view family = "building-lod-6";
   if (intrinsic) {
     family = view.RequestedDetail == LevelOfDetail::Fine ? "building-static-lod-4"
-                                                         : "building-static-lod-5";
+                                                         : "building-static-lod-6";
   }
   if (!text(family) || !text(base) ||
       !bytes.Number(view.RequestedDetail ? static_cast<int>(*view.RequestedDetail) : -1) ||

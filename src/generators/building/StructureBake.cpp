@@ -296,11 +296,7 @@ std::expected<void, StructureBakeError> EmitStructure(const PreparedStructure &p
 
   out.Prints.push_back(fp);
   out.FootprintDetails.push_back(level);
-  if (*empty) {
-    ++out.UnsupportedMeshes;
-  } else {
-    IncludeShellError(out, cellAt, shellError);
-  }
+  if (!*empty) { IncludeShellError(out, cellAt, shellError); }
 
   return {};
 }
