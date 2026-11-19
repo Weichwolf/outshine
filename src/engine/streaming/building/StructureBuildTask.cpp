@@ -108,23 +108,24 @@ struct StructureBuildTask::Comparison {
            !tile.FallbackHeights;
   }
 
-  bool QualifyShell(const Generators::RawTile &raw, Output &output) {
+  bool
+  QualifyShell(const Generators::RawTile &raw, Generators::BakedTile &variant, Output &output) {
     if (!Request.UseShellBound || raw.RequestedDetail != LevelOfDetail::Shell ||
         !raw.RequestedCell || *raw.RequestedCell == 0 ||
-        *raw.RequestedCell > Variant->CellShellErrorM.size()) {
+        *raw.RequestedCell > variant.CellShellErrorM.size()) {
       return false;
     }
-    const double error = Variant->CellShellErrorM[*raw.RequestedCell - 1];
+    const double error = variant.CellShellErrorM[*raw.RequestedCell - 1];
     if (!(error > 0) || !std::isfinite(error)) { return false; }
-    const auto bounds = Variant->BoundsAt(raw.AnchorEcef);
+    const auto bounds = variant.BoundsAt(raw.AnchorEcef);
     const GeometryErrorBound projected{
         .SourceKey = Request.SourceKey, .Bounds = bounds, .UpperM = error};
     if (!projected.Allows(
             Request.SourceKey, raw.EyeEcef, raw.Projection, Generators::kStructureEyeReuseM)) {
       return false;
     }
-    Variant->WorldBounds = bounds;
-    Variant->SurfaceError =
+    variant.WorldBounds = bounds;
+    variant.SurfaceError =
         Generators::StructureSurfaceErrorInterval{.Upper = {.SourceKey = Request.SourceKey,
                                                             .ReferenceToVariantM = error,
                                                             .VariantToReferenceM = error}};
@@ -143,7 +144,7 @@ struct StructureBuildTask::Comparison {
       Finish(output, Generators::StructureSurfaceErrorFailure::InvalidGeometry);
       return;
     }
-    if (QualifyShell(raw, output)) { return; }
+    if (QualifyShell(raw, *Variant, output)) { return; }
     ReferenceRaw = raw;
     ReferenceRaw.RequestedDetail = LevelOfDetail::Fine;
     ReferenceRaw.Projection.AllowedErrorPx = 0.0;
