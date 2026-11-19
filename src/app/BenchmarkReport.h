@@ -7,6 +7,7 @@
 #include "MemoryStatus.h"
 #include <Engine.h>
 #include <array>
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <vector>
@@ -19,6 +20,11 @@ struct BenchmarkFrameSample {
   double RenderMs = 0;
   double SyncWaitMs = 0;
   bool Refined = false;
+};
+
+struct BenchmarkWorldGap {
+  size_t FirstFrame = 0;
+  std::string Blockers;
 };
 
 struct ScenarioBenchmarkReport {
@@ -49,6 +55,7 @@ struct ScenarioBenchmarkReport {
   std::vector<BenchmarkFrameSample> Frames;
   std::vector<Render::GpuFrameSample> GpuSamples;
   std::vector<DiagnosticSample> Measures;
+  std::vector<BenchmarkWorldGap> WorldGaps;
   std::string FinalWorldBlockers;
 };
 

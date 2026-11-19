@@ -131,6 +131,10 @@ Result MeasureFrames(Engine &engine,
     if (*waited > wallMs) {
       return std::unexpected("synchronous frame waiting exceeds the measured frame duration");
     }
+    if (!refined && (report.Frames.empty() || report.Frames.back().Refined)) {
+      report.WorldGaps.push_back(
+          {.FirstFrame = frame + 1, .Blockers = engine.unsettledReasons(WorldQuality::Refined)});
+    }
     report.Frames.push_back({.WallMs = wallMs,
                              .AdvanceMs = advanceMs,
                              .RenderMs = renderMs,

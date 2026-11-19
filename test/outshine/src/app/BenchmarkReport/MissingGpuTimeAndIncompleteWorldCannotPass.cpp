@@ -34,7 +34,7 @@ int main() {
   CHECK(!json.is_discarded() && json["scenario"] == report.Scenario,
         "report serialization preserves escaped scenario identity");
   CHECK(json["measurement_complete"] == true && json["world_complete"] == true &&
-            json["budget"]["met"] == true,
+            json["budget"]["met"] == true && json["world_gaps"].empty(),
         "a complete measured window has an explicit independent budget result");
   CHECK(json["phases_ms"]["final_inspection"] == report.InspectionMs,
         "post-window inspection is explicit and never charged to the frame budget");
@@ -94,10 +94,13 @@ int main() {
             json["budget"]["met"] == false,
         "one missing GPU timestamp preserves raw evidence and blocks complete GPU percentiles");
   report.Frames.front().Refined = false;
+  report.WorldGaps = {{.FirstFrame = 1, .Blockers = "ground for current request pending"}};
   json = decode();
   CHECK(json["world_complete"] == false && json["unrefined_frames"] == 1 &&
-            json["budget"]["met"] == false,
-        "a partially refined moving world cannot pass the budget gate");
+            json["budget"]["met"] == false && json["world_gaps"].size() == 1 &&
+            json["world_gaps"][0]["first_frame"] == 1 &&
+            json["world_gaps"][0]["blockers"] == report.WorldGaps.front().Blockers,
+        "an incomplete moving world retains the lost frame and its cause after recovery");
   report.Motion.Frames = 3;
   json = decode();
   CHECK(json["measurement_complete"] == false && json["cpu_times"]["complete"] == false,

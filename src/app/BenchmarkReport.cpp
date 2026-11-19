@@ -213,6 +213,10 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
 #else
   constexpr std::string_view backend = "Vulkan";
 #endif
+  auto worldGaps = ReportJson::array();
+  for (const auto &gap : report.WorldGaps) {
+    worldGaps.push_back({{"first_frame", gap.FirstFrame}, {"blockers", gap.Blockers}});
+  }
   const ReportJson json{
       {"benchmark_version", 2},
       {"mode", "scenario"},
@@ -266,6 +270,7 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
       {"image_row_variation",
        report.ImageRowVariation ? ReportJson(*report.ImageRowVariation) : ReportJson(nullptr)},
       {"unrefined_frames", unrefined},
+      {"world_gaps", std::move(worldGaps)},
       {"final_world_blockers", report.FinalWorldBlockers},
       {"budget",
        {{"cpu_p99_met", cpuPass},
