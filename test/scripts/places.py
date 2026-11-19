@@ -14,7 +14,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from place_turn import turn_scenario
-from place_gpu_profile import read_vulkan_profile
+from place_gpu_profile import read_metal_profile, read_vulkan_profile
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -82,14 +82,18 @@ def benchmark_report(prepared, view, options, work, frames, angular="0,0,0",
     (work / "command.json").write_text(json.dumps(command, indent=2) + "\n")
     with (work / "run.log").open("w") as log:
         environment = dict(os.environ)
-        if getattr(options, "bench", False) and options.bench_profile != "a18":
-            environment["OUTSHINE_VULKAN_DEVICE"] = options.device or {
-                "rtx3060": "RTX 3060", "iris": "Iris"
-            }[options.bench_profile]
+        if getattr(options, "bench", False):
             for old in work.glob("gpu-profile.*.json"):
                 if old.is_file() and not old.is_symlink():
                     old.unlink()
-            environment["OUTSHINE_VULKAN_ENCODER_PROFILE"] = str(work.resolve() / "gpu-profile")
+            profile = str(work.resolve() / "gpu-profile")
+            if options.bench_profile == "a18":
+                environment["OUTSHINE_METAL_ENCODER_PROFILE"] = profile
+            else:
+                environment["OUTSHINE_VULKAN_DEVICE"] = options.device or {
+                    "rtx3060": "RTX 3060", "iris": "Iris"
+                }[options.bench_profile]
+                environment["OUTSHINE_VULKAN_ENCODER_PROFILE"] = profile
         result = subprocess.run(
             command,
             check=False,
@@ -107,8 +111,9 @@ def benchmark_report(prepared, view, options, work, frames, angular="0,0,0",
     report = json.loads(report_path.read_text())
     if report.get("benchmark_version") != 2 or report.get("mode") != "scenario":
         raise RuntimeError(f"{work.name}: unsupported benchmark report; {report_path}")
-    if getattr(options, "bench", False) and options.bench_profile != "a18":
-        report["gpu_profile"] = read_vulkan_profile(work, report)
+    if getattr(options, "bench", False):
+        read_profile = read_metal_profile if options.bench_profile == "a18" else read_vulkan_profile
+        report["gpu_profile"] = read_profile(work, report)
         report_path.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
     return report
 

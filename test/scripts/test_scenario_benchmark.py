@@ -10,6 +10,8 @@ import subprocess
 import tempfile
 import unittest
 
+from place_gpu_profile import read_metal_profile
+
 ROOT = Path(__file__).resolve().parents[2]
 CLIENT = Path(os.environ.get('OUTSHINE_CLIENT', ROOT / 'build/outshine')).resolve()
 SCENE = {
@@ -37,14 +39,19 @@ class ScenarioBenchmark(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='outshine-benchmark-passes-') as folder:
             output = Path(folder) / 'result.json'
             prefix = Path(folder) / 'gpu-profile'
-            environment = dict(os.environ, OUTSHINE_VULKAN_ENCODER_PROFILE=str(prefix))
+            profiler = ('OUTSHINE_METAL_ENCODER_PROFILE' if os.uname().sysname == 'Darwin'
+                        else 'OUTSHINE_VULKAN_ENCODER_PROFILE')
+            environment = dict(os.environ, **{profiler: str(prefix)})
             result = self.invoke('--scenario', json.dumps(SCENE), '--frames', '8',
                                  '--offline', '--output', str(output), env=environment)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             report = json.loads(output.read_text())
             profiles = list(Path(folder).glob('gpu-profile.*.json'))
-            if report['backend'] != 'Vulkan':
-                self.assertEqual(profiles, [])
+            if report['backend'] == 'Metal':
+                profile = read_metal_profile(Path(folder), report)
+                self.assertTrue(profile['available'], profile.get('error'))
+                self.assertEqual(len(profile['frames']), 8)
+                self.assertTrue(profile['encoders'])
                 return
             self.assertTrue(profiles)
             submissions = {}

@@ -42,6 +42,85 @@ def distribution(values):
             "mean_ms": statistics.mean(ordered)}
 
 
+def union_ticks(intervals):
+    total = end = 0
+    for start, stop in sorted(intervals):
+        total += max(0, stop - max(start, end))
+        end = max(end, stop)
+    return total
+
+
+def metal_encoder_result(submission):
+    gpu_begin, gpu_end = submission["calibration_gpu"]
+    cpu_begin, cpu_end = submission["calibration_cpu_ns"]
+    if not all(math.isfinite(n) for n in (cpu_begin, cpu_end)):
+        raise ValueError("invalid Metal counter calibration")
+    if cpu_end <= cpu_begin or gpu_end <= gpu_begin:
+        raise ValueError("non-increasing Metal counter calibration")
+    ms_per_tick = (cpu_end - cpu_begin) / (gpu_end - gpu_begin) / 1e6
+    encoders = {}
+    grouped = {group: [] for group in GROUPS}
+    for encoder in submission["encoders"]:
+        label = encoder["label"] or f"unnamed {encoder['kind']}"
+        start, stop, fragment_start, fragment_stop = encoder["ticks"]
+        intervals = [(start, stop)]
+        if encoder["kind"] == "render":
+            intervals.append((fragment_start, fragment_stop))
+        valid = encoder["available"] and all(gpu_begin <= a <= b <= gpu_end for a, b in intervals)
+        intervals = intervals if valid else [None]
+        encoders.setdefault(label, []).extend(intervals)
+        group = pass_group(label)
+        if group is not None:
+            grouped[group].extend(intervals)
+    return {
+        scope: {name: (union_ticks(values) * ms_per_tick if values and None not in values
+                       else None) for name, values in measures.items()}
+        for scope, measures in (("groups", grouped), ("encoders", encoders))
+    }
+
+
+def read_metal_profile(directory, report):
+    paths = sorted(directory.glob("gpu-profile.*.json"))
+    result = {"paths": [str(path) for path in paths], "gpu_passes": {},
+              "encoders": {}, "frames": [], "available": False,
+              "time_basis": "union of calibrated Metal encoder stage intervals per label/group; "
+                            "groups can overlap"}
+    submissions = {}
+    for path in paths:
+        profile = json.loads(path.read_text())
+        if profile["schema"] != 1 or profile["scope"] != "natural_encoder_boundaries":
+            raise ValueError("unsupported native Metal profile")
+        device = int(path.stem.rsplit(".", 1)[1])
+        for submission in profile["submissions"]:
+            key = device, submission["serial"]
+            if key in submissions:
+                raise ValueError("duplicate native Metal profile submission")
+            submissions[key] = submission
+    measured = sorted(((row["device"], row["submission"])
+                       for row in report["gpu_times"]["samples"]), key=lambda key: key[1])
+    if len(measured) != report["motion"]["frames"] or len(set(measured)) != len(measured) or any(
+        key not in submissions or submissions[key]["dropped_encoders"] for key in measured
+    ):
+        result["error"] = "Metal counters do not cover every measured submission"
+        return result
+    frames = [metal_encoder_result(submissions[key]) for key in measured]
+    for scope, output in (("encoders", "encoders"), ("groups", "gpu_passes")):
+        names = sorted({name for frame in frames for name in frame[scope]})
+        for name in names:
+            values = [frame[scope].get(name) for frame in frames]
+            samples = [value for value in values if value is not None]
+            stats = distribution(samples)
+            if stats:
+                stats.update({"sampled_frames": len(samples), "total_frames": len(frames)})
+            result[output][name] = stats
+    result["frames"] = [dict(frame, device=key[0], submission=key[1])
+                        for frame, key in zip(frames, measured)]
+    result["available"] = bool(frames) and all(
+        any(value is not None for value in frame["encoders"].values()) for frame in frames
+    )
+    return result
+
+
 def read_vulkan_profile(directory, report):
     paths = sorted(directory.glob("gpu-profile.*.json"))
     result = {"paths": [str(p) for p in paths], "frames": [], "gpu_passes": None,

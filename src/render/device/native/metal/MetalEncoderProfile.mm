@@ -21,7 +21,7 @@ namespace outshine::Render::Native::Metal {
 namespace {
 constexpr size_t kMaxEncoders = 128;
 constexpr size_t kSamplesPerEncoder = 4;
-constexpr size_t kMaxSubmissions = 256;
+constexpr size_t kMaxSubmissions = 1024;
 constexpr double kNanosecondsPerSecond = 1'000'000'000.0;
 static_assert(sizeof(MTLCounterResultTimestamp) == sizeof(uint64_t) &&
               alignof(MTLCounterResultTimestamp) == alignof(uint64_t) &&
