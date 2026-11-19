@@ -136,7 +136,6 @@ constexpr size_t kPlayableStructureCandidates = 1;
 constexpr size_t kRefinedStructureCandidates = 4;
 constexpr size_t kTerrainSheetsPerFrame = 48;
 constexpr size_t kTerrainResidencySheetsPerFrame = 64;
-constexpr size_t kEarthworkStampUnitsPerFrame = 2048;
 constexpr size_t kShapeCookItemsPerFrame = 262144;
 constexpr size_t kClassUploadBytesPerFrame = 1u << 20u;
 constexpr size_t kHaloNodesPerFrame = 32768;
@@ -547,36 +546,39 @@ Engine::State::BuildGroundBuildingStamps(const TangentFrame &standing,
                                          std::vector<EarthworkStamp> &yielding) {
   const auto sliceAt = std::chrono::steady_clock::now();
   if (state.BuildingEarthworks() == nullptr) {
-    state.BeginBuildingEarthworks(std::make_unique<Generators::BuildingFoundationJob>(
-        standing, state.Footprints().Revision(), state.Footprints().PinProducts()));
+    state.BeginBuildingEarthworks(
+        std::make_unique<Generators::BuildingFoundationTask>(*Services.Compute,
+                                                             standing,
+                                                             state.Footprints().Revision(),
+                                                             state.Footprints().PinProducts()));
   }
-  const auto advanced = state.BuildingEarthworks()->Advance(
-      {.Generation = state.Footprints().Revision(), .UnitsMost = kEarthworkStampUnitsPerFrame});
-  if (!advanced) {
-    Error = std::string(advanced.error());
-    return GroundBuildProgress::Failed;
-  }
+  auto stamped = state.BuildingEarthworks()->Take();
   state.RecordTerrainDeformationSlice(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceAt)
           .count());
   state.SamplesProductPeak();
-  if (!*advanced) { return GroundBuildProgress::Pending; }
-  auto stamped = state.BuildingEarthworks()->Take();
-  if (!stamped) {
-    Error = std::string(stamped.error());
+  if (!stamped) { return GroundBuildProgress::Pending; }
+  state.FinishBuildingEarthworks();
+  if (!*stamped) {
+    Error = std::string(stamped->error());
     return GroundBuildProgress::Failed;
   }
-  yielding = std::move(*stamped);
-  state.FinishBuildingEarthworks();
+  Published.RecordMetric(
+      "ground candidate: building foundation worker", (*stamped)->WorkerMs, "ms");
+  yielding = std::move((*stamped)->Stamps);
   return GroundBuildProgress::Ready;
 }
 
 bool Engine::State::GroundDeformationPending() const noexcept {
-  return World.GroundBuild && World.GroundBuild->TerrainDeformation() != nullptr;
+  return World.GroundBuild && (World.GroundBuild->TerrainDeformation() != nullptr ||
+                               World.GroundBuild->BuildingEarthworks() != nullptr);
 }
 
 bool Engine::State::AwaitGroundDeformation(double seconds) const {
   assert(GroundDeformationPending());
+  if (const auto *stamps = World.GroundBuild->BuildingEarthworks()) {
+    return stamps->AwaitSlice(seconds);
+  }
   return World.GroundBuild->TerrainDeformation()->AwaitSlice(seconds);
 }
 

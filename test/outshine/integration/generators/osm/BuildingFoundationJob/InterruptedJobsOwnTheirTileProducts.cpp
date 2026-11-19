@@ -1,13 +1,17 @@
 #include "BuildingField.h"
 #include "BuildingPhysicalProduct.h"
 #include "BuildingFoundationJob.h"
+#include "BuildingFoundationTask.h"
 #include "Check.h"
+#include "Tasks.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <semaphore>
 #include <span>
 #include <utility>
 
@@ -49,6 +53,29 @@ std::array<Owners, 2> Populate(Field &field) {
   const auto pins = field.PinProducts();
   return {{{.Physical = pins[0].Physical, .Coordinates = pins[0].Coordinates},
            {.Physical = pins[1].Physical, .Coordinates = pins[1].Coordinates}}};
+}
+
+void WorkerUsesPinnedInputs(const outshine::TangentFrame &frame,
+                            std::span<const outshine::EarthworkStamp> expected) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  Field field;
+  (void)Populate(field);
+  std::binary_semaphore releaseWorker(0);
+  Tasks worker(1);
+  const auto occupied = worker.Post([&] { releaseWorker.acquire(); });
+  Generators::BuildingFoundationTask task(worker, frame, field.Revision(), field.PinProducts());
+  field.ResetDerived();
+  CHECK(!task.Take(), "a waiting worker publishes no partial foundations after a field change");
+  releaseWorker.release();
+  const auto finished = worker.Post([] {});
+  CHECK(worker.AwaitCompletion(finished, 2) && worker.TakeCompletion(finished),
+        "the worker finishes the two pinned footprints");
+  CHECK(worker.TakeCompletion(occupied), "the preceding worker call has finished");
+  const auto product = task.Take();
+  CHECK(product && *product && std::ranges::equal((*product)->Stamps, expected),
+        "the worker transfers the original foundation geometry after the live field changes");
+  CHECK(!task.Take(), "the worker product transfers only once");
 }
 }
 
@@ -107,5 +134,6 @@ int main() {
   CHECK(completedOwners[0].Physical.expired() && completedOwners[1].Physical.expired() &&
             completedOwners[0].Coordinates.expired() && completedOwners[1].Coordinates.expired(),
         "completed transfer releases pins after their final use");
+  if (stamps) { WorkerUsesPinnedInputs(frame, *stamps); }
   return Report();
 }

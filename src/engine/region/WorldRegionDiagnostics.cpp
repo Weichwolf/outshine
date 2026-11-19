@@ -105,6 +105,10 @@ std::string Engine::State::GroundBuildDiagnostic() const {
       std::to_string(std::ranges::count_if(footprints.AcceptedInputs(),
                                            [](const auto &input) { return !input.Qualified; }));
   diagnostic += ", structure refinement=" + std::to_string(footprints.RefinementRemaining());
+  if (const auto *stamps = World.GroundBuild->BuildingEarthworks()) {
+    diagnostic += ", foundations visited=" + std::to_string(stamps->VisitedFootprints()) + "/" +
+                  std::to_string(footprints.FootprintCount());
+  }
   if (const auto *worker = World.GroundBuild->StreetGraphWorker(); worker != nullptr) {
     diagnostic += ", network phase=" + std::string(worker->PhaseName()) +
                   ", network advances=" + std::to_string(worker->Advances());

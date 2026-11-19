@@ -9,7 +9,7 @@
 #include "RoadHeightCoverage.h"
 #include "GroundWorldCandidate.h"
 #include "GroundBuildSchedule.h"
-#include "BuildingFoundationJob.h"
+#include "BuildingFoundationTask.h"
 #include "TerrainDeformationTask.h"
 #include "TerrainRefinement.h"
 #include "TerrainInputPreparation.h"
@@ -161,12 +161,12 @@ public:
     return TerrainDeformation_.get();
   }
 
-  [[nodiscard]] Generators::BuildingFoundationJob *BuildingEarthworks() noexcept {
+  [[nodiscard]] Generators::BuildingFoundationTask *BuildingEarthworks() noexcept {
     return BuildingEarthworks_.get();
   }
 
   void
-  BeginBuildingEarthworks(std::unique_ptr<Generators::BuildingFoundationJob> stamping) noexcept {
+  BeginBuildingEarthworks(std::unique_ptr<Generators::BuildingFoundationTask> stamping) noexcept {
     StampingCandidateHeapBytes_ = Candidate_.OwnedHeapBytes();
     BuildingEarthworks_ = std::move(stamping);
   }
@@ -499,7 +499,7 @@ private:
   bool CorridorsPlanned_ = false;
   size_t NextRoadSurfaceTransfer_ = 0;
   std::optional<Patchwork> Patchwork_;
-  std::unique_ptr<Generators::BuildingFoundationJob> BuildingEarthworks_;
+  std::unique_ptr<Generators::BuildingFoundationTask> BuildingEarthworks_;
   std::unique_ptr<Generators::TerrainDeformationTask> TerrainDeformation_;
   std::unique_ptr<Generators::Corridors::Job> CorridorJob_;
   std::unique_ptr<RoadPageConstruction> RoadPages_;

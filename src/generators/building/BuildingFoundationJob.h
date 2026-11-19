@@ -32,6 +32,9 @@ public:
 
   [[nodiscard]] std::expected<bool, std::string_view> Advance(Work work);
   [[nodiscard]] std::expected<std::vector<EarthworkStamp>, std::string_view> Take();
+
+  [[nodiscard]] size_t VisitedFootprints() const noexcept { return NextFootprint_; }
+
   [[nodiscard]] size_t HeapBytes() const noexcept;
 
 private:

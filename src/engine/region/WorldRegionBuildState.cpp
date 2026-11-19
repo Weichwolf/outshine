@@ -148,6 +148,7 @@ WorldRegionBuildState::AdvanceWater(Tasks &pool,
 }
 
 [[nodiscard]] bool WorldRegionBuildState::AdvancesRetirement(size_t sheetsMost) noexcept {
+  BuildingEarthworks_.reset();
   if (WaterWorker_) {
     WaterWorker_->Cancel();
     if (!WaterWorker_->Complete()) { return false; }
