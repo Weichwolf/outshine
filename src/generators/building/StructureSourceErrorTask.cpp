@@ -80,7 +80,7 @@ std::expected<void, StructureSurfaceErrorFailure> StructureSourceErrorTask::Adva
     return BeginMesh();
   }
   if (!Reference_) { return std::unexpected(StructureSurfaceErrorFailure::InvalidGeometry); }
-  auto &variant = Variant_.emplace(std::move(*baked));
+  const auto &variant = Variant_.emplace(std::move(*baked));
   const auto reset = Surface_.Reset({.Reference = Reference_->Built,
                                      .Variant = variant.Built,
                                      .SourceKey = Result_.Upper.SourceKey},
@@ -114,7 +114,7 @@ StructureSourceErrorTask::Step(const StructureMesher &mesher,
   if (stopping.load(std::memory_order_relaxed)) {
     return std::unexpected(StructureSurfaceErrorFailure::Cancelled);
   }
-  auto advanced = [&]() -> std::expected<void, StructureSurfaceErrorFailure> {
+  auto advanced = [&] -> std::expected<void, StructureSurfaceErrorFailure> {
     switch (Phase_) {
       case Phase::Source: return SelectSource();
       case Phase::Reference:
