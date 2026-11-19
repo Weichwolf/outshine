@@ -1331,12 +1331,24 @@ bool Engine::State::CollectGroundBuildingContacts(size_t landsMost) {
   return true;
 }
 
+void Engine::State::RetryGroundWithStreetSources() {
+  assert(!World.GroundRetirement);
+  World.Surface().RequestStreets();
+  World.GroundLookup.reset();
+  World.GroundLookupRequest.clear();
+  World.GroundRetirement = std::move(World.GroundBuild);
+}
+
 Engine::State::GroundBuildProgress
 Engine::State::BeginGroundRegionLookup(WorldRegionBuildState &state) {
   using Phase = WorldRegionBuildState::RegionPhase;
   const auto assets = World.Surface().RegionAssets();
   const auto vectors = state.Candidate().Sources().Vectors;
   if (!assets || !vectors || state.TransportSnapshot() != nullptr) {
+    if (World.Surface().UsesCachedRegionNetwork()) {
+      RetryGroundWithStreetSources();
+      return GroundBuildProgress::Pending;
+    }
     state.FinishRegion({}, Phase::Bypass);
     return GroundBuildProgress::Ready;
   }
@@ -1392,6 +1404,10 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
   Published.RecordMetric("ground region: native asset bytes",
                          result.Loaded ? static_cast<double>(result.Loaded->ReadBytes) : 0.0,
                          "bytes");
+  if (state.RegionStatus() == Phase::Loading && !hit && World.Surface().UsesCachedRegionNetwork()) {
+    RetryGroundWithStreetSources();
+    return GroundBuildProgress::Pending;
+  }
   if (result.Loaded && !state.InstallRegion(std::move(result.Loaded->Region), hit)) {
     Error = "ground region cannot replace the current candidate stage";
     return GroundBuildProgress::Failed;
@@ -1846,11 +1862,7 @@ bool Engine::State::AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQual
   }
   if (!AdvancesGroundRetirement()) { return true; }
   if (World.GroundBuild && World.GroundBuild->RoadsMissing()) {
-    World.Surface().ForgetCachedRegionNetwork();
-    World.Surface().RequestStreets();
-    World.GroundLookup.reset();
-    World.GroundLookupRequest.clear();
-    World.GroundRetirement = std::move(World.GroundBuild);
+    RetryGroundWithStreetSources();
     return true;
   }
   if (!GroundInputsReady(quality)) { return true; }
