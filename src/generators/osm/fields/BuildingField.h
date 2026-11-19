@@ -173,9 +173,15 @@ public:
 
   [[nodiscard]] std::span<const uint32_t> AcceptedTiles() const noexcept { return AcceptedTiles_; }
 
+  [[nodiscard]] std::span<const uint32_t> PendingRefinementTiles() const noexcept {
+    if (!RefinementActive_) { return {}; }
+    return AcceptedTiles().subspan(RefinementAt_, RefinementRemaining());
+  }
+
   [[nodiscard]] std::optional<uint32_t> RefinementTile() const noexcept {
-    if (!RefinementActive_ || RefinementAt_ == RefinementEnd_) { return std::nullopt; }
-    return AcceptedTiles_[RefinementAt_];
+    const auto pending = PendingRefinementTiles();
+    if (pending.empty()) { return std::nullopt; }
+    return pending.front();
   }
 
   void AdvanceRefinement() noexcept {

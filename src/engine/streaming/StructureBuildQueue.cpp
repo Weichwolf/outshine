@@ -937,12 +937,17 @@ bool StructureBuildQueue::SelectVectorInputs(
     ::outshine::Generators::Osm::FeatureRun over,
     const HeightSource &heightAt,
     HeightRequirement requirement,
+    BuildPurpose purpose,
     VectorSelection &selected,
     double &durationMs) {
   selected = {};
   const auto &vectors = *stack.Vectors();
   if (over.From < vectors.Features().size() && heightAt.Revision.Value != 0 &&
       !SelectNativeBasis(stack, prints, vectors.Features()[over.From].Tile, selected)) {
+    if (purpose == BuildPurpose::TerrainContacts && requirement == HeightRequirement::FineOnly &&
+        !selected.RequestKey.empty()) {
+      PrefetchContactBases(stack, prints, vectors);
+    }
     ++Deferred_;
     return false;
   }
@@ -1008,7 +1013,7 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
     double heightResolutionMs = 0.0;
     const auto groundStands = [&](::outshine::Generators::Osm::FeatureRun over) {
       return SelectVectorInputs(
-          stack, prints, over, heightAt, requirement, selected, heightResolutionMs);
+          stack, prints, over, heightAt, requirement, purpose, selected, heightResolutionMs);
     };
     const auto selectionAt = std::chrono::steady_clock::now();
     const bool replacement =

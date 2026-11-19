@@ -309,6 +309,18 @@ void StructureBuildQueue::ReleaseNativeAsset(const std::string &request,
   }
 }
 
+void StructureBuildQueue::PrefetchContactBases(Ground::SurfacePreparation &stack,
+                                               const Generators::Osm::BuildingField &prints,
+                                               const Generators::Osm::OsmField &vectors) {
+  const auto pending = prints.PendingRefinementTiles();
+  if (pending.size() < 2) { return; }
+  const auto tiles = vectors.Tiles();
+  for (const uint32_t tile : pending.first(std::min(pending.size(), kCandidateWindow)).subspan(1)) {
+    if (tile >= tiles.size() || tiles[tile].FeatureCount == 0) { continue; }
+    if (!PollNativeAsset(stack, prints, tile, NativeAssetQuery::Product::Basis)) { return; }
+  }
+}
+
 bool StructureBuildQueue::SelectNativeBasis(
     Ground::SurfacePreparation &stack,
     const ::outshine::Generators::Osm::BuildingField &prints,

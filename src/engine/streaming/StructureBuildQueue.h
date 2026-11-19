@@ -353,6 +353,9 @@ private:
   static void ReadNativeLookup(Generators::PreparedBuildingAssets &cache,
                                const std::string &request,
                                NativeLookup &lookup);
+  void PrefetchContactBases(Ground::SurfacePreparation &stack,
+                            const Generators::Osm::BuildingField &prints,
+                            const Generators::Osm::OsmField &vectors);
   [[nodiscard]] bool SelectNativeBasis(Ground::SurfacePreparation &stack,
                                        const ::outshine::Generators::Osm::BuildingField &prints,
                                        uint32_t tile,
@@ -362,6 +365,7 @@ private:
                                         ::outshine::Generators::Osm::FeatureRun over,
                                         const HeightSource &heightAt,
                                         HeightRequirement requirement,
+                                        BuildPurpose purpose,
                                         VectorSelection &selected,
                                         double &durationMs);
   [[nodiscard]] QueuedBuild VectorBuild(JobAdmission::Lease admission,
