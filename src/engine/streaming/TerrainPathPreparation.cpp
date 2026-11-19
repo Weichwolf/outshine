@@ -108,6 +108,7 @@ Result AddPoint(PathTiles &tiles,
 }
 
 Result Await(Ground::TilePool &pool,
+             Ground::TilePool::LandingCursor &cursor,
              std::chrono::steady_clock::time_point deadline,
              Data::TileId tile,
              std::string_view kind) {
@@ -117,7 +118,7 @@ Result Await(Ground::TilePool &pool,
     return std::unexpected(std::format(
         "view data preparation timed out at {}/{}/{}/{}", kind, tile.Zoom, tile.X, tile.Y));
   }
-  static_cast<void>(pool.AwaitLanding(std::min(remaining, kMostAwaitS)));
+  static_cast<void>(pool.AwaitLanding(std::min(remaining, kMostAwaitS), cursor));
   return {};
 }
 
@@ -145,6 +146,7 @@ Result SettleTiles(std::span<const Data::TileId> tiles,
                    size_t batchMost,
                    Poll poll) {
   constexpr size_t kBatchTiles = 64;
+  Ground::TilePool::LandingCursor cursor;
   for (size_t first = 0; first < tiles.size(); first += batchMost) {
     const auto batch = tiles.subspan(first, std::min(batchMost, tiles.size() - first));
     if (first != 0 && std::chrono::steady_clock::now() >= deadline) {
@@ -163,6 +165,7 @@ Result SettleTiles(std::span<const Data::TileId> tiles,
       if (remaining == 0) { break; }
       if (const auto waited =
               Await(pool,
+                    cursor,
                     deadline,
                     batch[static_cast<size_t>(std::ranges::find(settled, false) - settled.begin())],
                     kind);
