@@ -69,6 +69,22 @@ public:
   [[nodiscard]] std::expected<const SourceCoverage *, std::string>
   BindCoverage(ProductAddress address, const SourceCoverage &coverage);
 
+  struct ProductBinding {
+    std::string_view AssetKey;
+    SourceCoverage Coverage;
+  };
+
+  struct ProductRevision {
+    uint32_t Tile;
+    uint64_t SourceKey;
+    uint64_t DrawOrderGroup;
+    const Mat4 &Placement;
+  };
+
+  // On a private candidate, carry matching payloads into the next source revision.
+  [[nodiscard]] std::expected<std::vector<uint32_t>, std::string>
+  RebindProducts(ProductRevision revision, std::span<ProductBinding> bindings);
+
   // Sorted unique asset keys; each pass must partition the declared source coverage.
   struct ProductSelection {
     const SourceCoverage &Expected;
@@ -244,6 +260,7 @@ private:
     std::optional<GeometryErrorBound> ErrorBound = std::nullopt;
     std::optional<SourceCoverage> Coverage;
     CoverageSource CoverageFrom = CoverageSource::Product;
+    std::optional<uint64_t> DrawOrderGroup = std::nullopt;
     Mat4 Row;
     bool Visible = true;
     std::vector<ResidentPart> Parts;

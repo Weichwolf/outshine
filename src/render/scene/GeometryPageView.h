@@ -37,6 +37,7 @@ struct GeometryPageView {
   uint64_t OccupiedCells = 0;
   std::optional<SourceCoverage> Coverage = std::nullopt;
   std::shared_ptr<const Mat4> Placement = nullptr;
+  std::optional<uint64_t> DrawOrderGroup = std::nullopt;
 };
 }
 #endif

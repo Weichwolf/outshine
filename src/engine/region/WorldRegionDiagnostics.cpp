@@ -20,11 +20,15 @@ std::string GroundGeometryDiagnostic(WorldRegionBuildState &state) {
     return ", geometry waiting for region storage";
   }
   if (!state.RoadsRestored()) {
+    if (const auto *publication = state.RoadPublication()) {
+      const auto *roads = state.RoadRestoration();
+      return std::format(", geometry restoring roads={}/{}, retained={}",
+                         roads != nullptr ? roads->Pages() : 0,
+                         publication->PagesToLoad().size(),
+                         publication->RetainedPages());
+    }
     const auto &manifest = state.RoadManifest();
-    const auto *roads = state.RoadRestoration();
-    return std::format(", geometry restoring roads={}/{}",
-                       roads != nullptr ? roads->Pages() : 0,
-                       manifest ? manifest->Pages.size() : 0);
+    return std::format(", geometry restoring roads=0/{}", manifest ? manifest->Pages.size() : 0);
   }
   using Submission = WorldRegionBuildState::GeometrySubmission;
   switch (state.GeometrySubmissionStep()) {

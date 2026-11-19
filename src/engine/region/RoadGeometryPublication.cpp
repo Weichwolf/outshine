@@ -21,6 +21,8 @@
 
 namespace outshine {
 namespace {
+constexpr uint64_t kRoadDrawOrderGroup = 0;
+
 uint64_t Identity(std::string_view key) {
   uint64_t result = kDigestBasis;
   for (const unsigned char byte : key) { result = DigestFolded(result, byte); }
@@ -101,12 +103,50 @@ RoadGeometryPublication::Begin(Render::SceneRenderer &renderer,
                                   source.OriginEcef()));
   result->PageCount_ = manifest.Pages.size();
   result->Keys_.reserve(manifest.Pages.size());
-  pages.Clear();
   pages.BindRenderer(&renderer);
   pages.SetFrame(frame);
+  auto retained = result->RetainProducts(manifest);
+  if (!retained) { return std::unexpected(std::move(retained.error())); }
   result->PublicationMs_ =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   return result;
+}
+
+std::expected<SourceCoverage, std::string>
+RoadGeometryPublication::CoverageFor(const Generators::RoadPageReference &reference) const {
+  auto coverage = SourceCoverage::FromRanges(
+      std::string(Expected_.Revision()), Expected_.SourceCount(), Ranges(reference.Parts));
+  if (!coverage || !Expected_.Contains(*coverage)) {
+    return std::unexpected("road publication has foreign source coverage");
+  }
+  return std::move(*coverage);
+}
+
+std::expected<void, std::string>
+RoadGeometryPublication::RetainProducts(const Generators::RoadPageManifest &manifest) {
+  std::vector<Render::GeometryPageResidency::ProductBinding> bindings;
+  bindings.reserve(PageCount_);
+  for (const auto &page : manifest.Pages) {
+    auto coverage = CoverageFor(page);
+    if (!coverage) { return std::unexpected(std::move(coverage.error())); }
+    bindings.push_back({.AssetKey = page.Key, .Coverage = std::move(*coverage)});
+  }
+  auto reads = Pages_.RebindProducts({.Tile = 0,
+                                      .SourceKey = SourceKey_,
+                                      .DrawOrderGroup = kRoadDrawOrderGroup,
+                                      .Placement = *Placement_},
+                                     bindings);
+  if (!reads) { return std::unexpected(std::move(reads.error())); }
+  PagesToLoad_ = std::move(*reads);
+  auto missing = PagesToLoad_.begin();
+  for (size_t index = 0; index < PageCount_; ++index) {
+    if (missing != PagesToLoad_.end() && *missing == index) {
+      ++missing;
+    } else {
+      Keys_.push_back(manifest.Pages[index].Key);
+    }
+  }
+  return {};
 }
 
 std::expected<bool, std::string>
@@ -143,11 +183,8 @@ RoadGeometryPublication::Advance(const Generators::RoadPageAsset &page,
   const auto packed = std::chrono::steady_clock::now();
   PackingMs_ += std::chrono::duration<double, std::milli>(packed - began).count();
   if (Packed_.size() != vertices) { return false; }
-  auto coverage = SourceCoverage::FromRanges(
-      std::string(Expected_.Revision()), Expected_.SourceCount(), Ranges(reference.Parts));
-  if (!coverage || !Expected_.Contains(*coverage)) {
-    return std::unexpected("road publication has foreign source coverage");
-  }
+  auto coverage = CoverageFor(reference);
+  if (!coverage) { return std::unexpected(std::move(coverage.error())); }
   const Render::GeometryPagePartView part{.Tangents = {},
                                           .Verts = Packed_,
                                           .Indices = mesh.Index,
@@ -167,7 +204,8 @@ RoadGeometryPublication::Advance(const Generators::RoadPageAsset &page,
                                       .RequestedCell = std::nullopt,
                                       .OccupiedCells = 0,
                                       .Coverage = std::move(*coverage),
-                                      .Placement = std::make_shared<const Mat4>(*Placement_)};
+                                      .Placement = std::make_shared<const Mat4>(*Placement_),
+                                      .DrawOrderGroup = kRoadDrawOrderGroup};
   std::string error;
   if (!Pages_.StageProduct(0, view, Anchor_, error, SourceKey_)) {
     return std::unexpected(std::move(error));
@@ -201,7 +239,8 @@ std::expected<void, std::string> RoadGeometryPublication::Finish() {
 
 size_t RoadGeometryPublication::HeapBytes() const noexcept {
   size_t bytes = Expected_.CapacityBytes() + Keys_.capacity() * sizeof(std::string) +
-                 PackingKey_.capacity() + Packed_.capacity() * sizeof(StoredVertex) + sizeof(Mat4);
+                 PackingKey_.capacity() + Packed_.capacity() * sizeof(StoredVertex) + sizeof(Mat4) +
+                 PagesToLoad_.capacity() * sizeof(uint32_t);
   for (const auto &key : Keys_) { bytes += key.capacity(); }
   return bytes;
 }

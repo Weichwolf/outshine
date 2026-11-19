@@ -101,20 +101,20 @@ void CheckPublication(Fixture &fixture) {
       fixture.Renderer, fixture.Pages, fixture.Manifest, TangentFrame::At(fixture.Manifest.Anchor));
   CHECK(publication, "road-native materials and source domain register");
   if (!publication) { return; }
-  const auto leftKey = Generators::RoadPageKey(left.Address);
-  const auto rightKey = Generators::RoadPageKey(right.Address);
+  const auto &leftRef = fixture.Manifest.Pages[0];
+  const auto &rightRef = fixture.Manifest.Pages[1];
+  const auto &emptyRef = fixture.Manifest.Pages[2];
   const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-  const auto deferred = (*publication)->Advance(left, leftKey, std::chrono::steady_clock::now());
+  const auto deferred = (*publication)->Advance(left, leftRef, std::chrono::steady_clock::now());
   CHECK(deferred && !*deferred && fixture.Pages.Handles().empty(),
         "packing yields without publishing a partial page");
-  CHECK(!(*publication)->Advance(right, rightKey, until),
+  CHECK(!(*publication)->Advance(right, rightRef, until),
         "a pending page cannot be overwritten by another product");
-  const auto accepted = (*publication)->Advance(left, leftKey, until);
+  const auto accepted = (*publication)->Advance(left, leftRef, until);
   CHECK(accepted && *accepted && !(*publication)->Finish(),
         "one ready page cannot stand in for the complete source cut");
-  const auto second = (*publication)->Advance(right, rightKey, until);
-  const auto knownEmpty =
-      (*publication)->Advance(empty, Generators::RoadPageKey(empty.Address), until);
+  const auto second = (*publication)->Advance(right, rightRef, until);
+  const auto knownEmpty = (*publication)->Advance(empty, emptyRef, until);
   CHECK(second && *second && knownEmpty && *knownEmpty && fixture.Pages.Handles().size() == 2,
         "two mesh pages and a known-empty source preserve independent ownership");
   CHECK(fixture.Depth(12) == 0 && fixture.Depth(20) == 0,
@@ -144,11 +144,54 @@ void CheckFrame(Fixture &fixture) {
   if (!publication) { return; }
   const auto ready = (*publication)
                          ->Advance(page,
-                                   Generators::RoadPageKey(page.Address),
+                                   fixture.Manifest.Pages[0],
                                    std::chrono::steady_clock::now() + std::chrono::seconds(5));
   CHECK(ready && *ready && (*publication)->Finish(), "the translated native source activates");
   CHECK(fixture.Depth(10) > 0 && fixture.Depth(16) == 0,
         "source ENU geometry uses its explicit world transform instead of ECEF-offset placement");
+}
+
+void CheckRegionCrossing(Fixture &fixture) {
+  const auto shared = fixture.Page({.Index = 0}, -1);
+  const auto retired = fixture.Page({.Index = 1}, 1);
+  auto &sharedRef = fixture.Manifest.Pages[0];
+  sharedRef.ShapeKey = shared.Address.PlanKey;
+  sharedRef.Sources = {240};
+  const auto frame = TangentFrame::At(fixture.Manifest.Anchor);
+  const auto until = std::chrono::steady_clock::time_point::max();
+  auto first =
+      RoadGeometryPublication::Begin(fixture.Renderer, fixture.Pages, fixture.Manifest, frame);
+  CHECK(first, "the initial region starts loading its roads");
+  if (!first) { return; }
+  CHECK((*first)->Advance(shared, sharedRef, until).value_or(false) &&
+            (*first)->Advance(retired, fixture.Manifest.Pages[1], until).value_or(false) &&
+            (*first)->Finish(),
+        "both roads are initially rendered");
+  first->reset();
+
+  Core::WorldCandidate candidate(fixture.Renderer);
+  auto nextPages = fixture.Pages;
+  const auto prepared =
+      candidate.Prepare(*fixture.Scene, nullptr, Render::SceneResources::PieceSources::Reuse);
+  CHECK(prepared, "the region crossing starts an independent world candidate");
+  if (!prepared) { return; }
+  fixture.Manifest.PlanKey.assign(64, 'c');
+  sharedRef.Parts[0].Index = 7;
+  fixture.Manifest.Pages.pop_back();
+  const auto added = fixture.Page({.Index = 9}, 2);
+  auto next = RoadGeometryPublication::Begin(fixture.Renderer, nextPages, fixture.Manifest, frame);
+  CHECK(next, "roads can be rebound to the next manifest");
+  if (!next) { return; }
+  const auto reads = (*next)->PagesToLoad();
+  CHECK(reads.size() == 1 && reads.front() == 1 && !(*next)->Finish(),
+        "only the new road is loaded and the shared road cannot publish by itself");
+  CHECK(fixture.Depth(12) > 0 && fixture.Depth(20) > 0 && fixture.Depth(24) == 0,
+        "the published region keeps both roads while the next region loads");
+  CHECK((*next)->Advance(added, fixture.Manifest.Pages[1], until).value_or(false) &&
+            (*next)->Finish() && candidate.Publish(fixture.Scene),
+        "the next manifest publishes its complete source coverage");
+  CHECK(fixture.Depth(12) > 0 && fixture.Depth(20) == 0 && fixture.Depth(24) > 0,
+        "the crossing retains the shared road, replaces the old road and draws the new road");
 }
 }
 
@@ -163,6 +206,11 @@ int main() {
     Fixture fixture;
     CHECK(fixture.Open(), "frame fixture opens");
     if (fixture.Scene) { CheckFrame(fixture); }
+  }
+  {
+    Fixture fixture;
+    CHECK(fixture.Open(), "crossing fixture opens");
+    if (fixture.Scene) { CheckRegionCrossing(fixture); }
   }
   SDL_Quit();
   return Report();

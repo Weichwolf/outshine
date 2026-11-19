@@ -259,16 +259,6 @@ Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
                              index->From == PageIndexAsset::Origin::Stored ? 1.0 : 0.0,
                              "bool");
     }
-    auto restore = RoadPageRestoration::Begin(*Services.Compute,
-                                              World.Surface().RoadAssets(),
-                                              state.RoadManifest(),
-                                              std::nullopt,
-                                              state.SurfaceManifestKey(),
-                                              CurrentGeographicEyeEcef());
-    if (!restore) {
-      Error = std::move(restore.error());
-      return GroundBuildProgress::Failed;
-    }
     const auto origin = Session.Declared.Ground.Origin;
     auto publication = RoadGeometryPublication::Begin(
         Picture.Device,
@@ -277,6 +267,16 @@ Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
         TangentFrame::At({.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg}));
     if (!publication) {
       Error = std::move(publication.error());
+      return GroundBuildProgress::Failed;
+    }
+    auto restore = RoadPageRestoration::Begin(*Services.Compute,
+                                              World.Surface().RoadAssets(),
+                                              state.RoadManifest(),
+                                              (*publication)->PagesToLoad(),
+                                              state.SurfaceManifestKey(),
+                                              CurrentGeographicEyeEcef());
+    if (!restore) {
+      Error = std::move(restore.error());
       return GroundBuildProgress::Failed;
     }
     state.BeginRoadRestoration(std::move(*restore), std::move(*publication));
@@ -296,13 +296,16 @@ Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
   if (!*advanced) { return GroundBuildProgress::Pending; }
   Published.RecordMetric(
       "ground candidate: restored road pages", static_cast<double>(restore->Pages()), "pages");
+  Published.RecordMetric("ground candidate: retained resident road pages",
+                         static_cast<double>(publication->RetainedPages()),
+                         "pages");
   Published.RecordMetric("ground candidate: restored road package bytes",
                          static_cast<double>(restore->NativeBytes()),
                          "bytes");
-  Published.RecordMetric("streets: pieces the sweep laid on a line",
+  Published.RecordMetric("ground candidate: swept pieces in restored roads",
                          static_cast<double>(restore->Meshing().Pieces),
                          "pieces");
-  Published.RecordMetric("streets: pieces the sweep could not lay",
+  Published.RecordMetric("ground candidate: refused pieces in restored roads",
                          static_cast<double>(restore->Meshing().Refused),
                          "pieces");
   const auto finished = publication->Finish();

@@ -234,13 +234,17 @@ bool GeometryPageResidency::Store(uint32_t tile,
                              .SelectedView = baked.SelectedView,
                              .ErrorBound = baked.ErrorBound,
                              .Coverage = baked.Coverage,
+                             .DrawOrderGroup = baked.DrawOrderGroup,
                              .Row = row,
                              .Visible = visible,
                              .Parts = {}};
   stood.Parts.reserve(baked.Parts.size());
   for (size_t at = 0; at < baked.Parts.size(); ++at) {
-    const auto uploaded =
-        UploadPart(*Renderer_, baked.Parts[at], row, placement, {sourceKey, baked.Digest, at});
+    const auto uploaded = UploadPart(*Renderer_,
+                                     baked.Parts[at],
+                                     row,
+                                     placement,
+                                     {baked.DrawOrderGroup.value_or(sourceKey), baked.Digest, at});
     if (!uploaded) {
       Releases(stood);
       ++Refused_;
