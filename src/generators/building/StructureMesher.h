@@ -151,6 +151,7 @@ public:
   StructureMesher(const StructureMesher &) = delete;
   StructureMesher &operator=(const StructureMesher &) = delete;
 
+  // Both overloads bound the Fine/Shell surface error in both directions.
   [[nodiscard]] virtual std::optional<double>
   ShellSurfaceErrorM([[maybe_unused]] std::span<const StoredVertex> walls) const noexcept {
     return std::nullopt;

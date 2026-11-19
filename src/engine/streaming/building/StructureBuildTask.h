@@ -29,6 +29,7 @@ public:
   struct ProofRequest {
     uint64_t SourceKey = 0;
     Generators::StructureSurfaceRefinementLimits Limits;
+    bool UseShellBound = false;
   };
 
   struct Output {

@@ -26,21 +26,28 @@ public:
   }
 };
 
+class ShellOnlyMesher final : public BuildingMesh {
+public:
+  [[nodiscard]] std::expected<void, StructureMeshError>
+  Mesh(const StructurePlan &plan, MeshScratch &scratch, Raised &into) const noexcept override {
+    if (plan.Coarseness == LevelOfDetail::Fine) {
+      return std::unexpected(StructureMeshError::InvalidPlan);
+    }
+    return BuildingMesh::Mesh(plan, scratch, into);
+  }
+};
+
 std::optional<BakedTile> Produce(BuildingSources::Fixture &fixture,
                                  const std::string &key,
                                  const PreparedBuildingAssets::Base &base,
                                  Vec3 eye,
                                  double errorPx,
-                                 bool cacheOnly = false) {
+                                 const std::shared_ptr<const StructureMesher> &mesher) {
   auto raw = std::make_unique<RawTile>();
   raw->Eye = fixture.Eye;
   raw->EyeEcef = eye;
   raw->Projection = {.FocalPx = 720, .AllowedErrorPx = errorPx};
   raw->RequestedDetail = LevelOfDetail::Shell;
-  const std::shared_ptr<const StructureMesher> mesher =
-      cacheOnly
-          ? std::static_pointer_cast<const StructureMesher>(std::make_shared<UnavailableMesher>())
-          : std::make_shared<BuildingMesh>();
   StructureBuildTask work(JobLease(),
                           0,
                           base,
@@ -79,21 +86,21 @@ int main() {
   if (!loaded || !*loaded || (**loaded).Structures.empty()) { return Report(); }
   const auto &base = *loaded;
   const Vec3 far = base->AnchorEcef + Vec3{{1000000, 1000000, 1000000}};
-  const auto coarse = Produce(fixture, *key, base, far, 1);
+  const auto coarse = Produce(fixture, *key, base, far, 1, std::make_shared<ShellOnlyMesher>());
   CHECK(coarse && coarse->RequestedDetail == LevelOfDetail::Shell && !coarse->SelectedView &&
             coarse->SurfaceError && !coarse->SurfaceFailure && coarse->WorldBounds &&
             coarse->SurfaceError->Upper.SourceKey == kSource && !coarse->Built.WallRun.empty() &&
             !coarse->Built.RoofRun.empty(),
-        "a far parent retains actual roof and facade geometry with measured source-bound error");
+        "a far parent retains roofs and facades with a source-bound error without meshing Fine");
   if (!coarse || !coarse->SurfaceError) { return Report(); }
-  const auto cached = Produce(fixture, *key, base, far, 1, true);
+  const auto cached = Produce(fixture, *key, base, far, 1, std::make_shared<UnavailableMesher>());
   CHECK(cached && cached->SurfaceError && cached->WorldBounds &&
             cached->RequestedDetail == LevelOfDetail::Shell &&
             cached->SurfaceError->Upper.SourceKey == kSource &&
             std::isfinite(cached->SurfaceError->UpperDistanceM()) &&
             cached->Prints.size() == coarse->Prints.size(),
-        "a cache hit restores measured geometry error, bounds and every source footprint");
-  const auto fine = Produce(fixture, *key, base, far, 0);
+        "a cache hit restores geometry error, bounds and every source footprint");
+  const auto fine = Produce(fixture, *key, base, far, 0, std::make_shared<BuildingMesh>());
   CHECK(fine && fine->RequestedDetail == LevelOfDetail::Fine && !fine->SelectedView &&
             !fine->Built.WallRun.empty() && !fine->Built.RoofRun.empty() &&
             fine->Prints.size() == coarse->Prints.size(),

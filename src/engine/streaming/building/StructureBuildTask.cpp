@@ -10,6 +10,7 @@
 #include <cassert>
 #include <bit>
 #include <chrono>
+#include <cmath>
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
@@ -107,6 +108,30 @@ struct StructureBuildTask::Comparison {
            !tile.FallbackHeights;
   }
 
+  bool QualifyShell(const Generators::RawTile &raw, Output &output) {
+    if (!Request.UseShellBound || raw.RequestedDetail != LevelOfDetail::Shell ||
+        !raw.RequestedCell || *raw.RequestedCell == 0 ||
+        *raw.RequestedCell > Variant->CellShellErrorM.size()) {
+      return false;
+    }
+    const double error = Variant->CellShellErrorM[*raw.RequestedCell - 1];
+    if (!(error > 0) || !std::isfinite(error)) { return false; }
+    const auto bounds = Variant->BoundsAt(raw.AnchorEcef);
+    const GeometryErrorBound projected{
+        .SourceKey = Request.SourceKey, .Bounds = bounds, .UpperM = error};
+    if (!projected.Allows(
+            Request.SourceKey, raw.EyeEcef, raw.Projection, Generators::kStructureEyeReuseM)) {
+      return false;
+    }
+    Variant->WorldBounds = bounds;
+    Variant->SurfaceError =
+        Generators::StructureSurfaceErrorInterval{.Upper = {.SourceKey = Request.SourceKey,
+                                                            .ReferenceToVariantM = error,
+                                                            .VariantToReferenceM = error}};
+    Finish(output, std::nullopt);
+    return true;
+  }
+
   void Begin(Generators::BakedTile variant, const Generators::RawTile &raw, Output &output) {
     Variant = std::move(variant);
     if (Request.SourceKey == 0 || !raw.RequestedCell || !raw.RequestedDetail ||
@@ -118,6 +143,7 @@ struct StructureBuildTask::Comparison {
       Finish(output, Generators::StructureSurfaceErrorFailure::InvalidGeometry);
       return;
     }
+    if (QualifyShell(raw, output)) { return; }
     ReferenceRaw = raw;
     ReferenceRaw.RequestedDetail = LevelOfDetail::Fine;
     ReferenceRaw.Projection.AllowedErrorPx = 0.0;
@@ -556,7 +582,9 @@ struct StructureBuildTask::NativeProducts {
       return;
     }
     if (!output.Tile || Current != Phase::Generating) { return; }
-    output.Tile->WorldBounds = output.Tile->BoundsAt(raw.AnchorEcef);
+    if (!output.Tile->WorldBounds) {
+      output.Tile->WorldBounds = output.Tile->BoundsAt(raw.AnchorEcef);
+    }
     auto prepared = Kind == Generators::PreparedBuildingAssets::ProductKind::TerrainContacts
                         ? Cache->PrepareTerrainContacts(Key, base, *output.Tile)
                         : Cache->PrepareGeometry(Key, base, raw, *output.Tile);
@@ -867,8 +895,8 @@ void StructureBuildTask::UseIntrinsicParents(uint64_t sourceKey) {
   assert(State_ == State::Ready && Payload_->Native && sourceKey != 0 &&
          Payload_->Raw->RequestedDetail == LevelOfDetail::Shell);
   Payload_->Native->ParentSourceKey = sourceKey;
-  Payload_->SurfaceComparison = std::make_unique<Comparison>(
-      ProofRequest{.SourceKey = sourceKey, .Limits = {.TargetUncertaintyM = 0.5}});
+  Payload_->SurfaceComparison = std::make_unique<Comparison>(ProofRequest{
+      .SourceKey = sourceKey, .Limits = {.TargetUncertaintyM = 0.5}, .UseShellBound = true});
 }
 
 void StructureBuildTask::UseInitialCells(std::optional<uint64_t> selected) {
