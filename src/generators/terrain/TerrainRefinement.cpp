@@ -35,15 +35,6 @@ constexpr std::string_view kDuplicatePatch =
 constexpr std::string_view kInvalidCorridor = "terrain refinement has an invalid corridor";
 }
 
-struct ErrorPatch {
-  Data::TileId Tile;
-  HeightField::GridRegion Region;
-  double ErrorM = 0.0;
-  double LowM = 0.0;
-  double HighM = 0.0;
-  std::array<size_t, 4> Children{};
-};
-
 struct PlanarBounds {
   double LowEastM = 0.0;
   double HighEastM = 0.0;
@@ -96,12 +87,12 @@ struct PlanarBounds {
   return true;
 }
 
-[[nodiscard]] bool CorridorNeedsDetail(const ErrorPatch &patch,
+[[nodiscard]] bool CorridorNeedsDetail(Data::TileId tile,
                                        const TangentFrame &frame,
                                        TerrainPageLayout layout,
                                        std::span<const TerrainRefinementCorridor> corridors) {
   if (corridors.empty()) { return false; }
-  const PlanarBounds bounds = PatchPlanarBounds(patch.Tile, frame);
+  const PlanarBounds bounds = PatchPlanarBounds(tile, frame);
   const double postingM =
       std::max(bounds.HighEastM - bounds.LowEastM, bounds.HighNorthM - bounds.LowNorthM) /
       static_cast<double>(layout.Side - 1);
@@ -110,45 +101,25 @@ struct PlanarBounds {
   });
 }
 
-size_t BuildErrors(std::vector<ErrorPatch> &tree,
-                   std::span<const float> reference,
-                   size_t side,
-                   Data::TileId tile,
-                   HeightField::GridRegion region,
-                   size_t grid) {
-  const size_t index = tree.size();
-  ErrorPatch patch{.Tile = tile, .Region = region};
-  patch.ErrorM = HeightField::InterpolationErrorM(reference, side, region, grid);
-  patch.LowM = std::numeric_limits<double>::max();
-  patch.HighM = std::numeric_limits<double>::lowest();
+std::array<double, 2>
+HeightRange(std::span<const float> reference, size_t side, HeightField::GridRegion region) {
+  float low = std::numeric_limits<float>::max();
+  float high = std::numeric_limits<float>::lowest();
   for (size_t row = region.Y; row <= region.Y + region.Cells; ++row) {
-    for (size_t column = region.X; column <= region.X + region.Cells; ++column) {
-      const double heightM = reference[row * side + column];
-      patch.LowM = std::min(patch.LowM, heightM);
-      patch.HighM = std::max(patch.HighM, heightM);
+    const auto heights = reference.subspan(row * side + region.X, region.Cells + 1u);
+    for (const float heightM : heights) {
+      low = std::min(low, heightM);
+      high = std::max(high, heightM);
     }
   }
-  tree.push_back(patch);
-  if (region.Cells > grid) {
-    const size_t half = region.Cells / 2u;
-    for (uint32_t child = 0; child < patch.Children.size(); ++child) {
-      const uint32_t column = child % 2u;
-      const uint32_t row = child / 2u;
-      patch.Children[child] =
-          BuildErrors(tree,
-                      reference,
-                      side,
-                      {.Zoom = tile.Zoom + 1, .X = tile.X * 2u + column, .Y = tile.Y * 2u + row},
-                      {.X = region.X + column * half, .Y = region.Y + row * half, .Cells = half},
-                      grid);
-    }
-  }
-  tree[index] = patch;
-  return index;
+  return {low, high};
 }
 
-double DistanceToPatch(const ErrorPatch &patch, const TangentFrame &frame, const Vec3 &eyeM) {
-  const outshine::Ground::GeoBounds bounds = outshine::Ground::TileBounds(patch.Tile);
+double DistanceToPatch(Data::TileId tile,
+                       std::array<double, 2> heights,
+                       const TangentFrame &frame,
+                       const Vec3 &eyeM) {
+  const outshine::Ground::GeoBounds bounds = outshine::Ground::TileBounds(tile);
   Vec3 low = {{std::numeric_limits<double>::max(),
                std::numeric_limits<double>::max(),
                std::numeric_limits<double>::max()}};
@@ -157,7 +128,7 @@ double DistanceToPatch(const ErrorPatch &patch, const TangentFrame &frame, const
        {bounds.MinLatDeg, 0.5 * (bounds.MinLatDeg + bounds.MaxLatDeg), bounds.MaxLatDeg}) {
     for (const double longitudeDeg :
          {bounds.MinLonDeg, 0.5 * (bounds.MinLonDeg + bounds.MaxLonDeg), bounds.MaxLonDeg}) {
-      for (const double heightM : {patch.LowM, patch.HighM}) {
+      for (const double heightM : heights) {
         const EastNorthUp placed = frame.ToLocalPosition(
             {.LongitudeDeg = longitudeDeg, .LatitudeDeg = latitudeDeg, .HeightM = heightM});
         const Vec3 at = {{placed.EastM, placed.UpM, RenderFrame::ZOfNorth(placed.NorthM)}};
@@ -176,43 +147,84 @@ double DistanceToPatch(const ErrorPatch &patch, const TangentFrame &frame, const
   return std::max(std::sqrt(squaredM), std::numeric_limits<double>::epsilon());
 }
 
-void SelectPatches(std::span<const ErrorPatch> tree,
-                   const ErrorPatch &patch,
-                   int sourceZoom,
-                   const TangentFrame &frame,
-                   TerrainPageLayout layout,
-                   TerrainRefinementDetail detail,
-                   std::span<const TerrainRefinementCorridor> corridors,
-                   std::vector<Sheet> &selected) {
-  const double errorPx =
-      detail.OrthographicPxPerM > 0.0
-          ? patch.ErrorM * detail.OrthographicPxPerM
-          : HeightField::ProjectedErrorPx(
-                patch.ErrorM, detail.FocalPx, DistanceToPatch(patch, frame, detail.EyeM));
-  const auto grid = static_cast<size_t>(layout.Side - 1);
-  if (patch.Region.Cells > grid &&
-      (errorPx > detail.ErrorPx || CorridorNeedsDetail(patch, frame, layout, corridors))) {
-    for (const size_t child : patch.Children) {
-      SelectPatches(tree, tree[child], sourceZoom, frame, layout, detail, corridors, selected);
-    }
-    return;
+struct PatchSelection {
+  std::span<const float> Reference;
+  size_t Side;
+  int SourceZoom;
+  const TangentFrame &Frame;
+  TerrainPageLayout Layout;
+  TerrainRefinementDetail Detail;
+  std::span<const TerrainRefinementCorridor> Corridors;
+  std::vector<Sheet> &Selected;
+
+  [[nodiscard]] double
+  ScreenError(Data::TileId tile, HeightField::GridRegion region, size_t grid) const {
+    const double errorM = HeightField::InterpolationErrorM(Reference, Side, region, grid);
+    if (Detail.OrthographicPxPerM > 0.0) { return errorM * Detail.OrthographicPxPerM; }
+    if (errorM == 0.0) { return 0.0; }
+    return HeightField::ProjectedErrorPx(
+        errorM,
+        Detail.FocalPx,
+        DistanceToPatch(tile, HeightRange(Reference, Side, region), Frame, Detail.EyeM));
   }
-  selected.push_back({.Tile = patch.Tile,
-                      .Nodes = {},
-                      .Side = layout.Side,
-                      .Postings = static_cast<uint32_t>(layout.Side),
-                      .Virtual = patch.Tile.Zoom > sourceZoom,
-                      .SourceZoom = sourceZoom});
+
+  void Append(Data::TileId tile, HeightField::GridRegion region) const {
+    const auto grid = static_cast<size_t>(Layout.Side - 1);
+    if (region.Cells > grid && (ScreenError(tile, region, grid) > Detail.ErrorPx ||
+                                CorridorNeedsDetail(tile, Frame, Layout, Corridors))) {
+      const size_t half = region.Cells / 2u;
+      for (uint32_t child = 0; child < 4; ++child) {
+        const uint32_t column = child % 2u;
+        const uint32_t row = child / 2u;
+        Append({.Zoom = tile.Zoom + 1, .X = tile.X * 2u + column, .Y = tile.Y * 2u + row},
+               {.X = region.X + column * half, .Y = region.Y + row * half, .Cells = half});
+      }
+      return;
+    }
+    Selected.push_back({.Tile = tile,
+                        .Nodes = {},
+                        .Side = Layout.Side,
+                        .Postings = static_cast<uint32_t>(Layout.Side),
+                        .Virtual = tile.Zoom > SourceZoom,
+                        .SourceZoom = SourceZoom});
+  }
+};
+
+struct AxisSample {
+  size_t Low, High;
+  double Fraction;
+};
+
+std::vector<AxisSample> SamplingAxis(size_t postings, size_t cells) {
+  std::vector<AxisSample> locations;
+  locations.reserve(cells + 1u);
+  for (size_t at = 0; at <= cells; ++at) {
+    const double fraction =
+        static_cast<double>(at) / static_cast<double>(cells) * static_cast<double>(postings - 1u);
+    const auto low = static_cast<size_t>(fraction);
+    locations.push_back({.Low = low,
+                         .High = std::min(low + 1u, postings - 1u),
+                         .Fraction = fraction - static_cast<double>(low)});
+  }
+  return locations;
 }
 
 std::vector<float> SampleReference(const Ground::TerrainField &heights, size_t cells) {
   const size_t side = cells + 1u;
+  const auto columns = SamplingAxis(heights.Cols(), cells);
+  const auto rows = SamplingAxis(heights.Rows(), cells);
+  const auto field = heights.Field();
   std::vector<float> reference(side * side);
   for (size_t row = 0; row < side; ++row) {
+    const auto y = rows[row];
     for (size_t column = 0; column < side; ++column) {
+      const auto x = columns[column];
+      const double top =
+          field[y.Low, x.Low] * (1.0 - x.Fraction) + field[y.Low, x.High] * x.Fraction;
+      const double bottom =
+          field[y.High, x.Low] * (1.0 - x.Fraction) + field[y.High, x.High] * x.Fraction;
       reference[row * side + column] =
-          heights.PostingM({.Col = static_cast<double>(column) / static_cast<double>(cells),
-                            .Row = static_cast<double>(row) / static_cast<double>(cells)});
+          static_cast<float>(top * (1.0 - y.Fraction) + bottom * y.Fraction);
     }
   }
   return reference;
@@ -235,9 +247,15 @@ void SelectSourcePatches(const TerrainRefinementSource &source,
   size_t cells = grid;
   while (cells + 1u < std::max(source.Heights->Rows(), source.Heights->Cols())) { cells *= 2u; }
   const std::vector<float> reference = SampleReference(*source.Heights, cells);
-  std::vector<ErrorPatch> tree;
-  (void)BuildErrors(tree, reference, cells + 1u, sheet.Tile, {.Cells = cells}, grid);
-  SelectPatches(tree, tree.front(), sheet.Tile.Zoom, frame, layout, detail, corridors, selected);
+  const PatchSelection selection{.Reference = reference,
+                                 .Side = cells + 1u,
+                                 .SourceZoom = sheet.Tile.Zoom,
+                                 .Frame = frame,
+                                 .Layout = layout,
+                                 .Detail = detail,
+                                 .Corridors = corridors,
+                                 .Selected = selected};
+  selection.Append(sheet.Tile, {.Cells = cells});
 }
 
 std::expected<std::vector<Sheet>, std::string> UniquePatches(std::vector<Sheet> selected) {
