@@ -112,21 +112,25 @@ Result MeasureFrames(Engine &engine,
   const auto began = Clock::now();
   for (size_t frame = 0; frame < report.Motion.Frames; ++frame) {
     const auto frameAt = Clock::now();
+    const auto failed = [frame](std::string_view phase, const std::string &error) {
+      return std::unexpected("frame " + std::to_string(frame + 1) + " " + std::string(phase) +
+                             ": " + error);
+    };
     const auto pose = motion.At(frame);
     if (!pose) { return std::unexpected(std::string(pose.error())); }
     const auto applied = engine.setCameraPose(*pose);
-    if (!applied) { return applied; }
+    if (!applied) { return failed("camera", applied.error()); }
     const auto advanceAt = Clock::now();
     const auto advanced = engine.advance(1.0 / timing.RateHz);
-    if (!advanced) { return advanced; }
+    if (!advanced) { return failed("update", advanced.error()); }
     const double advanceMs = ElapsedMs(advanceAt);
     const auto renderAt = Clock::now();
     const auto rendered = renderer.render({});
-    if (!rendered) { return rendered; }
+    if (!rendered) { return failed("render", rendered.error()); }
     const double renderMs = ElapsedMs(renderAt);
     const bool refined = engine.settled(WorldQuality::Refined);
     const auto waited = FrameSyncWait(engine.measures());
-    if (!waited) { return std::unexpected(waited.error()); }
+    if (!waited) { return failed("wait", waited.error()); }
     const double wallMs = ElapsedMs(frameAt);
     if (*waited > wallMs) {
       return std::unexpected("synchronous frame waiting exceeds the measured frame duration");
@@ -256,10 +260,10 @@ RunScenarioBenchmark(const ScenarioBenchmarkOptions &options) {
   report.SetupMs = ElapsedMs(began);
   const auto preloadAt = Clock::now();
   if (const auto ready = engine.preload(options.PreloadSeconds, WorldQuality::Refined); !ready) {
-    return std::unexpected(ready.error());
+    return std::unexpected("preload: " + ready.error());
   }
   if (const auto focused = engine.advance(0.0); !focused) {
-    return std::unexpected(focused.error());
+    return std::unexpected("initial world update: " + focused.error());
   }
   if (!engine.settled(WorldQuality::Refined)) {
     return std::unexpected("the initial benchmark view is not fully refined");
@@ -271,14 +275,14 @@ RunScenarioBenchmark(const ScenarioBenchmarkOptions &options) {
   const auto motion = BenchmarkMotion::Make(report.Start, report.Motion);
   if (!motion) { return std::unexpected(std::string(motion.error())); }
   if (const auto ready = PrepareMotionData(engine, *motion, options, report); !ready) {
-    return std::unexpected(ready.error());
+    return std::unexpected("path preparation: " + ready.error());
   }
   report.Prepared = engine.loading();
   if (const auto measured = MeasureFrames(engine, *motion, report, *timing); !measured) {
     return std::unexpected(measured.error());
   }
   if (const auto finished = FinishMeasurement(engine, options, report); !finished) {
-    return std::unexpected(finished.error());
+    return std::unexpected("measurement finalization: " + finished.error());
   }
   const auto hardwareAt = Clock::now();
   report.Cpu = HostProcessorName();
