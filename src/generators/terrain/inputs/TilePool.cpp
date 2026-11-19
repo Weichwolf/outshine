@@ -935,16 +935,7 @@ TilePool::Result TilePool::RunJob(TerrainTiles &tiles, const Job &job) {
       if (!IsCurrentJob(job)) { return result; }
       told = Shape_;
     }
-    TerrainTiles::Shaped how;
-    how.Kind = told.Kind;
-    how.AmplitudeM = told.AmplitudeM;
-    how.WavelengthM = told.WavelengthM;
-    how.Gradient = told.Gradient;
-    how.BearingDeg = told.BearingDeg;
-    how.FocusLatDeg = told.FocusLatDeg;
-    how.FocusLonDeg = told.FocusLonDeg;
-    how.Seed = told.Seed;
-    tiles.Shapes(how);
+    tiles.Shapes(told);
   }
   switch (job.Kind) {
     case Rank::Mesh:

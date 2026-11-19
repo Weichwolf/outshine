@@ -92,6 +92,7 @@ int main() {
   CHECK(opened.has_value(), "native terrain uses the common persistent spatial cache");
   if (!opened) { return outshine::Test::Report(); }
   auto assets = std::move(*opened);
+  CHECK(!assets->HasIndexedField(at, {}), "a cold path still needs to fetch and prepare terrain");
   {
     Ground::TerrainTiles cold(original, Ground::EnuFrame::At(Ground::Geo{}), Resolver(assets));
     auto prepared = cold.StitchedGrid(at.Zoom, at.X, at.Y);
@@ -110,6 +111,9 @@ int main() {
   CHECK(opened.has_value(), "fresh cache owner reopens the stored native package");
   if (!opened) { return outshine::Test::Report(); }
   assets = std::move(*opened);
+  CHECK(assets->HasIndexedField(at, {}), "path preparation can find the stored field by metadata");
+  CHECK(!assets->HasIndexedField(at, {.Seed = 1}),
+        "a changed terrain shape cannot satisfy the path with the old field");
   Fields offline;
   offline.Available = false;
   Ground::TerrainTiles warm(offline, Ground::EnuFrame::At(Ground::Geo{}), Resolver(assets));

@@ -33,6 +33,11 @@ namespace {
 std::string Key(const std::string &recipe,
                 Data::TileId at,
                 const ::outshine::Ground::TerrainTiles::Shaped &shape) {
+  if (at.Zoom < 0 || at.Zoom > Data::TileId::MaximumZoom ||
+      at.X >= (uint32_t{1} << static_cast<unsigned>(at.Zoom)) ||
+      at.Y >= (uint32_t{1} << static_cast<unsigned>(at.Zoom))) {
+    return {};
+  }
   ByteWriter encoded(4096);
   if (!encoded.Put({reinterpret_cast<const uint8_t *>(recipe.data()), recipe.size()}) ||
       !encoded.Number(at.Zoom) || !encoded.Number(at.X) || !encoded.Number(at.Y) ||
@@ -303,11 +308,7 @@ PreparedTerrainAssets::FieldRead::Failed(AssetCacheError error) {
 std::shared_ptr<::outshine::Ground::TerrainTiles::FieldRequest>
 PreparedTerrainAssets::RequestField(Data::TileId at,
                                     const ::outshine::Ground::TerrainTiles::Shaped &shape) {
-  const auto key = at.Zoom >= 0 && at.Zoom <= Data::TileId::MaximumZoom &&
-                           at.X < (uint32_t{1} << static_cast<unsigned>(at.Zoom)) &&
-                           at.Y < (uint32_t{1} << static_cast<unsigned>(at.Zoom))
-                       ? Key(Recipe_, at, shape)
-                       : std::string{};
+  const auto key = Key(Recipe_, at, shape);
   if (key.empty()) {
     return std::make_shared<FieldRead>(Self_.lock(), key, at, std::make_shared<Request>());
   }
@@ -319,6 +320,14 @@ PreparedTerrainAssets::RequestField(Data::TileId at,
     owner->Field = request;
   }
   return request;
+}
+
+bool PreparedTerrainAssets::HasIndexedField(
+    Data::TileId at, const ::outshine::Ground::TerrainTiles::Shaped &shape) const {
+  const auto key = Key(Recipe_, at, shape);
+  if (key.empty()) { return false; }
+  const auto plan = Cache_->PlanRead(key, kPreparedTerrainBytesMost);
+  return plan && *plan && (**plan).PackageBytesMost > 0;
 }
 
 PreparedTerrainAssets::Counters PreparedTerrainAssets::Costs() const noexcept {
@@ -349,10 +358,7 @@ std::string PreparedTerrainAssets::PatchKey(Data::TileId at,
                                             const ::outshine::Ground::TerrainTiles::Shaped &shape,
                                             int side,
                                             int blockZoom) const {
-  if (at.Zoom < 0 || at.Zoom > Data::TileId::MaximumZoom ||
-      at.X >= (uint32_t{1} << static_cast<unsigned>(at.Zoom)) ||
-      at.Y >= (uint32_t{1} << static_cast<unsigned>(at.Zoom)) || side < 2 ||
-      side > kPreparedGroundPatchSideMost || blockZoom < 0 ||
+  if (side < 2 || side > kPreparedGroundPatchSideMost || blockZoom < 0 ||
       blockZoom > Data::TileId::MaximumZoom) {
     return {};
   }

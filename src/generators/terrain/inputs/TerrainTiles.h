@@ -14,6 +14,7 @@
 #include <variant>
 
 #include <Address.h>
+#include "ShapedGround.h"
 #include "TerrainRevisionIndex.h"
 #include "TerrainGrid.h"
 #include "TileSourceIdentity.h"
@@ -149,7 +150,7 @@ private:
 
 class TerrainTiles {
 public:
-  struct Shaped;
+  using Shaped = ShapedGround;
   using FieldFactory = std::function<TerrainGrid()>;
 
   struct FieldStep;
@@ -165,19 +166,6 @@ public:
     std::shared_ptr<DecodedCache> Shared;
     size_t StitchedFieldBytes = 0;
     FieldResolver PreparedFields;
-  };
-
-  struct Shaped {
-    std::string Kind;
-    double AmplitudeM = 0.0;
-    double WavelengthM = 0.0;
-    double Gradient = 0.0;
-    double BearingDeg = 0.0;
-    double FocusLatDeg = 0.0;
-    double FocusLonDeg = 0.0;
-    uint64_t Seed = 0;
-
-    [[nodiscard]] bool operator==(const Shaped &) const noexcept = default;
   };
 
   TerrainTiles(TerrainSource &source, EnuFrame frame, Config config);

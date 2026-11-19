@@ -83,19 +83,11 @@ PreparePlacementGround(WorldRegionState &world,
     return Generators::PatchOver(region, world.Surface().Ground(), how);
   }
   const auto shape = world.Surface().Pool().Shaped();
-  const Ground::TerrainTiles::Shaped parameters{.Kind = shape.Kind,
-                                                .AmplitudeM = shape.AmplitudeM,
-                                                .WavelengthM = shape.WavelengthM,
-                                                .Gradient = shape.Gradient,
-                                                .BearingDeg = shape.BearingDeg,
-                                                .FocusLatDeg = shape.FocusLatDeg,
-                                                .FocusLonDeg = shape.FocusLonDeg,
-                                                .Seed = shape.Seed};
   const int side = Generators::PatchSide(region, world.Surface().Ground());
   const auto key = assets->PatchKey({.Zoom = region.Zoom(),
                                      .X = static_cast<uint32_t>(region.X()),
                                      .Y = static_cast<uint32_t>(region.Y())},
-                                    parameters,
+                                    shape,
                                     side,
                                     world.Surface().Ground().BlockZoom());
   if (key.empty()) { return std::unexpected("terrain sampling patch request is invalid"); }

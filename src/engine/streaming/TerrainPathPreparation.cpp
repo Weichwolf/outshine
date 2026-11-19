@@ -1,6 +1,7 @@
 #include "TerrainPathPreparation.h"
 #include "GroundPatchwork.h"
 #include "TerrainSourceCoverage.h"
+#include "PreparedTerrainAssets.h"
 #include "TileGeodesy.h"
 #include <algorithm>
 #include <map>
@@ -288,8 +289,16 @@ PrepareTerrainPath(TerrainPathPlan plan,
   Tiles fields(plan.Fields.begin(), plan.Fields.end());
   if (const auto added = Add(fields, *heights); !added) { return added; }
   const std::vector<Data::TileId> allFields(fields.begin(), fields.end());
-  return SettleTiles(allFields, stack.Pool(), deadline, "elevation", 4, [&](Data::TileId tile) {
-    return PollField(tile, stack);
-  });
+  const auto &assets = stack.TerrainAssets();
+  const auto shape = stack.Pool().Shaped();
+  return SettleTiles(allFields,
+                     stack.Pool(),
+                     deadline,
+                     "elevation",
+                     4,
+                     [&](Data::TileId tile) -> std::expected<bool, std::string> {
+                       if (assets && assets->HasIndexedField(tile, shape)) { return true; }
+                       return PollField(tile, stack);
+                     });
 }
 }

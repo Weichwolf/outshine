@@ -97,6 +97,8 @@ public:
 
   [[nodiscard]] std::shared_ptr<::outshine::Ground::TerrainTiles::FieldRequest>
   RequestField(Data::TileId at, const ::outshine::Ground::TerrainTiles::Shaped &shape);
+  [[nodiscard]] bool HasIndexedField(Data::TileId at,
+                                     const ::outshine::Ground::TerrainTiles::Shaped &shape) const;
 
   [[nodiscard]] std::expected<std::optional<PreparedTerrainDeformation>, Failure>
   LoadDeformation(const std::string &key, size_t heapBytesMost = kTerrainDeformationBytesMost);
