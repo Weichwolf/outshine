@@ -333,7 +333,7 @@ void CheckBuild(const std::filesystem::path &directory,
   CHECK(opened.has_value(), "the real native product cache opens");
   if (!opened) { return; }
   std::shared_ptr<PreparedRoadPages> pages = std::move(*opened);
-  Tasks pool(1);
+  Tasks pool(3);
   const std::string key(64, 'a');
   auto cold = RoadPageConstruction::Begin(
       pool, pages, *plan, site, key, outshine::Test::RoadPublications(pool));

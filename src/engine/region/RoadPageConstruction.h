@@ -4,10 +4,10 @@
 #include "Corridors.h"
 #include "RoadPageQueue.h"
 #include "Geometry.h"
+#include <chrono>
 #include <cstddef>
 #include <expected>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -27,30 +27,48 @@ public:
 
   [[nodiscard]] size_t Pages() const noexcept { return PageCount_; }
 
+  [[nodiscard]] size_t ExpectedPages() const noexcept { return Pages_.size(); }
+
   [[nodiscard]] size_t MissRequests() const noexcept { return MissRequests_; }
 
   [[nodiscard]] size_t NativeBytes() const noexcept { return NativeBytes_; }
 
 private:
-  enum class Stage : unsigned char { Request, Lookup, Generate, Generating };
+  enum class Stage : unsigned char { Lookup, NeedsBake, Baking };
+
+  struct Pending {
+    size_t Index;
+    std::string Key;
+    Stage Phase = Stage::Lookup;
+    std::shared_ptr<const Generators::RoadPageProducer> Producer;
+  };
+
   RoadPageConstruction(Tasks &pool,
                        std::shared_ptr<Generators::PreparedRoadPages> pages,
                        std::shared_ptr<AssetPipeline> publications);
-  [[nodiscard]] std::expected<bool, std::string> Collect();
+  [[nodiscard]] Generators::RoadPageAddress AddressOf(size_t index) const;
+  [[nodiscard]] std::expected<void, std::string>
+  RequestLookups(std::chrono::steady_clock::time_point until);
+  [[nodiscard]] std::expected<void, std::string>
+  RequestBakes(const Generators::Corridors::Job &plan,
+               const Generators::Corridors::Site &site,
+               std::chrono::steady_clock::time_point until);
+  [[nodiscard]] std::expected<void, std::string> Collect();
+  [[nodiscard]] std::expected<void, std::string>
+  SavePage(Pending &pending, const RoadPageQueue::Completed &completed);
   static constexpr size_t PageBytesMost = size_t{64} * 1024u * 1024u;
   static constexpr size_t PartsMost = 64;
+  size_t PendingMost_;
   RoadPageQueue Queue_;
-  std::shared_ptr<const Generators::RoadPageProducer> PendingProducer_;
   Generators::RoadPageAddress Address_;
   std::vector<std::vector<Generators::RoadPagePart>> Pages_;
+  std::vector<Pending> Pending_;
   Generators::RoadPageManifest Manifest_;
-  std::string PendingKey_;
-  size_t Next_ = 0;
+  size_t Requested_ = 0;
   size_t PageCount_ = 0;
   size_t MissRequests_ = 0;
   size_t NativeBytes_ = 0;
   bool ManifestTaken_ = false;
-  Stage Stage_ = Stage::Request;
 };
 }
 #endif

@@ -113,6 +113,12 @@ std::string Engine::State::GroundBuildDiagnostic() const {
     diagnostic += ", network phase=" + std::string(worker->PhaseName()) +
                   ", network advances=" + std::to_string(worker->Advances());
   }
+  if (const auto *roads = World.GroundBuild->RoadPages()) {
+    diagnostic += std::format(", road pages={}/{}, road bakes={}",
+                              roads->Pages(),
+                              roads->ExpectedPages(),
+                              roads->MissRequests());
+  }
   diagnostic +=
       ", footprints ingested=" +
       std::to_string(static_cast<int>(vectors != nullptr && footprints.Ingested(*vectors)));
