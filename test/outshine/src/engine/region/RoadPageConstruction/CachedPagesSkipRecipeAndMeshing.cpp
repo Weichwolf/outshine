@@ -27,6 +27,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <thread>
 #include <vector>
@@ -46,10 +47,27 @@ bool Prepare(RoadPageConstruction &build, const Corridors::Job &plan, const Corr
   return false;
 }
 
-bool Complete(RoadPageRestoration &restore, Geometry &into) {
+bool Complete(RoadPageRestoration &restore, const RoadPageManifest &manifest, Geometry &into) {
+  const auto surface =
+      into.addSurface("streets", manifest.Materials.surfaceAt(MaterialInstance(0)));
+  if (!surface) { return false; }
+  const RoadPageRestoration::Consumer consume =
+      [&](const RoadPageAsset &page,
+          std::string_view,
+          std::chrono::steady_clock::time_point) -> std::expected<bool, std::string> {
+    const auto &mesh = page.Geometry.Mesh;
+    if (mesh.Index.empty()) { return true; }
+    const auto part = into.addPart("streets", *surface);
+    if (!part || !into.setPositions(*part, mesh.PositionM) ||
+        !into.setNormals(*part, mesh.NormalM) || !into.setColours(*part, mesh.ColourRgba) ||
+        !into.setTriangles(*part, mesh.Index)) {
+      return std::unexpected("test road page consumer could not assemble native geometry");
+    }
+    return true;
+  };
   const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(15);
   while (std::chrono::steady_clock::now() < until) {
-    const auto ready = restore.Advance(into);
+    const auto ready = restore.Advance(consume);
     if (!ready || restore.Missing()) { return false; }
     if (*ready) { return true; }
     std::this_thread::yield();
@@ -180,7 +198,7 @@ void CheckSelection(Tasks &pool,
   auto one =
       RoadPageRestoration::Begin(pool, pages, manifest, std::span<const uint32_t>(selected), key);
   Geometry visible;
-  CHECK(one && Complete(**one, visible) && (*one)->Pages() == 1 &&
+  CHECK(one && Complete(**one, *manifest, visible) && (*one)->Pages() == 1 &&
             (*one)->NativeBytes() == manifest->Pages[0].ByteCount && visible.parts() == 1,
         "only the selected independent fine page is read and adopted");
   const std::array<uint32_t, 2> duplicate{0, 0};
@@ -191,7 +209,7 @@ void CheckSelection(Tasks &pool,
         "unknown pages are not silently omitted");
   auto all = RoadPageRestoration::Begin(pool, pages, manifest, std::nullopt, key);
   Geometry incomplete;
-  CHECK(all && !Complete(**all, incomplete) && (*all)->Missing(),
+  CHECK(all && !Complete(**all, *manifest, incomplete) && (*all)->Missing(),
         "a required corrupt payload produces a miss instead of a complete partial world");
   const auto invalidated = pages->LoadManifest(key);
   CHECK(invalidated && !*invalidated,
@@ -217,7 +235,7 @@ void CheckSelection(Tasks &pool,
   const auto published = ::outshine::Test::StoreRoadManifest(*pages, *manifest);
   auto complete = RoadPageRestoration::Begin(pool, pages, manifest, std::nullopt, key);
   Geometry rebuilt;
-  CHECK(published && *published == key && complete && Complete(**complete, rebuilt) &&
+  CHECK(published && *published == key && complete && Complete(**complete, *manifest, rebuilt) &&
             (*complete)->Pages() == manifest->Pages.size(),
         "the repaired product can republish the same manifest and complete the full selection");
   CHECK(ChangeRecord(
@@ -378,7 +396,7 @@ void CheckBuild(const std::filesystem::path &directory,
   auto restore = RoadPageRestoration::Begin(
       pool, pages, restored->SurfacePages, std::nullopt, restored->Loaded->Region.SurfaceManifest);
   Geometry geometry = std::move(restored->Loaded->Region.Surfaces);
-  CHECK(restore && Complete(**restore, geometry),
+  CHECK(restore && Complete(**restore, *restored->SurfacePages, geometry),
         "the same bounded native reader assembles complete road pages");
   CHECK(restore && (*restore)->Pages() >= 2 && (*restore)->NativeBytes() > 0 &&
             SameMesh(geometry, expected),
