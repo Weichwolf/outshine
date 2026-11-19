@@ -6,6 +6,7 @@
 #include "TerrainFieldSet.h"
 #include "TerrainRefinement.h"
 #include "TangentFrame.h"
+#include <array>
 #include <cstddef>
 #include <expected>
 #include <memory>
@@ -39,6 +40,18 @@ public:
     [[nodiscard]] size_t Haloed() const noexcept { return Haloed_; }
 
   private:
+    static constexpr size_t kPageWidth = kPatchGrid + 3u;
+    static constexpr size_t kNeighbourWidth = 3u;
+
+    struct AxisSample {
+      size_t Field = 0;
+      double Fraction = 0.0;
+    };
+
+    [[nodiscard]] static std::array<AxisSample, kPageWidth>
+    SampleAxis(const Sheet &sheet, uint32_t coordinate, double span);
+    void LoadNeighbours(Data::TileId source);
+    void PrepareSampling(const Sheet &sheet);
     [[nodiscard]] bool BeginsSheet();
     [[nodiscard]] bool AdvancesNode();
     void CompletesSheet();
@@ -49,10 +62,11 @@ public:
     size_t SheetAt_ = 0;
     size_t NodeAt_ = 0;
     size_t Haloed_ = 0;
-    int Zoom_ = 0;
-    double Span_ = 0;
-    double AtX_ = 0;
-    double AtY_ = 0;
+    std::optional<Data::TileId> SamplingSource_;
+    std::array<std::shared_ptr<const ::outshine::Ground::TerrainField>,
+               kNeighbourWidth * kNeighbourWidth>
+        SamplingFields_{};
+    std::array<AxisSample, kPageWidth> Columns_{}, Rows_{};
     std::vector<float> Page_;
     std::vector<bool> Missing_;
     bool Whole_ = false;
@@ -109,7 +123,7 @@ public:
   [[nodiscard]] size_t HeapBytes() const noexcept;
 
 private:
-  [[nodiscard]] std::optional<float> AslAt(int zoom, ::outshine::Ground::TileFrac at) const;
+  [[nodiscard]] const TerrainFieldSet::Entry *FindField(Data::TileId tile) const;
 
   struct FieldRequest {
     Data::TileId Tile;

@@ -1,6 +1,8 @@
 #include "TerrainInputPreparation.h"
 
 #include <algorithm>
+#include <array>
+#include <cassert>
 #include <cmath>
 #include <limits>
 #include <memory>
@@ -109,16 +111,21 @@ SourceTilesFor(const Patchwork &candidate,
 
 }
 
-const ::outshine::Ground::TerrainField *TerrainInputPreparation::FieldAt(Data::TileId tile) const {
+const TerrainFieldSet::Entry *TerrainInputPreparation::FindField(Data::TileId tile) const {
   if (RequestsPrepared_ && ResolvedRequests_ == Requests_.size()) {
     const auto found = std::ranges::lower_bound(
         Fields_, TileKey(tile), {}, [](const auto &one) { return TileKey(one.first); });
-    return found != Fields_.end() && found->first == tile ? found->second.get() : nullptr;
+    return found != Fields_.end() && found->first == tile ? &*found : nullptr;
   }
   for (const auto &one : Fields_) {
-    if (one.first == tile) { return one.second.get(); }
+    if (one.first == tile) { return &one; }
   }
   return nullptr;
+}
+
+const ::outshine::Ground::TerrainField *TerrainInputPreparation::FieldAt(Data::TileId tile) const {
+  const auto *field = FindField(tile);
+  return field != nullptr ? field->second.get() : nullptr;
 }
 
 bool TerrainInputPreparation::ShareSourcedField(
@@ -192,24 +199,58 @@ std::string TerrainInputPreparation::FieldDiagnostic() const {
   return result;
 }
 
-std::optional<float> TerrainInputPreparation::AslAt(int zoom,
-                                                    ::outshine::Ground::TileFrac at) const {
-  long x = static_cast<long>(std::floor(at.X));
-  const long y = static_cast<long>(std::floor(at.Y));
-  const double col = at.X - static_cast<double>(x);
-  const double row = at.Y - static_cast<double>(y);
-  if (!::outshine::Ground::WrapTile(zoom, &x, &y)) { return std::nullopt; }
-  const ::outshine::Ground::TerrainField *field =
-      FieldAt({.Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)});
-  if (field == nullptr || !field->Meshable()) { return std::nullopt; }
-  return field->PostingM({.Col = col, .Row = row});
-}
-
 TerrainInputPreparation::HaloBuildJob::HaloBuildJob(TerrainInputPreparation &inputs,
                                                     Patchwork &candidate,
                                                     int finestZoom) noexcept
     : Inputs_(&inputs), Candidate_(&candidate), FinestZoom_(finestZoom) {
   Inputs_->RimsMissing_ = 0;
+}
+
+std::array<TerrainInputPreparation::HaloBuildJob::AxisSample,
+           TerrainInputPreparation::HaloBuildJob::kPageWidth>
+TerrainInputPreparation::HaloBuildJob::SampleAxis(const Sheet &sheet,
+                                                  uint32_t coordinate,
+                                                  double span) {
+  const double offset = static_cast<double>(coordinate) * span;
+  const auto origin = static_cast<long>(std::floor(offset));
+  std::array<AxisSample, kPageWidth> samples;
+  for (size_t index = 0; index < samples.size(); ++index) {
+    const double position = offset + span * NodeFraction(sheet, static_cast<int>(index) - 1);
+    const auto tile = static_cast<long>(std::floor(position));
+    const long relative = tile - origin + 1;
+    assert(relative >= 0 && std::cmp_less(relative, kNeighbourWidth));
+    samples[index] = {.Field = static_cast<size_t>(relative),
+                      .Fraction = position - static_cast<double>(tile)};
+  }
+  return samples;
+}
+
+void TerrainInputPreparation::HaloBuildJob::LoadNeighbours(Data::TileId source) {
+  if (SamplingSource_ == source) { return; }
+  SamplingSource_ = source;
+  for (size_t row = 0; row < kNeighbourWidth; ++row) {
+    const long y = static_cast<long>(source.Y) + static_cast<long>(row) - 1;
+    for (size_t column = 0; column < kNeighbourWidth; ++column) {
+      long x = static_cast<long>(source.X) + static_cast<long>(column) - 1;
+      const auto *found = ::outshine::Ground::WrapTile(source.Zoom, &x, &y)
+                              ? Inputs_->FindField({.Zoom = source.Zoom,
+                                                    .X = static_cast<uint32_t>(x),
+                                                    .Y = static_cast<uint32_t>(y)})
+                              : nullptr;
+      SamplingFields_[row * kNeighbourWidth + column] =
+          found != nullptr && found->second && found->second->Meshable() ? found->second : nullptr;
+    }
+  }
+}
+
+void TerrainInputPreparation::HaloBuildJob::PrepareSampling(const Sheet &sheet) {
+  const int zoom = SourceZoomOf(sheet, FinestZoom_);
+  const auto drop = static_cast<uint32_t>(sheet.Tile.Zoom - zoom);
+  const Data::TileId source{.Zoom = zoom, .X = sheet.Tile.X >> drop, .Y = sheet.Tile.Y >> drop};
+  const double span = 1.0 / static_cast<double>(1u << drop);
+  Columns_ = SampleAxis(sheet, sheet.Tile.X, span);
+  Rows_ = SampleAxis(sheet, sheet.Tile.Y, span);
+  LoadNeighbours(source);
 }
 
 bool TerrainInputPreparation::HaloBuildJob::BeginsSheet() {
@@ -225,14 +266,7 @@ bool TerrainInputPreparation::HaloBuildJob::BeginsSheet() {
       ++SheetAt_;
       continue;
     }
-    const int sourceZoom = SourceZoomOf(sheet, FinestZoom_);
-    const auto drop = static_cast<uint32_t>(sheet.Tile.Zoom - sourceZoom);
-    Zoom_ = sheet.Tile.Zoom - static_cast<int>(drop);
-    Span_ = 1.0 / static_cast<double>(1u << drop);
-    AtX_ = static_cast<double>(sheet.Tile.X >> drop) +
-           static_cast<double>(sheet.Tile.X & ((1u << drop) - 1u)) * Span_;
-    AtY_ = static_cast<double>(sheet.Tile.Y >> drop) +
-           static_cast<double>(sheet.Tile.Y & ((1u << drop) - 1u)) * Span_;
+    PrepareSampling(sheet);
     Page_.assign(kPageNodes, 0.0f);
     Missing_.assign(kPageNodes, false);
     AnyMissing_ = false;
@@ -256,11 +290,11 @@ bool TerrainInputPreparation::HaloBuildJob::AdvancesNode() {
     ++NodeAt_;
     return true;
   }
-  const std::optional<float> asl = Inputs_->AslAt(
-      Zoom_,
-      {.X = AtX_ + Span_ * NodeFraction(sheet, i), .Y = AtY_ + Span_ * NodeFraction(sheet, j)});
-  if (asl) {
-    Page_[NodeAt_] = *asl;
+  const auto &x = Columns_[NodeAt_ % pageSide];
+  const auto &y = Rows_[NodeAt_ / pageSide];
+  const auto &field = SamplingFields_[y.Field * kNeighbourWidth + x.Field];
+  if (field) {
+    Page_[NodeAt_] = field->PostingM({.Col = x.Fraction, .Row = y.Fraction});
   } else if (inside) {
     Working_ = false;
     ++SheetAt_;
