@@ -51,6 +51,10 @@ void CheckSheetWorker(const Generators::TerrainInputPreparation &prepared,
       {.Frame = frame, .Layout = layout, .FinestZoom = 4, .ProbeStride = stride});
   CHECK(candidate.Sheets.empty() && inputs.FieldAt(expected.Sheets.front().Tile) == nullptr,
         "background work owns the pending candidate and its immutable source fields");
+  Ground::HeightField::Block retained;
+  CHECK(worker.SnapshotSourceFields().CopySourcedField(expected.Sheets.front().Tile, retained) &&
+            !retained.Nodes.empty() && retained.Nodes.front() == DelayedTerrainSource::HeightM,
+        "a camera replacement can retain source heights while the old worker owns the candidate");
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
   auto result = worker.Take(inputs, candidate);
   while (!result && std::chrono::steady_clock::now() < deadline) {
@@ -309,6 +313,33 @@ void CheckTerminalSources(const Patchwork &original) {
   }
 }
 
+void CheckSourceReuse(const Generators::TerrainInputPreparation &prepared,
+                      Patchwork requested,
+                      Ground::TilePool &pool,
+                      const Ground::GroundStream &ground) {
+  const auto shared = requested.Sheets.front().Tile;
+  const Data::TileId departed{.Zoom = 4, .X = 7, .Y = 8};
+  const Data::TileId entered{.Zoom = 4, .X = 10, .Y = 8};
+  auto prior = prepared.SnapshotSourceFields();
+  ++requested.Sheets.front().Tile.X;
+  const Generators::TerrainInputPreparation::FieldPreparation budget{
+      .FinestZoom = 4, .RequestsMost = 0, .AdditionalTiles = {}};
+  Generators::TerrainInputPreparation next;
+  const auto pending = next.PrepareFields(
+      requested, ground, budget, std::make_unique<Generators::TerrainFieldSet>(prior));
+  const auto *const field = next.FieldAt(shared);
+  CHECK(pending && !*pending && field && field->AtM(0u, 0u) == DelayedTerrainSource::HeightM &&
+            next.FieldAt(departed) == nullptr && next.FieldAt(entered) == nullptr,
+        "moving the camera retains overlapping source heights while the new edge awaits its DEM");
+
+  pool.Shapes({.Kind = "sineRidge", .AmplitudeM = 5.0, .WavelengthM = 1000.0});
+  Generators::TerrainInputPreparation reshaped;
+  const auto replaced = reshaped.PrepareFields(
+      requested, ground, budget, std::make_unique<Generators::TerrainFieldSet>(std::move(prior)));
+  CHECK(replaced && !*replaced && reshaped.FieldAt(shared) == nullptr,
+        "a changed terrain declaration requests new heights for a previously overlapping tile");
+}
+
 }
 
 int main() {
@@ -371,5 +402,6 @@ int main() {
   CheckAdmission(sources, transport, probe, original);
   CheckShutdown(sources, transport, probe, original);
   CheckTerminalSources(original);
+  CheckSourceReuse(sheets, original, pool, ground);
   return Report();
 }

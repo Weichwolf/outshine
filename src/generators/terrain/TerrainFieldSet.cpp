@@ -122,8 +122,9 @@ std::expected<void, RangeError> IncludeRange(const TerrainFieldSet::Entry &sourc
 }
 
 TerrainFieldSet::TerrainFieldSet(std::vector<Entry> fields,
-                                 ::outshine::Ground::TerrainRevisionIndex::Reservation metadata)
-    : Fields_(std::move(fields)), Metadata_(std::move(metadata)) {
+                                 ::outshine::Ground::TerrainRevisionIndex::Reservation metadata,
+                                 uint64_t terrainScope)
+    : Fields_(std::move(fields)), Metadata_(std::move(metadata)), TerrainScope_(terrainScope) {
   const auto key = [](const Entry &entry) { return TileKey(entry.first); };
   if (!std::ranges::is_sorted(Fields_, {}, key)) { std::ranges::stable_sort(Fields_, {}, key); }
 }

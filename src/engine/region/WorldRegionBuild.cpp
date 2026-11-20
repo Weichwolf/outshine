@@ -461,6 +461,7 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
                          "tiles");
   if (!World.GroundPublished.NeedsRebuild(
           request.Revision, alsoWhenTilesLanded, World.RimsMissing > 0)) {
+    World.RetiredTerrainFields.reset();
     return Laid::Unchanged;
   }
 
@@ -731,7 +732,7 @@ Engine::State::AdvanceGroundCandidatePreparation(const GroundRequest &request) {
       Published.RecordMetric("ground candidate: canceled CPU products",
                              static_cast<double>(World.GroundBuild->RetainedProductBytes()),
                              "bytes");
-      World.GroundRetirement = std::move(World.GroundBuild);
+      RetireGroundCandidate();
       return GroundBuildProgress::Pending;
     }
     ++World.GroundCandidates;
@@ -949,7 +950,8 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
                                               {.FinestZoom = coverage.Zoom,
                                                .RequestsMost = kTerrainSheetsPerFrame,
                                                .Vectors = state.Candidate().Sources().Vectors.get(),
-                                               .AdditionalTiles = state.RoadHeightTiles()});
+                                               .AdditionalTiles = state.RoadHeightTiles()},
+                                              std::move(World.RetiredTerrainFields));
       if (!prepared) {
         Error = prepared.error();
         World.GroundBuild.reset();
@@ -1330,8 +1332,16 @@ void Engine::State::RequestGroundStreetSources() {
 }
 
 void Engine::State::RetryGroundWithStreetSources() {
-  assert(!World.GroundRetirement);
   RequestGroundStreetSources();
+  RetireGroundCandidate();
+}
+
+void Engine::State::RetireGroundCandidate() {
+  assert(World.GroundBuild && !World.GroundRetirement);
+  auto fields = World.GroundBuild->SnapshotSourceFields();
+  if (!fields.Entries().empty()) {
+    World.RetiredTerrainFields = std::make_unique<Generators::TerrainFieldSet>(std::move(fields));
+  }
   World.GroundRetirement = std::move(World.GroundBuild);
 }
 
@@ -1405,6 +1415,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
     return GroundBuildProgress::Failed;
   }
   if (hit && result.Loaded) {
+    World.RetiredTerrainFields.reset();
     World.Surface().RestoreWater(std::move(result.Loaded->Water));
     state.BindSurfaceInputs(World.Surface().Ways(), World.Surface().WaterBodies());
     RecordWaterSurfaceState(Published, World.Surface().WaterBodies());

@@ -14,6 +14,7 @@ class Tasks;
 
 namespace outshine::Generators {
 class TerrainInputPreparation;
+class TerrainFieldSet;
 
 class TerrainSheetTask {
 public:
@@ -55,6 +56,7 @@ public:
   [[nodiscard]] bool HalosReady() const noexcept;
   [[nodiscard]] bool AwaitSlice(double seconds) const;
   [[nodiscard]] std::optional<Result> Take(TerrainInputPreparation &inputs, Patchwork &pages);
+  [[nodiscard]] TerrainFieldSet SnapshotSourceFields() const;
   [[nodiscard]] Memory PayloadMemory() const noexcept;
 
 private:

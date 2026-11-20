@@ -107,6 +107,8 @@ public:
     return TerrainInputs_;
   }
 
+  [[nodiscard]] Generators::TerrainFieldSet SnapshotSourceFields() const;
+
   [[nodiscard]] const World::TransportNetworkSnapshot *TransportSnapshot() const noexcept {
     return TransportSnapshot_.get();
   }

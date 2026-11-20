@@ -478,6 +478,13 @@ std::shared_ptr<const TerrainField> GroundStream::ResidentStitchedField(Data::Ti
   return Held_->Stitched->HeldStitched(of);
 }
 
+bool GroundStream::CanReuseStitchedField(const TerrainField &field) const {
+  if (!field.Meshable() || field.HasMissingBoundary()) { return false; }
+  const auto &certificate = field.Certificate();
+  return certificate.Dependencies().empty() ||
+         Tiles_.InspectCertificate(certificate) == TerrainCertificate::Validation::Current;
+}
+
 TilePool::Reply GroundStream::PollStitchedField(Data::TileId of,
                                                 std::shared_ptr<const TerrainField> &out,
                                                 std::optional<Data::SourceFailure> *failure) const {

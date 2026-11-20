@@ -8,6 +8,7 @@
 #include "TangentFrame.h"
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <memory>
 #include <optional>
@@ -81,7 +82,8 @@ public:
   [[nodiscard]] std::expected<bool, std::string>
   PrepareFields(const Patchwork &candidate,
                 const ::outshine::Ground::GroundStream &ground,
-                FieldPreparation preparation);
+                FieldPreparation preparation,
+                std::unique_ptr<TerrainFieldSet> previous = {});
 
   [[nodiscard]] std::string FieldDiagnostic() const;
 
@@ -113,8 +115,9 @@ public:
     Metadata_.reset();
     Requests_.clear();
     NextRequest_ = 0;
-    ResolvedRequests_ = 0;
+    FieldsWanted_ = 0;
     RequestsPrepared_ = false;
+    TerrainScope_ = 0;
   }
 
   [[nodiscard]] size_t RimsMissing() const noexcept { return RimsMissing_; }
@@ -123,11 +126,20 @@ public:
 
 private:
   [[nodiscard]] const TerrainFieldSet::Entry *FindField(Data::TileId tile) const;
+  [[nodiscard]] std::expected<void, std::string>
+  BeginFieldRequests(const Patchwork &candidate,
+                     const ::outshine::Ground::GroundStream &ground,
+                     FieldPreparation preparation,
+                     std::unique_ptr<TerrainFieldSet> previous);
 
   struct FieldRequest {
     Data::TileId Tile;
     bool Resolved = false;
   };
+
+  void ResolveField(FieldRequest &request,
+                    std::shared_ptr<const ::outshine::Ground::TerrainField> field);
+  void ReuseFields(const TerrainFieldSet &previous, const ::outshine::Ground::GroundStream &ground);
 
   ::outshine::Ground::TerrainRevisionIndex::Reservation Metadata_;
   std::vector<std::pair<Data::TileId, std::shared_ptr<const ::outshine::Ground::TerrainField>>>
@@ -135,8 +147,9 @@ private:
   size_t FieldHeapBytes_ = 0;
   std::vector<FieldRequest> Requests_;
   size_t NextRequest_ = 0;
-  size_t ResolvedRequests_ = 0;
+  size_t FieldsWanted_ = 0;
   bool RequestsPrepared_ = false;
+  uint64_t TerrainScope_ = 0;
   size_t RimsMissing_ = 0;
   TangentFrame Frame_ = TangentFrame::At({});
   bool Framed_ = false;

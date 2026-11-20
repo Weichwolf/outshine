@@ -41,9 +41,13 @@ public:
 
   TerrainFieldSet() = default;
 
-  explicit TerrainFieldSet(
-      std::vector<Entry> fields,
-      ::outshine::Ground::TerrainRevisionIndex::Reservation metadata = nullptr);
+  explicit TerrainFieldSet(std::vector<Entry> fields,
+                           ::outshine::Ground::TerrainRevisionIndex::Reservation metadata = nullptr,
+                           uint64_t terrainScope = 0);
+
+  [[nodiscard]] std::span<const Entry> Entries() const noexcept { return Fields_; }
+
+  [[nodiscard]] uint64_t TerrainScopeRevision() const noexcept { return TerrainScope_; }
 
   [[nodiscard]] bool CopySourcedField(Data::TileId tile,
                                       ::outshine::Ground::HeightField::Block &into) const;
@@ -75,6 +79,7 @@ public:
 private:
   std::vector<Entry> Fields_;
   ::outshine::Ground::TerrainRevisionIndex::Reservation Metadata_;
+  uint64_t TerrainScope_ = 0;
 };
 
 }

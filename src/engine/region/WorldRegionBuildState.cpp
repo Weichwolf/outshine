@@ -20,6 +20,11 @@
 namespace outshine {
 WorldRegionBuildState::~WorldRegionBuildState() = default;
 
+Generators::TerrainFieldSet WorldRegionBuildState::SnapshotSourceFields() const {
+  return SheetWorker_ ? SheetWorker_->SnapshotSourceFields()
+                      : TerrainInputs_.SnapshotSourceFields();
+}
+
 void WorldRegionBuildState::BeginStreetGraph(
     std::unique_ptr<Generators::Osm::StreetGraphRequest> worker) noexcept {
   StreetGraphWorker_ = std::move(worker);

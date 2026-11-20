@@ -127,6 +127,10 @@ std::optional<TerrainSheetTask::Result> TerrainSheetTask::Take(TerrainInputPrepa
   return Result{std::move(State_->Product)};
 }
 
+TerrainFieldSet TerrainSheetTask::SnapshotSourceFields() const {
+  return State_->Inputs.SnapshotSourceFields();
+}
+
 TerrainSheetTask::Memory TerrainSheetTask::PayloadMemory() const noexcept {
   return {.Fields = State_->FieldBytes,
           .Pages = State_->PageBytes.load(std::memory_order_relaxed),

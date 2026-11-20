@@ -111,7 +111,7 @@ SourceTilesFor(const Patchwork &candidate,
 }
 
 const TerrainFieldSet::Entry *TerrainInputPreparation::FindField(Data::TileId tile) const {
-  if (RequestsPrepared_ && ResolvedRequests_ == Requests_.size()) {
+  if (RequestsPrepared_ && Fields_.size() == FieldsWanted_) {
     const auto found = std::ranges::lower_bound(
         Fields_, TileKey(tile), {}, [](const auto &one) { return TileKey(one.first); });
     return found != Fields_.end() && found->first == tile ? &*found : nullptr;
@@ -136,30 +136,74 @@ bool TerrainInputPreparation::ShareExactSourceField(
 }
 
 TerrainFieldSet TerrainInputPreparation::SnapshotSourceFields() const {
-  return TerrainFieldSet(Fields_, Metadata_);
+  return TerrainFieldSet(Fields_, Metadata_, TerrainScope_);
+}
+
+void TerrainInputPreparation::ResolveField(
+    FieldRequest &request, std::shared_ptr<const ::outshine::Ground::TerrainField> field) {
+  if (field) { FieldHeapBytes_ += field->HeapBytes(); }
+  Fields_.emplace_back(request.Tile, std::move(field));
+  request.Resolved = true;
+}
+
+void TerrainInputPreparation::ReuseFields(const TerrainFieldSet &previous,
+                                          const ::outshine::Ground::GroundStream &ground) {
+  const auto fields = previous.Entries();
+  auto field = fields.begin();
+  for (auto &request : Requests_) {
+    const auto key = TileKey(request.Tile);
+    while (field != fields.end() && TileKey(field->first) < key) { ++field; }
+    if (field == fields.end()) { break; }
+    if (field->first == request.Tile && field->second &&
+        ground.CanReuseStitchedField(*field->second)) {
+      ResolveField(request, field->second);
+    }
+  }
+}
+
+std::expected<void, std::string>
+TerrainInputPreparation::BeginFieldRequests(const Patchwork &candidate,
+                                            const ::outshine::Ground::GroundStream &ground,
+                                            FieldPreparation preparation,
+                                            std::unique_ptr<TerrainFieldSet> previous) {
+  auto tiles = SourceTilesFor(candidate, preparation, ground.BlockZoom());
+  if (!tiles) { return std::unexpected(tiles.error()); }
+  const uint64_t scope = ground.TerrainScopeRevision();
+  if (previous && previous->TerrainScopeRevision() != scope) { previous.reset(); }
+  auto metadata = ground.PrepareSourceMetadata(*tiles);
+  if (!metadata && previous) {
+    previous.reset();
+    metadata = ground.PrepareSourceMetadata(*tiles);
+  }
+  if (!metadata) {
+    return std::unexpected("terrain source metadata exceeds its resident dependency budget");
+  }
+  Reset();
+  TerrainScope_ = scope;
+  Metadata_ = std::move(*metadata);
+  Requests_.reserve(tiles->size());
+  Fields_.reserve(tiles->size());
+  for (const Data::TileId tile : *tiles) { Requests_.push_back({.Tile = tile}); }
+  FieldsWanted_ = Requests_.size();
+  if (previous) {
+    ReuseFields(*previous, ground);
+    std::erase_if(Requests_, [](const FieldRequest &request) { return request.Resolved; });
+  }
+  RequestsPrepared_ = true;
+  return {};
 }
 
 std::expected<bool, std::string>
 TerrainInputPreparation::PrepareFields(const Patchwork &candidate,
                                        const ::outshine::Ground::GroundStream &ground,
-                                       FieldPreparation preparation) {
+                                       FieldPreparation preparation,
+                                       std::unique_ptr<TerrainFieldSet> previous) {
   if (!RequestsPrepared_) {
-    auto tiles = SourceTilesFor(candidate, preparation, ground.BlockZoom());
-    if (!tiles) { return std::unexpected(tiles.error()); }
-    auto metadata = ground.PrepareSourceMetadata(*tiles);
-    if (!metadata) {
-      return std::unexpected("terrain source metadata exceeds its resident dependency budget");
-    }
-    Reset();
-    Metadata_ = std::move(*metadata);
-    Requests_.reserve(tiles->size());
-    Fields_.reserve(tiles->size());
-    for (const Data::TileId tile : *tiles) { Requests_.push_back({.Tile = tile}); }
-    RequestsPrepared_ = true;
+    auto begun = BeginFieldRequests(candidate, ground, preparation, std::move(previous));
+    if (!begun) { return std::unexpected(std::move(begun.error())); }
   }
-  if (ResolvedRequests_ == Requests_.size()) { return true; }
-  for (size_t checked = 0;
-       checked < preparation.RequestsMost && ResolvedRequests_ < Requests_.size();
+  if (Fields_.size() == FieldsWanted_) { return true; }
+  for (size_t checked = 0; checked < preparation.RequestsMost && Fields_.size() < FieldsWanted_;
        ++checked) {
     FieldRequest &request = Requests_[NextRequest_];
     NextRequest_ = (NextRequest_ + 1u) % Requests_.size();
@@ -170,28 +214,23 @@ TerrainInputPreparation::PrepareFields(const Patchwork &candidate,
     switch (status) {
       case ::outshine::Ground::TilePool::Reply::Ready:
         if (!field) { return std::unexpected("a ready height field has no data"); }
-        FieldHeapBytes_ += field->HeapBytes();
-        Fields_.emplace_back(request.Tile, std::move(field));
         break;
       case ::outshine::Ground::TilePool::Reply::Absent:
-      case ::outshine::Ground::TilePool::Reply::Undeclared:
-        Fields_.emplace_back(request.Tile, nullptr);
-        break;
+      case ::outshine::Ground::TilePool::Reply::Undeclared: break;
       case ::outshine::Ground::TilePool::Reply::Refused:
         return std::unexpected("a terrain source refused a height field");
       case ::outshine::Ground::TilePool::Reply::Pending:
       case ::outshine::Ground::TilePool::Reply::Deferred: continue;
     }
-    request.Resolved = true;
-    ++ResolvedRequests_;
+    ResolveField(request, std::move(field));
   }
-  if (ResolvedRequests_ != Requests_.size()) { return false; }
+  if (Fields_.size() != FieldsWanted_) { return false; }
   std::ranges::sort(Fields_, {}, [](const auto &one) { return TileKey(one.first); });
   return true;
 }
 
 std::string TerrainInputPreparation::FieldDiagnostic() const {
-  std::string result = std::to_string(ResolvedRequests_) + "/" + std::to_string(Requests_.size());
+  std::string result = std::to_string(Fields_.size()) + "/" + std::to_string(FieldsWanted_);
   const auto pending = std::ranges::find(Requests_, false, &FieldRequest::Resolved);
   if (pending != Requests_.end()) {
     const auto tile = pending->Tile;
