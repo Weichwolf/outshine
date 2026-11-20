@@ -11,6 +11,7 @@ int main() {
   CHECK(schedule.HasReadyRegion() &&
             schedule.CurrentSheetPhase() == GroundBuildSchedule::SheetPhase::NeedsMesh,
         "cached height pages must become resident before publication");
+  CHECK(schedule.ClassificationBound(), "a restored region already depends on its baked classes");
   CHECK(!schedule.AdvanceStage(), "ready bytes alone cannot publish a region");
   CHECK(schedule.AdvanceSheetPhase() && schedule.Status() == "models",
         "residency enables runtime material registration");

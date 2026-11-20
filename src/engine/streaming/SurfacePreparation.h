@@ -296,6 +296,7 @@ public:
   [[nodiscard]] bool InputsReadyWithin(int rings) const;
   [[nodiscard]] bool InputsReady() const;
   [[nodiscard]] bool VectorGeometryReady(std::optional<int> rings) const;
+  [[nodiscard]] bool VectorSurfacesReady(std::optional<int> rings) const;
 
   [[nodiscard]] bool ClassificationReady() const { return !RecipesReady_ || Cls_.Complete(); }
 
@@ -322,12 +323,13 @@ public:
     Settled_.reset();
   }
 
-  [[nodiscard]] bool IngestedWithin(int rings) const;
   [[nodiscard]] std::string IngestionStatus() const;
   [[nodiscard]] int FinestZoomOf(Data::DataKind kind) const;
   [[nodiscard]] int TerrainRenderZoom() const;
 
 private:
+  [[nodiscard]] bool StreetInputsReady(std::optional<int> rings) const;
+  [[nodiscard]] bool WaterInputsReady(std::optional<int> rings) const;
   [[nodiscard]] std::expected<void, std::string>
   BindAssetCaches(const std::string &directory,
                   Data::SourceTransport &transport,
