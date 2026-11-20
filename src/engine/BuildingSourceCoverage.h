@@ -22,6 +22,8 @@ public:
 
   [[nodiscard]] std::span<const Ground::GeoBounds> Regions() const noexcept { return Regions_; }
 
+  [[nodiscard]] uint64_t Version() const noexcept { return Version_; }
+
 private:
   struct Revision {
     uint64_t Geometry = 0;
@@ -31,6 +33,7 @@ private:
 
   std::optional<Revision> Revision_;
   std::vector<Ground::GeoBounds> Regions_;
+  uint64_t Version_ = 0;
 };
 }
 #endif

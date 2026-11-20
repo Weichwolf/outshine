@@ -5,6 +5,8 @@
 #include "TileGeodesy.h"
 #include <cstdint>
 #include <map>
+#include <utility>
+#include <vector>
 
 namespace outshine {
 bool BuildingSourceCoverage::Update(const Render::GeometryPageResidency &pieces,
@@ -25,15 +27,19 @@ bool BuildingSourceCoverage::Update(const Render::GeometryPageResidency &pieces,
           piece.OccupiedCells != 0 ? piece.OccupiedCells : uint64_t{1} << (piece.Cell - 1);
     }
   });
-  Regions_.clear();
-  Regions_.reserve(masks.size());
+  std::vector<Ground::GeoBounds> regions;
+  regions.reserve(masks.size());
   for (const auto &[tile, mask] : masks) {
     const auto &input = *footprints.InputOfTile(tile);
     if (input.Vector && mask == input.OccupiedCells) {
-      Regions_.push_back(Ground::TileBounds(input.Vector->Tile));
+      regions.push_back(Ground::TileBounds(input.Vector->Tile));
     }
   }
   Revision_ = revision;
+  if (Regions_ != regions) {
+    Regions_ = std::move(regions);
+    ++Version_;
+  }
   return true;
 }
 }
