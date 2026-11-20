@@ -39,6 +39,40 @@ OSQPCscMatrix View(WaterSparseMatrix &matrix) {
           .owned = 0};
 }
 
+struct ConditionedConstraints {
+  std::vector<double> Values, Lower, Upper, RowScale;
+
+  explicit ConditionedConstraints(const WaterHeightProgram &program)
+      : Values(program.Constraints.Values),
+        Lower(program.Lower),
+        Upper(program.Upper),
+        RowScale(Upper.size(), 0.0) {
+    const auto &rows = program.Constraints.RowIndices;
+    for (size_t at = 0; at < rows.size(); ++at) {
+      auto &norm = RowScale[static_cast<size_t>(rows[at])];
+      norm = std::hypot(norm, Values[at]);
+    }
+    for (size_t row = 0; row < RowScale.size(); ++row) {
+      const double norm = RowScale[row];
+      const double scale = norm > 0.0 && std::isfinite(norm) ? 1.0 / norm : 1.0;
+      const double bound = Upper[row] * scale;
+      RowScale[row] =
+          std::isfinite(scale) && std::abs(Upper[row]) < OSQP_INFTY && std::abs(bound) < OSQP_INFTY
+              ? scale
+              : 1.0;
+      Upper[row] *= RowScale[row];
+      if (row >= program.Inequalities) { Lower[row] = Upper[row]; }
+    }
+    for (size_t at = 0; at < rows.size(); ++at) {
+      Values[at] *= RowScale[static_cast<size_t>(rows[at])];
+    }
+  }
+
+  [[nodiscard]] size_t StorageBytes() const noexcept {
+    return (Values.size() + Lower.size() + Upper.size() + RowScale.size()) * sizeof(double);
+  }
+};
+
 bool Certificate(const WaterHeightProgram &program,
                  const OSQPSolution &solution,
                  WaterHeightFit &fit) {
@@ -189,17 +223,23 @@ std::expected<WaterHeightFit, WaterHeightError> FitWaterSurfaceHeights(
   const auto began = Clock::now();
   auto program = BuildWaterHeightProgram(problem, budget, stop);
   if (!program) { return std::unexpected(program.error()); }
+  ConditionedConstraints conditioned(*program);
+  std::vector<double> start;
+  start.reserve(problem.TargetUpM.size());
+  for (const double target : problem.TargetUpM) { start.push_back(target - program->DatumM); }
+  if (stop.stop_requested()) { return std::unexpected(Error::Canceled); }
   WaterHeightFit fit;
   fit.AssemblyMs = Milliseconds(began);
   fit.Rows = static_cast<size_t>(program->Constraints.Rows);
   fit.Nonzeros = static_cast<size_t>(program->Constraints.Values.size());
   fit.MatrixBytes =
       program->Mass.StorageBytes() + program->Hessian.StorageBytes() +
-      program->Constraints.StorageBytes() +
+      program->Constraints.StorageBytes() + conditioned.StorageBytes() +
       static_cast<size_t>(program->Linear.size() + program->Lower.size() + program->Upper.size()) *
           sizeof(double);
   const auto hessian = View(program->Hessian);
-  const auto constraints = View(program->Constraints);
+  auto constraints = View(program->Constraints);
+  constraints.x = conditioned.Values.data();
   OSQPSettings settings{};
   osqp_set_default_settings(&settings);
   settings.verbose = 0;
@@ -214,8 +254,8 @@ std::expected<WaterHeightFit, WaterHeightError> FitWaterSurfaceHeights(
                                  &hessian,
                                  program->Linear.data(),
                                  &constraints,
-                                 program->Lower.data(),
-                                 program->Upper.data(),
+                                 conditioned.Lower.data(),
+                                 conditioned.Upper.data(),
                                  constraints.m,
                                  constraints.n,
                                  &settings);
@@ -223,12 +263,18 @@ std::expected<WaterHeightFit, WaterHeightError> FitWaterSurfaceHeights(
   fit.SetupMs = Milliseconds(setupAt);
   if (status != 0 || solver == nullptr) { return std::unexpected(Error::SolverFailure); }
   if (stop.stop_requested()) { return std::unexpected(Error::Canceled); }
+  if (osqp_warm_start(solver, start.data(), nullptr) != 0) {
+    return std::unexpected(Error::SolverFailure);
+  }
   const auto solveAt = Clock::now();
   const auto solved = Solved(*solver, osqp_solve(solver));
   fit.SolveMs = Milliseconds(solveAt);
   if (stop.stop_requested()) { return std::unexpected(Error::Canceled); }
   if (!solved) { return std::unexpected(solved.error()); }
   fit.Iterations = static_cast<uint64_t>(solver->info->iter);
+  for (size_t row = 0; row < conditioned.RowScale.size(); ++row) {
+    solver->solution->y[row] *= conditioned.RowScale[row];
+  }
   if (!Certificate(*program, *solver->solution, fit) ||
       !Geometry(problem, *program, *solver->solution, fit)) {
     return std::unexpected(Error::VerificationFailed);
