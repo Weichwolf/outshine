@@ -188,7 +188,6 @@ AssetCache::Load(std::string_view key, const ReadPlan &plan) const {
   auto decoded = AssetSql::Decompress(
       std::move(**stored), static_cast<int>(codec), static_cast<size_t>(native));
   if (!decoded) { return std::optional<CachedAsset>{}; }
-  lock.lock();
   State_->Observe(record.Package, bytes);
   return CachedAsset(std::move(**found), std::move(*decoded));
 }

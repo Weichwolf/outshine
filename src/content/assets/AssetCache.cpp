@@ -66,9 +66,8 @@ void AssetCache::State::Observe(std::string_view key, uint64_t storedBytes, bool
 }
 
 void AssetCache::State::WarnUsage() {
-  if (!UsageWarning) {
+  if (!UsageWarning.exchange(true, std::memory_order_relaxed)) {
     std::fputs("asset cache: usage metadata could not be fully recorded\n", stderr);
-    UsageWarning = true;
   }
 }
 
@@ -256,7 +255,7 @@ std::expected<void, AssetCacheError> AssetCache::State::Initialize() {
   if (usage) { Usage = std::move(*usage); }
   if (!Usage) {
     std::fputs("asset cache: usage index could not be opened\n", stderr);
-    UsageWarning = true;
+    UsageWarning.store(true, std::memory_order_relaxed);
   }
   if (Usage) {
     const auto indexed = PrepareUsageIndex(Database);
