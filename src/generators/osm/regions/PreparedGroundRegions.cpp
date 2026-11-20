@@ -246,7 +246,7 @@ PreparedGroundRegions::PrepareStore(const std::string &key,
   auto loaded = LoadDecoded(key);
   if (!loaded) { return std::unexpected(std::move(loaded.error())); }
   StoreWork work(key, requestKey);
-  if (*loaded) {
+  if (*loaded && (**loaded).Region.SurfaceManifest == region.SurfaceManifest) {
     work.Loaded_ = std::move(*loaded);
     work.Current_ = StoreWork::Phase::Bind;
     return work;
