@@ -139,11 +139,14 @@ public:
     return {};
   }
 
-  [[nodiscard]] std::expected<void, std::string> Publish(std::unique_ptr<RuntimeScene> &published) {
+  [[nodiscard]] std::expected<void, std::string>
+  Publish(std::unique_ptr<RuntimeScene> &published,
+          Render::SceneResources *retiredSources = nullptr) {
     assert(Scene_);
     const auto editing = Renderer_.EditWorldCandidate();
     std::string error;
-    if (!RuntimeScene::PublishesPreparedWorld(Renderer_, published, Scene_, error, Publication_)) {
+    if (!RuntimeScene::PublishesPreparedWorld(
+            Renderer_, published, Scene_, error, Publication_, retiredSources)) {
       return std::unexpected(std::move(error));
     }
     return {};

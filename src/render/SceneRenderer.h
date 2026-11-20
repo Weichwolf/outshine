@@ -141,7 +141,8 @@ public:
                        SceneResources::PieceSources pieces = SceneResources::PieceSources::Copy,
                        GroundSources ground = GroundSources::Default);
   [[nodiscard]] bool PublishesWorldCandidate(std::string &error,
-                                             OverlaySource overlay = OverlaySource::Candidate);
+                                             OverlaySource overlay = OverlaySource::Candidate,
+                                             SceneResources *retiredSources = nullptr);
   void AbandonsWorldCandidate() noexcept;
 
   [[nodiscard]] bool HasWorldCandidate() const noexcept { return Candidate_.has_value(); }

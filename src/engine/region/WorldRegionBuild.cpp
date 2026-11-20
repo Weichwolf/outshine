@@ -1864,8 +1864,11 @@ bool Engine::State::PublishGroundCandidate(WorldRegionBuildState &state) {
   const auto phaseAt = std::chrono::steady_clock::now();
   state.PublishesFootprints();
   GroundWorldCandidate &candidate = state.Candidate();
-  if (auto published = candidate.Publish(
-          World, World.Surface().Footprints(), Picture.Standing, state.Revision());
+  if (auto published = candidate.Publish(World,
+                                         World.Surface().Footprints(),
+                                         Picture.Standing,
+                                         state.Revision(),
+                                         Services.Compute.get());
       !published) {
     Error = std::move(published.error());
     World.GroundBuild.reset();

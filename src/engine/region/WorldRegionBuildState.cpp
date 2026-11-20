@@ -167,6 +167,7 @@ bool WorldRegionBuildState::AdvancesRetirement(Tasks *compute, size_t sheetsMost
   SheetWorker_.reset();
   RoadPlanning_.reset();
   StagedClipmaps_.reset();
+  const bool sourcesReleased = Candidate_.CollectRetirement(compute);
   const bool sheetsReleased = ReleasesRetiredSheets(compute, sheetsMost);
   if (StreetGraphWorker_) {
     StreetGraphWorker_->Cancel();
@@ -177,7 +178,7 @@ bool WorldRegionBuildState::AdvancesRetirement(Tasks *compute, size_t sheetsMost
     if (!CorridorJob_->RetireStep(kCorridorRetireUnitsPerFrame)) { return false; }
     CorridorJob_.reset();
   }
-  return sheetsReleased;
+  return sourcesReleased && sheetsReleased;
 }
 
 [[nodiscard]] bool

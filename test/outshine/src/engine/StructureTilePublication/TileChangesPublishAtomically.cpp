@@ -5,6 +5,7 @@
 #include <array>
 #include <cstdint>
 #include <cstddef>
+#include <latch>
 #include <string>
 #include <memory>
 #include <span>
@@ -19,6 +20,29 @@ constexpr uint64_t kReplacementSource = 42;
 constexpr uint64_t kFallbackSource = 43;
 constexpr uint64_t kFineDigest = 101;
 constexpr uint64_t kShellDigest = 102;
+
+void PublishGround(GroundWorldCandidate &ground,
+                   WorldRegionState &world,
+                   Generators::Osm::BuildingField &footprints,
+                   std::unique_ptr<Core::RuntimeScene> &scene) {
+  auto graph = Path::Network::Create({.CellM = 1}, {});
+  CHECK(graph.has_value(), "the initial transport graph is available");
+  if (!graph) { return; }
+  world.StreetGraph = std::make_shared<const Path::Network>(std::move(*graph));
+  const std::weak_ptr<const Path::Network> oldGraph = world.StreetGraph;
+  std::latch releaseWorker(1);
+  Tasks compute(1);
+  CHECK(compute.PostDetached([&] { releaseWorker.wait(); }), "the worker accepts retirement work");
+  CHECK(
+      ground.Publish(world, footprints, scene, {.Region = 1, .Coverage = {}}, &compute).has_value(),
+      "ground publishes its replacement while the worker is busy");
+  CHECK(!world.StreetGraph && !oldGraph.expired() && !ground.CollectRetirement(&compute),
+        "the old graph survives publication and the new scene no longer uses it");
+  releaseWorker.count_down();
+  compute.Wait(compute.Post([] {}));
+  CHECK(ground.CollectRetirement(&compute) && oldGraph.expired(),
+        "the worker releases the superseded graph before the next build can start");
+}
 
 void CheckWholeTiles(WorldRegionState &world,
                      Render::SceneRenderer &renderer,
@@ -254,8 +278,7 @@ int main() {
             "ground candidate prepares from an empty world");
       CHECK(ground.SetGroundGeometry(base.clone(), 0, error),
             "ground candidate carries every streamed piece material slot");
-      CHECK(ground.Publish(world, footprints, scene, {.Region = 1, .Coverage = {}}).has_value(),
-            "ground candidate publishes its native material table");
+      PublishGround(ground, world, footprints, scene);
       const auto wallSurface = Render::PieceSurface(static_cast<uint32_t>(wall->index()));
       const auto roofSurface = Render::PieceSurface(static_cast<uint32_t>(roof->index()));
       world.StructureSurfaces = {.Walls = wallSurface, .Roofs = roofSurface};
