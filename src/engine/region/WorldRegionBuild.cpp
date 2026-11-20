@@ -1137,7 +1137,8 @@ Engine::State::PrepareGroundStreetGraph(WorldRegionBuildState &state) {
       *Services.Compute,
       World.StreetTopology,
       [fields, sourceZoom](LongitudeLatitude at) { return fields->AslMAt(sourceZoom, at); },
-      std::move(resolve)));
+      std::move(resolve),
+      build.StreetGraph));
   return GroundBuildProgress::Ready;
 }
 
@@ -1170,6 +1171,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
   build.StreetGraphComplete = mapped.Elevated.Refused == 0;
   build.StreetGraphWayCount = sources.Ways.Ways().size();
   PublishStreetGraphMeasurements(mapped, longestSliceMs);
+  Published.RecordMetric("network: reused topology", mapped.ReusedTopology ? 1.0 : 0.0, "bool");
   Published.RecordMetric("network: worker elapsed", completed->value().WorkerMs, "ms");
   Published.RecordMetric(
       "network: native cache hit", completed->value().CacheHit ? 1.0 : 0.0, "hit");
