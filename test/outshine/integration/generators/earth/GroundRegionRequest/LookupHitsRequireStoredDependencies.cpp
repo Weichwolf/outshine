@@ -73,6 +73,37 @@ void StoredRequest(bool roads, bool manifestStored) {
           "a complete stored product remains a true hit with its optional road dependencies");
   }
 }
+
+void ReplaceStaleRoadDependency() {
+  Fixture fixture;
+  const bool opened = fixture.Open(true);
+  CHECK(opened, "region and road fixtures open offline");
+  if (!opened) { return; }
+  const auto current = std::exchange(fixture.Region->SurfaceManifest, Sha256Hex("evicted roads"));
+  const auto stale = StoreGroundRegion(*fixture.Cache,
+                                       fixture.Key,
+                                       GroundRegionBoundsEcef(*fixture.Region),
+                                       *fixture.Region,
+                                       *fixture.Water,
+                                       fixture.Request);
+  CHECK(stale, "a region whose original road manifest has been evicted remains in the cache");
+  if (!stale) { return; }
+  fixture.Region->SurfaceManifest = current;
+  fixture.Job = std::make_unique<Generators::GroundRegionRequest>(
+      fixture.Pool,
+      Generators::GroundRegionRequest::PrepareStore({.Assets = fixture.Cache,
+                                                     .Key = fixture.Key,
+                                                     .RequestKey = fixture.Request,
+                                                     .Region = fixture.Region,
+                                                     .Water = fixture.Water,
+                                                     .Manifest = fixture.Manifest,
+                                                     .Pages = fixture.Pages}),
+      fixture.Pages);
+  const auto restored = fixture.Await();
+  CHECK(restored && *restored && (*restored)->Loaded && (*restored)->SurfacePages &&
+            (*restored)->Loaded->Region.SurfaceManifest == current,
+        "rebuilding the same region returns geometry bound to the new road manifest");
+}
 }
 
 int main() {
@@ -80,5 +111,6 @@ int main() {
   StoredRequest(false, false);
   StoredRequest(true, false);
   StoredRequest(true, true);
+  ReplaceStaleRoadDependency();
   return Report();
 }

@@ -154,6 +154,12 @@ std::expected<AssetPipeline::RequestTicket, AssetPublicationError> AssetPipeline
   return RequestTicket(State_, ticket);
 }
 
+bool AssetPipeline::FitsInput(size_t producerBytes, size_t consumerBytes) const noexcept {
+  const size_t capacity = State_->Inputs.Maximum();
+  return producerBytes <= State_->Budget.InputBytesMost && consumerBytes <= capacity &&
+         producerBytes <= capacity - consumerBytes;
+}
+
 AssetPipeline::Snapshot AssetPipeline::Counts() const noexcept {
   const std::scoped_lock lock(State_->Lock);
   auto result = State_->Held;

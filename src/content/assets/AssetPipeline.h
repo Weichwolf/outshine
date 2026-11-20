@@ -152,6 +152,7 @@ public:
   [[nodiscard]] static std::expected<void, AssetPublicationError>
   RetainConsumerBytes(const Consumer &consumer, RequestTicket &ticket) noexcept;
   [[nodiscard]] Snapshot Counts() const noexcept;
+  [[nodiscard]] bool FitsInput(size_t producerBytes, size_t consumerBytes) const noexcept;
 
 private:
   enum class KeyDomain : uint8_t { Content, Request };

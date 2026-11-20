@@ -116,14 +116,17 @@ RoadPageQueue::RequestRecord(Generators::RoadPageRequest request,
   if (inputBytes > std::numeric_limits<size_t>::max() - kFactoryBytes) {
     return std::unexpected("road page publication input budget overflows");
   }
-  auto ticket = Publications_->RequestResumable(
-      *Consumer_,
-      {.Key = *product,
-       .Generation = Consumer_->Generation(),
-       .InputBytes = inputBytes + kFactoryBytes,
-       .ConsumerBytes = sizeof(Work) + RequestBytes(context) + kReceiptBytesMost,
-       .ReceiptBytesMost = kReceiptBytesMost},
-      std::move(factory));
+  const size_t consumerBytes = sizeof(Work) + RequestBytes(context) + kReceiptBytesMost;
+  if (!Publications_->FitsInput(inputBytes + kFactoryBytes, consumerBytes)) {
+    return std::unexpected("road page publication exceeds its input budget");
+  }
+  auto ticket = Publications_->RequestResumable(*Consumer_,
+                                                {.Key = *product,
+                                                 .Generation = Consumer_->Generation(),
+                                                 .InputBytes = inputBytes + kFactoryBytes,
+                                                 .ConsumerBytes = consumerBytes,
+                                                 .ReceiptBytesMost = kReceiptBytesMost},
+                                                std::move(factory));
   if (!ticket) {
     if (ticket.error() == AssetPublicationError::ResourceDeferred) { return false; }
     return std::unexpected("road page publication admission failed");

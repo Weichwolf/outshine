@@ -1,4 +1,5 @@
 #include "RoadPageQueueWork.h"
+#include "StoredRoadPageMeshProducer.h"
 #include <algorithm>
 #include <atomic>
 #include <cstddef>
@@ -68,6 +69,25 @@ bool RoadPageQueue::RequestMetadata(Generators::RoadPageAddress address) {
                    return std::optional<Product>(
                        std::make_shared<const AssetRecord>(std::move(**record)));
                  });
+}
+
+bool RoadPageQueue::RequestRecipe(Generators::RoadPageAddress address) {
+  const auto key = Generators::RoadPageKey(address);
+  const auto admission = RequestState(key, Kind::Recipe);
+  if (admission != Admission::Available) { return admission == Admission::Pending; }
+  return Enqueue(
+      key,
+      Kind::Recipe,
+      [pages = Pages_, address = std::move(address), bytesMost = Limits_.PageBytesMost](
+          const std::stop_token &) -> LoadResult {
+        auto plan = pages->PlanRecipeRead(address, bytesMost);
+        if (!plan) { return std::unexpected(std::move(plan.error())); }
+        if (!*plan || (**plan).PackageBytesMost == 0) { return std::nullopt; }
+        auto producer = Generators::StoredRoadPageMeshProducer::Bind(pages, address, **plan);
+        if (!producer) { return std::unexpected(std::move(producer.error())); }
+        return std::optional<Product>(
+            std::make_shared<const Generators::StoredRoadPageMeshProducer>(std::move(*producer)));
+      });
 }
 
 RoadPageQueue::Admission RoadPageQueue::RequestState(const std::string &key, Kind kind) const {

@@ -19,7 +19,8 @@ namespace outshine {
 class RoadPageQueue {
 public:
   using Receipt = std::shared_ptr<const AssetRecord>;
-  using Product = std::variant<Generators::RoadPageLease, Receipt>;
+  using RecipeProducer = std::shared_ptr<const Generators::RoadPageProducer>;
+  using Product = std::variant<Generators::RoadPageLease, Receipt, RecipeProducer>;
   using Result = std::expected<std::optional<Product>, std::string>;
 
   struct Completed {
@@ -48,6 +49,7 @@ public:
   RequestRecord(Generators::RoadPageRequest request,
                 std::shared_ptr<const Generators::RoadPageProducer> producer = {});
   [[nodiscard]] bool RequestCached(const std::string &key, Manifest dependency = {});
+  [[nodiscard]] bool RequestRecipe(Generators::RoadPageAddress address);
   [[nodiscard]] bool RequestMetadata(Generators::RoadPageAddress address);
   [[nodiscard]] bool SetGeneration(AssetConsumerGeneration generation) noexcept;
   void Cancel(const std::string &key);
@@ -58,7 +60,7 @@ public:
 private:
   struct Work;
   enum class Admission : uint8_t { Rejected, Pending, Available };
-  enum class Kind : uint8_t { Payload, Metadata, Publication };
+  enum class Kind : uint8_t { Payload, Metadata, Recipe, Publication };
   using LoadResult = std::expected<std::optional<Product>, Generators::PreparedRoadPages::Failure>;
   using Loader = std::function<LoadResult(const std::stop_token &)>;
   [[nodiscard]] Admission RequestState(const std::string &key, Kind kind) const;

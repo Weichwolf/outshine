@@ -274,7 +274,9 @@ Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
                                               state.RoadManifest(),
                                               (*publication)->PagesToLoad(),
                                               state.SurfaceManifestKey(),
-                                              CurrentGeographicEyeEcef());
+                                              CurrentGeographicEyeEcef(),
+                                              RoadPageRestoration::DefaultLimits,
+                                              Services.AssetPublications());
     if (!restore) {
       Error = std::move(restore.error());
       return GroundBuildProgress::Failed;
@@ -296,6 +298,9 @@ Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
   if (!*advanced) { return GroundBuildProgress::Pending; }
   Published.RecordMetric(
       "ground candidate: restored road pages", static_cast<double>(restore->Pages()), "pages");
+  Published.RecordMetric("ground candidate: recovered road pages",
+                         static_cast<double>(restore->RecoveredPages()),
+                         "pages");
   Published.RecordMetric("ground candidate: retained resident road pages",
                          static_cast<double>(publication->RetainedPages()),
                          "pages");

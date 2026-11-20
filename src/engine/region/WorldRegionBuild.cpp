@@ -1436,6 +1436,10 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
     return GroundBuildProgress::Failed;
   }
   auto result = std::move(completed->value());
+  if (state.RegionStatus() == Phase::Storing && !result.Loaded) {
+    RetryGroundWithStreetSources();
+    return GroundBuildProgress::Pending;
+  }
   if (state.RegionStatus() == Phase::Loading) {
     Published.RecordMetric(
         "ground region: request cache hit", result.RequestHit ? 1.0 : 0.0, "hit");
