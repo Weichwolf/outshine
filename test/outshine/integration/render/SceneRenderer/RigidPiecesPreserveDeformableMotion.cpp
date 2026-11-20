@@ -110,7 +110,7 @@ int main() {
       piece.Verts = rigid;
       piece.Indices = indices;
       const auto placed = renderer.PlaceStructurePiece(piece);
-      if (!placed) { std::println(stderr, "piece upload: {}", placed.error()); }
+      if (!placed) { std::println(stderr, "piece upload: {}", placed.error().Message); }
       CHECK(placed.has_value(), "rigid piece shares the arena");
       CHECK(scene->Draw(error), "mixed geometry renders");
       renderer.WaitForGpu();
