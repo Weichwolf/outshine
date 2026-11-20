@@ -40,6 +40,18 @@ public:
     std::vector<Feature> Features;
   };
 
+  struct Extent {
+    double West, South, East, North;
+
+    [[nodiscard]] bool Reaches(const Feature &feature, double haloM) const noexcept {
+      const bool separated = feature.MaxE + haloM < West || feature.MinE - haloM > East ||
+                             feature.MaxN + haloM < South || feature.MinN - haloM > North;
+      return !separated;
+    }
+  };
+
+  [[nodiscard]] static Extent ExtentOf(const Input &input) noexcept;
+
   struct Built {
     std::shared_ptr<const TerrainClassificationMap::Grid> Grid;
     double BuildMs = 0;

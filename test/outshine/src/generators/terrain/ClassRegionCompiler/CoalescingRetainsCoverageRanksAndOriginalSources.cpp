@@ -3,7 +3,9 @@
 #include "Check.h"
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <initializer_list>
+#include <limits>
 #include <memory>
 #include <span>
 #include <stop_token>
@@ -93,5 +95,22 @@ int main() {
   std::stop_source cancellation;
   cancellation.request_stop();
   CHECK(!CompileClassRegions(source, cancellation.get_token()), "cancelled work cannot publish");
+
+  source.BoundaryHaloM = 2;
+  Polygon(source, 5, 12, {{Exterior, {{33, 2}, {35, 2}, {35, 6}, {33, 6}}}});
+  Polygon(source, 5, 12, {{Exterior, {{39, 2}, {41, 2}, {41, 6}, {39, 6}}}});
+  const auto window = CompileClassRegions(source);
+  CHECK(window, "the raster window retains its boundary halo");
+  if (!window) { return Report(); }
+  const auto raster = rasterizer.Build(window->Raster);
+  CHECK(raster, "the window compiles to a usable classification map");
+  if (!raster) { return Report(); }
+  const TerrainClassificationMap bounded(TangentFrame::At({}), raster->Grid, empty, {});
+  const auto edge = bounded.MaterialAt(31.5, 4);
+  CHECK(edge.Class == 5 && std::abs(edge.SignedEdgeM + 1.5) < 1e-6 &&
+            bounded.Evaluate(31.5, 4, nullptr, nullptr) == -1,
+        "a feature outside the raster can blend across its edge without changing coverage");
+  source.Rings.back().First = std::numeric_limits<uint32_t>::max();
+  CHECK(!CompileClassRegions(source), "out-of-window geometry still validates its source ranges");
   return Report();
 }

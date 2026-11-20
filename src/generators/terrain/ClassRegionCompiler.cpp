@@ -205,16 +205,27 @@ bool AppendGeometry(GEOSContextHandle_t context,
   return true;
 }
 
+struct GroupSelection {
+  std::span<const uint32_t> Source;
+  std::span<const uint32_t> Visible;
+};
+
 bool MergeGroup(GEOSContextHandle_t context,
                 const Rasterizer::Input &input,
-                std::span<const uint32_t> group,
+                GroupSelection selection,
                 Rasterizer::Input &output,
                 const std::stop_token &stop) {
   std::vector<GeosGeometry> polygons;
-  for (const auto index : group) {
+  polygons.reserve(selection.Visible.size());
+  auto next = selection.Visible.begin();
+  for (const auto index : selection.Source) {
     if (stop.stop_requested()) { return false; }
-    polygons.push_back(FeatureGeometry(context, input, input.Features[index]));
-    if (!polygons.back()) { return false; }
+    auto geometry = FeatureGeometry(context, input, input.Features[index]);
+    if (!geometry) { return false; }
+    if (next != selection.Visible.end() && *next == index) {
+      polygons.push_back(std::move(geometry));
+      ++next;
+    }
   }
   auto collection = Collection(context, GEOS_GEOMETRYCOLLECTION, std::move(polygons));
   if (!collection) { return false; }
@@ -222,7 +233,7 @@ bool MergeGroup(GEOSContextHandle_t context,
   if (!merged || stop.stop_requested() || GEOSisValid_r(context, merged.get()) != 1) {
     return false;
   }
-  auto feature = input.Features[group.front()];
+  auto feature = input.Features[selection.Visible.front()];
   feature.FirstRing = static_cast<uint32_t>(output.Rings.size());
   feature.RingCount = 0;
   feature.MinE = feature.MinN = std::numeric_limits<float>::max();
@@ -258,6 +269,32 @@ std::vector<std::vector<uint32_t>> Groups(const Rasterizer::Input &source) {
   }
   return groups;
 }
+
+bool ValidRanges(const Rasterizer::Input &source, const Rasterizer::Feature &feature) {
+  if (static_cast<uint64_t>(feature.FirstRing) + feature.RingCount > source.Rings.size()) {
+    return false;
+  }
+  return std::ranges::all_of(
+      std::span(source.Rings).subspan(feature.FirstRing, feature.RingCount), [&](const auto &ring) {
+        return static_cast<uint64_t>(ring.First) + ring.Count <= source.Points.size() / 2;
+      });
+}
+
+bool SelectVisible(const Rasterizer::Input &source,
+                   std::span<const uint32_t> group,
+                   const std::optional<Rasterizer::Extent> &extent,
+                   std::vector<uint32_t> &visible) {
+  visible.clear();
+  for (const auto index : group) {
+    const auto &feature = source.Features[index];
+    if (!extent || extent->Reaches(feature, source.BoundaryHaloM)) {
+      visible.push_back(index);
+    } else if (!ValidRanges(source, feature)) {
+      return false;
+    }
+  }
+  return true;
+}
 }
 
 std::optional<CompiledClassRegions>
@@ -273,16 +310,25 @@ CompileClassRegions(const ClassificationRasterizer::Input &source, const std::st
   output.Raster.CellM = source.CellM;
   output.Raster.BoundaryHaloM = source.BoundaryHaloM;
   output.Raster.HalfCells = source.HalfCells;
+  const bool bounded = source.HalfCells > 0 && std::isfinite(source.CellM) && source.CellM > 0 &&
+                       std::isfinite(source.CamE) && std::isfinite(source.CamN) &&
+                       std::isfinite(source.BoundaryHaloM) && source.BoundaryHaloM >= 0;
+  const auto extent = bounded ? std::optional(Rasterizer::ExtentOf(source)) : std::nullopt;
   const Context context;
+  std::vector<uint32_t> visible;
   for (const auto &group : Groups(source)) {
-    if (stop.stop_requested()) { return std::nullopt; }
+    if (stop.stop_requested() || !SelectVisible(source, group, extent, visible)) {
+      return std::nullopt;
+    }
+    if (visible.empty()) { continue; }
     if (group.size() > 1 && context.Handle != nullptr &&
-        MergeGroup(context.Handle, source, group, output.Raster, stop)) {
-      output.Contributors.push_back(group);
+        MergeGroup(
+            context.Handle, source, {.Source = group, .Visible = visible}, output.Raster, stop)) {
+      output.Contributors.push_back(std::move(visible));
       ++output.CoalescedGroups;
     } else {
       ++output.RetainedGroups;
-      for (const auto index : group) {
+      for (const auto index : visible) {
         if (!CopyFeature(source, source.Features[index], output.Raster)) { return std::nullopt; }
         output.Contributors.push_back({index});
       }

@@ -381,6 +381,13 @@ void ClassificationRasterizer::PackGrid(TerrainClassificationMap::Grid &grid) {
   grid.Seeds.swap(seeds);
 }
 
+ClassificationRasterizer::Extent ClassificationRasterizer::ExtentOf(const Input &input) noexcept {
+  const double west = std::floor(input.CamE / input.CellM - input.HalfCells) * input.CellM;
+  const double south = std::floor(input.CamN / input.CellM - input.HalfCells) * input.CellM;
+  const double span = 2.0 * input.HalfCells * input.CellM;
+  return {.West = west, .South = south, .East = west + span, .North = south + span};
+}
+
 void ClassificationRasterizer::RasterizeFeature(const Input &job,
                                                 const Feature &feature,
                                                 uint32_t &generation,
@@ -391,10 +398,11 @@ void ClassificationRasterizer::RasterizeFeature(const Input &job,
   const double cell = grid.CellM;
   if (W <= 0 || H <= 0) { return; }
   const double halo = grid.BoundaryHaloM;
-  if (feature.MaxE + halo < grid.OrgE || feature.MinE - halo > grid.OrgE + W * cell ||
-      feature.MaxN + halo < grid.OrgN || feature.MinN - halo > grid.OrgN + H * cell) {
-    return;
-  }
+  const Extent extent{.West = grid.OrgE,
+                      .South = grid.OrgN,
+                      .East = grid.OrgE + W * cell,
+                      .North = grid.OrgN + H * cell};
+  if (!extent.Reaches(feature, halo)) { return; }
   BuildFeatureEdges(job, feature);
   if (Workspace_.Edges.empty()) { return; }
   const RasterWindow window{.I0 = ClampedCell(feature.MinE - halo, grid.OrgE, cell, 0, W - 1),
@@ -415,8 +423,9 @@ bool ClassificationRasterizer::LayDown(const Input &job,
   out.W = out.H = job.HalfCells * 2;
   out.CellM = job.CellM;
   out.BoundaryHaloM = job.BoundaryHaloM;
-  out.OrgE = std::floor(job.CamE / job.CellM - job.HalfCells) * job.CellM;
-  out.OrgN = std::floor(job.CamN / job.CellM - job.HalfCells) * job.CellM;
+  const auto extent = ExtentOf(job);
+  out.OrgE = extent.West;
+  out.OrgN = extent.South;
   const size_t cells = static_cast<size_t>(out.W) * out.H;
   Workspace_.Base.assign(cells, kFullCover);
   Workspace_.BaseRank.assign(cells, 0);
