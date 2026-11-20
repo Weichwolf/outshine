@@ -8,12 +8,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <ratio>
 #include <span>
 #include <utility>
 #include <vector>
 
 #include "TerrainGrid.h"
+#include "Geocentric.h"
 #include "TileGeodesy.h"
 #include "Vec3.h"
 
@@ -33,6 +35,9 @@ struct TerrainDeformationJob::State {
   std::vector<double> PreviousM;
   std::vector<size_t> SourceSheets;
   std::vector<size_t> PlanarContacts;
+  std::vector<GeodeticLatitudeBasis> Latitudes;
+  std::vector<GeodeticLongitudeBasis> Longitudes;
+  std::optional<size_t> ProjectedSheet;
   std::unique_ptr<EarthworkDeformationJob> PressJob;
   EarthworkDeformationResult PressResult;
   TerrainDeformationMetrics Result;
@@ -74,6 +79,24 @@ struct TerrainDeformationJob::State {
     Positions.reserve(nodeCount);
     HeightsM.reserve(nodeCount);
     PreviousM.reserve(nodeCount);
+    Latitudes.reserve(Layout.PageSide());
+    Longitudes.reserve(Layout.PageSide());
+  }
+
+  void PrepareProjection(size_t sheetAt) {
+    if (ProjectedSheet == sheetAt) { return; }
+    const Sheet &sheet = Candidate->Sheets[sheetAt];
+    Latitudes.clear();
+    Longitudes.clear();
+    for (int axis = -Layout.Halo; axis < Layout.Side + Layout.Halo; ++axis) {
+      const double fraction = Layout.FractionAt(sheet, axis);
+      const auto geo = Ground::TileFracToGeo({.X = static_cast<double>(sheet.Tile.X) + fraction,
+                                              .Y = static_cast<double>(sheet.Tile.Y) + fraction},
+                                             sheet.Tile.Zoom);
+      Latitudes.push_back(GeodeticLatitudeBasis::FromDegrees(geo.LatitudeDeg));
+      Longitudes.push_back(GeodeticLongitudeBasis::FromDegrees(geo.LongitudeDeg));
+    }
+    ProjectedSheet = sheetAt;
   }
 
   void GatherSheet(size_t sheetAt) {
@@ -83,19 +106,12 @@ struct TerrainDeformationJob::State {
       return;
     }
     SourceSheets.push_back(sheetAt);
-    for (int row = -Layout.Halo; row < Layout.Side + Layout.Halo; ++row) {
-      const double rowFraction = Layout.FractionAt(sheet, row);
-      for (int column = -Layout.Halo; column < Layout.Side + Layout.Halo; ++column) {
-        const double columnFraction = Layout.FractionAt(sheet, column);
-        const Ground::Geo geo =
-            Ground::TileFracToGeo({.X = static_cast<double>(sheet.Tile.X) + columnFraction,
-                                   .Y = static_cast<double>(sheet.Tile.Y) + rowFraction},
-                                  sheet.Tile.Zoom);
-        const size_t node = Layout.NodeAt(column, row);
-        const EastNorthUp placed =
-            Frame.ToLocalPosition({.LongitudeDeg = geo.LongitudeDeg,
-                                   .LatitudeDeg = geo.LatitudeDeg,
-                                   .HeightM = static_cast<double>(sheet.Nodes[node])});
+    PrepareProjection(sheetAt);
+    size_t node = 0;
+    for (const auto latitude : Latitudes) {
+      for (const auto longitude : Longitudes) {
+        const auto placed =
+            Frame.ToLocalPosition(GeoToEcef(latitude, longitude, sheet.Nodes[node++]));
         Positions.push_back({.EastM = placed.EastM, .NorthM = placed.NorthM});
         HeightsM.push_back(placed.UpM);
         PreviousM.push_back(placed.UpM);
@@ -169,26 +185,24 @@ struct TerrainDeformationJob::State {
   }
 
   void ReprojectPoint(size_t point) {
+    if (HeightsM[point] == PreviousM[point]) { return; }
     const auto [sheetAt, node] = SourceOf(point);
     const Sheet &sheet = Candidate->Sheets[sheetAt];
+    PrepareProjection(sheetAt);
     const size_t pageSide = Layout.PageSide();
-    const int column = static_cast<int>(node % pageSide) - Layout.Halo;
-    const int row = static_cast<int>(node / pageSide) - Layout.Halo;
-    const Ground::Geo geo = Ground::TileFracToGeo(
-        {.X = static_cast<double>(sheet.Tile.X) + Layout.FractionAt(sheet, column),
-         .Y = static_cast<double>(sheet.Tile.Y) + Layout.FractionAt(sheet, row)},
-        sheet.Tile.Zoom);
-    HeightsM[point] = Frame
-                          .ToLocalPosition({.LongitudeDeg = geo.LongitudeDeg,
-                                            .LatitudeDeg = geo.LatitudeDeg,
-                                            .HeightM = static_cast<double>(sheet.Nodes[node])})
-                          .UpM;
+    HeightsM[point] =
+        Frame
+            .ToLocalPosition(GeoToEcef(
+                Latitudes[node / pageSide], Longitudes[node % pageSide], sheet.Nodes[node]))
+            .UpM;
   }
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
     size_t bytes = StampBytes + Positions.capacity() * sizeof(EastNorth) +
                    (HeightsM.capacity() + PreviousM.capacity()) * sizeof(double) +
                    (SourceSheets.capacity() + PlanarContacts.capacity()) * sizeof(size_t) +
+                   Latitudes.capacity() * sizeof(GeodeticLatitudeBasis) +
+                   Longitudes.capacity() * sizeof(GeodeticLongitudeBasis) +
                    PressResult.Refused.capacity() * sizeof(uint8_t) +
                    PressResult.DecidedBy.capacity() * sizeof(uint32_t) +
                    PressResult.Inside.capacity() * sizeof(EarthworkPointClaim);

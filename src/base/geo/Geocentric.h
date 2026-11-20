@@ -9,15 +9,42 @@
 #include <optional>
 
 namespace outshine {
+struct GeodeticLatitudeBasis {
+  double Sine;
+  double Cosine;
+  double NormalM;
+
+  [[nodiscard]] static GeodeticLatitudeBasis FromDegrees(double latitudeDeg) {
+    const double latitude = latitudeDeg * kDeg2Rad;
+    const double sine = std::sin(latitude);
+    return {.Sine = sine,
+            .Cosine = std::cos(latitude),
+            .NormalM = kWgs84A / std::sqrt(1 - kWgs84E2 * sine * sine)};
+  }
+};
+
+struct GeodeticLongitudeBasis {
+  double Sine;
+  double Cosine;
+
+  [[nodiscard]] static GeodeticLongitudeBasis FromDegrees(double longitudeDeg) {
+    const double longitude = longitudeDeg * kDeg2Rad;
+    return {.Sine = std::sin(longitude), .Cosine = std::cos(longitude)};
+  }
+};
+
+[[nodiscard]] inline Vec3
+GeoToEcef(GeodeticLatitudeBasis latitude, GeodeticLongitudeBasis longitude, double heightM) {
+  const double radius = (latitude.NormalM + heightM) * latitude.Cosine;
+  return {{radius * longitude.Cosine,
+           radius * longitude.Sine,
+           (latitude.NormalM * (1 - kWgs84E2) + heightM) * latitude.Sine}};
+}
+
 inline void GeoToEcef(const LongitudeLatitudeHeight &at, Vec3 &out) {
-  const double latitude = at.LatitudeDeg * kDeg2Rad;
-  const double longitude = at.LongitudeDeg * kDeg2Rad;
-  const double sine = std::sin(latitude);
-  const double cosine = std::cos(latitude);
-  const double normal = kWgs84A / std::sqrt(1 - kWgs84E2 * sine * sine);
-  out[0] = (normal + at.HeightM) * cosine * std::cos(longitude);
-  out[1] = (normal + at.HeightM) * cosine * std::sin(longitude);
-  out[2] = (normal * (1 - kWgs84E2) + at.HeightM) * sine;
+  out = GeoToEcef(GeodeticLatitudeBasis::FromDegrees(at.LatitudeDeg),
+                  GeodeticLongitudeBasis::FromDegrees(at.LongitudeDeg),
+                  at.HeightM);
 }
 
 [[nodiscard]] inline std::optional<LongitudeLatitudeHeight>
