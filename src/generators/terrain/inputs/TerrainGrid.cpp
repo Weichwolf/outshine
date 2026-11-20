@@ -1,12 +1,20 @@
 #include "TerrainGrid.h"
 
 #include "GroundSample.h"
+#include "BinaryValueArchive.h"
 
 #include "Log.h"
 #include "PngImage.h"
+#include "Sha256.h"
 #include <algorithm>
+#include <array>
+#include <bit>
 #include <cstdint>
 #include <cstddef>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <span>
 #include <utility>
 
 namespace outshine::Ground {
@@ -16,6 +24,21 @@ constexpr float kTerrariumOffsetM = 32768.0f;
 constexpr float kByteSteps = 256.0f;
 
 namespace {
+
+using RasterKey = std::array<uint8_t, 32>;
+
+std::optional<RasterKey> RasterKeyOf(std::span<const float> heights) {
+  if constexpr (std::endian::native == std::endian::little) {
+    return Sha256Digest(heights.data(), heights.size_bytes());
+  } else {
+    BinaryValueWriter out(heights.size_bytes());
+    out.Out.Reserve(heights.size_bytes());
+    for (const float value : heights) {
+      if (!out(value)) { return std::nullopt; }
+    }
+    return Sha256Digest(out.Out.Bytes().data(), out.Out.Bytes().size());
+  }
+}
 
 struct Texel {
   uint32_t Row = 0;
@@ -62,6 +85,50 @@ bool FillOffEarth(TerrainField &field) {
   return true;
 }
 
+}
+
+struct TerrainField::RasterDigestState {
+  std::once_flag Hashed;
+  std::optional<RasterKey> Key;
+};
+
+TerrainField::TerrainField(const TerrainField &other)
+    : Certificate_(other.Certificate_),
+      HeightsM_(other.HeightsM_),
+      Sources_(other.Sources_),
+      Rows_(other.Rows_),
+      Cols_(other.Cols_),
+      MissingBoundary_(other.MissingBoundary_) {}
+
+TerrainField &TerrainField::operator=(const TerrainField &other) {
+  if (this != &other) { *this = TerrainField(other); }
+  return *this;
+}
+
+std::shared_ptr<const TerrainField> TerrainField::Publish(TerrainField field) {
+  if (field.Meshable()) { field.Digest_ = std::make_shared<RasterDigestState>(); }
+  return std::make_shared<const TerrainField>(std::move(field));
+}
+
+std::optional<TerrainField::RasterDigest> TerrainField::DigestRaster() const {
+  if (!Meshable()) { return std::nullopt; }
+  const auto raster = Heights().first(static_cast<size_t>(Rows_) * Cols_);
+  size_t bytesRead = raster.size_bytes();
+  auto key = [&] {
+    if (!Digest_) { return RasterKeyOf(raster); }
+    bytesRead = 0;
+    std::call_once(Digest_->Hashed, [&] {
+      Digest_->Key = RasterKeyOf(raster);
+      bytesRead = raster.size_bytes();
+    });
+    return Digest_->Key;
+  }();
+  if (!key) { return std::nullopt; }
+  return RasterDigest{.Key = *key, .BytesRead = bytesRead};
+}
+
+size_t TerrainField::DigestStorageBytes() const noexcept {
+  return Digest_ ? sizeof(RasterDigestState) : 0;
 }
 
 TerrainGrid TerrainGrid::FromTerrariumPng(const uint8_t *png, size_t len) {

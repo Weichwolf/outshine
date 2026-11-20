@@ -118,10 +118,31 @@ void CheckSamplingDetail() {
   CHECK(empty && empty->Fields == 0 && empty->RasterBytes == 0,
         "an empty captured view has a defined binding without fabricated terrain inputs");
 }
+
+void CheckPublishedRaster() {
+  using Generators::TerrainFieldSet;
+  auto grid = Ground::TerrainGrid::Holding(Ground::TerrainField(*Field(kWest, 0)));
+  const auto published = grid.ShareField();
+  const TerrainFieldSet first({{kWest, published}});
+  const TerrainFieldSet second({{kWest, published}});
+  const auto initial = first.BindingAt(1);
+  const auto repeated = second.BindingAt(1);
+  CHECK(initial && repeated && initial->Key == repeated->Key &&
+            initial->RasterBytes == 4 * sizeof(float) && repeated->RasterBytes == 0,
+        "two consumers bind the same published raster without rereading its samples");
+  if (!initial) { return; }
+  grid.TryFieldMutable()->SetM(0, 0, kRaisedM);
+  const TerrainFieldSet edited({{kWest, grid.ShareField()}});
+  const auto changed = edited.BindingAt(1);
+  const auto original = first.BindingAt(1);
+  CHECK(changed && original && changed->Key != initial->Key && original->Key == initial->Key,
+        "editing a private raster copy does not change the published input or its digest");
+}
 }
 
 int main() {
   CheckStableBindings();
   CheckSamplingDetail();
+  CheckPublishedRaster();
   return outshine::Test::Report();
 }

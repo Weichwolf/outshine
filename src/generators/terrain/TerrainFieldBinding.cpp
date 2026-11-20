@@ -64,19 +64,6 @@ bool WriteSource(BinaryValueWriter &out, const Data::TileSourceIdentity &source)
   return out.Text(source.SourceId) && out.Text(source.Revision);
 }
 
-std::expected<std::array<uint8_t, 32>, Error>
-RasterDigest(const ::outshine::Ground::TerrainField &field, size_t bytes) {
-  if constexpr (std::endian::native == std::endian::little) {
-    return Sha256Digest(field.Data(), bytes);
-  } else {
-    BinaryValueWriter out(bytes);
-    out.Out.Reserve(bytes);
-    for (const float value : std::span(field.Data(), bytes / sizeof(float))) {
-      if (!out(value)) { return std::unexpected(Error::OverBudget); }
-    }
-    return Sha256Digest(out.Out.Bytes().data(), out.Out.Bytes().size());
-  }
-}
 }
 
 std::expected<TerrainFieldSet::Binding, TerrainFieldSet::BindingError>
@@ -94,31 +81,24 @@ TerrainFieldSet::BindingAt(int zoom) const {
   for (const size_t at : order) {
     const auto &[tile, held] = Fields_[at];
     const auto &field = *held;
-    if (field.Rows() > std::numeric_limits<size_t>::max() / sizeof(float) / field.Cols()) {
-      return std::unexpected(BindingError::OverBudget);
-    }
-    const size_t bytes = static_cast<size_t>(field.Rows()) * field.Cols() * sizeof(float);
-    if (bytes > std::numeric_limits<size_t>::max() - binding.RasterBytes) {
-      return std::unexpected(BindingError::OverBudget);
-    }
-    const auto digest = RasterDigest(field, bytes);
-    if (!digest ||
+    const auto digest = field.DigestRaster();
+    if (!digest || digest->BytesRead > std::numeric_limits<size_t>::max() - binding.RasterBytes ||
         !out(static_cast<int32_t>(tile.Zoom),
              tile.X,
              tile.Y,
              field.Rows(),
              field.Cols(),
              field.HasMissingBoundary(),
-             *digest,
+             digest->Key,
              static_cast<uint64_t>(field.Sources().size())) ||
         !std::ranges::all_of(field.Sources(),
                              [&](const auto &source) { return WriteSource(out, source); })) {
       return std::unexpected(BindingError::OverBudget);
     }
     ++binding.Fields;
-    binding.RasterBytes += bytes;
+    binding.RasterBytes += digest->BytesRead;
     if constexpr (std::endian::native != std::endian::little) {
-      binding.CopiedRasterBytes += bytes;
+      binding.CopiedRasterBytes += digest->BytesRead;
     }
   }
   binding.MetadataBytes = out.Out.Bytes().size();
