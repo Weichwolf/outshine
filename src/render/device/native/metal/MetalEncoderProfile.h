@@ -3,6 +3,7 @@
 
 #import <Metal/Metal.h>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -33,8 +34,13 @@ struct EncoderProfile {
   double CalibrationCpuNs = 0;
 };
 
+struct EncoderProfileOptions {
+  uint64_t Identity = 0;
+  size_t IdleBuffers = 0;
+};
+
 [[nodiscard]] std::shared_ptr<EncoderProfileSession>
-CreateEncoderProfileSession(id<MTLDevice> device, uint64_t identity);
+CreateEncoderProfileSession(id<MTLDevice> device, const EncoderProfileOptions &options);
 [[nodiscard]] std::shared_ptr<EncoderProfile>
 CreateEncoderProfile(const std::shared_ptr<EncoderProfileSession> &session);
 void ProfileRenderEncoder(EncoderProfile *profile,
@@ -48,6 +54,7 @@ CreateBlitEncoder(EncoderProfile *profile, id<MTLCommandBuffer> commands, std::s
 void CollectEncoderProfile(const std::shared_ptr<EncoderProfile> &profile,
                            id<MTLCommandBuffer> commands,
                            uint64_t serial);
+void RecycleEncoderBuffers(EncoderProfile &profile);
 
 }
 #endif

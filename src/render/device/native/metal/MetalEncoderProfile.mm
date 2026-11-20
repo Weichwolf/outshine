@@ -120,9 +120,12 @@ struct EncoderProfileSession {
   std::filesystem::path Output;
   std::mutex Mutex;
   std::vector<ProfiledSubmission> Submissions;
+  std::vector<id<MTLCounterSampleBuffer>> IdleBuffers;
+  size_t IdleBuffersMost = 0;
   size_t NextSubmission = 0;
   uint64_t Dropped = 0;
   uint64_t AllocationFailures = 0;
+  uint64_t CounterBuffersCreated = 0;
   double CollectCpuNs = 0;
 
   ~EncoderProfileSession() {
@@ -135,7 +138,8 @@ struct EncoderProfileSession {
         << std::boolalpha << std::setprecision(std::numeric_limits<double>::max_digits10)
         << R"({"schema":1,"scope":"natural_encoder_boundaries",)"
         << R"("counter_ticks_require_calibration":true,"retention":"latest_completed_submissions","dropped_submissions":)"
-        << Dropped << R"(,"allocation_failures":)" << AllocationFailures << R"(,"collect_cpu_ns":)";
+        << Dropped << R"(,"allocation_failures":)" << AllocationFailures
+        << R"(,"counter_buffers_created":)" << CounterBuffersCreated << R"(,"collect_cpu_ns":)";
     Number(stream, CollectCpuNs);
     stream << R"(,"submissions":[)";
     for (size_t at = 0; at < Submissions.size(); ++at) {
@@ -156,8 +160,8 @@ struct EncoderProfileSession {
   }
 };
 
-std::shared_ptr<EncoderProfileSession> CreateEncoderProfileSession(id<MTLDevice> device,
-                                                                   uint64_t identity) {
+std::shared_ptr<EncoderProfileSession>
+CreateEncoderProfileSession(id<MTLDevice> device, const EncoderProfileOptions &options) {
   const char *const prefix =
       SDL_GetEnvironmentVariable(SDL_GetEnvironment(), "OUTSHINE_METAL_ENCODER_PROFILE");
   if (prefix == nullptr || *prefix == '\0') { return {}; }
@@ -167,7 +171,7 @@ std::shared_ptr<EncoderProfileSession> CreateEncoderProfileSession(id<MTLDevice>
   const auto temporary = std::filesystem::weakly_canonical(temporaryPath, error);
   if (error) { return {}; }
   auto output = std::filesystem::weakly_canonical(
-      std::string(prefix) + "." + std::to_string(identity) + ".json", error);
+      std::string(prefix) + "." + std::to_string(options.Identity) + ".json", error);
   if (error || !output.is_absolute() || !output.native().starts_with(temporary.native() + "/")) {
     std::println(stderr, "Metal encoder profile: use an absolute system-temp prefix");
     return {};
@@ -186,11 +190,21 @@ std::shared_ptr<EncoderProfileSession> CreateEncoderProfileSession(id<MTLDevice>
   session->CounterSet = timestamp;
   session->Output = std::move(output);
   session->Submissions.reserve(kMaxSubmissions);
+  session->IdleBuffersMost = options.IdleBuffers;
+  session->IdleBuffers.reserve(options.IdleBuffers);
   return session;
 }
 
 namespace {
-id<MTLCounterSampleBuffer> CreateCounterBuffer(EncoderProfileSession &session) {
+id<MTLCounterSampleBuffer> AcquireCounterBuffer(EncoderProfileSession &session) {
+  {
+    const std::scoped_lock lock(session.Mutex);
+    if (!session.IdleBuffers.empty()) {
+      const auto buffer = session.IdleBuffers.back();
+      session.IdleBuffers.pop_back();
+      return buffer;
+    }
+  }
   MTLCounterSampleBufferDescriptor *const description = [MTLCounterSampleBufferDescriptor new];
   description.counterSet = session.CounterSet;
   description.storageMode = MTLStorageModeShared;
@@ -198,9 +212,11 @@ id<MTLCounterSampleBuffer> CreateCounterBuffer(EncoderProfileSession &session) {
   NSError *error = nil;
   const auto samples = [session.Device newCounterSampleBufferWithDescriptor:description
                                                                       error:&error];
+  const std::scoped_lock lock(session.Mutex);
   if (samples == nil) {
-    const std::scoped_lock lock(session.Mutex);
     ++session.AllocationFailures;
+  } else {
+    ++session.CounterBuffersCreated;
   }
   return samples;
 }
@@ -214,7 +230,7 @@ EncoderSampleSlot NextEncoderSamples(EncoderProfile &profile) {
   const size_t encoder = profile.Encoders.size();
   const size_t buffer = encoder / kEncodersPerBuffer;
   if (buffer == profile.CounterBuffers.size() && profile.Dropped == 0) {
-    if (const auto samples = CreateCounterBuffer(*profile.Session); samples != nil) {
+    if (const auto samples = AcquireCounterBuffer(*profile.Session); samples != nil) {
       profile.CounterBuffers.push_back(samples);
     }
   }
@@ -230,7 +246,7 @@ EncoderSampleSlot NextEncoderSamples(EncoderProfile &profile) {
 std::shared_ptr<EncoderProfile>
 CreateEncoderProfile(const std::shared_ptr<EncoderProfileSession> &session) {
   if (!session) { return {}; }
-  const auto samples = CreateCounterBuffer(*session);
+  const auto samples = AcquireCounterBuffer(*session);
   if (samples == nil) { return {}; }
   auto profile = std::make_shared<EncoderProfile>();
   profile->Session = session;
@@ -240,6 +256,16 @@ CreateEncoderProfile(const std::shared_ptr<EncoderProfileSession> &session) {
   profile->CalibrationGpu = sampled.Gpu;
   profile->CalibrationCpuNs = sampled.CpuNs;
   return profile;
+}
+
+void RecycleEncoderBuffers(EncoderProfile &profile) {
+  auto &session = *profile.Session;
+  const std::scoped_lock lock(session.Mutex);
+  const size_t room = session.IdleBuffersMost - session.IdleBuffers.size();
+  const auto retained =
+      std::span(profile.CounterBuffers).first(std::min(room, profile.CounterBuffers.size()));
+  session.IdleBuffers.insert(session.IdleBuffers.end(), retained.begin(), retained.end());
+  profile.CounterBuffers.clear();
 }
 
 void ProfileRenderEncoder(EncoderProfile *profile,

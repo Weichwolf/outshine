@@ -6,6 +6,10 @@
 
 namespace outshine::Render::Native::Metal {
 
+namespace {
+constexpr uint32_t kLiveCommandLimit = 8;
+}
+
 MemoryStatus MetalDevice::ReadMemoryStatus() const {
   const auto began = std::chrono::steady_clock::now();
   MemoryStatus status{.ResourceAllocatedBytes = Native_.currentAllocatedSize,
@@ -25,7 +29,8 @@ MetalDevice::MetalDevice(uint64_t identity,
                          GpuTimingMode gpuTiming)
     : Identity_(identity), Native_(device), Queue_(queue), GpuTiming_(gpuTiming) {
   if (GpuTiming_ != GpuTimingMode::None) {
-    EncoderProfiling_ = CreateEncoderProfileSession(device, identity);
+    EncoderProfiling_ = CreateEncoderProfileSession(
+        device, {.Identity = identity, .IdleBuffers = kLiveCommandLimit});
   }
   constexpr uint32_t colourTargets = 8;
   constexpr uint32_t maxUniformBytes = 64 * 1024;
@@ -132,8 +137,7 @@ Result<std::unique_ptr<Commands>> MetalDevice::Begin() {
   @autoreleasepool {
     Collect();
     if (Failed_) { return std::unexpected(*Failed_); }
-    constexpr uint32_t maxRecordings = 8;
-    if (Counts_->Live.fetch_add(1) >= maxRecordings) {
+    if (Counts_->Live.fetch_add(1) >= kLiveCommandLimit) {
       Counts_->Live.fetch_sub(1);
       return Failure(ErrorKind::Busy, "Metal command recording capacity is occupied");
     }
