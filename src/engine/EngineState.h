@@ -183,6 +183,7 @@ struct WorldRegionState {
   std::optional<GroundRevision> RequestedRefinedGround;
   std::unique_ptr<WorldRegionBuildState> GroundBuild;
   std::unique_ptr<WorldRegionBuildState> GroundRetirement;
+  std::shared_ptr<const Generators::Osm::OsmField> RetiredVectorSnapshot;
   std::unique_ptr<Generators::TerrainFieldSet> RetiredTerrainFields;
   std::unique_ptr<Generators::TerrainRefinementCache> TerrainErrors;
   std::shared_ptr<Generators::TerrainHaloCache> TerrainHalos;
@@ -494,6 +495,7 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress AdvanceGroundPatchwork(const Around &coverage);
   [[nodiscard]] GroundBuildProgress AdvanceGroundRegion();
   void RetireGroundCandidate();
+  void ReleaseRetiredVectorSnapshot();
   void RequestGroundStreetSources();
   void RetryGroundWithStreetSources();
   [[nodiscard]] GroundBuildProgress AdvanceGroundSurfaceInputs();
