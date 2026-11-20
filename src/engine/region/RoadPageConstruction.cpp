@@ -11,12 +11,19 @@
 #include <string>
 #include <utility>
 #include <variant>
+#include <cstdint>
+#include <vector>
 
 namespace outshine {
+namespace {
+constexpr size_t kRoadLookupBatches = 4;
+}
+
 RoadPageConstruction::RoadPageConstruction(Tasks &pool,
                                            std::shared_ptr<Generators::PreparedRoadPages> pages,
                                            std::shared_ptr<AssetPipeline> publications)
-    : PendingMost_(static_cast<size_t>(pool.Threads())),
+    : BakesMost_(static_cast<size_t>(pool.Threads())),
+      PendingMost_(BakesMost_ * kRoadLookupBatches),
       Queue_(pool,
              std::move(pages),
              {.PendingMost = PendingMost_, .PageBytesMost = PageBytesMost},
@@ -62,7 +69,7 @@ RoadPageConstruction::Advance(const Generators::Corridors::Job &plan,
   if (auto collected = Collect(); !collected) {
     return std::unexpected(std::move(collected.error()));
   }
-  if (auto bakes = RequestBakes(until); !bakes) {
+  if (auto bakes = RequestBakes(plan, site, until); !bakes) {
     return std::unexpected(std::move(bakes.error()));
   }
   if (auto lookups = RequestLookups(plan, site, until); !lookups) {
@@ -82,19 +89,31 @@ std::expected<RoadPageConstruction::Pending, std::string> RoadPageConstruction::
   if (UniqueShapes_.insert(*shape).second) {
     reference.ShapeKey = std::move(*shape);
   } else {
-    recipe = Generators::Corridors::PageRecipe(plan, site, parts);
-    if (!recipe) { return std::unexpected(std::string(recipe.error())); }
     reference.Sources.clear();
   }
   reference.Parts = std::move(parts);
   reference.Clustered = true;
   auto address = Generators::StoredRoadPageAddress(Manifest_, reference);
   auto key = Generators::RoadPageKey(address);
-  return Pending{.Index = index,
-                 .Key = std::move(key),
-                 .Address = std::move(address),
-                 .Recipe = std::move(*recipe),
-                 .Producer = {}};
+  return Pending{
+      .Index = index, .Key = std::move(key), .Address = std::move(address), .Producer = {}};
+}
+
+std::expected<std::shared_ptr<const Generators::RoadPageProducer>, std::string>
+RoadPageConstruction::PrepareBake(const Generators::Corridors::Job &plan,
+                                  const Generators::Corridors::Site &site,
+                                  const Pending &pending) const {
+  const auto &reference = Manifest_.Pages[pending.Index];
+  auto recipe = Generators::Corridors::PageRecipe(plan, site, reference.Parts);
+  if (!recipe) { return std::unexpected(std::string(recipe.error())); }
+  if (!reference.ShapeKey.empty()) {
+    std::vector<uint64_t> sources;
+    const auto shape = Generators::IdentifyRoadPageShape(*recipe, sources, PageBytesMost);
+    if (!shape || *shape != reference.ShapeKey || sources != reference.Sources) {
+      return std::unexpected("road recipe changed between lookup and bake");
+    }
+  }
+  return std::make_shared<const Generators::RoadPageMeshProducer>(pending.Key, std::move(*recipe));
 }
 
 std::expected<void, std::string>
@@ -115,14 +134,17 @@ RoadPageConstruction::RequestLookups(const Generators::Corridors::Job &plan,
 }
 
 std::expected<void, std::string>
-RoadPageConstruction::RequestBakes(std::chrono::steady_clock::time_point until) {
+RoadPageConstruction::RequestBakes(const Generators::Corridors::Job &plan,
+                                   const Generators::Corridors::Site &site,
+                                   std::chrono::steady_clock::time_point until) {
+  auto baking = static_cast<size_t>(std::ranges::count(Pending_, Stage::Baking, &Pending::Phase));
   for (auto &pending : Pending_) {
-    if (std::chrono::steady_clock::now() >= until) { break; }
+    if (baking >= BakesMost_ || std::chrono::steady_clock::now() >= until) { break; }
     if (pending.Phase != Stage::NeedsBake) { continue; }
-    if (pending.Recipe) {
-      pending.Producer = std::make_shared<const Generators::RoadPageMeshProducer>(
-          pending.Key, std::move(*pending.Recipe));
-      pending.Recipe.reset();
+    if (!pending.Producer) {
+      auto producer = PrepareBake(plan, site, pending);
+      if (!producer) { return std::unexpected(std::move(producer.error())); }
+      pending.Producer = std::move(*producer);
     }
     const auto admitted = Queue_.RequestRecord({.Address = pending.Address,
                                                 .Parent = {},
@@ -133,6 +155,7 @@ RoadPageConstruction::RequestBakes(std::chrono::steady_clock::time_point until) 
     if (!*admitted) { break; }
     pending.Producer.reset();
     pending.Phase = Stage::Baking;
+    ++baking;
     ++MissRequests_;
   }
   return {};

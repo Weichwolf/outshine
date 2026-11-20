@@ -8,7 +8,6 @@
 #include <cstddef>
 #include <expected>
 #include <memory>
-#include <optional>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -42,7 +41,6 @@ private:
     size_t Index;
     std::string Key;
     Generators::RoadPageAddress Address;
-    std::optional<Generators::RoadPageRecipe> Recipe;
     Stage Phase = Stage::Lookup;
     std::shared_ptr<const Generators::RoadPageProducer> Producer;
   };
@@ -59,12 +57,19 @@ private:
                  const Generators::Corridors::Site &site,
                  std::chrono::steady_clock::time_point until);
   [[nodiscard]] std::expected<void, std::string>
-  RequestBakes(std::chrono::steady_clock::time_point until);
+  RequestBakes(const Generators::Corridors::Job &plan,
+               const Generators::Corridors::Site &site,
+               std::chrono::steady_clock::time_point until);
+  [[nodiscard]] std::expected<std::shared_ptr<const Generators::RoadPageProducer>, std::string>
+  PrepareBake(const Generators::Corridors::Job &plan,
+              const Generators::Corridors::Site &site,
+              const Pending &pending) const;
   [[nodiscard]] std::expected<void, std::string> Collect();
   [[nodiscard]] std::expected<void, std::string>
   SavePage(Pending &pending, const RoadPageQueue::Completed &completed);
   static constexpr size_t PageBytesMost = size_t{64} * 1024u * 1024u;
   static constexpr size_t PartsMost = 64;
+  size_t BakesMost_;
   size_t PendingMost_;
   RoadPageQueue Queue_;
   std::vector<std::vector<Generators::RoadPagePart>> Pages_;
