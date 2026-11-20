@@ -16,6 +16,10 @@ int main() {
   report.Motion.RateHz = 60;
   report.Frame = {.WidthPx = 32, .HeightPx = 32};
   report.InspectionMs = 1'000'000;
+  report.Prepared.TerrainMeshJobs = 7;
+  report.Prepared.TerrainFieldWorkerMs = 4;
+  report.Finished.TerrainMeshJobs = 11;
+  report.Finished.TerrainFieldWorkerMs = 15;
   report.Scenario = "quote\" and newline\n";
   report.Frames = {{.WallMs = 3, .AdvanceMs = 1, .RenderMs = 2, .SyncWaitMs = 1, .Refined = true},
                    {.WallMs = 4, .AdvanceMs = 1, .RenderMs = 3, .SyncWaitMs = 3, .Refined = true}};
@@ -38,6 +42,12 @@ int main() {
         "a complete measured window has an explicit independent budget result");
   CHECK(json["phases_ms"]["final_inspection"] == report.InspectionMs,
         "post-window inspection is explicit and never charged to the frame budget");
+  const auto &loading = json["loading"];
+  CHECK(loading["prepared"]["terrain_workers"]["mesh_jobs"] == 7 &&
+            loading["prepared"]["terrain_workers"]["field_ms"] == 4 &&
+            loading["finished"]["terrain_workers"]["mesh_jobs"] == 11 &&
+            loading["finished"]["terrain_workers"]["field_ms"] == 15,
+        "terrain work before the first frame and after the last frame remains distinguishable");
   report.FinalWorldBlockers = "required geometry publication is pending";
   json = decode();
   CHECK(json["measurement_complete"] == true && json["world_complete"] == false &&

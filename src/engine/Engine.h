@@ -48,6 +48,10 @@ struct Loading {
   size_t VectorWanted = 0;
   size_t VectorArrived = 0;
   size_t Outstanding = 0;
+  long long TerrainMeshJobs = 0;
+  long long TerrainFieldJobs = 0;
+  double TerrainMeshWorkerMs = 0.0;
+  double TerrainFieldWorkerMs = 0.0;
   double FetchedMB = 0.0;
   double Megabits = 0.0;
   double MeanFetchMs = 0.0;

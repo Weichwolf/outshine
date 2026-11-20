@@ -602,6 +602,10 @@ Loading Engine::loading() const {
   }
   const Ground::TilePool::Ledger counted = S_->World.Surface().Pool().Counters();
   said.Outstanding = counted.Outstanding > 0 ? static_cast<size_t>(counted.Outstanding) : 0;
+  said.TerrainMeshJobs = counted.MeshTiles;
+  said.TerrainFieldJobs = counted.FieldTiles;
+  said.TerrainMeshWorkerMs = counted.MeshCpuMs;
+  said.TerrainFieldWorkerMs = counted.FieldCpuMs;
   said.FetchedMB = counted.FetchedMB;
   said.MeanFetchMs = counted.Posts > 0 ? counted.FetchMs / static_cast<double>(counted.Posts) : 0.0;
   return said;
