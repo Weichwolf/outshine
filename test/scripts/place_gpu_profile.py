@@ -8,7 +8,9 @@ import statistics
 GROUPS = {
     "shadows": {"lightvisibility", "sun shadow", "shadow"},
     "opaque": {"opaquegeometry", "ground", "groundpyramid", "groundselection",
-               "geometryrootcull", "geometrycull", "geometryscan", "geometrycompact",
+               "geometryrootcull", "geometryleafcull", "geometrycull", "geometryscan",
+               "geometrycompact", "geometryselectedcompact", "geometryprefix",
+               "geometryprefixblocks", "geometryprefixcarry", "geometryprefixfinish",
                "depthpyramid"},
     "atmosphere": {"sky", "sun", "moon", "stars", "aerialperspective",
                    "mediumtransmittance", "mediummultiscatter", "mediumradiance",

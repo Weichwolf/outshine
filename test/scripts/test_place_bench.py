@@ -13,7 +13,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from place_bench import PROFILES, benchmark_places, number
-from place_gpu_profile import GROUPS, read_vulkan_profile
+from place_gpu_profile import GROUPS, metal_encoder_result, read_vulkan_profile
 
 ROOT = Path(__file__).resolve().parents[2]
 MATRIX = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
@@ -223,6 +223,25 @@ class PlaceBench(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(result["cpu_work_budget_ms"], 8)
         self.assertEqual(result["gpu_budget_ms"], 20)
+
+    def test_metal_opaque_time_includes_culling_prefix_and_compaction(self):
+        intervals = [("geometryLeafCull.comp.spv", 105, 117),
+                     ("geometryPrefix.comp.spv", 142, 148),
+                     ("geometryPrefixBlocks.comp.spv", 146, 148),
+                     ("geometryPrefixCarry.comp.spv", 148, 149),
+                     ("geometryPrefixFinish.comp.spv", 149, 150),
+                     ("geometrySelectedCompact.comp.spv", 152, 154)]
+        encoders = [{"label": label, "kind": "compute", "available": True,
+                     "ticks": [start, end, 0, 0]} for label, start, end in intervals]
+        encoders += [{"label": "opaqueGeometry", "kind": "render", "available": True,
+                      "ticks": [112, 125, 124, 135]},
+                     {"label": "bufferCopy", "kind": "blit", "available": True,
+                      "ticks": [154, 174, 0, 0]}]
+        measured = metal_encoder_result({"calibration_gpu": [100, 200],
+                                         "calibration_cpu_ns": [0, 1_000_000],
+                                         "encoders": encoders})
+        self.assertAlmostEqual(measured["groups"]["opaque"], .4)
+        self.assertAlmostEqual(measured["encoders"]["bufferCopy"], .2)
 
     def test_profile_matches_measured_device_and_submissions_and_counts_all_passes(self):
         passes = [{"label": name, "kind": "render", "available": True, "gpu_ns": ns,
