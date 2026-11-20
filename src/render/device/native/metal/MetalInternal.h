@@ -164,6 +164,7 @@ struct Submission {
   std::mutex Mutex;
   std::condition_variable Changed;
   bool Done = false;
+  bool MeasuresGpuTime = false;
   std::optional<double> GpuNanoseconds;
   std::optional<Error> Failed;
 };
@@ -382,6 +383,7 @@ private:
   std::deque<std::shared_ptr<Submission>> Pending_;
   static constexpr size_t kRetainedTimings = 8;
   std::array<SubmissionTiming, kRetainedTimings> Timings_{};
+  size_t NextTiming_ = 0;
   GpuTimingMode GpuTiming_ = GpuTimingMode::None;
   std::shared_ptr<EncoderProfileSession> EncoderProfiling_;
   std::optional<Error> Failed_;

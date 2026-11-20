@@ -247,10 +247,9 @@ bool SceneRenderer::Executable(Stage stage) {
 
 bool SceneRenderer::Stands() {
   if (Device_) { return true; }
-  auto made =
-      Submission_.Create(Submission_.Context,
-                         {.Validation = kGpuValidation,
-                          .GpuTiming = outshine::Render::Native::GpuTimingMode::Submission});
+  auto made = Submission_.Create(
+      Submission_.Context,
+      {.Validation = kGpuValidation, .GpuTiming = Native::GpuTimingMode::Frames});
   if (!made) {
     ActiveState().WhyNot = made.error().Message;
     return false;
@@ -1663,6 +1662,7 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
       return std::unexpected(queued.error().Message);
     }
   }
+  (*commands)->MarkFrame();
   auto submitted = Submission_.Submit(Submission_.Context, Device_.get(), std::move(*commands));
   if (!submitted) {
     restorePresentSurface();

@@ -337,7 +337,8 @@ void ReadLimits(Context &context) {
 }
 
 Result<std::shared_ptr<Context>> CreateContext(DeviceOptions options) {
-  if (options.GpuTiming != GpuTimingMode::None && options.GpuTiming != GpuTimingMode::Submission &&
+  if (options.GpuTiming != GpuTimingMode::None && options.GpuTiming != GpuTimingMode::Frames &&
+      options.GpuTiming != GpuTimingMode::Submission &&
       options.GpuTiming != GpuTimingMode::Dispatches) {
     return std::unexpected(Error{.Kind = ErrorKind::Invalid, .Message = "unknown GPU timing mode"});
   }

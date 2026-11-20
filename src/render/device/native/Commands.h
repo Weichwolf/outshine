@@ -48,6 +48,10 @@ public:
   Commands(const Commands &) = delete;
   Commands &operator=(const Commands &) = delete;
 
+  void MarkFrame() noexcept { Frame_ = true; }
+
+  [[nodiscard]] bool IsFrame() const noexcept { return Frame_; }
+
   [[nodiscard]] virtual Result<void>
   Copy(const Buffer &source, Buffer &destination, BufferCopy region) = 0;
 
@@ -113,6 +117,9 @@ public:
 
 protected:
   Commands() = default;
+
+private:
+  bool Frame_ = false;
 };
 
 }

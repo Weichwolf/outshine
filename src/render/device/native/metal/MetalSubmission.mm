@@ -15,9 +15,10 @@ void MetalDevice::Collect() {
       if (!submission->Done) { return; }
       if (submission->Failed && !Failed_) { Failed_ = submission->Failed; }
       Retired_ = submission->Serial;
-      if (GpuTiming_ == GpuTimingMode::Submission) {
-        Timings_[(submission->Serial - 1) % Timings_.size()] = {
-            .Serial = submission->Serial, .Nanoseconds = submission->GpuNanoseconds};
+      if (submission->MeasuresGpuTime) {
+        Timings_[NextTiming_] = {.Serial = submission->Serial,
+                                 .Nanoseconds = submission->GpuNanoseconds};
+        NextTiming_ = (NextTiming_ + 1) % Timings_.size();
       }
     }
     Pending_.pop_front();
@@ -48,7 +49,8 @@ Result<Completion> MetalDevice::Submit(std::unique_ptr<Commands> commands) {
     metal->Permit->ReleaseRecording();
     held->Permit = std::move(metal->Permit);
     held->Presentation = std::move(metal->Presentation);
-    const bool gpuTiming = GpuTiming_ == GpuTimingMode::Submission;
+    const bool gpuTiming = MeasuresSubmission(GpuTiming_, *metal);
+    submission->MeasuresGpuTime = gpuTiming;
     const auto profile = metal->Profile;
     const uint64_t serial = submission->Serial;
     [metal->Native addCompletedHandler:^(id<MTLCommandBuffer> finished) {
@@ -137,15 +139,16 @@ Result<SubmissionGpuTiming> MetalDevice::SubmissionGpuTime(Completion completion
     return Failure(ErrorKind::Unsupported, "Metal submission timing is disabled");
   }
   if (*status == CompletionStatus::Pending) { return SubmissionGpuTiming{}; }
-  const auto &timing = Timings_[(completion.Serial - 1) % Timings_.size()];
-  if (timing.Serial != completion.Serial) {
-    return Failure(ErrorKind::Invalid, "Metal submission timing retention has expired");
+  const auto *const timing =
+      std::ranges::find(Timings_, completion.Serial, &SubmissionTiming::Serial);
+  if (timing == Timings_.end()) {
+    return Failure(ErrorKind::Invalid, "Metal submission has no retained GPU timing");
   }
-  if (!timing.Nanoseconds) {
+  if (!timing->Nanoseconds) {
     return Failure(ErrorKind::Driver, "Metal submission has no valid GPU timestamps");
   }
   return SubmissionGpuTiming{.Status = CompletionStatus::Ready,
-                             .ElapsedNanoseconds = *timing.Nanoseconds};
+                             .ElapsedNanoseconds = *timing->Nanoseconds};
 }
 
 }

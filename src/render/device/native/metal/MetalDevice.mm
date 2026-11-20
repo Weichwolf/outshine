@@ -24,7 +24,7 @@ MetalDevice::MetalDevice(uint64_t identity,
                          id<MTLCommandQueue> queue,
                          GpuTimingMode gpuTiming)
     : Identity_(identity), Native_(device), Queue_(queue), GpuTiming_(gpuTiming) {
-  if (GpuTiming_ == GpuTimingMode::Submission) {
+  if (GpuTiming_ != GpuTimingMode::None) {
     EncoderProfiling_ = CreateEncoderProfileSession(device, identity);
   }
   constexpr uint32_t colourTargets = 8;
@@ -156,7 +156,7 @@ Result<std::unique_ptr<Device>> CreateDevice(DeviceOptions options) {
     if (options.GpuTiming == GpuTimingMode::Dispatches) {
       return Metal::Failure(ErrorKind::Unsupported, "Metal dispatch timing is unavailable");
     }
-    if (options.GpuTiming != GpuTimingMode::None &&
+    if (options.GpuTiming != GpuTimingMode::None && options.GpuTiming != GpuTimingMode::Frames &&
         options.GpuTiming != GpuTimingMode::Submission) {
       return Metal::Failure(ErrorKind::Invalid, "unknown GPU timing mode");
     }

@@ -294,7 +294,7 @@ private:
       }
       Completed_ = Pending_.front().Serial;
       Pending_.front().Recorded->CollectProfile(Completed_);
-      if (Context_->GpuTiming != GpuTimingMode::None) {
+      if (MeasuresSubmission(Context_->GpuTiming, *Pending_.front().Recorded)) {
         if (Timings_.size() == kRetainedTimings) { Timings_.erase(Timings_.begin()); }
         Timings_.push_back({.Serial = Completed_,
                             .Results = Pending_.front().Recorded->Timings(),

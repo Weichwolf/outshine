@@ -11,6 +11,7 @@
 #include <expected>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -29,6 +30,7 @@ struct Timings {
   bool Hold = false, Fail = false;
   bool RejectNextSubmit = false;
   bool CompleteNextSubmit = false;
+  std::optional<uint64_t> HiddenCompletion;
   BadTiming Bad = BadTiming::None;
   unsigned Waits = 0;
   std::vector<Native::Completion> Submitted, Queried;
@@ -64,8 +66,10 @@ public:
   }
 
   Native::Result<Native::CompletionStatus> Poll(Native::Completion completion) override {
-    return State_.Hold ? Native::Result<Native::CompletionStatus>{Native::CompletionStatus::Pending}
-                       : Backing().Poll(completion);
+    if (State_.Hold || State_.HiddenCompletion == completion.Serial) {
+      return Native::CompletionStatus::Pending;
+    }
+    return Backing().Poll(completion);
   }
 
   Native::Result<Native::CompletionStatus> Wait(Native::Completion completion,
@@ -161,6 +165,7 @@ void CheckUploadBurst(Core::RuntimeScene &scene, SceneRenderer &renderer, Timing
   state.CompleteNextSubmit = true;
   CHECK(scene.Draw(error), "a measured frame precedes resource uploads");
   const auto frame = state.Submitted.back();
+  state.HiddenCompletion = frame.Serial;
   const auto uploadsAt = state.Submitted.size();
   const auto queriesAt = state.Queried.size();
   const auto *reserved = renderer.GpuSamples().data();
@@ -174,7 +179,8 @@ void CheckUploadBurst(Core::RuntimeScene &scene, SceneRenderer &renderer, Timing
     }
   }
   CHECK(state.Submitted.size() >= uploadsAt + uploadCount,
-        "resource traffic exceeds the native eight-submission timing history");
+        "resource traffic submits all overlay updates before the frame time is collected");
+  state.HiddenCompletion.reset();
   renderer.WaitForGpu();
   CHECK(renderer.Costs().Frames == 1 && renderer.Costs().Gpu.Frames == 1 &&
             renderer.Costs().UnavailableGpuFrames == 0,

@@ -12,7 +12,10 @@ public:
   explicit NativeCommandsProxy(std::unique_ptr<Render::Native::Commands> commands)
       : Backing_(std::move(commands)) {}
 
-  [[nodiscard]] std::unique_ptr<Render::Native::Commands> Take() { return std::move(Backing_); }
+  [[nodiscard]] std::unique_ptr<Render::Native::Commands> Take() {
+    if (IsFrame()) { Backing_->MarkFrame(); }
+    return std::move(Backing_);
+  }
 
   [[nodiscard]] Render::Native::Result<void> Copy(const Render::Native::Buffer &source,
                                                   Render::Native::Buffer &destination,

@@ -62,7 +62,12 @@ struct SubmissionGpuTiming {
   double ElapsedNanoseconds = std::numeric_limits<double>::quiet_NaN();
 };
 
-enum class GpuTimingMode : uint8_t { None, Submission, Dispatches };
+enum class GpuTimingMode : uint8_t { None, Frames, Submission, Dispatches };
+
+[[nodiscard]] inline bool MeasuresSubmission(GpuTimingMode mode, const Commands &commands) {
+  return mode == GpuTimingMode::Submission || mode == GpuTimingMode::Dispatches ||
+         (mode == GpuTimingMode::Frames && commands.IsFrame());
+}
 
 struct DeviceOptions {
   bool Validation = false;
