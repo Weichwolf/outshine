@@ -19,7 +19,7 @@
 namespace outshine::Render::Native::Metal {
 
 namespace {
-constexpr size_t kMaxEncoders = 128;
+constexpr size_t kEncodersPerBuffer = 128;
 constexpr size_t kSamplesPerEncoder = 4;
 constexpr size_t kMaxSubmissions = 1024;
 constexpr double kNanosecondsPerSecond = 1'000'000'000.0;
@@ -189,25 +189,53 @@ std::shared_ptr<EncoderProfileSession> CreateEncoderProfileSession(id<MTLDevice>
   return session;
 }
 
+namespace {
+id<MTLCounterSampleBuffer> CreateCounterBuffer(EncoderProfileSession &session) {
+  MTLCounterSampleBufferDescriptor *const description = [MTLCounterSampleBufferDescriptor new];
+  description.counterSet = session.CounterSet;
+  description.storageMode = MTLStorageModeShared;
+  description.sampleCount = kEncodersPerBuffer * kSamplesPerEncoder;
+  NSError *error = nil;
+  const auto samples = [session.Device newCounterSampleBufferWithDescriptor:description
+                                                                      error:&error];
+  if (samples == nil) {
+    const std::scoped_lock lock(session.Mutex);
+    ++session.AllocationFailures;
+  }
+  return samples;
+}
+
+struct EncoderSampleSlot {
+  id<MTLCounterSampleBuffer> Buffer = nil;
+  size_t First = 0;
+};
+
+EncoderSampleSlot NextEncoderSamples(EncoderProfile &profile) {
+  const size_t encoder = profile.Encoders.size();
+  const size_t buffer = encoder / kEncodersPerBuffer;
+  if (buffer == profile.CounterBuffers.size() && profile.Dropped == 0) {
+    if (const auto samples = CreateCounterBuffer(*profile.Session); samples != nil) {
+      profile.CounterBuffers.push_back(samples);
+    }
+  }
+  if (buffer == profile.CounterBuffers.size()) {
+    ++profile.Dropped;
+    return {};
+  }
+  return {.Buffer = profile.CounterBuffers[buffer],
+          .First = (encoder % kEncodersPerBuffer) * kSamplesPerEncoder};
+}
+}
+
 std::shared_ptr<EncoderProfile>
 CreateEncoderProfile(const std::shared_ptr<EncoderProfileSession> &session) {
   if (!session) { return {}; }
-  MTLCounterSampleBufferDescriptor *const description = [MTLCounterSampleBufferDescriptor new];
-  description.counterSet = session->CounterSet;
-  description.storageMode = MTLStorageModeShared;
-  description.sampleCount = kMaxEncoders * kSamplesPerEncoder;
-  NSError *error = nil;
-  const auto samples = [session->Device newCounterSampleBufferWithDescriptor:description
-                                                                       error:&error];
-  if (samples == nil) {
-    const std::scoped_lock lock(session->Mutex);
-    ++session->AllocationFailures;
-    return {};
-  }
+  const auto samples = CreateCounterBuffer(*session);
+  if (samples == nil) { return {}; }
   auto profile = std::make_shared<EncoderProfile>();
   profile->Session = session;
-  profile->Samples = samples;
-  profile->Encoders.reserve(kMaxEncoders);
+  profile->CounterBuffers.push_back(samples);
+  profile->Encoders.reserve(kEncodersPerBuffer);
   const auto sampled = SampleGpuClock(session->Device);
   profile->CalibrationGpu = sampled.Gpu;
   profile->CalibrationCpuNs = sampled.CpuNs;
@@ -218,10 +246,8 @@ void ProfileRenderEncoder(EncoderProfile *profile,
                           MTLRenderPassDescriptor *description,
                           std::string_view label) {
   if (profile == nullptr) { return; }
-  if (profile->Encoders.size() == kMaxEncoders) {
-    ++profile->Dropped;
-    return;
-  }
+  const auto [buffer, first] = NextEncoderSamples(*profile);
+  if (buffer == nil) { return; }
   ProfiledEncoder encoder{};
   encoder.Kind = EncoderKind::Render;
   encoder.Label = label;
@@ -234,9 +260,8 @@ void ProfileRenderEncoder(EncoderProfile *profile,
   encoder.Width = static_cast<uint32_t>(image.width);
   encoder.Height = static_cast<uint32_t>(image.height);
   encoder.Depth = description.depthAttachment.texture != nil;
-  const auto first = profile->Encoders.size() * kSamplesPerEncoder;
   auto *const attachment = description.sampleBufferAttachments[0];
-  attachment.sampleBuffer = profile->Samples;
+  attachment.sampleBuffer = buffer;
   attachment.startOfVertexSampleIndex = first;
   attachment.endOfVertexSampleIndex = first + 1;
   attachment.startOfFragmentSampleIndex = first + 2;
@@ -247,17 +272,14 @@ void ProfileRenderEncoder(EncoderProfile *profile,
 void ProfileComputeEncoder(EncoderProfile &profile,
                            MTLComputePassDescriptor *description,
                            NSString *label) {
-  if (profile.Encoders.size() == kMaxEncoders) {
-    ++profile.Dropped;
-    return;
-  }
+  const auto [buffer, first] = NextEncoderSamples(profile);
+  if (buffer == nil) { return; }
   ProfiledEncoder encoder{};
   if (label != nil && label.UTF8String != nullptr) {
     encoder.Label.assign(label.UTF8String, [label lengthOfBytesUsingEncoding:NSUTF8StringEncoding]);
   }
-  const auto first = profile.Encoders.size() * kSamplesPerEncoder;
   auto *const attachment = description.sampleBufferAttachments[0];
-  attachment.sampleBuffer = profile.Samples;
+  attachment.sampleBuffer = buffer;
   attachment.startOfEncoderSampleIndex = first;
   attachment.endOfEncoderSampleIndex = first + 1;
   profile.Encoders.push_back(std::move(encoder));
@@ -266,14 +288,11 @@ void ProfileComputeEncoder(EncoderProfile &profile,
 id<MTLBlitCommandEncoder>
 CreateBlitEncoder(EncoderProfile *profile, id<MTLCommandBuffer> commands, std::string_view label) {
   if (profile == nullptr) { return [commands blitCommandEncoder]; }
-  if (profile->Encoders.size() == kMaxEncoders) {
-    ++profile->Dropped;
-    return [commands blitCommandEncoder];
-  }
+  const auto [buffer, first] = NextEncoderSamples(*profile);
+  if (buffer == nil) { return [commands blitCommandEncoder]; }
   MTLBlitPassDescriptor *const description = [MTLBlitPassDescriptor blitPassDescriptor];
-  const auto first = profile->Encoders.size() * kSamplesPerEncoder;
   auto *const attachment = description.sampleBufferAttachments[0];
-  attachment.sampleBuffer = profile->Samples;
+  attachment.sampleBuffer = buffer;
   attachment.startOfEncoderSampleIndex = first;
   attachment.endOfEncoderSampleIndex = first + 1;
   ProfiledEncoder encoder{.Kind = EncoderKind::Blit, .Label = std::string(label)};
@@ -281,32 +300,42 @@ CreateBlitEncoder(EncoderProfile *profile, id<MTLCommandBuffer> commands, std::s
   return [commands blitCommandEncoderWithDescriptor:description];
 }
 
+namespace {
+void ReadEncoderSamples(id<MTLCounterSampleBuffer> buffer, std::span<ProfiledEncoder> encoders) {
+  const auto count = encoders.size() * kSamplesPerEncoder;
+  NSData *const raw = [buffer resolveCounterRange:NSMakeRange(0, count)];
+  if (raw.length != count * sizeof(MTLCounterResultTimestamp)) { return; }
+  for (size_t at = 0; at < encoders.size(); ++at) {
+    auto &encoder = encoders[at];
+    std::memcpy(encoder.Ticks.data(),
+                static_cast<const char *>(raw.bytes) + at * kSamplesPerEncoder * sizeof(uint64_t),
+                kSamplesPerEncoder * sizeof(uint64_t));
+    const size_t used = (encoder.Kind == EncoderKind::Render) ? kSamplesPerEncoder : 2;
+    if (!(encoder.Kind == EncoderKind::Render)) {
+      encoder.Ticks[2] = 0;
+      encoder.Ticks[3] = 0;
+    }
+    const auto samples = std::span(encoder.Ticks).first(used);
+    encoder.Available =
+        std::ranges::none_of(
+            samples,
+            [](uint64_t sample) { return sample == 0 || sample == MTLCounterErrorValue; }) &&
+        encoder.Ticks[1] >= encoder.Ticks[0] &&
+        (!(encoder.Kind == EncoderKind::Render) || encoder.Ticks[3] >= encoder.Ticks[2]);
+  }
+}
+}
+
 void CollectEncoderProfile(const std::shared_ptr<EncoderProfile> &profile,
                            id<MTLCommandBuffer> commands,
                            uint64_t serial) {
   if (!profile || profile->Encoders.empty()) { return; }
   const auto began = std::chrono::steady_clock::now();
-  const auto count = profile->Encoders.size() * kSamplesPerEncoder;
-  NSData *const raw = [profile->Samples resolveCounterRange:NSMakeRange(0, count)];
-  if (raw.length == count * sizeof(MTLCounterResultTimestamp)) {
-    for (size_t at = 0; at < profile->Encoders.size(); ++at) {
-      auto &encoder = profile->Encoders[at];
-      std::memcpy(encoder.Ticks.data(),
-                  static_cast<const char *>(raw.bytes) + at * kSamplesPerEncoder * sizeof(uint64_t),
-                  kSamplesPerEncoder * sizeof(uint64_t));
-      const size_t used = (encoder.Kind == EncoderKind::Render) ? kSamplesPerEncoder : 2;
-      if (!(encoder.Kind == EncoderKind::Render)) {
-        encoder.Ticks[2] = 0;
-        encoder.Ticks[3] = 0;
-      }
-      const auto samples = std::span(encoder.Ticks).first(used);
-      encoder.Available =
-          std::ranges::none_of(
-              samples,
-              [](uint64_t sample) { return sample == 0 || sample == MTLCounterErrorValue; }) &&
-          encoder.Ticks[1] >= encoder.Ticks[0] &&
-          (!(encoder.Kind == EncoderKind::Render) || encoder.Ticks[3] >= encoder.Ticks[2]);
-    }
+  std::span remaining(profile->Encoders);
+  for (const auto &buffer : profile->CounterBuffers) {
+    const auto count = std::min(remaining.size(), kEncodersPerBuffer);
+    ReadEncoderSamples(buffer, remaining.first(count));
+    remaining = remaining.subspan(count);
   }
   const auto sampled = SampleGpuClock(profile->Session->Device);
   ProfiledSubmission submission{.Serial = serial,

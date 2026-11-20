@@ -26,7 +26,7 @@ struct ProfiledEncoder {
 
 struct EncoderProfile {
   std::shared_ptr<EncoderProfileSession> Session;
-  id<MTLCounterSampleBuffer> Samples = nil;
+  std::vector<id<MTLCounterSampleBuffer>> CounterBuffers;
   std::vector<ProfiledEncoder> Encoders;
   uint64_t Dropped = 0;
   uint64_t CalibrationGpu = 0;
