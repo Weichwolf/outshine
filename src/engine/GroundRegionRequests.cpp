@@ -4,6 +4,7 @@
 #include "EngineState.h"
 #include "GroundRegionRequest.h"
 #include "GroundRegionDefinition.h"
+#include "BinaryValueArchive.h"
 #include "TerrainRefinement.h"
 #include <expected>
 #include <cstdint>
@@ -15,6 +16,35 @@
 #include <vector>
 
 namespace outshine {
+
+namespace {
+bool AppendClassificationMotion(const Ground::ClassificationPreparation &classification,
+                                std::vector<uint8_t> &parameters) {
+  const auto motion = classification.MotionCoverages();
+  if (motion[0] == nullptr && motion[1] == nullptr) { return true; }
+  constexpr uint64_t kClassMotionDefinition = 0x5353414c43544150;
+  BinaryValueWriter writer(256);
+  if (!writer(kClassMotionDefinition)) { return false; }
+  for (const auto *tier : motion) {
+    if (!writer(tier != nullptr)) { return false; }
+    if (tier == nullptr) { continue; }
+    const auto &box = tier->Layout;
+    const auto &tiles = tier->Vectors.Window;
+    if (!writer(box.WestM,
+                box.SouthM,
+                box.Width,
+                box.Height,
+                tiles.MinX,
+                tiles.MaxX,
+                tiles.MinY,
+                tiles.MaxY)) {
+      return false;
+    }
+  }
+  parameters.append_range(writer.Out.Bytes());
+  return true;
+}
+}
 
 Holds<std::vector<uint8_t>> Engine::State::GroundRegionParameters(const Around &coverage,
                                                                   GroundQuality quality) const {
@@ -37,7 +67,12 @@ Holds<std::vector<uint8_t>> Engine::State::GroundRegionParameters(const Around &
   if (!World.Surface().HasVectorSource() || World.Surface().HasDeclaredVectors()) {
     definition.DeclaredDigest = World.Surface().DeclaredDigest();
   }
-  return Generators::EncodeGroundRegionDefinition(definition);
+  auto parameters = Generators::EncodeGroundRegionDefinition(definition);
+  if (!parameters) { return parameters; }
+  if (!AppendClassificationMotion(World.Surface().Classes(), *parameters)) {
+    return std::unexpected("classification path exceeds its encoding limit");
+  }
+  return parameters;
 }
 
 bool Engine::State::CanPrimeGroundRegion(GroundQuality quality) const {
@@ -73,10 +108,11 @@ Holds<bool> Engine::State::PrimeGroundRegion(GroundQuality quality) {
   const auto coverage = RequestedTerrainCoverage(focus);
   const auto parameters = GroundRegionParameters(coverage, quality);
   if (!parameters) { return std::unexpected(parameters.error()); }
-  auto request = assets->PlanRequest(focus,
+  const auto window = World.Surface().VectorWindowAt(focus, Ground::kVectorRing);
+  if (!window) { return std::unexpected(std::string(window.error())); }
+  auto request = assets->PlanRequest(*window,
                                      World.Surface().VectorZoom(),
                                      World.Surface().VectorSchema(),
-                                     Ground::kVectorRing,
                                      World.Surface().Pool().Shaped(),
                                      *parameters);
   if (!request) { return std::unexpected(request.error()); }

@@ -240,6 +240,11 @@ public:
 
   [[nodiscard]] int VectorZoom() const noexcept { return VectorZoom_; }
 
+  void PlanMotionCoverage(std::span<const LongitudeLatitude> path);
+
+  [[nodiscard]] std::expected<Generators::Osm::OsmTileWindow, std::string_view>
+  VectorWindowAt(LongitudeLatitude at, int rings) const;
+
   [[nodiscard]] const ::outshine::Generators::Osm::BuildingField &Footprints() const {
     return Footprints_;
   }
@@ -328,6 +333,10 @@ public:
   [[nodiscard]] int TerrainRenderZoom() const;
 
 private:
+  [[nodiscard]] const Generators::Osm::OsmTileCoverage *
+  PlannedVectorCoverageAt(LongitudeLatitude at) const;
+  [[nodiscard]] std::expected<Generators::Osm::OsmField::BuildMetrics, std::string> BuildVectors(
+      LongitudeLatitude at, TileAt tile, const Generators::Osm::OsmTileCoverage *motion, int rings);
   [[nodiscard]] bool StreetInputsReady(std::optional<int> rings) const;
   [[nodiscard]] bool WaterInputsReady(std::optional<int> rings) const;
   [[nodiscard]] std::expected<void, std::string>
@@ -383,6 +392,7 @@ private:
   std::optional<SettlementInputs> Settled_;
   bool Overflowing_ = false;
   std::unique_ptr<::outshine::Generators::Osm::OsmField> Vectors_;
+  std::optional<Generators::Osm::OsmTileCoverage> VectorMotion_;
   bool HasVectorSource_ = false;
   int VectorZoom_ = kFineZoom;
   Generators::Osm::MvtSchema VectorSchema_ = Generators::Osm::MvtSchema::Shortbread;

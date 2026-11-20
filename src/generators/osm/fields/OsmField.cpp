@@ -184,9 +184,7 @@ std::expected<OsmTileWindow, std::string_view> TileWindowFor(TileWindowRequest r
                              .MaxX = std::min(last, x + request.Radius),
                              .MinY = std::max(int64_t{0}, y - request.Radius),
                              .MaxY = std::min(last, y + request.Radius)};
-  const auto width = static_cast<uint64_t>(window.MaxX - window.MinX + 1);
-  const auto height = static_cast<uint64_t>(window.MaxY - window.MinY + 1);
-  const auto count = width * height;
+  const auto count = window.Count();
   if (count > request.Budget || count > static_cast<uint64_t>(std::numeric_limits<int>::max())) {
     return std::unexpected(Says::kOsmTileBudgetExceeded);
   }
@@ -202,6 +200,30 @@ OsmField::SourceWindow(LongitudeLatitude at, int zoom, int ringTiles, size_t til
       {.Centre = *centre, .Zoom = zoom, .Radius = ringTiles, .Budget = tileBudget});
 }
 
+std::optional<OsmTileCoverage>
+OsmField::CoverPath(std::span<const LongitudeLatitude> path, int zoom, int rings) {
+  if (path.size() < 2) { return std::nullopt; }
+  const auto centre = Locate(path.front(), zoom);
+  if (!centre) { return std::nullopt; }
+  constexpr size_t kTileLimit = std::numeric_limits<int>::max();
+  const auto initial =
+      TileWindowFor({.Centre = *centre, .Zoom = zoom, .Radius = rings, .Budget = kTileLimit});
+  if (!initial) { return std::nullopt; }
+  OsmTileWindow window = *initial;
+  for (const auto at : path.subspan(1)) {
+    const auto wanted = SourceWindow(at, zoom, rings, kTileLimit);
+    if (!wanted) { break; }
+    const OsmTileWindow span{.MinX = std::min(window.MinX, wanted->MinX),
+                             .MaxX = std::max(window.MaxX, wanted->MaxX),
+                             .MinY = std::min(window.MinY, wanted->MinY),
+                             .MaxY = std::max(window.MaxY, wanted->MaxY)};
+    if (span.Count() > 2 * initial->Count()) { break; }
+    window = span;
+  }
+  if (initial->Covers(window)) { return std::nullopt; }
+  return OsmTileCoverage{.Centre = *centre, .Window = window, .Ring = rings};
+}
+
 std::expected<int, std::string> OsmField::Build(Data::SourceReader &sources,
                                                 LongitudeLatitude at,
                                                 int ringTiles,
@@ -214,20 +236,58 @@ std::expected<int, std::string> OsmField::Build(Data::SourceReader &sources,
                                                 int ringTiles,
                                                 size_t tileBudget,
                                                 ParseBudget parsing) {
-  BuildMetrics_ = {};
-  if (parsing.TilesMost == 0) { return std::unexpected(std::string(Says::kOsmTileBudgetExceeded)); }
   const auto centre = Locate(at, Zoom_);
   if (!centre) { return std::unexpected(std::string(centre.error())); }
-  const auto window = SourceWindow(at, Zoom_, ringTiles, tileBudget);
+  const auto window =
+      TileWindowFor({.Centre = *centre, .Zoom = Zoom_, .Radius = ringTiles, .Budget = tileBudget});
   if (!window) { return std::unexpected(std::string(window.error())); }
-  if (Prepared_) { Prepared_->RetainPending(*this, *window); }
-  if (CentreX_ != centre->X || CentreY_ != centre->Y) {
-    Stage_ = TileIndex(centre->X, centre->Y) >= 0 ? SnapshotStage::Retained : SnapshotStage::Empty;
+  return BuildWindow(sources, {.Centre = *centre, .Window = *window, .Ring = ringTiles}, parsing);
+}
+
+std::expected<int, std::string>
+OsmField::Build(Data::SourceReader &sources, const OsmTileCoverage &coverage, ParseBudget parsing) {
+  if (ResidentPlan_ && ResidentPlan_->Window == coverage.Window &&
+      ResidentPlan_->Centre.X == coverage.Centre.X &&
+      ResidentPlan_->Centre.Y == coverage.Centre.Y && ResidentPlan_->Ring == coverage.Ring &&
+      parsing.TilesMost > 0) {
+    BuildMetrics_ = {};
+    return 0;
+  }
+  const auto ready = BuildWindow(sources, coverage, parsing);
+  if (ready && Stage_ == SnapshotStage::Complete && PendingTiles() == 0 && Refused_ == 0) {
+    ParsedTiles_ = decltype(ParsedTiles_){};
+    ResidentPlan_ = coverage;
+  }
+  return ready;
+}
+
+void OsmField::ResumeWindowAssembly() {
+  if (!ResidentPlan_) { return; }
+  ResidentPlan_.reset();
+  Settled_.clear();
+  Stage_ = SnapshotStage::Retained;
+}
+
+std::expected<int, std::string> OsmField::BuildWindow(Data::SourceReader &sources,
+                                                      const OsmTileCoverage &coverage,
+                                                      ParseBudget parsing) {
+  BuildMetrics_ = {};
+  if (parsing.TilesMost == 0) { return std::unexpected(std::string(Says::kOsmTileBudgetExceeded)); }
+  const auto &window = coverage.Window;
+  const auto centre = coverage.Centre;
+  if (!window.InGrid(Zoom_) ||
+      !window.Covers({.MinX = centre.X, .MaxX = centre.X, .MinY = centre.Y, .MaxY = centre.Y})) {
+    return std::unexpected("vector coverage lies outside its source grid");
+  }
+  ResumeWindowAssembly();
+  if (Prepared_) { Prepared_->RetainPending(*this, window); }
+  if (CentreX_ != centre.X || CentreY_ != centre.Y) {
+    Stage_ = TileIndex(centre.X, centre.Y) >= 0 ? SnapshotStage::Retained : SnapshotStage::Empty;
     Assembly_.reset();
   }
   const auto inWindow = [&window](TileAt tile) {
-    return tile.X >= window->MinX && tile.X <= window->MaxX && tile.Y >= window->MinY &&
-           tile.Y <= window->MaxY;
+    return tile.X >= window.MinX && tile.X <= window.MaxX && tile.Y >= window.MinY &&
+           tile.Y <= window.MaxY;
   };
   const size_t removedTiles = std::erase_if(
       ParsedTiles_, [&inWindow](const ParsedTile &tile) { return !inWindow(tile.At); });
@@ -239,14 +299,14 @@ std::expected<int, std::string> OsmField::Build(Data::SourceReader &sources,
   WindowPending_ = false;
   Refused_ = 0;
   SourceFailures_.clear();
-  CentreX_ = centre->X;
-  CentreY_ = centre->Y;
-  RequestedRing_ = std::max(RequestedRing_, ringTiles);
-  const auto added = AddWindowTiles(sources, *window, parsing);
+  CentreX_ = centre.X;
+  CentreY_ = centre.Y;
+  RequestedRing_ = std::max(RequestedRing_, coverage.Ring);
+  const auto added = AddWindowTiles(sources, window, parsing);
   if (!added) { return std::unexpected(added.error()); }
 
   const auto publicationAt = Clock::now();
-  const auto published = PublishReady(*centre);
+  const auto published = PublishReady(centre);
   const double publicationMs = ElapsedMs(publicationAt);
   BuildMetrics_.PublicationMs = publicationMs;
   TotalBuildMetrics_.PublicationMs += publicationMs;
@@ -504,6 +564,7 @@ OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
                     .InputDigest = Sha256Hex(vectorTile.data(), vectorTile.size())};
   const auto published = PublishParsed(&parsed, std::nullopt);
   if (!published) { return std::unexpected(published.error()); }
+  ResumeWindowAssembly();
   Assembly_.reset();
   const auto previous = std::ranges::find_if(ParsedTiles_, [tx, ty](const ParsedTile &tile) {
     return tile.At.X == tx && tile.At.Y == ty;
@@ -857,6 +918,7 @@ void OsmField::Declare(std::span<const Declared> these, TileAt over, std::string
   Points_.clear();
   Tiles_.clear();
   ParsedTiles_.clear();
+  ResidentPlan_.reset();
   Assembly_.reset();
   Tags_.clear();
   Values_.clear();

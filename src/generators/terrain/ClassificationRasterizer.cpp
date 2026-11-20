@@ -382,10 +382,20 @@ void ClassificationRasterizer::PackGrid(TerrainClassificationMap::Grid &grid) {
 }
 
 ClassificationRasterizer::Extent ClassificationRasterizer::ExtentOf(const Input &input) noexcept {
-  const double west = std::floor(input.CamE / input.CellM - input.HalfCells) * input.CellM;
-  const double south = std::floor(input.CamN / input.CellM - input.HalfCells) * input.CellM;
-  const double span = 2.0 * input.HalfCells * input.CellM;
-  return {.West = west, .South = south, .East = west + span, .North = south + span};
+  const auto layout = LayoutOf(input);
+  return {.West = layout.WestM,
+          .South = layout.SouthM,
+          .East = layout.WestM + layout.Width * input.CellM,
+          .North = layout.SouthM + layout.Height * input.CellM};
+}
+
+ClassificationRasterizer::GridLayout
+ClassificationRasterizer::LayoutOf(const Input &input) noexcept {
+  if (input.Layout) { return *input.Layout; }
+  return {.WestM = std::floor(input.CamE / input.CellM - input.HalfCells) * input.CellM,
+          .SouthM = std::floor(input.CamN / input.CellM - input.HalfCells) * input.CellM,
+          .Width = input.HalfCells * 2,
+          .Height = input.HalfCells * 2};
 }
 
 void ClassificationRasterizer::RasterizeFeature(const Input &job,
@@ -420,12 +430,13 @@ void ClassificationRasterizer::RasterizeFeature(const Input &job,
 bool ClassificationRasterizer::LayDown(const Input &job,
                                        TerrainClassificationMap::Grid &out,
                                        int &overflow) {
-  out.W = out.H = job.HalfCells * 2;
+  const auto layout = LayoutOf(job);
+  out.W = layout.Width;
+  out.H = layout.Height;
   out.CellM = job.CellM;
   out.BoundaryHaloM = job.BoundaryHaloM;
-  const auto extent = ExtentOf(job);
-  out.OrgE = extent.West;
-  out.OrgN = extent.South;
+  out.OrgE = layout.WestM;
+  out.OrgN = layout.SouthM;
   const size_t cells = static_cast<size_t>(out.W) * out.H;
   Workspace_.Base.assign(cells, kFullCover);
   Workspace_.BaseRank.assign(cells, 0);

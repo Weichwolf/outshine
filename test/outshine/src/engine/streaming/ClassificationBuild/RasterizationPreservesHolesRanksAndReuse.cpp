@@ -63,6 +63,21 @@ void CheckShoreline(const TerrainClassificationMap &field) {
     }
   }
 }
+
+void CheckTranslatedShoreline(ClassificationBuild &builder) {
+  auto job = Polygon(false);
+  job.Raster.Layout = {.WestM = -24, .SouthM = -18, .Width = 44, .Height = 18};
+  constexpr float eastM = 40;
+  for (size_t at = 0; at < job.Raster.Points.size(); at += 2) { job.Raster.Points[at] += eastM; }
+  auto &water = job.Raster.Features.front();
+  water.MinE += eastM;
+  water.MaxE += eastM;
+  const auto field = Build(builder, std::move(job));
+  CHECK(field && field->Evaluate(48, 0, nullptr, nullptr) == 3 &&
+            field->Evaluate(40, 0, nullptr, nullptr) == -1 &&
+            field->Evaluate(53, 0, nullptr, nullptr) == -1,
+        "the extended raster preserves the shoreline and island beyond the starting view");
+}
 }
 
 int main() {
@@ -106,5 +121,6 @@ int main() {
         "line width leaves distant cells unclassified");
   CHECK(line && line->Version() == 4 && line->Measured().Overflow == 0,
         "each completed job advances its version without overflowing simple cases");
+  CheckTranslatedShoreline(builder);
   return Report();
 }

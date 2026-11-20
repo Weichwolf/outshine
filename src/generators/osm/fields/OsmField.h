@@ -32,6 +32,27 @@ class PreparedOsmTiles;
 
 struct OsmTileWindow {
   int64_t MinX, MaxX, MinY, MaxY;
+  [[nodiscard]] bool operator==(const OsmTileWindow &) const noexcept = default;
+
+  [[nodiscard]] bool Covers(const OsmTileWindow &other) const noexcept {
+    return MinX <= other.MinX && MaxX >= other.MaxX && MinY <= other.MinY && MaxY >= other.MaxY;
+  }
+
+  [[nodiscard]] uint64_t Count() const noexcept {
+    return static_cast<uint64_t>(MaxX - MinX + 1) * static_cast<uint64_t>(MaxY - MinY + 1);
+  }
+
+  [[nodiscard]] bool InGrid(int zoom) const noexcept {
+    if (zoom < 0 || zoom >= std::numeric_limits<int>::digits) { return false; }
+    const auto side = static_cast<int64_t>(uint64_t{1} << static_cast<unsigned>(zoom));
+    return MinX >= 0 && MinX <= MaxX && MaxX < side && MinY >= 0 && MinY <= MaxY && MaxY < side;
+  }
+};
+
+struct OsmTileCoverage {
+  TileAt Centre;
+  OsmTileWindow Window;
+  int Ring;
 };
 
 struct FeatureRun {
@@ -91,8 +112,14 @@ public:
                                                       size_t tileBudget,
                                                       ParseBudget parsing);
 
+  [[nodiscard]] std::expected<int, std::string>
+  Build(Data::SourceReader &sources, const OsmTileCoverage &coverage, ParseBudget parsing);
+
   [[nodiscard]] static std::expected<OsmTileWindow, std::string_view>
   SourceWindow(LongitudeLatitude at, int zoom, int ringTiles, size_t tileBudget);
+
+  [[nodiscard]] static std::optional<OsmTileCoverage>
+  CoverPath(std::span<const LongitudeLatitude> path, int zoom, int rings);
 
   struct BuildMetrics {
     double FetchMs = 0.0;
@@ -277,6 +304,9 @@ private:
   [[nodiscard]] bool AppendNativeTile(const OsmField &tile, OsmStorageUsage &usage);
   [[nodiscard]] std::expected<int, std::string>
   AddWindowTiles(Data::SourceReader &sources, OsmTileWindow window, ParseBudget parsing);
+  [[nodiscard]] std::expected<int, std::string>
+  BuildWindow(Data::SourceReader &sources, const OsmTileCoverage &coverage, ParseBudget parsing);
+  void ResumeWindowAssembly();
   [[nodiscard]] std::expected<void, std::string> PublishParsed(const ParsedTile *replacement,
                                                                std::optional<TileAt> contact);
   [[nodiscard]] std::expected<void, std::string> PublishReady(TileAt centre);
@@ -294,6 +324,7 @@ private:
   std::shared_ptr<const uint8_t> Demand_ = std::make_shared<const uint8_t>(0);
   std::vector<std::string> Layers_;
   std::vector<ParsedTile> ParsedTiles_;
+  std::optional<OsmTileCoverage> ResidentPlan_;
   std::unique_ptr<AssemblyState> Assembly_;
   SnapshotStage Stage_ = SnapshotStage::Empty;
   size_t PublishedSettledTiles_ = 0;

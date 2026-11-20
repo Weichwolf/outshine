@@ -310,6 +310,7 @@ CompileClassRegions(const ClassificationRasterizer::Input &source, const std::st
   output.Raster.CellM = source.CellM;
   output.Raster.BoundaryHaloM = source.BoundaryHaloM;
   output.Raster.HalfCells = source.HalfCells;
+  output.Raster.Layout = source.Layout;
   const bool bounded = source.HalfCells > 0 && std::isfinite(source.CellM) && source.CellM > 0 &&
                        std::isfinite(source.CamE) && std::isfinite(source.CamN) &&
                        std::isfinite(source.BoundaryHaloM) && source.BoundaryHaloM >= 0;
