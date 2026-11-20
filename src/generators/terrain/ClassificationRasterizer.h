@@ -30,11 +30,17 @@ public:
     float MinE = 0, MinN = 0, MaxE = 0, MaxN = 0;
   };
 
+  struct GridLayout {
+    double WestM, SouthM;
+    int Width, Height;
+  };
+
   struct Input {
     double CamE = 0, CamN = 0;
     double CellM = 1;
     double BoundaryHaloM = 0;
     int HalfCells = 0;
+    std::optional<GridLayout> Layout;
     std::vector<float> Points;
     std::vector<Ring> Rings;
     std::vector<Feature> Features;
@@ -51,6 +57,7 @@ public:
   };
 
   [[nodiscard]] static Extent ExtentOf(const Input &input) noexcept;
+  [[nodiscard]] static GridLayout LayoutOf(const Input &input) noexcept;
 
   struct Built {
     std::shared_ptr<const TerrainClassificationMap::Grid> Grid;
