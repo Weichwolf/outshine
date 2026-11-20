@@ -162,6 +162,19 @@ double RoofSurface::HeightAt(const EastNorth &enu) const noexcept {
 
 namespace {
 
+bool HasRoofArea(std::span<const EastNorth> ring) {
+  if (ring.size() < 3) { return false; }
+  const auto origin = ring.front();
+  double twiceArea = 0;
+  for (size_t i = 1; i + 1 < ring.size(); ++i) {
+    const auto a = ring[i];
+    const auto b = ring[i + 1];
+    twiceArea += (a.EastM - origin.EastM) * (b.NorthM - origin.NorthM) -
+                 (a.NorthM - origin.NorthM) * (b.EastM - origin.EastM);
+  }
+  return twiceArea > 2 * kBuildingWeldAreaM2;
+}
+
 void ClipHalf(const BuildingShape &shape,
               std::span<const EastNorth> poly,
               const Line &line,
@@ -265,7 +278,7 @@ bool RoofSurface::Cover(std::span<const EastNorth> plan,
       std::vector<EastNorth> &below = scratch.Below;
       ClipHalf(Shape_, cell, lines[i], 1.0, above);
       ClipHalf(Shape_, cell, lines[i], -1.0, below);
-      if (above.size() >= 3 && below.size() >= 3) {
+      if (HasRoofArea(above) && HasRoofArea(below)) {
         next.Next().swap(above);
         next.Next().swap(below);
         continue;

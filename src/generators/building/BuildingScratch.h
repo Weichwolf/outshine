@@ -15,6 +15,7 @@
 namespace outshine::Generators {
 
 inline constexpr double kBuildingWeldPerM = 1000.0;
+inline constexpr double kBuildingWeldAreaM2 = 1.0 / (kBuildingWeldPerM * kBuildingWeldPerM);
 
 inline constexpr int kMaxParts = 9;
 

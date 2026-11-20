@@ -84,9 +84,8 @@ bool AppendPolygon(GEOSContextHandle_t context,
                    EastNorth origin,
                    std::vector<EastNorth> &triangles) {
   double areaM2 = 0;
-  constexpr double kWeldAreaM2 = 1 / (kBuildingWeldPerM * kBuildingWeldPerM);
   if (GEOSArea_r(context, polygon, &areaM2) == 0) { return false; }
-  if (areaM2 <= kWeldAreaM2) { return true; }
+  if (areaM2 <= kBuildingWeldAreaM2) { return true; }
   const int holes = GEOSGetNumInteriorRings_r(context, polygon);
   if (holes < 0) { return false; }
   std::vector<PolygonRing> rings(static_cast<size_t>(holes) + 1);
