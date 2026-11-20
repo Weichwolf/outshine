@@ -57,7 +57,7 @@ Result<Completion> MetalDevice::Submit(std::unique_ptr<Commands> commands) {
 #if __has_feature(thread_sanitizer)
       __tsan_acquire((__bridge void *)finished);
 #endif
-      if (profile && finished.status == MTLCommandBufferStatusCompleted) {
+      if (gpuTiming && profile && finished.status == MTLCommandBufferStatusCompleted) {
         @autoreleasepool {
           CollectEncoderProfile(profile, finished, serial);
         }
