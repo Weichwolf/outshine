@@ -368,7 +368,7 @@ void SurfacePreparation::IngestLayers(const SettlementInputs &inputs,
     if (!UsesCachedRegionNetwork()) {
       const auto streetsAt = std::chrono::steady_clock::now();
       const auto looked = Ways_.LookedCount();
-      (void)Ways_.Ingest(*Vectors_, Recipes_);
+      (void)Ways_.Ingest(*Vectors_, Recipes_, budget.StreetAdmissionTime);
       metrics.IngestionUnits += static_cast<size_t>(Ways_.LookedCount() - looked);
       metrics.StreetsMs += ElapsedMs(streetsAt);
     }

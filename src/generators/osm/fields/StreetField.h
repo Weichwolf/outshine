@@ -4,6 +4,7 @@
 #include <span>
 #include <array>
 #include <cassert>
+#include <chrono>
 #include <cstdint>
 #include <vector>
 #include <memory>
@@ -51,10 +52,14 @@ public:
     std::optional<SourceReference> Source;
   };
 
-  uint32_t Ingest(const OsmField &field, const RegionSurfaceRecipes &veg);
+  uint32_t Ingest(const OsmField &field,
+                  const RegionSurfaceRecipes &veg,
+                  std::chrono::steady_clock::duration budget = {});
 
-  uint32_t
-  Ingest(const OsmField &field, const RegionSurfaceRecipes &veg, TileAdmission::Reach reach);
+  uint32_t Ingest(const OsmField &field,
+                  const RegionSurfaceRecipes &veg,
+                  TileAdmission::Reach reach,
+                  std::chrono::steady_clock::duration budget = {});
 
   [[nodiscard]] std::optional<uint64_t> SourceDigest(const OsmField &field,
                                                      uint32_t tile) const noexcept;
@@ -116,6 +121,9 @@ public:
   [[nodiscard]] size_t IngestedTiles() const { return Admission_.Takes(); }
 
 private:
+  void AdmitTile(const OsmField &field,
+                 const RegionSurfaceRecipes &veg,
+                 const TileAdmission::Next &next);
   void RecordInvalidPlacement(SurfacePlacementError error);
   void AppendFeature(const OsmField &field,
                      uint32_t featureAt,

@@ -3,6 +3,7 @@
 #include "Check.h"
 #include "MvtWireFixture.h"
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -101,6 +102,14 @@ int main() {
         "the complete new generation retains both tiles");
   streets.Settle();
   CheckReferences(streets, field, 2);
+  StreetField batched;
+  CHECK(batched.Ingest(field, vegetation, std::chrono::seconds(1)) == streets.Ways().size() &&
+            batched.Ingested(field),
+        "a street preparation slice with time remaining admits both source tiles");
+  CheckReferences(batched, field, 2);
+  CHECK(batched.SourceDigest(field, 0) == streets.SourceDigest(field, 0) &&
+            batched.SourceDigest(field, 1) == streets.SourceDigest(field, 1),
+        "batched admission keeps the transport provenance for both tiles");
   CHECK(!streets.Without(0).Ways()[0].Source, "an intentionally removed way has no false source");
   CHECK(!streets.SourceOf(field, streets.Ways().size()), "an absent way has no source reference");
   OsmField declared(2, layers);

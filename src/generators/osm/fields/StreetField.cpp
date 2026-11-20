@@ -1,6 +1,7 @@
 #include "StreetField.h"
 #include "OsmSurfacePlacement.h"
 #include <cstdint>
+#include <chrono>
 #include <span>
 #include <string_view>
 #include <optional>
@@ -67,27 +68,41 @@ uint64_t DigestOfWays(const OsmField &field, std::span<const StreetField::Way> w
 
 }
 
-uint32_t StreetField::Ingest(const OsmField &field, const RegionSurfaceRecipes &veg) {
-  return Ingest(
-      field, veg, {.CentreX = field.CentreX(), .CentreY = field.CentreY(), .Rings = kEveryRing});
+uint32_t StreetField::Ingest(const OsmField &field,
+                             const RegionSurfaceRecipes &veg,
+                             std::chrono::steady_clock::duration budget) {
+  return Ingest(field,
+                veg,
+                {.CentreX = field.CentreX(), .CentreY = field.CentreY(), .Rings = kEveryRing},
+                budget);
 }
 
 uint32_t StreetField::Ingest(const OsmField &field,
                              const RegionSurfaceRecipes &veg,
-                             TileAdmission::Reach reach) {
+                             TileAdmission::Reach reach,
+                             std::chrono::steady_clock::duration budget) {
   if (SourceOrigin_.get() != field.OriginToken() || SourceGeneration_ != field.Generation()) {
     *this = StreetField{};
     SourceOrigin_ = field.ShareOriginToken();
     SourceGeneration_ = field.Generation();
   }
-  const std::span<const OsmField::Feature> feats = field.Features();
   if (Admission_.Done(field.Tiles())) { return static_cast<uint32_t>(Ways_.size()); }
 
-  const TileAdmission::Next next =
-      Admission_.Ask(field.Tiles(), reach, [](size_t, size_t) { return true; });
-  if (!next.Found) { return static_cast<uint32_t>(Ways_.size()); }
-  Admission_.Take(next.Tile);
+  const auto start = std::chrono::steady_clock::now();
+  (void)Admission_.Visit(field.Tiles(), reach, [&](const TileAdmission::Next &next) {
+    AdmitTile(field, veg, next);
+    return budget > std::chrono::steady_clock::duration::zero() &&
+                   std::chrono::steady_clock::now() - start < budget
+               ? TileAdmission::Decision::Continue
+               : TileAdmission::Decision::Stop;
+  });
+  return static_cast<uint32_t>(Ways_.size());
+}
 
+void StreetField::AdmitTile(const OsmField &field,
+                            const RegionSurfaceRecipes &veg,
+                            const TileAdmission::Next &next) {
+  const std::span<const OsmField::Feature> feats = field.Features();
   const int lines = field.Layer(OsmLayer::Streets);
   const int areas = field.Layer(OsmLayer::StreetPolygons);
   const auto firstWay = static_cast<uint32_t>(Ways_.size());
@@ -129,7 +144,7 @@ uint32_t StreetField::Ingest(const OsmField &field,
     SourceDigests_.resize(static_cast<size_t>(next.Tile) + 1, kDigestBasis);
   }
   SourceDigests_[next.Tile] = DigestOfWays(field, OfTile(static_cast<int>(next.Tile)));
-  return static_cast<uint32_t>(Ways_.size());
+  Admission_.Take(next.Tile);
 }
 
 void StreetField::RecordInvalidPlacement(SurfacePlacementError error) {

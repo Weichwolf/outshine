@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_STREAMING_SURFACEPREPARATION_H
 
 #include <memory>
+#include <chrono>
 #include <cstddef>
 #include <expected>
 #include <optional>
@@ -55,6 +56,7 @@ constexpr size_t kFrameIngestTiles = 1;
 struct SurfacePreparationBudget {
   size_t IngestTilesMost = 0;
   int VectorRing = 0;
+  std::chrono::steady_clock::duration StreetAdmissionTime{};
 };
 
 struct SurfacePreparationMetrics {

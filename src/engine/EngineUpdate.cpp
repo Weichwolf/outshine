@@ -565,8 +565,11 @@ bool Engine::State::Updates(bool simulate) {
                 .count());
         const int vectorRing = VectorPreparationRing();
         const auto restandAt = std::chrono::steady_clock::now();
-        const auto streamed = World.Surface().AdvanceAt(
-            stands, {.IngestTilesMost = Ground::kFrameIngestTiles, .VectorRing = vectorRing});
+        const auto streamed =
+            World.Surface().AdvanceAt(stands,
+                                      {.IngestTilesMost = Ground::kFrameIngestTiles,
+                                       .VectorRing = vectorRing,
+                                       .StreetAdmissionTime = std::chrono::milliseconds(1)});
         Cost.AdvanceAt.Took(
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - restandAt)
                 .count());
