@@ -1072,16 +1072,41 @@ Engine::State::AdvanceGroundBuildingModels(const TangentFrame &standing) {
   return GroundBuildProgress::Pending;
 }
 
-void Engine::State::BeginGroundStreetGraph(WorldRegionBuildState &state) {
+Engine::State::GroundBuildProgress
+Engine::State::PrepareGroundStreetGraph(WorldRegionBuildState &state) {
+  if (state.CurrentStage() > Core::GroundBuildSchedule::Stage::NeedsNetwork ||
+      state.CurrentSheetPhase() == Core::GroundBuildSchedule::SheetPhase::NeedsFields ||
+      state.StreetGraphWorker() != nullptr) {
+    return GroundBuildProgress::Ready;
+  }
   const auto &sources = state.Candidate().Sources();
+  const auto &build = state.Candidate().Products();
+  const auto &publishedRevision = World.GroundPublished.Current();
+  const auto &requestedRevision = state.Revision();
+  const bool sourcesChanged =
+      !publishedRevision || publishedRevision->Region != requestedRevision.Region ||
+      publishedRevision->ResidentTiles != requestedRevision.ResidentTiles ||
+      publishedRevision->VectorGeneration != requestedRevision.VectorGeneration ||
+      publishedRevision->TerrainScope != requestedRevision.TerrainScope ||
+      publishedRevision->StreetTiles != requestedRevision.StreetTiles;
+  if (sources.Vectors == nullptr ||
+      (build.StreetGraph != nullptr && sources.Ways.Ways().size() == build.StreetGraphWayCount &&
+       !sourcesChanged)) {
+    return GroundBuildProgress::Ready;
+  }
+  if (!Services.Compute) {
+    Error = "street graph preparation requires the shared compute worker";
+    World.GroundBuild.reset();
+    return GroundBuildProgress::Failed;
+  }
   if (!World.StreetTopology || !World.StreetTopology->Matches(sources.Vectors, sources.Ways)) {
     ReleaseStreetTopology();
     World.StreetTopology =
         std::make_shared<Generators::Osm::StreetGraphTopology>(sources.Vectors, sources.Ways);
   }
   const int sourceZoom = state.Coverage().Zoom;
-  const auto fields = std::make_shared<const Generators::TerrainFieldSet>(
-      state.TerrainInputs().SnapshotSourceFields());
+  const auto fields =
+      std::make_shared<const Generators::TerrainFieldSet>(state.SnapshotSourceFields());
   Generators::Osm::StreetGraphRequest::Resolver resolve;
   if (const auto assets = World.Surface().NetworkAssets()) {
     resolve = Generators::Osm::StreetGraphRequest::CachedResolver(
@@ -1104,6 +1129,7 @@ void Engine::State::BeginGroundStreetGraph(WorldRegionBuildState &state) {
       World.StreetTopology,
       [fields, sourceZoom](LongitudeLatitude at) { return fields->AslMAt(sourceZoom, at); },
       std::move(resolve)));
+  return GroundBuildProgress::Ready;
 }
 
 Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
@@ -1113,35 +1139,16 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
   }
   const ::outshine::Generators::Osm::RegionSources &sources = state.Candidate().Sources();
   GroundBuildProducts &build = state.Candidate().Products();
-  const std::optional<GroundRevision> &publishedRevision = World.GroundPublished.Current();
-  const GroundRevision &requestedRevision = state.Revision();
-  const bool sourcesChanged =
-      !publishedRevision || publishedRevision->Region != requestedRevision.Region ||
-      publishedRevision->ResidentTiles != requestedRevision.ResidentTiles ||
-      publishedRevision->VectorGeneration != requestedRevision.VectorGeneration ||
-      publishedRevision->TerrainScope != requestedRevision.TerrainScope ||
-      publishedRevision->StreetTiles != requestedRevision.StreetTiles;
-  if (build.StreetGraph != nullptr && sources.Ways.Ways().size() == build.StreetGraphWayCount &&
-      !sourcesChanged) {
-    state.AdvanceStage();
-    return GroundBuildProgress::Pending;
-  }
-  if (sources.Vectors == nullptr) {
-    build.StreetGraph.reset();
-    build.StreetGraphWayCount = 0;
-    state.AdvanceStage();
-    return GroundBuildProgress::Pending;
-  }
-  if (state.StreetGraphWorker() == nullptr) {
-    if (!Services.Compute) {
-      Error = "street graph preparation requires the shared compute worker";
-      World.GroundBuild.reset();
-      return GroundBuildProgress::Failed;
+  auto *worker = state.StreetGraphWorker();
+  if (worker == nullptr) {
+    if (sources.Vectors == nullptr) {
+      build.StreetGraph.reset();
+      build.StreetGraphWayCount = 0;
     }
-    BeginGroundStreetGraph(state);
+    state.AdvanceStage();
     return GroundBuildProgress::Pending;
   }
-  auto completed = state.StreetGraphWorker()->Collect();
+  auto completed = worker->Collect();
   if (!completed) { return GroundBuildProgress::Pending; }
   if (!*completed) {
     Error = std::move(completed->error());
@@ -1470,7 +1477,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSurfaceInputs() {
   const auto rings =
       state.Revision().Quality == GroundQuality::Refined ? std::nullopt : std::optional{0};
   if (!World.Surface().VectorSurfacesReady(rings)) { return GroundBuildProgress::Pending; }
-  if (state.SurfaceInputsBound()) { return GroundBuildProgress::Ready; }
+  if (state.SurfaceInputsBound()) { return PrepareGroundStreetGraph(state); }
   const auto origin = Session.Declared.Ground.Origin;
   const auto frame =
       TangentFrame::At({.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg});
@@ -1485,7 +1492,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSurfaceInputs() {
   }
   state.BindSurfaceInputs(World.Surface().Ways(), result->value().Water);
   RecordWaterSurfaceState(Published, result->value().Water);
-  return GroundBuildProgress::Ready;
+  return PrepareGroundStreetGraph(state);
 }
 
 Engine::State::GroundBuildProgress Engine::State::AdvanceGroundPatchwork(const Around &coverage) {

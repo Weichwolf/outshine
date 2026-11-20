@@ -502,7 +502,7 @@ struct Engine::State {
   void RetireGroundCandidate();
   void ReleaseRetiredVectorSnapshot();
   void ReleaseStreetTopology();
-  void BeginGroundStreetGraph(WorldRegionBuildState &state);
+  [[nodiscard]] GroundBuildProgress PrepareGroundStreetGraph(WorldRegionBuildState &state);
   void RequestGroundStreetSources();
   void RetryGroundWithStreetSources();
   [[nodiscard]] GroundBuildProgress AdvanceGroundSurfaceInputs();
