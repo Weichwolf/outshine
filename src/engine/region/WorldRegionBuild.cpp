@@ -992,6 +992,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundClasses() {
   static const Heap::Tag kClassingTag("ground-classify");
   const Heap::Tagged classing(kClassingTag);
   Classed classed = Classify(state.Surveying().ProbePositionsM, state.Candidate());
+  state.BindClassRevision(classed.Structure.get());
   std::vector<Vec3f>{}.swap(state.Surveying().ProbePositionsM);
   build.ClassPalette = std::move(classed.Palette);
   build.TerrainClassificationMap = std::move(classed.Structure);
@@ -1365,14 +1366,20 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
   if (state.RegionStatus() != Phase::Loading && state.RegionStatus() != Phase::Storing) {
     return GroundBuildProgress::Ready;
   }
-  auto completed = state.RegionWorker()->Collect();
-  if (!completed) { return GroundBuildProgress::Pending; }
+  auto &worker = *state.RegionWorker();
+  worker.Advance();
+  const auto *available = worker.Peek();
+  if (available == nullptr) { return GroundBuildProgress::Pending; }
+  const bool hit =
+      state.RegionStatus() == Phase::Loading && *available && available->value().Loaded;
+  if (hit && !World.Surface().ClassificationReady()) { return GroundBuildProgress::Pending; }
+  auto completed = worker.Collect();
+  assert(completed);
   if (!*completed) {
     Error = std::move(completed->error());
     return GroundBuildProgress::Failed;
   }
   auto result = std::move(completed->value());
-  const bool hit = state.RegionStatus() == Phase::Loading && result.Loaded.has_value();
   if (state.RegionStatus() == Phase::Loading) {
     Published.RecordMetric(
         "ground region: request cache hit", result.RequestHit ? 1.0 : 0.0, "hit");
@@ -1390,6 +1397,8 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
     return GroundBuildProgress::Failed;
   }
   if (hit && result.Loaded) {
+    const auto classes = World.Surface().Classes().Read();
+    state.BindClassRevision(classes.get());
     World.RetiredTerrainFields.reset();
     World.Surface().RestoreWater(std::move(result.Loaded->Water));
     state.BindSurfaceInputs(World.Surface().Ways(), World.Surface().WaterBodies());
@@ -1709,8 +1718,8 @@ bool Engine::State::GroundInputsReady(GroundQuality quality) const {
   if (!World.OsmRoutes.empty() && !World.CurrentTransportReady()) { return false; }
   return Session.Declared.Ground.Declared && Picture.Standing != nullptr &&
          World.Surface().Opened() &&
-         World.Surface().VectorInputsReady(quality == GroundQuality::Refined ? std::nullopt
-                                                                             : std::optional{0});
+         World.Surface().VectorGeometryReady(quality == GroundQuality::Refined ? std::nullopt
+                                                                               : std::optional{0});
 }
 
 bool Engine::State::AdvancesGroundWithinBudget(GroundQuality quality) {
@@ -1909,7 +1918,9 @@ bool Engine::State::AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQual
   if (sheetProgress != GroundBuildProgress::Ready) {
     return sheetProgress != GroundBuildProgress::Failed;
   }
-  if (surface == GroundBuildProgress::Pending) { return true; }
+  if (surface == GroundBuildProgress::Pending || !World.Surface().ClassificationReady()) {
+    return true;
+  }
   const GroundBuildProgress classes = AdvanceGroundClasses();
   if (classes == GroundBuildProgress::Failed) { return false; }
   const GroundBuildProgress materialProgress = AdvanceGroundSurface();

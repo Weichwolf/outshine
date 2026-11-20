@@ -14,6 +14,7 @@
 #include "TerrainDeformationTask.h"
 #include "TerrainInputPreparation.h"
 #include "TerrainSheetTask.h"
+#include "TerrainClassificationMap.h"
 #include "GroundRegionRequest.h"
 #include "WaterSurfaceBuilder.h"
 #include <algorithm>
@@ -80,6 +81,9 @@ public:
 
   [[nodiscard]] uint32_t RevisionDifference(const GroundRevision &revision) const noexcept {
     auto inputs = revision;
+    if (Schedule_.CurrentStage() == Core::GroundBuildSchedule::Stage::NeedsClasses) {
+      inputs.Classes = Revision_.Classes;
+    }
     if (SurfaceInputsPhase_ != SurfaceInputsPhase::Bound) {
       inputs.StreetTiles = Revision_.StreetTiles;
       inputs.WaterTiles = Revision_.WaterTiles;
@@ -203,6 +207,10 @@ public:
   }
 
   void PublishesFootprints() noexcept { Revision_.Footprints = Footprints().Revision(); }
+
+  void BindClassRevision(const TerrainClassificationMap *classification) noexcept {
+    Revision_.Classes = classification != nullptr ? classification->Version() : 0;
+  }
 
   void BindSurfaceInputs(const Generators::Osm::StreetField &streets,
                          const Generators::WaterAsset &water);

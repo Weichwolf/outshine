@@ -431,27 +431,24 @@ bool SurfacePreparation::Ingested() const {
 }
 
 bool SurfacePreparation::IngestedWithin(int rings) const {
-  if (!RecipesReady_ || !Vectors_) { return !RecipesReady_; }
-  return Vectors_->SettledWithin(rings) && Cls_.Complete() &&
-         (UsesCachedRegionNetwork() || Ways_.IngestedWithin(*Vectors_, rings)) &&
-         (WaterReady() || (WaterProducer_.UsesTerrain(*Ground_) &&
-                           WaterProducer_.IngestedWithin(*Vectors_, rings)));
+  return InputsReadyWithin(rings) && (!RecipesReady_ || WaterReady() ||
+                                      (WaterProducer_.UsesTerrain(*Ground_) &&
+                                       WaterProducer_.IngestedWithin(*Vectors_, rings)));
 }
 
 bool SurfacePreparation::InputsReadyWithin(int rings) const {
-  return VectorInputsReady(rings) &&
+  return VectorGeometryReady(rings) && ClassificationReady() &&
          (!RecipesReady_ || UsesCachedRegionNetwork() || Ways_.IngestedWithin(*Vectors_, rings));
 }
 
 bool SurfacePreparation::InputsReady() const {
-  return VectorInputsReady(std::nullopt) &&
+  return VectorGeometryReady(std::nullopt) && ClassificationReady() &&
          (!RecipesReady_ || UsesCachedRegionNetwork() || Ways_.Ingested(*Vectors_));
 }
 
-bool SurfacePreparation::VectorInputsReady(std::optional<int> rings) const {
+bool SurfacePreparation::VectorGeometryReady(std::optional<int> rings) const {
   if (!RecipesReady_ || !Vectors_) { return !RecipesReady_; }
-  return Cls_.Complete() &&
-         (rings ? Vectors_->SettledWithin(*rings) : Vectors_->PendingTiles() == 0);
+  return rings ? Vectors_->SettledWithin(*rings) : Vectors_->PendingTiles() == 0;
 }
 
 std::optional<std::expected<WaterGeometryPreparation::Completed, std::string>>
