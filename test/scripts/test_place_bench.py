@@ -120,6 +120,21 @@ class PlaceBench(unittest.TestCase):
         self.assertTrue(all("cpu_p50_ms" not in row for row in result["rows"]))
         self.assertIn("nein", table)
 
+    def test_failed_still_uses_turn_start_for_both_translation_cases(self):
+        def failing_still(*args, **kwargs):
+            if args[3].parent.name == "Still":
+                raise RuntimeError("preload timed out")
+            return self.invoke(*args, **kwargs)
+
+        code, result, _ = self.run_driver(failing_still)
+        self.assertEqual(code, 1)
+        self.assertEqual([row["complete"] for row in result["rows"]],
+                         [False, True, True, True])
+        self.assertEqual([call[-1] for call in self.calls if call[0] == "Gehen"],
+                         ["0,0,-1.5"] * 4)
+        self.assertEqual([call[-1] for call in self.calls if call[0] == "Flug"],
+                         ["0,0,-200"] * 4)
+
     def test_incomplete_world_retains_times_and_explicit_failure(self):
         def incomplete(*args, **kwargs):
             report = self.invoke(*args, **kwargs)

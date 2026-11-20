@@ -310,7 +310,8 @@ def benchmark_places(available, selected, options, invoke, publish_shot=None):
         for case in CASES:
             try:
                 row, report = run_case(available[name], case, options, invoke, deadline, seed)
-                seed = report if case == "Still" else seed
+                if seed is None and case in ("Still", "Drehung"):
+                    seed = report
                 driver = selected_driver(metadata, row["gpu"], options.driver)
                 row["driver"] = driver
                 identities.add((row["cpu"], row["gpu"], driver, row["commit"]))
