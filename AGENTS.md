@@ -67,16 +67,16 @@ keine zweite Implementierung pflegen. GPU-Kosten auf der GPU messen; NumPy-Zeite
 sind kein GPU-Beleg. Weitere Geräteabnahme bleibt nach der Integration nötig.
 
 ## Rollen
-| Rolle | Branch / Checkout | Verantwortung |
-|---|---|---|
-| **Technical Lead** | – (nur Regeln/Doku auf `master`) | Architektur, Art Direction, Planung und Prioritäten, Abnahme von Bild und Messung; entwickelt nicht selbst |
-| **Engine / Rendering** | `master`, `outshine_engine` / bestehende Checkouts | Gemeinsame Engine, Rendering, native Integration, Assets, Werkzeuge, Merges und Bild-/Geräteabnahme; Besitz je Paket melden |
-| **Research** | `outshine_research` | Python/GLSL: Verfahren an echten Daten entscheiden, Rezepte und Generierungsmethoden entwickeln |
+| Rolle | Verantwortung |
+|---|---|
+| **Technical Lead** | Architektur, Art Direction, Planung und Prioritäten, Abnahme von Bild und Messung; entwickelt nicht selbst |
+| **Engine / Rendering** | Engine, Rendering, native Integration, Assets, Werkzeuge, Merges und Bild-/Geräteabnahme; Besitz je Paket melden |
+| **Research** | Python/GLSL: Verfahren an echten Daten entscheiden, Rezepte und Generierungsmethoden entwickeln |
 
 Der Nutzer ist Regisseur; seine aktuellen Anweisungen gehen vor. Der Technical Lead
 entscheidet Verfahren, Reihenfolge und Bildprioritäten und schreibt sie in die Issues;
-Konflikte zwischen Rollen entscheidet er in #1971. Jede Rolle arbeitet selbstständig am
-eigenen aktiven Issue weiter und wartet nicht auf Einzelaufträge.
+Konflikte zwischen Rollen entscheidet er in #1971. Jede Rolle bearbeitet ihr aktives
+Issue selbstständig.
 Research liefert geprüfte Verfahren und Rezepte; Engine-Mitwirkende übernehmen nativ.
 Keine Mac/Linux-Zuständigkeiten für gemeinsame Arbeit. Nur Backend-Ausführung wird
 nach Metal/Vulkan getrennt; gemeinsame Shader und Verfahren gibt es einmal.
@@ -84,9 +84,9 @@ nach Metal/Vulkan getrennt; gemeinsame Shader und Verfahren gibt es einmal.
 ## Backlog
 - [GitHub Issues](https://github.com/Weichwolf/outshine/issues) sind die einzige
   Aufgabenablage. Offene Pakete decken die gesamte Produktvision ab.
-- **Ein aktives Umsetzungspaket je Mitwirkendem** (Label `active`), dazu `owner:lead|engine|research`,
-  `priority:P0–P2`, `milestone:M1–M5`. Ohne aktives Issue: das höchstpriorisierte offene
-  eigene im frühesten Meilenstein nehmen, `active` setzen, anfangen.
+- **Je Host/Agent höchstens ein aktives Umsetzungspaket** (Label `active`), dazu
+  `owner:lead|engine|research`, `priority:P0–P2`, `milestone:M1–M5`. Sobald es abgeschlossen
+  ist, das höchstpriorisierte offene eigene Paket im frühesten Meilenstein aktivieren.
 - Ein Issue beschreibt ein sichtbares oder messbares Ergebnis: Befund, Ergebnis,
   Anweisungen, „Fertig, wenn“. Höchstens 50 Zeilen. Varianten, Zwischenstände und
   Teilfragen sind Kommentare, keine neuen Issues.
@@ -159,11 +159,11 @@ nach Metal/Vulkan getrennt; gemeinsame Shader und Verfahren gibt es einmal.
   `include/`-Baum. Funktionen höchstens 120 Zeilen.
 - Kein gebündelter Fremdcode; Bibliotheken aus Homebrew/apt, nur bei echtem Bedarf.
 - CPU/GPU-Layouts mit `static_assert` sichern.
-- **Nach jedem Fortschritt committen und pushen** – auf den eigenen Rollenbranch, auch
-  bei Zwischenständen. Was nicht auf GitHub liegt, ist für Nutzer und Koordination
-  unsichtbar und zählt nicht. Spätestens am Ende jedes Arbeitsblocks ist alles gepusht.
-- Kleine vollständige Commits mit Issuebezug, ohne KI-Attribution. Höchstens ein
-  Themenbranch und ein offener PR je Rolle; integrierte Branches sofort löschen.
+- **Je Host/Agent höchstens ein Arbeitsbranch** nach `hostname/issueid_issuename`.
+  Nach jedem Fortschritt kleine, vollständige Commits mit Issuebezug pushen. Jede
+  Integration geht per PR nach `master`. Der zuständige Agent prüft und mergt seinen
+  PR selbst. Abgelöste Branches aufräumen und unintegrierte Änderungen archivieren.
+  Commit-Meldungen ohne KI-Attribution.
 - Builds und Lint neben Messungen mit `nice -n 10`; Messungen ohne Parallellast.
 
 ## Ablage
