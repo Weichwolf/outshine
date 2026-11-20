@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <algorithm>
+#include <array>
 #include <mdspan>
 #include <memory>
 #include <span>
@@ -28,7 +29,16 @@ struct GridFraction {
 
 class TerrainField {
 public:
+  struct RasterDigest {
+    std::array<uint8_t, 32> Key;
+    size_t BytesRead = 0;
+  };
+
   TerrainField() = default;
+  TerrainField(const TerrainField &other);
+  TerrainField &operator=(const TerrainField &other);
+  TerrainField(TerrainField &&) noexcept = default;
+  TerrainField &operator=(TerrainField &&) noexcept = default;
 
   TerrainField(uint32_t rows, uint32_t cols)
       : HeightsM_(static_cast<size_t>(rows) * static_cast<size_t>(cols), 0.0f),
@@ -37,6 +47,9 @@ public:
 
   explicit TerrainField(HeightRaster raster)
       : HeightsM_(std::move(raster.Meters)), Rows_(raster.Rows), Cols_(raster.Cols) {}
+
+  [[nodiscard]] static std::shared_ptr<const TerrainField> Publish(TerrainField field);
+  [[nodiscard]] std::optional<RasterDigest> DigestRaster() const;
 
   [[nodiscard]] uint32_t Rows() const { return Rows_; }
 
@@ -63,7 +76,8 @@ public:
 
   [[nodiscard]] size_t Bytes() const {
     size_t bytes = HeightsM_.size() * sizeof(float) +
-                   Sources_.size() * sizeof(Data::TileSourceIdentity) + Certificate_.Bytes();
+                   Sources_.size() * sizeof(Data::TileSourceIdentity) + Certificate_.Bytes() +
+                   DigestStorageBytes();
     for (const auto &source : Sources_) {
       bytes += source.SourceId.size() + source.Revision.size();
     }
@@ -73,7 +87,7 @@ public:
   [[nodiscard]] size_t HeapBytes() const {
     size_t bytes = HeightsM_.capacity() * sizeof(float) +
                    Sources_.capacity() * sizeof(Data::TileSourceIdentity) +
-                   Certificate_.HeapBytes();
+                   Certificate_.HeapBytes() + DigestStorageBytes();
     for (const auto &source : Sources_) {
       bytes += source.SourceId.capacity() + source.Revision.capacity();
     }
@@ -116,9 +130,13 @@ public:
   }
 
 private:
+  struct RasterDigestState;
+  [[nodiscard]] size_t DigestStorageBytes() const noexcept;
+
   TerrainCertificate Certificate_;
   std::vector<float> HeightsM_;
   std::vector<Data::TileSourceIdentity> Sources_;
+  std::shared_ptr<RasterDigestState> Digest_;
   uint32_t Rows_ = 0, Cols_ = 0;
   bool MissingBoundary_ = false;
 };
@@ -178,7 +196,7 @@ public:
   [[nodiscard]] std::shared_ptr<const TerrainField> ShareField() {
     if (Where_ != State::Decoded) { return nullptr; }
     if (auto *field = std::get_if<TerrainField>(&Field_)) {
-      Field_ = std::make_shared<const TerrainField>(std::move(*field));
+      Field_ = TerrainField::Publish(std::move(*field));
     }
     return std::get<std::shared_ptr<const TerrainField>>(Field_);
   }

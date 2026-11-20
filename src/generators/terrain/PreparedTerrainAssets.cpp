@@ -138,7 +138,7 @@ std::shared_ptr<std::mutex> PreparedTerrainAssets::MutexForRequest(const std::st
 
 ::outshine::Ground::TerrainGrid
 PreparedTerrainAssets::Remember(const std::string &key, ::outshine::Ground::TerrainField field) {
-  auto shared = std::make_shared<const ::outshine::Ground::TerrainField>(std::move(field));
+  auto shared = ::outshine::Ground::TerrainField::Publish(std::move(field));
   const std::scoped_lock lock(Lock_);
   constexpr size_t maximum = 4096;
   if (Resident_.size() >= maximum) {
