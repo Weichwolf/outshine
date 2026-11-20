@@ -192,9 +192,22 @@ PreparedGroundRegions::PlanRequest(LongitudeLatitude focus,
   constexpr size_t tilesMost = 8192;
   const auto window = OsmField::SourceWindow(focus, zoom, ring, tilesMost);
   if (!window) { return std::unexpected(std::string(window.error())); }
+  return PlanRequest(*window, zoom, schema, shape, parameters);
+}
+
+std::expected<std::string, std::string>
+PreparedGroundRegions::PlanRequest(const OsmTileWindow &window,
+                                   int zoom,
+                                   MvtSchema schema,
+                                   const ::outshine::Ground::ShapedGround &shape,
+                                   std::span<const uint8_t> parameters) const {
+  constexpr size_t tilesMost = 8192;
+  if (!window.InGrid(zoom) || window.Count() > tilesMost) {
+    return std::unexpected("ground vector window exceeds its source grid or tile budget");
+  }
   std::vector<::outshine::Ground::TileSpot> tiles;
-  for (int64_t y = window->MinY; y <= window->MaxY; ++y) {
-    for (int64_t x = window->MinX; x <= window->MaxX; ++x) {
+  for (int64_t y = window.MinY; y <= window.MaxY; ++y) {
+    for (int64_t x = window.MinX; x <= window.MaxX; ++x) {
       tiles.push_back({.Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)});
     }
   }

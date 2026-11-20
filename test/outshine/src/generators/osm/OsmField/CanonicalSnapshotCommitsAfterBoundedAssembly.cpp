@@ -157,6 +157,28 @@ void CheckAdjacentTravel(::outshine::Generators::Osm::OsmField &staged, Ground::
         "a same-sized translated window publishes once with its correct tiles");
 }
 
+void CheckPlannedTravel(::outshine::Generators::Osm::OsmField &staged, Ground::TilePool &pool) {
+  using ::outshine::Generators::Osm::OsmField;
+  using namespace outshine::Test;
+  constexpr std::array<LongitudeLatitude, 2> route{
+      {{.LongitudeDeg = kTravelLongitudeDeg}, {.LongitudeDeg = kTravelLongitudeDeg + 22.5}}};
+  const auto coverage = OsmField::CoverPath(route, 4, 1);
+  CHECK(coverage && coverage->Window.Count() == 12,
+        "adjacent positions share six inputs and require one entering column");
+  if (!coverage) { return; }
+  for (int slice = 0; slice < 12; ++slice) {
+    CHECK(staged.Build(pool, *coverage, {.TilesMost = 1}).has_value(),
+          "bounded path coverage assembles without source errors");
+  }
+  CHECK(staged.PendingTiles() == 0 && staged.Tiles().size() == 12 && staged.TileIndex(11, 8) >= 0 &&
+            staged.TileIndex(14, 8) >= 0,
+        "both ends of the path have complete vector geometry in one publication");
+  const auto previous = staged.Generation();
+  CHECK(staged.Build(pool, *coverage, {.TilesMost = 1}).has_value() &&
+            staged.Generation() == previous,
+        "revisiting the planned window keeps the published world products");
+}
+
 }
 
 int main() {
@@ -235,6 +257,7 @@ int main() {
                                 [](const auto &tile) { return tile.X >= 11 && tile.X <= 13; }),
         "moving removes the old window from the next canonical publication");
   CheckAdjacentTravel(staged, pool);
+  CheckPlannedTravel(staged, pool);
   for (int slice = 0; slice < 4; ++slice) {
     CHECK(staged.Build(pool, {}, 1, 9).has_value(),
           "return window assembles without source errors");

@@ -28,6 +28,7 @@ struct TileSpot;
 
 namespace outshine::Generators::Osm {
 class OsmField;
+struct OsmTileWindow;
 enum class MvtSchema : uint8_t;
 
 class PreparedGroundRegions {
@@ -79,6 +80,12 @@ public:
               int zoom,
               MvtSchema schema,
               int ring,
+              const ::outshine::Ground::ShapedGround &shape,
+              std::span<const uint8_t> parameters) const;
+  [[nodiscard]] std::expected<std::string, std::string>
+  PlanRequest(const OsmTileWindow &window,
+              int zoom,
+              MvtSchema schema,
               const ::outshine::Ground::ShapedGround &shape,
               std::span<const uint8_t> parameters) const;
   [[nodiscard]] std::string RequestKey(int zoom,
