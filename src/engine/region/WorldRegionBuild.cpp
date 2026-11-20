@@ -424,7 +424,9 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
   uint64_t from = (static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.X))) << 32U) ^
                   static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.Y))) ^
                   (static_cast<uint64_t>(over.Levels) << kGroundRegionLevelsShift);
-  if (from != previous.Region && World.PublishedGroundCoverage && World.TerrainClipmaps &&
+  if (over.Sweep) { from = over.Sweep->Region; }
+  if (!over.Sweep && from != previous.Region && World.PublishedGroundCoverage &&
+      !World.PublishedGroundCoverage->Sweep && World.TerrainClipmaps &&
       previous.Quality == GroundQuality::Refined && World.Pending == 0 && World.Bare == 0 &&
       World.RimsMissing == 0 &&
       PatchworkCoversFocus(*World.PublishedGroundCoverage, over, FinestTerrainSampleRadiusM())) {
@@ -515,7 +517,7 @@ Engine::State::RingWanted(bool alsoWhenTilesLanded, GroundQuality quality) {
                  (atLon - anchorLon) * kMPerDegLon * std::cos(anchorLat * kDeg2Rad)),
       "m");
 
-  const Around over = TerrainCoverageAt(eyeStands);
+  const Around over = RequestedTerrainCoverage(eyeStands);
   const double tileSpanM = 40075017.0 * std::cos(atLat * kDeg2Rad) / std::ldexp(1.0, over.Zoom);
   Published.RecordMetric("the sight a scenario declares", TerrainSightM(), "m");
   Published.RecordMetric("and what one tile spans at the finest zoom", tileSpanM, "m");
@@ -844,6 +846,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginGroundSheetWork(const Tan
     return GroundBuildProgress::Failed;
   }
   Generators::TerrainRefinementDetail detail{.EyeM = eye.EyeM};
+  if (const auto &sweep = state.Coverage().Sweep) { detail.EyeBounds = sweep->Eyes; }
   if (eye.Kind == Render::CameraKind::Orthographic) {
     detail.OrthographicPxPerM = static_cast<double>(Picture.Frame.HeightPx) / (2.0 * eye.YMagM);
   } else {

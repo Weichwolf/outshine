@@ -24,6 +24,7 @@ struct TerrainRefinementDetail {
   double FocalPx = 0.0;
   double OrthographicPxPerM = 0.0;
   double ErrorPx = 1.0;
+  Box EyeBounds{};
 };
 
 struct TerrainPatchError {

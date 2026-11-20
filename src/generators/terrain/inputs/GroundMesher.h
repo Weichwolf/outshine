@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -13,6 +14,7 @@
 #include <Earth.h>
 
 #include "Vec3.h"
+#include "Box.h"
 
 #include "TileMeshes.h"
 #include "EarthworkStamp.h"
@@ -32,6 +34,15 @@ constexpr double kBrokenGroundM = 1.0;
 
 enum class TerrainTileAccess : uint8_t { Mesh, Request, Inspect };
 
+struct TerrainSweep {
+  std::vector<Data::TileId> Requested;
+  std::vector<Data::TileId> Patches;
+  LongitudeLatitude Focus{};
+  Box Eyes{};
+  int Levels = 1;
+  uint64_t Region = 0;
+};
+
 struct Around {
   double LatitudeDeg = 0.0;
   double LongitudeDeg = 0.0;
@@ -40,6 +51,7 @@ struct Around {
   int Grid = kPatchGrid;
   TerrainTileAccess Access = TerrainTileAccess::Mesh;
   bool PlayableOnly = false;
+  std::shared_ptr<const TerrainSweep> Sweep;
 };
 
 class GroundMesher {

@@ -1,4 +1,6 @@
 #include "EngineState.h"
+#include "GroundPatchwork.h"
+#include "RuntimeScene.h"
 #include "Units.h"
 
 #include <cmath>
@@ -31,11 +33,26 @@ Around Engine::State::TerrainCoverageAt(LongitudeLatitude focus) const {
   return over;
 }
 
+Around Engine::State::RequestedTerrainCoverage(LongitudeLatitude focus) const {
+  Around over = TerrainCoverageAt(focus);
+  if (World.PlannedTerrainSweep && Picture.Standing) {
+    const auto &eye =
+        Picture.Standing->Watched() ? Picture.Standing->Watching() : Picture.Standing->Aimed();
+    if (SweptPatchworkCovers(*World.PlannedTerrainSweep, over, eye.EyeM)) {
+      over.Sweep = World.PlannedTerrainSweep;
+      over.LongitudeDeg = over.Sweep->Focus.LongitudeDeg;
+      over.LatitudeDeg = over.Sweep->Focus.LatitudeDeg;
+      over.Levels = over.Sweep->Levels;
+    }
+  }
+  return over;
+}
+
 bool Engine::State::InspectTerrainCoverage() {
   const Scenario::Document &declared = Session.Declared;
   if (!declared.Ground.Declared) { return true; }
   if (!Picture.Standing || !World.Surface().Opened()) { return true; }
-  Around over = TerrainCoverageAt(CurrentGeographicFocus());
+  Around over = RequestedTerrainCoverage(CurrentGeographicFocus());
   over.Access = TerrainTileAccess::Inspect;
   over.PlayableOnly = !World.GroundPublished.Current();
   World.Surface().Pool().Focus(

@@ -36,9 +36,10 @@ bool Valid(const GroundRegionDefinition &value) {
 std::expected<std::vector<uint8_t>, std::string>
 EncodeGroundRegionDefinition(const GroundRegionDefinition &definition) {
   if (!Valid(definition)) { return std::unexpected("invalid ground region definition"); }
-  constexpr size_t bytesMost = 4096;
-  BinaryValueWriter out(bytesMost);
+  constexpr size_t kBaseBytesMost = 4096;
+  constexpr size_t kSweptBytesMost = size_t{256} * 1024;
   const auto &coverage = definition.Coverage;
+  BinaryValueWriter out(coverage.Sweep ? kSweptBytesMost : kBaseBytesMost);
   if (!out(coverage.LatitudeDeg,
            coverage.LongitudeDeg,
            coverage.Zoom,
@@ -57,8 +58,21 @@ EncodeGroundRegionDefinition(const GroundRegionDefinition &definition) {
            definition.PagesMost)) {
     return std::unexpected("ground region parameters exceed their encoding limit");
   }
-  if (definition.DeclaredDigest && !out.Text(*definition.DeclaredDigest)) {
+  if (definition.DeclaredDigest &&
+      (!out.Text(*definition.DeclaredDigest) || out.Out.Bytes().size() > kBaseBytesMost)) {
     return std::unexpected("declared ground input identity exceeds its encoding limit");
+  }
+  if (coverage.Sweep) {
+    constexpr uint64_t kSweptGroundDefinition = 0x325045455753;
+    const auto &sweep = *coverage.Sweep;
+    if (!out(kSweptGroundDefinition,
+             sweep.Eyes.Min.Axis,
+             sweep.Eyes.Max.Axis,
+             static_cast<uint64_t>(sweep.Patches.size())) ||
+        !std::ranges::all_of(sweep.Patches,
+                             [&](Data::TileId tile) { return out(tile.Zoom, tile.X, tile.Y); })) {
+      return std::unexpected("swept ground tile identity exceeds its encoding limit");
+    }
   }
   return std::move(out.Out).TakeBytes();
 }

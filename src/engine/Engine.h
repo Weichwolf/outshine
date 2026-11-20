@@ -232,6 +232,8 @@ public:
 
   [[nodiscard]] Result prepareViewData(double durationS, double patienceS);
 
+  [[nodiscard]] Holds<Camera> prepareCameraPose(double patienceS);
+
   [[nodiscard]] Result prepareCameraPathData(std::span<const Vec3> positionsM, double patienceS);
 
   [[nodiscard]] Loading loading() const;

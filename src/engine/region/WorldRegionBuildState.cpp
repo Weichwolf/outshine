@@ -50,7 +50,7 @@ WorldRegionBuildState::WorldRegionBuildState(
     Around coverage,
     GroundRevision revision,
     uint64_t id)
-    : Coverage_(coverage),
+    : Coverage_(std::move(coverage)),
       Revision_(revision),
       Candidate_(renderer, world, footprints, Render::SceneResources::PieceSources::Reuse),
       TransportSnapshot_(world.CurrentTransportReady() ? world.OsmTransport->Current() : nullptr),

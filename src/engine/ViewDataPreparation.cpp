@@ -1,9 +1,14 @@
 #include "EngineState.h"
+#include "GroundPatchwork.h"
+#include "RuntimeScene.h"
 #include "TerrainPathPreparation.h"
 #include "RoadHeightCoverage.h"
 #include <chrono>
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
+#include <limits>
+#include <memory>
 #include <string>
 #include <utility>
 #include <cmath>
@@ -15,6 +20,36 @@ namespace outshine {
 namespace {
 using Clock = std::chrono::steady_clock;
 constexpr double kMostAwaitS = 0.01;
+
+std::shared_ptr<TerrainSweep> PlanMotionTerrain(std::span<const Around> coverage,
+                                                std::span<const Vec3> positions,
+                                                std::vector<Data::TileId> requested,
+                                                double sampleRadiusM) {
+  const auto initial = PlanPatchworkTiles(coverage.front());
+  if (!initial || *initial == requested) { return {}; }
+  if (std::ranges::all_of(coverage, [&](const Around &at) {
+        return PatchworkCoversFocus(coverage.front(), at, sampleRadiusM);
+      })) {
+    return {};
+  }
+  Box eyes;
+  for (const Vec3 position : positions) { eyes.Cover(position); }
+  for (size_t axis = 0; axis < 3; ++axis) {
+    const double guard = 64 * std::numeric_limits<double>::epsilon() *
+                         std::max({std::abs(eyes.Min[axis]), std::abs(eyes.Max[axis]), 1.0});
+    eyes.Min[axis] -= guard;
+    eyes.Max[axis] += guard;
+  }
+  const int levels = std::ranges::max(coverage, {}, &Around::Levels).Levels;
+  auto patches = RemoveCoveredPatchworkTiles(requested);
+  return std::make_shared<TerrainSweep>(
+      TerrainSweep{.Requested = std::move(requested),
+                   .Patches = std::move(patches),
+                   .Focus = {.LongitudeDeg = coverage.front().LongitudeDeg,
+                             .LatitudeDeg = coverage.front().LatitudeDeg},
+                   .Eyes = eyes,
+                   .Levels = levels});
+}
 }
 
 Holds<LongitudeLatitude> Engine::State::PreparationFocus(const Scenario::View &view,
@@ -74,6 +109,33 @@ Holds<std::vector<Around>> Engine::State::ViewPreparationPath(const Scenario::Vi
 
 Result Engine::prepareViewData(double durationS, double patienceS) {
   return prepareViewData(durationS, patienceS, {});
+}
+
+Holds<Camera> Engine::prepareCameraPose(double patienceS) {
+  [[maybe_unused]] const auto logs = S_->Logs();
+  if (const auto permission = S_->MutationPermission(); !permission) {
+    return std::unexpected(permission.error());
+  }
+  if (!S_->Session.Views || !S_->Picture.Standing) {
+    return std::unexpected("camera pose preparation requires an active view");
+  }
+  const auto at = Clock::now();
+  const double most = std::chrono::duration<double>(Clock::time_point::max() - at).count();
+  if (!std::isfinite(patienceS) || patienceS < 0.0 || patienceS >= most) {
+    return std::unexpected(
+        "camera pose preparation requires a finite budget within the clock range");
+  }
+  if (S_->Session.Declared.Ground.Declared) {
+    const auto deadline =
+        at + std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(patienceS));
+    const auto focus = S_->PreparationFocus(S_->Session.Views->Active(), deadline);
+    if (!focus) { return std::unexpected(focus.error()); }
+  }
+  if (!S_->UpdateActiveCamera()) { return std::unexpected(S_->Error); }
+  Camera pose;
+  const auto &scene = *S_->Picture.Standing;
+  Render::CameraOf(scene.Watched() ? scene.Watching() : scene.Aimed(), pose);
+  return pose;
 }
 
 Result Engine::prepareCameraPathData(std::span<const Vec3> positionsM, double patienceS) {
@@ -147,16 +209,35 @@ Engine::prepareViewData(double durationS, double patienceS, std::span<const Vec3
   S_->Published.RecordMetric(
       "view data: planned vectors", static_cast<double>(plan->Vectors.size()), "tiles");
 
-  auto prepared = PrepareTerrainPath(std::move(*plan), S_->World.Surface(), deadline);
-  const auto *terrain = S_->World.TerrainSurface.PublishedSurface();
-  if (!prepared || !S_->World.UrbanAreas || terrain == nullptr || positionsM.empty()) {
+  return S_->PrepareViewTerrain(*path, positionsM, std::move(*plan), deadline);
+}
+
+Result Engine::State::PrepareViewTerrain(std::span<const Around> coverage,
+                                         std::span<const Vec3> positions,
+                                         TerrainPathPlan plan,
+                                         Clock::time_point deadline) {
+  if (!positions.empty() && !World.GroundPublished.Current()) {
+    auto sweep = PlanMotionTerrain(
+        coverage, positions, std::move(plan.Meshes), FinestTerrainSampleRadiusM());
+    if (sweep) {
+      constexpr uint64_t kSweptTerrainRegion = uint64_t{1} << 63u;
+      sweep->Region = kSweptTerrainRegion | ++World.NextTerrainSweep;
+      Published.RecordMetric(
+          "view data: swept terrain patches", static_cast<double>(sweep->Patches.size()), "tiles");
+    }
+    World.PlannedTerrainSweep = std::move(sweep);
+    return {};
+  }
+  const auto prepared = PrepareTerrainPath(std::move(plan), World.Surface(), deadline);
+  const auto *terrain = World.TerrainSurface.PublishedSurface();
+  if (!prepared || !World.UrbanAreas || terrain == nullptr || positions.empty()) {
     return prepared;
   }
-  return S_->World.UrbanAreas->PrepareMotion(positionsM,
-                                             *terrain,
-                                             S_->World.Rebuilds,
-                                             S_->World.BuildingCoverage.Regions(),
-                                             S_->World.BuildingCoverage.Version(),
-                                             deadline);
+  return World.UrbanAreas->PrepareMotion(positions,
+                                         *terrain,
+                                         World.Rebuilds,
+                                         World.BuildingCoverage.Regions(),
+                                         World.BuildingCoverage.Version(),
+                                         deadline);
 }
 }

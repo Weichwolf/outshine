@@ -7,6 +7,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <map>
+#include <span>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -17,6 +19,10 @@ namespace {
 
 constexpr long kBlockTiles = 4;
 constexpr size_t kTilesPerLevel = kBlockTiles * kBlockTiles;
+
+auto TileAddress(Data::TileId tile) {
+  return std::tuple(tile.Zoom, tile.X, tile.Y);
+}
 
 namespace Says {
 constexpr auto Input = "patchwork requires a supported positive zoom, positive levels, grid >= 2 "
@@ -174,10 +180,24 @@ void LayLevel(TileMeshes &tiles,
   out.CoarsestZoom = block.Zoom;
 }
 
+std::expected<Patchwork, std::string> LaySweptPatchwork(TileMeshes &tiles, const Around &over) {
+  const auto &patches = over.Sweep->Patches;
+  if (patches.empty()) { return std::unexpected(Says::Empty); }
+  Patchwork out;
+  out.CoarsestZoom = patches.back().Zoom;
+  if (over.Access == TerrainTileAccess::Mesh) { out.Sheets.reserve(patches.size()); }
+  for (const auto tile : patches) {
+    if (!RequestTile(tiles, over, tile, out) && tile.Zoom == over.Zoom) { ++out.ContactPending; }
+  }
+  out.ReachTiles = kBlockTiles * (1L << static_cast<unsigned>(over.Zoom - out.CoarsestZoom));
+  return out;
+}
+
 }
 
 std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Around &over) {
   if (!ValidCoverage(over)) { return std::unexpected(Says::Input); }
+  if (over.Sweep) { return LaySweptPatchwork(tiles, over); }
   const int levels = std::min(over.Levels, over.Zoom);
   Patchwork out;
   if (over.Access == TerrainTileAccess::Mesh) {
@@ -193,6 +213,7 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
 
 std::expected<std::vector<Data::TileId>, std::string> PlanPatchworkTiles(const Around &over) {
   if (!ValidCoverage(over)) { return std::unexpected(Says::Input); }
+  if (over.Sweep) { return over.Sweep->Requested; }
   const int levels = std::min(over.Levels, over.Zoom);
   std::vector<Data::TileId> tiles;
   tiles.reserve(kTilesPerLevel * static_cast<size_t>(levels));
@@ -202,10 +223,39 @@ std::expected<std::vector<Data::TileId>, std::string> PlanPatchworkTiles(const A
       tiles.push_back({.Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)});
     });
   }
-  const auto key = [](Data::TileId tile) { return std::tuple(tile.Zoom, tile.X, tile.Y); };
-  std::ranges::sort(tiles, {}, key);
+  std::ranges::sort(tiles, {}, TileAddress);
   tiles.erase(std::ranges::unique(tiles).begin(), tiles.end());
   return tiles;
+}
+
+std::vector<Data::TileId> RemoveCoveredPatchworkTiles(std::span<const Data::TileId> requested) {
+  if (requested.empty()) { return {}; }
+  std::vector<Data::TileId> selected;
+  selected.reserve(requested.size());
+  auto until = requested.end();
+  std::map<std::pair<uint32_t, uint32_t>, unsigned> fine;
+  for (int zoom = requested.back().Zoom; zoom > 0; --zoom) {
+    const auto first =
+        std::ranges::lower_bound(requested.begin(), until, zoom, {}, &Data::TileId::Zoom);
+    for (auto at = first; at != until; ++at) {
+      const auto count = fine.find({at->X, at->Y});
+      if (count == fine.end() || count->second < 4) { selected.push_back(*at); }
+      fine[{at->X, at->Y}] = 4;
+    }
+    decltype(fine) parents;
+    for (const auto &[position, count] : fine) {
+      if (count == 4) { ++parents[{position.first >> 1u, position.second >> 1u}]; }
+    }
+    fine = std::move(parents);
+    until = first;
+  }
+  return selected;
+}
+
+bool SweptPatchworkCovers(const TerrainSweep &sweep, const Around &request, const Vec3 &eyeM) {
+  if (!sweep.Eyes.Holds(eyeM)) { return false; }
+  const auto wanted = PlanPatchworkTiles(request);
+  return wanted && std::ranges::includes(sweep.Requested, *wanted, {}, TileAddress, TileAddress);
 }
 
 bool PatchworkIncludesContactTile(const Around &coverage, const Around &request) noexcept {
