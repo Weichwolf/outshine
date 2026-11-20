@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <filesystem>
 #include <utility>
 #include <ratio>
@@ -426,8 +427,7 @@ bool SurfacePreparation::Drained() const {
 }
 
 bool SurfacePreparation::Ingested() const {
-  if (!RecipesReady_ || !Vectors_) { return !RecipesReady_; }
-  return Vectors_->PendingTiles() <= 0 && Cls_.Complete() && Drained();
+  return InputsReady() && (!RecipesReady_ || WaterReady());
 }
 
 bool SurfacePreparation::IngestedWithin(int rings) const {
@@ -438,15 +438,19 @@ bool SurfacePreparation::IngestedWithin(int rings) const {
 }
 
 bool SurfacePreparation::InputsReadyWithin(int rings) const {
-  if (!RecipesReady_ || !Vectors_) { return !RecipesReady_; }
-  return Vectors_->SettledWithin(rings) && Cls_.Complete() &&
-         (UsesCachedRegionNetwork() || Ways_.IngestedWithin(*Vectors_, rings));
+  return VectorInputsReady(rings) &&
+         (!RecipesReady_ || UsesCachedRegionNetwork() || Ways_.IngestedWithin(*Vectors_, rings));
 }
 
 bool SurfacePreparation::InputsReady() const {
+  return VectorInputsReady(std::nullopt) &&
+         (!RecipesReady_ || UsesCachedRegionNetwork() || Ways_.Ingested(*Vectors_));
+}
+
+bool SurfacePreparation::VectorInputsReady(std::optional<int> rings) const {
   if (!RecipesReady_ || !Vectors_) { return !RecipesReady_; }
-  return Vectors_->PendingTiles() <= 0 && Cls_.Complete() &&
-         (UsesCachedRegionNetwork() || Ways_.Ingested(*Vectors_));
+  return Cls_.Complete() &&
+         (rings ? Vectors_->SettledWithin(*rings) : Vectors_->PendingTiles() == 0);
 }
 
 void SurfacePreparation::UseCachedRegionNetwork(LongitudeLatitude focus) {

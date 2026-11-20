@@ -99,10 +99,12 @@ WorldRegionBuildState::PrepareOriginalHeights(StructureBuildQueue &queue, int zo
   return true;
 }
 
-void WorldRegionBuildState::PublishesWaterInputs(const Generators::WaterAsset &water) {
+void WorldRegionBuildState::BindSurfaceInputs(const Generators::Osm::StreetField &streets,
+                                              const Generators::WaterAsset &water) {
+  Revision_.StreetTiles = streets.IngestedTiles();
   Revision_.WaterTiles = water.IngestedTiles();
-  Candidate_.RestoreWater(water);
-  WaterPhase_ = WaterPhase::Bound;
+  Candidate_.BindSurfaceInputs(streets, water);
+  SurfaceInputsPhase_ = SurfaceInputsPhase::Bound;
   WaterWorker_.reset();
 }
 
@@ -117,7 +119,7 @@ WorldRegionBuildState::AdvanceWater(Tasks &pool,
   }
   if (!WaterWorker_) {
     WaterWorker_ = std::make_unique<WaterGeometryPreparation>(pool, source, frame);
-    WaterPhase_ = WaterPhase::Preparing;
+    SurfaceInputsPhase_ = SurfaceInputsPhase::Preparing;
     return std::nullopt;
   }
   return WaterWorker_->Collect();

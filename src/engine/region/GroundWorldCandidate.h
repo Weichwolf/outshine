@@ -80,7 +80,7 @@ public:
     return Sources_;
   }
 
-  void RestoreWater(Generators::WaterAsset water);
+  void BindSurfaceInputs(const Generators::Osm::StreetField &streets, Generators::WaterAsset water);
 
   [[nodiscard]] size_t OwnedHeapBytes() const noexcept {
     const size_t sharedVectors = Sources_->Vectors && Sources_->Vectors.get() == SharedVectors_

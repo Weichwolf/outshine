@@ -290,6 +290,7 @@ public:
   [[nodiscard]] bool Ingested() const;
   [[nodiscard]] bool InputsReadyWithin(int rings) const;
   [[nodiscard]] bool InputsReady() const;
+  [[nodiscard]] bool VectorInputsReady(std::optional<int> rings) const;
 
   void DeferWaterToRegionLookup() noexcept {
     if (WaterMode_ == WaterMode::RegionLookup) { return; }

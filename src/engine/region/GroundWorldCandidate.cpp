@@ -61,10 +61,12 @@ GroundWorldCandidate::GroundWorldCandidate(
       SharedVectors_(world.Region ? world.Region->Vectors() : nullptr),
       PieceSources_(pieces) {}
 
-void GroundWorldCandidate::RestoreWater(Generators::WaterAsset water) {
+void GroundWorldCandidate::BindSurfaceInputs(const Generators::Osm::StreetField &streets,
+                                             Generators::WaterAsset water) {
   if (Sources_.use_count() != 1) {
     Sources_ = std::make_shared<Generators::Osm::RegionSources>(*Sources_);
   }
+  Sources_->Ways = streets;
   Sources_->WaterBodies = std::move(water);
 }
 

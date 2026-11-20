@@ -487,8 +487,9 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress AdvanceGroundCandidatePreparation(const GroundRequest &request);
   [[nodiscard]] GroundBuildProgress AdvanceGroundPatchwork(const Around &coverage);
   [[nodiscard]] GroundBuildProgress AdvanceGroundRegion();
+  void RequestGroundStreetSources();
   void RetryGroundWithStreetSources();
-  [[nodiscard]] GroundBuildProgress AdvanceGroundWaterInputs();
+  [[nodiscard]] GroundBuildProgress AdvanceGroundSurfaceInputs();
   [[nodiscard]] GroundBuildProgress BeginGroundRegionLookup(WorldRegionBuildState &state);
   [[nodiscard]] GroundBuildProgress AdvanceReadyGroundSheets(Patchwork &patchwork,
                                                              WorldRegionBuildState &state);

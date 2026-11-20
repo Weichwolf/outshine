@@ -221,10 +221,6 @@ uint64_t DigestEarthworks(std::span<const EarthworkStamp> earthworks) {
   return digest;
 }
 
-bool GroundSourcesReady(const Ground::SurfacePreparation &stack, GroundQuality quality) {
-  return quality == GroundQuality::Refined ? stack.InputsReady() : stack.InputsReadyWithin(0);
-}
-
 }
 
 WorldRegionState::WorldRegionState()
@@ -1328,11 +1324,15 @@ bool Engine::State::CollectGroundBuildingContacts(size_t landsMost) {
   return true;
 }
 
-void Engine::State::RetryGroundWithStreetSources() {
-  assert(!World.GroundRetirement);
+void Engine::State::RequestGroundStreetSources() {
   World.Surface().RequestStreets();
   World.GroundLookup.reset();
   World.GroundLookupRequest.clear();
+}
+
+void Engine::State::RetryGroundWithStreetSources() {
+  assert(!World.GroundRetirement);
+  RequestGroundStreetSources();
   World.GroundRetirement = std::move(World.GroundBuild);
 }
 
@@ -1342,10 +1342,7 @@ Engine::State::BeginGroundRegionLookup(WorldRegionBuildState &state) {
   const auto assets = World.Surface().RegionAssets();
   const auto vectors = state.Candidate().Sources().Vectors;
   if (!assets || !vectors || state.TransportSnapshot() != nullptr) {
-    if (World.Surface().UsesCachedRegionNetwork()) {
-      RetryGroundWithStreetSources();
-      return GroundBuildProgress::Pending;
-    }
+    if (World.Surface().UsesCachedRegionNetwork()) { RequestGroundStreetSources(); }
     state.FinishRegion({}, Phase::Bypass);
     return GroundBuildProgress::Ready;
   }
@@ -1402,8 +1399,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
                          result.Loaded ? static_cast<double>(result.Loaded->ReadBytes) : 0.0,
                          "bytes");
   if (state.RegionStatus() == Phase::Loading && !hit && World.Surface().UsesCachedRegionNetwork()) {
-    RetryGroundWithStreetSources();
-    return GroundBuildProgress::Pending;
+    RequestGroundStreetSources();
   }
   if (result.Loaded && !state.InstallRegion(std::move(result.Loaded->Region), hit)) {
     Error = "ground region cannot replace the current candidate stage";
@@ -1411,7 +1407,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
   }
   if (hit && result.Loaded) {
     World.Surface().RestoreWater(std::move(result.Loaded->Water));
-    state.PublishesWaterInputs(World.Surface().WaterBodies());
+    state.BindSurfaceInputs(World.Surface().Ways(), World.Surface().WaterBodies());
     RecordWaterSurfaceState(Published, World.Surface().WaterBodies());
   }
   auto phase = state.RegionStatus() == Phase::Storing ? Phase::Stored : Phase::Miss;
@@ -1421,7 +1417,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
   return GroundBuildProgress::Ready;
 }
 
-Engine::State::GroundBuildProgress Engine::State::AdvanceGroundWaterInputs() {
+Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSurfaceInputs() {
   WorldRegionBuildState &state = *World.GroundBuild;
   if (state.HasReadyRegion()) { return GroundBuildProgress::Ready; }
   World.Surface().RequestWater();
@@ -1429,10 +1425,10 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundWaterInputs() {
                          ? World.Surface().Ingested()
                          : World.Surface().IngestedWithin(0);
   if (!ready) { return GroundBuildProgress::Pending; }
-  if (state.HasWaterInputs()) { return GroundBuildProgress::Ready; }
+  if (state.SurfaceInputsBound()) { return GroundBuildProgress::Ready; }
   const auto &water = World.Surface().WaterBodies();
   if (water.SurfacesReady()) {
-    state.PublishesWaterInputs(water);
+    state.BindSurfaceInputs(World.Surface().Ways(), water);
     RecordWaterSurfaceState(Published, water);
     return GroundBuildProgress::Ready;
   }
@@ -1450,7 +1446,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundWaterInputs() {
     return GroundBuildProgress::Pending;
   }
   Published.RecordMetric("water: geometry preparation worker", result->value().WorkerMs, "ms");
-  state.PublishesWaterInputs(result->value().Water);
+  state.BindSurfaceInputs(World.Surface().Ways(), result->value().Water);
   RecordWaterSurfaceState(Published, result->value().Water);
   return GroundBuildProgress::Ready;
 }
@@ -1735,7 +1731,9 @@ bool Engine::State::GroundInputsReady(GroundQuality quality) const {
   }
   if (!World.OsmRoutes.empty() && !World.CurrentTransportReady()) { return false; }
   return Session.Declared.Ground.Declared && Picture.Standing != nullptr &&
-         World.Surface().Opened() && GroundSourcesReady(World.Surface(), quality);
+         World.Surface().Opened() &&
+         World.Surface().VectorInputsReady(quality == GroundQuality::Refined ? std::nullopt
+                                                                             : std::optional{0});
 }
 
 bool Engine::State::AdvancesGroundWithinBudget(GroundQuality quality) {
@@ -1915,8 +1913,8 @@ bool Engine::State::AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQual
   const GroundBuildProgress region = AdvanceGroundRegion();
   if (region != GroundBuildProgress::Ready) { return region != GroundBuildProgress::Failed; }
   WorldRegionBuildState &state = *World.GroundBuild;
-  const GroundBuildProgress water = AdvanceGroundWaterInputs();
-  if (water != GroundBuildProgress::Ready) { return water != GroundBuildProgress::Failed; }
+  const GroundBuildProgress surface = AdvanceGroundSurfaceInputs();
+  if (surface == GroundBuildProgress::Failed) { return false; }
   const size_t phase = state.Progress();
   assert(phase < Cost.GroundPhases.size());
   const ScopedCounter phaseTime(Cost.GroundPhases[phase]);
@@ -1934,6 +1932,7 @@ bool Engine::State::AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQual
   if (sheetProgress != GroundBuildProgress::Ready) {
     return sheetProgress != GroundBuildProgress::Failed;
   }
+  if (surface == GroundBuildProgress::Pending) { return true; }
   const GroundBuildProgress classes = AdvanceGroundClasses();
   if (classes == GroundBuildProgress::Failed) { return false; }
   const GroundBuildProgress materialProgress = AdvanceGroundSurface();

@@ -42,7 +42,7 @@ public:
   enum class GeometrySubmission : uint8_t { Classes, ClassRanges, Begin, Cook };
   enum class CorridorCompletion : uint8_t { Build, Retire };
   enum class RegionPhase : uint8_t { Lookup, Loading, Miss, Hit, Storing, Stored, Bypass };
-  enum class WaterPhase : uint8_t { Awaiting, Preparing, Bound };
+  enum class SurfaceInputsPhase : uint8_t { Awaiting, Preparing, Bound };
 
   struct ProductMemory {
     size_t Candidate = 0;
@@ -82,7 +82,10 @@ public:
 
   [[nodiscard]] uint32_t RevisionDifference(const GroundRevision &revision) const noexcept {
     auto inputs = revision;
-    if (WaterPhase_ != WaterPhase::Bound) { inputs.WaterTiles = Revision_.WaterTiles; }
+    if (SurfaceInputsPhase_ != SurfaceInputsPhase::Bound) {
+      inputs.StreetTiles = Revision_.StreetTiles;
+      inputs.WaterTiles = Revision_.WaterTiles;
+    }
     return Revision_.CandidateDifferenceMask(inputs);
   }
 
@@ -201,16 +204,19 @@ public:
 
   void PublishesFootprints() noexcept { Revision_.Footprints = Footprints().Revision(); }
 
-  void PublishesWaterInputs(const Generators::WaterAsset &water);
+  void BindSurfaceInputs(const Generators::Osm::StreetField &streets,
+                         const Generators::WaterAsset &water);
 
-  [[nodiscard]] bool HasWaterInputs() const noexcept { return WaterPhase_ == WaterPhase::Bound; }
+  [[nodiscard]] bool SurfaceInputsBound() const noexcept {
+    return SurfaceInputsPhase_ == SurfaceInputsPhase::Bound;
+  }
 
   [[nodiscard]] std::optional<std::expected<WaterGeometryPreparation::Completed, std::string>>
   AdvanceWater(Tasks &pool, const Generators::WaterAsset &source, const TangentFrame &frame);
 
   void DiscardWaterPreparation() {
     WaterWorker_.reset();
-    WaterPhase_ = WaterPhase::Awaiting;
+    SurfaceInputsPhase_ = SurfaceInputsPhase::Awaiting;
   }
 
   [[nodiscard]] Patchwork *Laid() noexcept { return Patchwork_ ? &*Patchwork_ : nullptr; }
@@ -521,7 +527,7 @@ private:
   std::string RegionKey_;
   std::string RegionRequest_;
   RegionPhase RegionPhase_ = RegionPhase::Lookup;
-  WaterPhase WaterPhase_ = WaterPhase::Awaiting;
+  SurfaceInputsPhase SurfaceInputsPhase_ = SurfaceInputsPhase::Awaiting;
   std::unique_ptr<WaterGeometryPreparation> WaterWorker_;
   std::unique_ptr<Generators::TerrainRefinementJob> RefinementJob_;
   std::unique_ptr<Generators::TerrainSheetTask> SheetWorker_;
