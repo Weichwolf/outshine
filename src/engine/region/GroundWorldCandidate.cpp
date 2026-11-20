@@ -17,6 +17,12 @@ struct RetiredGroundSources {
   Render::SceneResources Scene;
   std::shared_ptr<const Path::Network> StreetGraph;
 };
+
+std::shared_ptr<const Generators::Osm::OsmField>
+PreviousVectorSnapshot(const WorldRegionState &world) {
+  if (world.RetiredVectorSnapshot) { return world.RetiredVectorSnapshot; }
+  return world.Region ? world.Region->VectorSnapshot() : nullptr;
+}
 }
 
 [[nodiscard]] size_t GroundBuildProducts::OwnedHeapBytes() const noexcept {
@@ -60,12 +66,11 @@ GroundWorldCandidate::GroundWorldCandidate(
                 .RimsMissing = world.RimsMissing,
                 .Surfaces = world.StructureSurfaces},
       World_(renderer),
-      Sources_(
-          std::make_shared<Generators::Osm::RegionSources>(Generators::Osm::RegionSources::Snapshot(
-              world.Surface().Vectors(),
-              world.Surface().Ways(),
-              world.Surface().WaterBodies(),
-              world.Region ? world.Region->VectorSnapshot() : nullptr))),
+      Sources_(std::make_shared<Generators::Osm::RegionSources>(
+          Generators::Osm::RegionSources::Snapshot(world.Surface().Vectors(),
+                                                   world.Surface().Ways(),
+                                                   world.Surface().WaterBodies(),
+                                                   PreviousVectorSnapshot(world)))),
       SharedVectors_(world.Region ? world.Region->Vectors() : nullptr),
       PieceSources_(pieces) {}
 

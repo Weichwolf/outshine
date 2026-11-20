@@ -473,6 +473,7 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
   if (!World.GroundPublished.NeedsRebuild(
           request.Revision, alsoWhenTilesLanded, World.RimsMissing > 0)) {
     World.RetiredTerrainFields.reset();
+    ReleaseRetiredVectorSnapshot();
     return Laid::Unchanged;
   }
 
@@ -757,6 +758,11 @@ Engine::State::AdvanceGroundCandidatePreparation(const GroundRequest &request) {
                                                                 request.Coverage,
                                                                 request.Revision,
                                                                 World.GroundCandidates);
+    if (World.RetiredVectorSnapshot == World.GroundBuild->Candidate().Sources().Vectors) {
+      World.RetiredVectorSnapshot.reset();
+    } else {
+      ReleaseRetiredVectorSnapshot();
+    }
     if (const auto *source = World.GroundBuild->TransportSnapshot()) {
       auto routeTiles =
           RoadHeightCoverage::Select(*source,
@@ -1334,11 +1340,19 @@ void Engine::State::RetryGroundWithStreetSources() {
 
 void Engine::State::RetireGroundCandidate() {
   assert(World.GroundBuild && !World.GroundRetirement);
+  World.RetiredVectorSnapshot = World.GroundBuild->Candidate().Sources().Vectors;
   auto fields = World.GroundBuild->SnapshotSourceFields();
   if (!fields.Entries().empty()) {
     World.RetiredTerrainFields = std::make_unique<Generators::TerrainFieldSet>(std::move(fields));
   }
   World.GroundRetirement = std::move(World.GroundBuild);
+}
+
+void Engine::State::ReleaseRetiredVectorSnapshot() {
+  auto retired = std::move(World.RetiredVectorSnapshot);
+  if (retired && Services.Compute) {
+    (void)Services.Compute->PostDetached([held = std::move(retired)] { (void)held; });
+  }
 }
 
 Engine::State::GroundBuildProgress
