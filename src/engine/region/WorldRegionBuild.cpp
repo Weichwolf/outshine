@@ -220,6 +220,18 @@ uint64_t DigestEarthworks(std::span<const EarthworkStamp> earthworks) {
   return digest;
 }
 
+void RecordEarthworkDigest(Core::DiagnosticLedger &ledger,
+                           std::string_view kind,
+                           std::span<const EarthworkStamp> stamps) {
+  const uint64_t digest = DigestEarthworks(stamps);
+  ledger.RecordMetric(std::format("ground candidate: {} stamps digest, low half", kind),
+                      static_cast<double>(digest & kRegionDigestLowWordMask),
+                      "digest");
+  ledger.RecordMetric(std::format("ground candidate: {} stamps digest, high half", kind),
+                      static_cast<double>(digest >> 32U),
+                      "digest");
+}
+
 }
 
 WorldRegionState::WorldRegionState()
@@ -581,6 +593,66 @@ bool Engine::State::AwaitGroundSurfaceWork(double seconds) const {
   return World.GroundBuild->TerrainDeformation()->AwaitSlice(seconds);
 }
 
+namespace {
+Generators::TerrainDeformationTask::StampPreparation
+PrepareGroundStamps(const TangentFrame &standing,
+                    WorldRegionBuildState &state,
+                    std::vector<EarthworkStamp> &yielding,
+                    Core::DiagnosticLedger &ledger,
+                    bool audits) {
+  const auto *shapes = state.Candidate().Sources().Vectors.get();
+  if (shapes != nullptr) {
+    uint64_t tileOrder = kDigestBasis;
+    for (const ::outshine::Generators::Osm::OsmField::Tile &tile : shapes->Tiles()) {
+      tileOrder = (tileOrder ^ static_cast<uint32_t>(tile.X)) * kDigestPrime;
+      tileOrder = (tileOrder ^ static_cast<uint32_t>(tile.Y)) * kDigestPrime;
+    }
+    ledger.RecordMetric("ground candidate: OSM tile order, low half",
+                        static_cast<double>(tileOrder & kRegionDigestLowWordMask),
+                        "digest");
+    ledger.RecordMetric("ground candidate: OSM tile order, high half",
+                        static_cast<double>(tileOrder >> 32U),
+                        "digest");
+  }
+  auto corridors = state.TakesCorridors();
+  auto roads = state.TakeRoadEarthworks();
+  auto sources = shapes != nullptr ? state.Candidate().SourceSnapshot() : nullptr;
+  const auto *water = sources ? sources->WaterBodies.PreparedSurfaces() : nullptr;
+  const size_t builtPads = yielding.size();
+  const size_t builtLakes = water != nullptr ? water->Mesh.Faces().size() : 0;
+  const size_t builtCorridors = corridors.size() + roads.size();
+  Generators::TerrainDeformationTask::StampPreparation prepare =
+      [sources = std::move(sources),
+       standing,
+       builtLakes,
+       corridors = std::move(corridors),
+       roads = std::move(roads)](std::vector<EarthworkStamp> &stamps) mutable {
+        stamps.reserve(stamps.size() + builtLakes + corridors.size() + roads.size());
+        if (sources) {
+          Generators::AppendWaterBasinStamps(sources->WaterBodies, standing, kWaterBedM, stamps);
+        }
+        stamps.insert(stamps.end(),
+                      std::make_move_iterator(corridors.begin()),
+                      std::make_move_iterator(corridors.end()));
+        stamps.insert(stamps.end(),
+                      std::make_move_iterator(roads.begin()),
+                      std::make_move_iterator(roads.end()));
+      };
+  if (audits) {
+    std::exchange(prepare, {})(yielding);
+    const std::span<const EarthworkStamp> stamps(yielding);
+    RecordEarthworkDigest(ledger, "pad", stamps.first(builtPads));
+    RecordEarthworkDigest(ledger, "lake", stamps.subspan(builtPads, builtLakes));
+    RecordEarthworkDigest(ledger, "corridor", stamps.subspan(builtPads + builtLakes));
+  }
+  ledger.RecordMetric("ground: pads that press it", static_cast<double>(builtPads), "pads");
+  ledger.RecordMetric("ground: lakes that press it", static_cast<double>(builtLakes), "lakes");
+  ledger.RecordMetric(
+      "ground: corridor pieces that press it", static_cast<double>(builtCorridors), "pieces");
+  return prepare;
+}
+}
+
 bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
                                           Patchwork &patchwork,
                                           WorldRegionBuildState &state) {
@@ -601,66 +673,8 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
       World.GroundBuild.reset();
       return true;
     }
-    std::vector<EarthworkStamp> corridor = state.TakesCorridors();
-    std::vector<EarthworkStamp> roadEarthworks = state.TakeRoadEarthworks();
-    corridor.reserve(corridor.size() + roadEarthworks.size());
-    corridor.insert(corridor.end(),
-                    std::make_move_iterator(roadEarthworks.begin()),
-                    std::make_move_iterator(roadEarthworks.end()));
-    if (shapes != nullptr) {
-      uint64_t tileOrder = kDigestBasis;
-      for (const ::outshine::Generators::Osm::OsmField::Tile &tile : shapes->Tiles()) {
-        tileOrder = (tileOrder ^ static_cast<uint32_t>(tile.X)) * kDigestPrime;
-        tileOrder = (tileOrder ^ static_cast<uint32_t>(tile.Y)) * kDigestPrime;
-      }
-      Published.RecordMetric("ground candidate: OSM tile order, low half",
-                             static_cast<double>(tileOrder & kRegionDigestLowWordMask),
-                             "digest");
-      Published.RecordMetric("ground candidate: OSM tile order, high half",
-                             static_cast<double>(tileOrder >> 32U),
-                             "digest");
-    }
-    const size_t builtPads = yielding.size();
-    if (shapes != nullptr) {
-      Generators::AppendWaterBasinStamps(
-          state.Candidate().Sources().WaterBodies, standing, kWaterBedM, yielding);
-    }
-    const size_t builtLakes = yielding.size() - builtPads;
-    if (Session.Declared.Render.Audits) {
-      const uint64_t padStamps = DigestEarthworks(std::span(yielding).first(builtPads));
-      Published.RecordMetric("ground candidate: pad stamps digest, low half",
-                             static_cast<double>(padStamps & kRegionDigestLowWordMask),
-                             "digest");
-      Published.RecordMetric("ground candidate: pad stamps digest, high half",
-                             static_cast<double>(padStamps >> 32U),
-                             "digest");
-      const uint64_t lakeStamps =
-          DigestEarthworks(std::span(yielding).subspan(builtPads, builtLakes));
-      Published.RecordMetric("ground candidate: lake stamps digest, low half",
-                             static_cast<double>(lakeStamps & kRegionDigestLowWordMask),
-                             "digest");
-      Published.RecordMetric("ground candidate: lake stamps digest, high half",
-                             static_cast<double>(lakeStamps >> 32U),
-                             "digest");
-    }
-    Published.RecordMetric("ground: lakes that press it", static_cast<double>(builtLakes), "lakes");
-    yielding.insert(yielding.end(),
-                    std::make_move_iterator(corridor.begin()),
-                    std::make_move_iterator(corridor.end()));
-    if (Session.Declared.Render.Audits) {
-      const uint64_t corridorStamps =
-          DigestEarthworks(std::span(yielding).subspan(builtPads + builtLakes, corridor.size()));
-      Published.RecordMetric("ground candidate: corridor stamps digest, low half",
-                             static_cast<double>(corridorStamps & kRegionDigestLowWordMask),
-                             "digest");
-      Published.RecordMetric("ground candidate: corridor stamps digest, high half",
-                             static_cast<double>(corridorStamps >> 32U),
-                             "digest");
-    }
-    Published.RecordMetric("ground: pads that press it", static_cast<double>(builtPads), "pads");
-    Published.RecordMetric("ground: corridor pieces that press it",
-                           static_cast<double>(yielding.size() - builtPads - builtLakes),
-                           "pieces");
+    auto prepare =
+        PrepareGroundStamps(standing, state, yielding, Published, Session.Declared.Render.Audits);
     state.BeginTerrainDeformation(std::make_unique<Generators::TerrainDeformationTask>(
         *Services.Compute,
         World.Surface().TerrainAssets(),
@@ -668,7 +682,8 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
         patchwork,
         standing,
         Generators::TerrainPageLayout{.Side = Render::TerrainLattice::kSide, .Halo = 1},
-        kMostEarthworkM));
+        kMostEarthworkM,
+        std::move(prepare)));
     state.RecordTerrainDeformationSlice(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceAt)
             .count());
