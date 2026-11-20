@@ -305,6 +305,10 @@ bool SceneRenderer::BeginsWorldCandidate(std::string &error,
   Candidate_->GroundInputs = ground;
   const auto &source = *State_.Content;
   auto &candidate = *Candidate_->Content;
+  const auto &prisms = source.Scene().Prisms();
+  const bool reusePrismGrids = pieces == SceneResources::PieceSources::Reuse &&
+                               source.Scene().Resources().CanReusePrismResidents(prisms) &&
+                               candidate.Scene().Prisms().ReuseFrom(prisms);
   if (pieces == SceneResources::PieceSources::Reuse &&
       (!source.Scene().Resources().CanReusePieceResidents(source.Geometry()) ||
        !candidate.Geometry().ReusePiecesFrom(source.Geometry()))) {
@@ -315,7 +319,7 @@ bool SceneRenderer::BeginsWorldCandidate(std::string &error,
                                 source.Scene().Resources().CanReuseHeightPages(terrain) &&
                                 candidate.Geometry().Ground().ReusePagesFrom(terrain);
   candidate.Scene().Resources().CopySourcesFrom(
-      source.Scene().Resources(), pieces, reuseHeightPages);
+      source.Scene().Resources(), pieces, reuseHeightPages, reusePrismGrids);
   error.clear();
   return true;
 }

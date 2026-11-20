@@ -86,6 +86,41 @@ void RejectedReplacement(SceneResources &resources,
         "failed replacements keep the original identity, source and shadow revision");
 }
 
+void CheckRetainedGrid(Native::Device &device,
+                       const SceneResources &original,
+                       const GeometryRenderer &published,
+                       PrismGridHandle live,
+                       PrismInstance row) {
+  RenderScene staged;
+  GeometryRenderer draw{staged};
+  Configure(draw, device);
+  CHECK(original.CanReusePrismResidents(published.Prisms()) &&
+            staged.Prisms().ReuseFrom(published.Prisms()),
+        "a new candidate retains the published grid from the same device");
+  if (staged.Prisms().Products().empty()) { return; }
+  SceneResources candidate;
+  candidate.CopySourcesFrom(original, SceneResources::PieceSources::Reuse, false, true);
+  std::string error;
+  CHECK(candidate.RestorePieceMaterials(draw, nullptr, error), "retained materials restore");
+  size_t cursor = 0;
+  const auto ready = candidate.AdvancePieceRestore(draw, cursor, 1);
+  const auto &publishedGrid = published.Prisms().Products().front();
+  CHECK(ready && *ready && candidate.HasPrismGrid(live) &&
+            draw.Prisms().Products().front().Buffers == publishedGrid.Buffers,
+        "the original grid handle draws from the same buffers without re-uploading");
+  row.Current[12] = 4;
+  Require(candidate.SetPrismGridInstances(draw, live, {&row, 1}));
+  const auto &stagedGrid = draw.Prisms().Products().front();
+  CHECK(stagedGrid.Buffers[0] == publishedGrid.Buffers[0] &&
+            stagedGrid.Buffers[1] != publishedGrid.Buffers[1] &&
+            stagedGrid.Records != publishedGrid.Records,
+        "a candidate placement update shares height samples and replaces only its own instances");
+  candidate.ReleasePrismGrid(draw, live);
+  CHECK(draw.Prisms().Products().empty() && original.HasPrismGrid(live) &&
+            !published.Prisms().Products().empty(),
+        "abandoning the candidate leaves the published grid valid");
+}
+
 void Probe(Native::Device &device, UploadFailure &failure) {
   RenderScene publishedStorage;
   GeometryRenderer published{publishedStorage};
@@ -112,6 +147,7 @@ void Probe(Native::Device &device, UploadFailure &failure) {
   const auto first = Require(original.PlacePrismGrid(published, source, rows, opaque));
   const auto live = Require(original.PlacePrismGrid(published, source, rows, opaque));
   original.ReleasePrismGrid(published, first);
+  CheckRetainedGrid(device, original, published, live, rows[0]);
   copied.CopySourcesFrom(original, SceneResources::PieceSources::Copy);
   CHECK(copied.HasPrismGrid(live) && !copied.HasPrismGrid(first),
         "a snapshot preserves live and released logical generations");

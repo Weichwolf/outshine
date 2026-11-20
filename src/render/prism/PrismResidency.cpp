@@ -22,6 +22,17 @@ Native::Result<void> PrismResidency::Uses(Native::Device &device, UploadQueue *q
   return {};
 }
 
+bool PrismResidency::ReuseFrom(const PrismResidency &source) {
+  if (!Products_.empty() || (Device_ != nullptr && Device_ != source.Device_)) { return false; }
+  if (source.Products_.empty()) { return true; }
+  Device_ = source.Device_;
+  Products_ = source.Products_;
+  Next_ = source.Next_;
+  Generation_ = source.Generation_;
+  ShadowChanges_.Unknown();
+  return true;
+}
+
 uint64_t PrismResidency::HeldBytes() const noexcept {
   uint64_t bytes = 0;
   for (const auto &product : Products_) {

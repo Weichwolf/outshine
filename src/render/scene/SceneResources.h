@@ -26,6 +26,7 @@
 namespace outshine::Render {
 
 class GeometryRenderer;
+class PrismResidency;
 class TerrainRenderer;
 
 struct GroundClassificationSource {
@@ -73,8 +74,12 @@ public:
                                        std::string &error);
   void ReleasePiece(GeometryRenderer &geometry, PieceHandle which);
 
-  void CopySourcesFrom(const SceneResources &source, PieceSources pieces, bool reuseHeightPages);
+  void CopySourcesFrom(const SceneResources &source,
+                       PieceSources pieces,
+                       bool reuseHeightPages = false,
+                       bool reusePrismGrids = false);
   [[nodiscard]] bool CanReusePieceResidents(const GeometryRenderer &geometry) const noexcept;
+  [[nodiscard]] bool CanReusePrismResidents(const PrismResidency &residency) const;
   [[nodiscard]] bool CanReuseHeightPages(const TerrainRenderer &terrain) const noexcept;
   [[nodiscard]] bool RestorePieces(GeometryRenderer &geometry, std::string &error);
   [[nodiscard]] std::expected<bool, std::string>
@@ -198,7 +203,8 @@ private:
     uint64_t Resident = 0;
   };
 
-  void CopyPrismSourcesFrom(const SceneResources &source, PieceSources pieces);
+  void
+  CopyPrismSourcesFrom(const SceneResources &source, PieceSources pieces, bool reusePrismGrids);
   [[nodiscard]] std::expected<bool, std::string>
   AdvancePrismRestore(GeometryRenderer &geometry, size_t &nextGrid, size_t gridsMost);
 
@@ -206,6 +212,7 @@ private:
   RestoreHeightPageBatch(GeometryRenderer &geometry, size_t first, size_t pagesMost);
 
   std::vector<Piece> Pieces_;
+  size_t FirstPrismToRestore_ = 0;
   uint32_t FirstFreePiece_ = kNoResourceSlot;
   MaterialRegistry Materials_;
   std::vector<HeightPage> HeightPages_;

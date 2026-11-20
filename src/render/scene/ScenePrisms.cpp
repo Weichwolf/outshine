@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <functional>
 #include <memory>
 #include <span>
 #include <string>
@@ -104,7 +105,22 @@ void SceneResources::ReleasePrismGrid(GeometryRenderer &geometry, PrismGridHandl
   held = {.State = state, .Source = {}, .Instances = {}, .Material = {}};
 }
 
-void SceneResources::CopyPrismSourcesFrom(const SceneResources &source, PieceSources pieces) {
+bool SceneResources::CanReusePrismResidents(const PrismResidency &residency) const {
+  const auto products = residency.Products();
+  if (products.size() > PrismGrids_.size()) { return false; }
+  std::vector<uint64_t> ids;
+  ids.reserve(products.size());
+  for (const auto &grid : PrismGrids_) {
+    if (grid.State.Occupied) { ids.push_back(grid.Resident); }
+  }
+  std::ranges::sort(ids);
+  return std::ranges::equal(ids, products, {}, std::identity{}, &PrismProduct::Id);
+}
+
+void SceneResources::CopyPrismSourcesFrom(const SceneResources &source,
+                                          PieceSources pieces,
+                                          bool reusePrismGrids) {
+  FirstPrismToRestore_ = 0;
   if (pieces == PieceSources::Omit) {
     PrismGrids_.clear();
     FirstFreePrismGrid_ = kNoResourceSlot;
@@ -112,12 +128,17 @@ void SceneResources::CopyPrismSourcesFrom(const SceneResources &source, PieceSou
   }
   PrismGrids_ = source.PrismGrids_;
   FirstFreePrismGrid_ = source.FirstFreePrismGrid_;
+  if (reusePrismGrids) {
+    FirstPrismToRestore_ = PrismGrids_.size();
+    return;
+  }
   for (auto &held : PrismGrids_) { held.Resident = 0; }
 }
 
 std::expected<bool, std::string> SceneResources::AdvancePrismRestore(GeometryRenderer &geometry,
                                                                      size_t &nextGrid,
                                                                      size_t gridsMost) {
+  nextGrid = std::max(nextGrid, FirstPrismToRestore_);
   size_t visited = 0;
   while (nextGrid < PrismGrids_.size() && visited < gridsMost) {
     auto &held = PrismGrids_[nextGrid];

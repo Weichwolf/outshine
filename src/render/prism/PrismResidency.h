@@ -7,6 +7,7 @@
 #include "PrismUpload.h"
 #include "CasterChanges.h"
 #include "Box.h"
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -21,7 +22,7 @@ struct PrismProduct {
   std::shared_ptr<const PrismGrid> Source;
   PrismGridInfo Info;
   std::vector<GpuPrismPatch> Records;
-  PrismBuffers Buffers;
+  std::array<std::shared_ptr<Native::Buffer>, 2> Buffers;
 };
 
 struct PrismUploadCosts {
@@ -33,6 +34,7 @@ struct PrismUploadCosts {
 class PrismResidency {
 public:
   [[nodiscard]] Native::Result<void> Uses(Native::Device &device, UploadQueue *queue);
+  [[nodiscard]] bool ReuseFrom(const PrismResidency &source);
   [[nodiscard]] Native::Result<uint64_t> Place(std::shared_ptr<const PrismGrid> source,
                                                std::span<const PrismInstance> instances,
                                                uint32_t material);

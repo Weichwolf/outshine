@@ -249,8 +249,9 @@ void SceneResources::ReleasePiece(GeometryRenderer &geometry, PieceHandle which)
 
 void SceneResources::CopySourcesFrom(const SceneResources &source,
                                      PieceSources pieces,
-                                     bool reuseHeightPages) {
-  CopyPrismSourcesFrom(source, pieces);
+                                     bool reuseHeightPages,
+                                     bool reusePrismGrids) {
+  CopyPrismSourcesFrom(source, pieces, reusePrismGrids);
   FirstPieceToRestore_ = 0;
   if (pieces != PieceSources::Omit) {
     Pieces_ = source.Pieces_;
