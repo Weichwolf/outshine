@@ -80,7 +80,9 @@ BuildingFieldStreaming::State::LoadCellFields(Context &context, Tile &tile, Cell
     group.Where = Phase::Ready;
   }
   if (std::ranges::all_of(cell.Groups, [](const Group &g) { return g.Where == Phase::Ready; })) {
-    if (!Stage(context, tile, cell, error)) { return std::unexpected(error); }
+    auto staged = Stage(context, tile, cell);
+    if (!staged) { return std::unexpected(std::move(staged.error())); }
+    if (!*staged) { return {}; }
     cell.Where = Phase::Ready;
     cell.Alternatives.clear();
     cell.Consumer.reset();
@@ -178,26 +180,20 @@ bool BuildingFieldStreaming::State::StageGroup(Context &context,
   return true;
 }
 
-bool BuildingFieldStreaming::State::Stage(Context &context,
-                                          Tile &tile,
-                                          Cell &cell,
-                                          std::string &error) {
+std::expected<bool, std::string>
+BuildingFieldStreaming::State::Stage(Context &context, Tile &tile, Cell &cell) {
   std::vector<const SourceCoverage *> products;
   products.reserve(cell.Groups.size());
   for (const auto &group : cell.Groups) {
     products.push_back(group.Coverage ? &*group.Coverage : nullptr);
   }
   if (!SourceCoverage::Partition(cell.Coverage, products)) {
-    error = "building field groups do not partition their expected sources";
-    return false;
+    return std::unexpected("building field groups do not partition their expected sources");
   }
   std::vector<Render::GeometryPagePartView> parts;
   std::string identity = "building-field-cell-2/" + tile.Source.BaseKey;
   for (const auto &group : cell.Groups) {
-    if (!group.Surface) {
-      error = "building field group incomplete";
-      return false;
-    }
+    if (!group.Surface) { return std::unexpected("building field group incomplete"); }
     const auto &surface = *group.Surface;
     parts.push_back({.Tangents = surface.Tangents,
                      .Verts = surface.Vertices,
@@ -222,9 +218,14 @@ bool BuildingFieldStreaming::State::Stage(Context &context,
                                       .RequestedCell = cell.Source.Cell,
                                       .OccupiedCells = uint64_t{1} << (cell.Source.Cell - 1u),
                                       .Coverage = cell.Coverage};
-  cell.Staged =
-      context.Pages.StageProduct(tile.Index, page, tile.Source.AnchorEcef, error, tile.SourceKey);
-  return cell.Staged;
+  auto staged =
+      context.Pages.StageProduct(tile.Index, page, tile.Source.AnchorEcef, tile.SourceKey);
+  if (!staged) {
+    if (staged.error().Kind == Render::Native::ErrorKind::Busy) { return false; }
+    return std::unexpected(std::move(staged.error().Message));
+  }
+  cell.Staged = true;
+  return true;
 }
 
 bool BuildingFieldStreaming::State::ValidPose(const Context &context, Group &group) {

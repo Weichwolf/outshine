@@ -55,10 +55,9 @@ public:
     std::optional<GeometryPasses> Passes = std::nullopt;
   };
 
-  [[nodiscard]] std::expected<PieceHandle, std::string>
-  PlacePiece(GeometryRenderer &geometry,
-             const PieceMesh &piece,
-             PieceOwner owner = PieceOwner::Independent);
+  [[nodiscard]] Native::Result<PieceHandle> PlacePiece(GeometryRenderer &geometry,
+                                                       const PieceMesh &piece,
+                                                       PieceOwner owner = PieceOwner::Independent);
   [[nodiscard]] std::expected<size_t, std::string>
   ReconcileStructurePieces(GeometryRenderer &geometry, std::span<const PieceHandle> held);
   [[nodiscard]] bool SetPiecePasses(GeometryRenderer &geometry,

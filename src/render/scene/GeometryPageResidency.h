@@ -17,6 +17,7 @@
 #include "ResourceHandle.h"
 #include "GeometryPageView.h"
 #include "TangentFrame.h"
+#include "device/native/Commands.h"
 
 namespace outshine::Render {
 class SceneRenderer;
@@ -53,11 +54,10 @@ public:
                                 std::string &error,
                                 uint64_t sourceKey);
 
-  [[nodiscard]] bool StageProduct(uint32_t tile,
-                                  const GeometryPageView &baked,
-                                  const Vec3 &anchorEcef,
-                                  std::string &error,
-                                  uint64_t sourceKey);
+  [[nodiscard]] Native::Result<void> StageProduct(uint32_t tile,
+                                                  const GeometryPageView &baked,
+                                                  const Vec3 &anchorEcef,
+                                                  uint64_t sourceKey);
 
   // Metadata only; a resident product's source coverage cannot change.
   struct ProductAddress {
@@ -309,13 +309,14 @@ private:
   DiscardStagedRepresentation(TileCell address, const GeometryPageView &baked, uint64_t sourceKey);
   [[nodiscard]] WholeTileTransition
   RetireCellsForWholeTile(uint32_t tile, uint64_t sourceKey, std::string &error);
-  [[nodiscard]] bool Store(uint32_t tile,
-                           uint32_t cell,
-                           const GeometryPageView &baked,
-                           const Vec3 &anchorEcef,
-                           std::string &error,
-                           uint64_t sourceKey,
-                           Publication publication);
+  [[nodiscard]] Native::Result<void> Store(uint32_t tile,
+                                           uint32_t cell,
+                                           const GeometryPageView &baked,
+                                           const Vec3 &anchorEcef,
+                                           uint64_t sourceKey,
+                                           Publication publication);
+  [[nodiscard]] Native::Result<void> UploadParts(ResidentGeometryPage &stood,
+                                                 const GeometryPageView &baked);
   [[nodiscard]] bool ShouldShow(uint32_t tile,
                                 uint32_t cell,
                                 std::optional<LevelOfDetail> detail,
