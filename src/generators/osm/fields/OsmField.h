@@ -268,7 +268,7 @@ private:
 
   struct AssemblyState;
 
-  enum class SnapshotStage : uint8_t { Empty, Contact, Complete };
+  enum class SnapshotStage : uint8_t { Empty, Contact, Retained, Complete };
 
   void RecordUnsettledSource(const SourceResponse &response);
   [[nodiscard]] std::expected<SourceResponse, std::string> AddTile(Data::SourceReader &sources,

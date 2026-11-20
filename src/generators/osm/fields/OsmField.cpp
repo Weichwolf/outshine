@@ -222,7 +222,7 @@ std::expected<int, std::string> OsmField::Build(Data::SourceReader &sources,
   if (!window) { return std::unexpected(std::string(window.error())); }
   if (Prepared_) { Prepared_->RetainPending(*this, *window); }
   if (CentreX_ != centre->X || CentreY_ != centre->Y) {
-    Stage_ = SnapshotStage::Empty;
+    Stage_ = TileIndex(centre->X, centre->Y) >= 0 ? SnapshotStage::Retained : SnapshotStage::Empty;
     Assembly_.reset();
   }
   const auto inWindow = [&window](TileAt tile) {
@@ -298,7 +298,7 @@ std::expected<void, std::string> OsmField::PublishReady(TileAt centre) {
     Stage_ = SnapshotStage::Contact;
     PublishedSettledTiles_ = 1;
   } else if (Stage_ != SnapshotStage::Empty && !WindowPending_ && Pending_ == 0 && Refused_ == 0 &&
-             PublishedSettledTiles_ != Settled_.size()) {
+             (Stage_ == SnapshotStage::Retained || PublishedSettledTiles_ != Settled_.size())) {
     const auto published = AdvanceAssembly();
     if (!published) { return std::unexpected(published.error()); }
     if (*published) {

@@ -133,6 +133,30 @@ void CheckBoundedParsing(Ground::TilePool &pool,
         "an empty parse budget cannot mutate the published world");
 }
 
+void CheckAdjacentTravel(::outshine::Generators::Osm::OsmField &staged, Ground::TilePool &pool) {
+  using namespace outshine::Test;
+  constexpr LongitudeLatitude next{.LongitudeDeg = kTravelLongitudeDeg + 22.5};
+  for (uint32_t y = 7; y <= 9; ++y) {
+    Ground::TilePool::Landing landed;
+    const SourceRequest request(DataKind::VectorMap, Address::At({.Zoom = 4, .X = 14, .Y = y}));
+    CHECK(pool.BytesBlocking(request, &landed) == Ground::TilePool::Reply::Ready,
+          "the entering column becomes resident before bounded parsing");
+  }
+  const auto previous = staged.Generation();
+  CHECK(staged.Build(pool, next, 1, 9, {.TilesMost = 1}).has_value() &&
+            staged.Generation() == previous && staged.Tiles().size() == 9 &&
+            staged.SettledWithin(0) && !staged.SettledWithin(1) && staged.TileIndex(11, 8) >= 0,
+        "adjacent travel preserves the available geometry while an entering column loads");
+  for (int slice = 0; slice < 6 && !staged.SettledWithin(1); ++slice) {
+    CHECK(staged.Build(pool, next, 1, 9, {.TilesMost = 1}).has_value(),
+          "the overlapping window assembles within the budget");
+  }
+  CHECK(staged.SettledWithin(1) && staged.Generation() == previous + 1 &&
+            staged.Tiles().size() == 9 && staged.TileIndex(11, 8) < 0 &&
+            staged.TileIndex(14, 8) >= 0,
+        "a same-sized translated window publishes once with its correct tiles");
+}
+
 }
 
 int main() {
@@ -210,6 +234,7 @@ int main() {
             std::ranges::all_of(staged.Tiles(),
                                 [](const auto &tile) { return tile.X >= 11 && tile.X <= 13; }),
         "moving removes the old window from the next canonical publication");
+  CheckAdjacentTravel(staged, pool);
   for (int slice = 0; slice < 4; ++slice) {
     CHECK(staged.Build(pool, {}, 1, 9).has_value(),
           "return window assembles without source errors");
