@@ -81,7 +81,7 @@ public:
   [[nodiscard]] size_t HeapBytes() const {
     size_t staged = CapacityBytes(Candidates_);
     for (const Candidate &candidate : Candidates_) {
-      staged += CapacityBytes(candidate.Rings);
+      staged += CapacityBytes(candidate.Rings) + CapacityBytes(candidate.Pending);
       for (const RingSamples &ring : candidate.Rings) { staged += CapacityBytes(ring.Heights); }
     }
     staged += CapacityBytes(SurfaceInputs_);
@@ -122,12 +122,17 @@ private:
     bool Usable = true;
   };
 
+  struct PendingPoint {
+    size_t Ring = 0;
+    size_t Point = 0;
+  };
+
   struct Candidate {
     uint32_t Tile = 0;
-    uint64_t LastSeen = 0;
     size_t From = 0, To = 0;
     size_t Feature = 0, Ring = 0, Point = 0;
     std::vector<RingSamples> Rings;
+    std::vector<PendingPoint> Pending;
   };
 
   void AddCourse(const OsmField &field,
@@ -146,12 +151,18 @@ private:
                                              std::chrono::steady_clock::time_point began,
                                              size_t &steps,
                                              IngestMetrics &metrics);
-  [[nodiscard]] static bool AdvanceRing(const GroundQuery &ground,
-                                        const OsmField &field,
-                                        bool surface,
-                                        Candidate &candidate,
-                                        size_t ringIndex,
-                                        IngestMetrics &metrics);
+  static void RetryPending(const GroundQuery &ground,
+                           const OsmField &field,
+                           Candidate &candidate,
+                           std::chrono::steady_clock::time_point began,
+                           size_t &steps,
+                           IngestMetrics &metrics);
+  static void AdvanceRing(const GroundQuery &ground,
+                          const OsmField &field,
+                          bool surface,
+                          Candidate &candidate,
+                          size_t ringIndex,
+                          IngestMetrics &metrics);
   void MaterializeCandidate(const OsmField &field,
                             OnLayers on,
                             const RegionSurfaceRecipes &vegetation,
@@ -171,7 +182,6 @@ private:
   IngestMetrics LastIngest_;
   std::optional<uint64_t> SourceGeneration_;
   std::shared_ptr<const void> SourceOrigin_;
-  uint64_t AdmissionAttempts_ = 0;
 
   struct AssetInputs {
     const void *Origin = nullptr;

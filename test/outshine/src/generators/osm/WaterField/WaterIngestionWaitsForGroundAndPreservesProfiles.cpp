@@ -146,6 +146,7 @@ int main() {
             water.Courses().empty() && water.Levels().empty(),
         "pending terrain publishes no partial water tile");
   CHECK(!water.Ingested(field) && water.Deferrals() == 1, "pending tile remains retryable");
+  (void)water.Ingest(ground, field, materials);
   CHECK(water.LastIngest().AdvancedUnits == 0,
         "pending terrain reports no local progress that would suppress waiting");
   ground.Pending = false;
@@ -179,13 +180,12 @@ int main() {
   delayed.DelayThird = true;
   ::outshine::Generators::Osm::WaterField resumed;
   CHECK(resumed.Ingest(delayed, field, materials) == 0 && !resumed.Ingested(field) &&
-            resumed.Courses().empty() && resumed.Surfaces().empty() && delayed.Hits[0] == 1 &&
-            delayed.Hits[1] == 1 && delayed.Hits[2] == 1,
-        "mid-ring pending retains only staged heights and publishes nothing");
+            resumed.Courses().empty() && resumed.Surfaces().empty() && delayed.Hits[3] > 0,
+        "an unresolved height leaves the tile private while later terrain heights are sampled");
   CHECK(resumed.Ingest(delayed, field, materials) == 1 && resumed.Ingested(field) &&
             delayed.Hits[0] == ground.Hits[0] && delayed.Hits[1] == ground.Hits[1] &&
             delayed.Hits[2] == ground.Hits[2] + 1,
-        "resume repeats only pending point and later occurrences");
+        "resuming reuses completed heights and retries the single unresolved point");
   CHECK(resumed.Courses().size() == water.Courses().size() && resumed.Levels() == water.Levels() &&
             resumed.Surfaces().size() == water.Surfaces().size() &&
             resumed.Surfaces()[0].LevelM == water.Surfaces()[0].LevelM,
@@ -194,7 +194,7 @@ int main() {
   revised.Pending = false;
   revised.DelayThird = true;
   ::outshine::Generators::Osm::WaterField revisionWater;
-  CHECK(revisionWater.Ingest(revised, field, materials) == 0 && revised.Hits[0] == 1,
+  CHECK(revisionWater.Ingest(revised, field, materials) == 0 && revised.Hits[0] == ground.Hits[0],
         "old source revision holds incomplete water candidate");
   const uint64_t oldGeneration = field.Generation();
   features[6].Value = "house";
@@ -203,7 +203,7 @@ int main() {
   const auto revisionSurfaces = revisionWater.Ingest(revised, field, materials);
   CHECK(revisionSurfaces == 1, "new source revision publishes complete water tile");
   CHECK_NEAR(revised.Hits[0],
-             ground.Hits[0] + 1,
+             2 * ground.Hits[0],
              0,
              "queries",
              "new source revision discards staged height queries");

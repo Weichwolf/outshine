@@ -62,6 +62,26 @@ LongitudeLatitude PointAt(std::span<const double> points, size_t index) {
   return {.LongitudeDeg = points[index * 2 + 1], .LatitudeDeg = points[index * 2]};
 }
 
+bool AdmissionHasBudget(std::chrono::steady_clock::time_point began, size_t steps, size_t samples) {
+  return steps < kWaterScansPerAdmission && samples < kWaterSamplesPerAdmission &&
+         (steps == 0 ||
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+                  .count() < kWaterAdmissionBudgetMs);
+}
+
+GroundSample SampleHeight(const GroundQuery &ground,
+                          LongitudeLatitude point,
+                          WaterField::IngestMetrics &metrics) {
+  const auto began = std::chrono::steady_clock::now();
+  const GroundSample sampled = ground.At(point);
+  metrics.LongestQueryMs = std::max(
+      metrics.LongestQueryMs,
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
+  ++metrics.ValidationPoints;
+  if (sampled.Where() != GroundSample::State::Pending) { ++metrics.AdvancedUnits; }
+  return sampled;
+}
+
 }
 
 bool WaterField::AdvanceCandidate(const GroundQuery &ground,
@@ -71,13 +91,9 @@ bool WaterField::AdvanceCandidate(const GroundQuery &ground,
                                   std::chrono::steady_clock::time_point began,
                                   size_t &steps,
                                   IngestMetrics &metrics) {
-  while (candidate.Feature < candidate.To) {
-    if (steps >= kWaterScansPerAdmission || metrics.ValidationPoints >= kWaterSamplesPerAdmission ||
-        (steps > 0 &&
-         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-                 .count() >= kWaterAdmissionBudgetMs)) {
-      return false;
-    }
+  RetryPending(ground, field, candidate, began, steps, metrics);
+  while (candidate.Feature < candidate.To && candidate.Pending.size() < kWaterSamplesPerAdmission &&
+         AdmissionHasBudget(began, steps, metrics.ValidationPoints)) {
     ++steps;
     const auto &feature = field.Features()[candidate.Feature];
     const WaterKind kind = KindOf(field, feature, on);
@@ -89,14 +105,39 @@ bool WaterField::AdvanceCandidate(const GroundQuery &ground,
       continue;
     }
     const size_t ringIndex = static_cast<size_t>(feature.FirstRing) + candidate.Ring;
-    if (!AdvanceRing(ground, field, kind == WaterKind::Surface, candidate, ringIndex, metrics)) {
-      return false;
-    }
+    AdvanceRing(ground, field, kind == WaterKind::Surface, candidate, ringIndex, metrics);
   }
-  return true;
+  return candidate.Feature == candidate.To && candidate.Pending.empty();
 }
 
-bool WaterField::AdvanceRing(const GroundQuery &ground,
+void WaterField::RetryPending(const GroundQuery &ground,
+                              const OsmField &field,
+                              Candidate &candidate,
+                              std::chrono::steady_clock::time_point began,
+                              size_t &steps,
+                              IngestMetrics &metrics) {
+  auto &pending = candidate.Pending;
+  size_t visited = 0;
+  size_t waiting = 0;
+  for (; visited < pending.size() && AdmissionHasBudget(began, steps, metrics.ValidationPoints);
+       ++visited) {
+    ++steps;
+    const PendingPoint point = pending[visited];
+    auto &samples = candidate.Rings[point.Ring];
+    const auto sampled = SampleHeight(
+        ground, PointAt(RingPoints(field, field.Rings()[samples.Ring]), point.Point), metrics);
+    if (sampled.Where() == GroundSample::State::Pending) {
+      pending[waiting++] = point;
+    } else {
+      samples.Heights[point.Point] = sampled.AslM();
+    }
+  }
+  const auto unvisited = pending.erase(pending.begin() + static_cast<ptrdiff_t>(waiting),
+                                       pending.begin() + static_cast<ptrdiff_t>(visited));
+  std::ranges::rotate(pending, unvisited);
+}
+
+void WaterField::AdvanceRing(const GroundQuery &ground,
                              const OsmField &field,
                              bool surface,
                              Candidate &candidate,
@@ -110,7 +151,7 @@ bool WaterField::AdvanceRing(const GroundQuery &ground,
     }
     ++candidate.Ring;
     ++metrics.AdvancedUnits;
-    return true;
+    return;
   }
   if (candidate.Point == 0 &&
       (candidate.Rings.empty() || candidate.Rings.back().Feature != candidate.Feature ||
@@ -121,24 +162,19 @@ bool WaterField::AdvanceRing(const GroundQuery &ground,
   if (surface && (!ring.Exterior || IsOcean(field, field.Features()[candidate.Feature]))) {
     ++candidate.Ring;
     ++metrics.AdvancedUnits;
-    return true;
+    return;
   }
-  const auto queryAt = std::chrono::steady_clock::now();
-  const GroundSample sampled = ground.At(PointAt(RingPoints(field, ring), candidate.Point));
-  metrics.LongestQueryMs =
-      std::max(metrics.LongestQueryMs,
-               std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - queryAt)
-                   .count());
-  ++metrics.ValidationPoints;
-  if (sampled.Where() == GroundSample::State::Pending) { return false; }
-  ++metrics.AdvancedUnits;
+  const auto sampled =
+      SampleHeight(ground, PointAt(RingPoints(field, ring), candidate.Point), metrics);
+  if (sampled.Where() == GroundSample::State::Pending) {
+    candidate.Pending.push_back({.Ring = candidate.Rings.size() - 1, .Point = candidate.Point});
+  }
   candidate.Rings.back().Heights.push_back(sampled.AslM());
   ++candidate.Point;
   if (candidate.Point >= ring.Count) {
     ++candidate.Ring;
     candidate.Point = 0;
   }
-  return true;
 }
 
 void WaterField::MaterializeCandidate(const OsmField &field,
@@ -297,7 +333,6 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
   const OnLayers layers{.Poly = field.Layer(OsmLayer::WaterPolygons),
                         .Line = field.Layer(OsmLayer::WaterLines)};
   const auto admissionAt = std::chrono::steady_clock::now();
-  ++AdmissionAttempts_;
   size_t steps = 0;
   const auto next =
       Admission_.Ask(field.Tiles(),
@@ -312,34 +347,31 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
                            Candidates_, [tile](const Candidate &one) { return one.Tile == tile; });
                        if (found == Candidates_.end()) {
                          Candidates_.push_back({.Tile = tile,
-                                                .LastSeen = AdmissionAttempts_,
                                                 .From = from,
                                                 .To = to,
                                                 .Feature = from,
                                                 .Ring = 0,
                                                 .Point = 0,
-                                                .Rings = {}});
+                                                .Rings = {},
+                                                .Pending = {}});
                          found = std::prev(Candidates_.end());
                        }
                        if (found->From != from || found->To != to) {
                          *found = {.Tile = tile,
-                                   .LastSeen = AdmissionAttempts_,
                                    .From = from,
                                    .To = to,
                                    .Feature = from,
                                    .Ring = 0,
                                    .Point = 0,
-                                   .Rings = {}};
+                                   .Rings = {},
+                                   .Pending = {}};
                        }
-                       found->LastSeen = AdmissionAttempts_;
                        const bool resolved = AdvanceCandidate(
                            ground, field, layers, *found, admissionAt, steps, metrics);
                        metrics.ValidationMs += elapsedMs(validationAt);
                        return resolved;
                      });
   metrics.AdmissionMs = elapsedMs(admissionAt);
-  std::erase_if(Candidates_,
-                [this](const Candidate &one) { return one.LastSeen != AdmissionAttempts_; });
   if (!next.Found) { return finish(); }
   Asset_.reset();
   const auto firstSurface = static_cast<uint32_t>(Surfaces_.size());
