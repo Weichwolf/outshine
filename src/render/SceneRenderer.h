@@ -258,11 +258,12 @@ public:
   using PieceRows = SceneResources::PieceRows;
 
   [[nodiscard]] std::expected<PieceHandle, std::string> PlacePiece(const PieceMesh &piece) {
-    return ActiveContent().Scene().Resources().PlacePiece(ActiveContent().Geometry(), piece);
+    auto placed = ActiveContent().Scene().Resources().PlacePiece(ActiveContent().Geometry(), piece);
+    if (!placed) { return std::unexpected(std::move(placed.error().Message)); }
+    return *placed;
   }
 
-  [[nodiscard]] std::expected<PieceHandle, std::string>
-  PlaceStructurePiece(const PieceMesh &piece) {
+  [[nodiscard]] Native::Result<PieceHandle> PlaceStructurePiece(const PieceMesh &piece) {
     return ActiveContent().Scene().Resources().PlacePiece(
         ActiveContent().Geometry(), piece, SceneResources::PieceOwner::StructureTile);
   }

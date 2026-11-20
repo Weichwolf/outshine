@@ -478,7 +478,7 @@ void CheckProductAddresses(SceneRenderer &renderer,
         page.AssetKey = key;
         page.RequestedDetail = LevelOfDetail::Fine;
         page.Coverage = *coverage;
-        return pages.StageProduct(kTile, page, frame.OriginEcef(), error, kSource);
+        return pages.StageProduct(kTile, page, frame.OriginEcef(), kSource).has_value();
       };
   std::vector<std::string> owners;
   owners.reserve(count);
@@ -493,7 +493,7 @@ void CheckProductAddresses(SceneRenderer &renderer,
   CHECK(!stage(owners.front(), 0, 1), "a product key cannot name two resident products");
   auto unqualified = parentPage;
   unqualified.AssetKey = "unqualified";
-  CHECK(!pages.StageProduct(kTile, unqualified, frame.OriginEcef(), error, kSource),
+  CHECK(!pages.StageProduct(kTile, unqualified, frame.OriginEcef(), kSource),
         "a product without exact coverage cannot be staged");
   CHECK(pages.Upload(kTile, parentPage, frame.OriginEcef(), error, kSource) &&
             Draw(renderer) == parent,
@@ -614,7 +614,7 @@ void CheckOriginalProducts(SceneRenderer &renderer,
   field.Parts = parts;
   field.AssetKey = "field-left";
   field.Coverage = *left;
-  CHECK(pages.StageProduct(kTile, field, frame.OriginEcef(), error, kSource),
+  CHECK(pages.StageProduct(kTile, field, frame.OriginEcef(), kSource),
         "a field product stages alongside the annotated originals");
   pages.DiscardStagedCells(kTile);
   CHECK(pages.BindCoverage({.Tile = kTile, .SourceKey = kSource, .AssetKey = "field-left"}, *left),
@@ -694,7 +694,7 @@ void CheckConsolidation(SceneRenderer &renderer,
     page.AssetKey = key;
     page.RequestedDetail = LevelOfDetail::Massed;
     page.Coverage = std::move(*coverage);
-    return pages.StageProduct(kTile, page, frame.OriginEcef(), error, kSource);
+    return pages.StageProduct(kTile, page, frame.OriginEcef(), kSource).has_value();
   };
   GeometryPageView combined;
   combined.AssetKey = "combined";

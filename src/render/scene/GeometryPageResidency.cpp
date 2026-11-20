@@ -26,11 +26,22 @@ namespace outshine::Render {
 namespace {
 constexpr uint32_t kGeometryPageCellsMost = std::numeric_limits<uint64_t>::digits;
 
-std::expected<PieceHandle, std::string> UploadPart(SceneRenderer &renderer,
-                                                   const GeometryPagePartView &part,
-                                                   const Mat4 &row,
-                                                   const std::shared_ptr<const Mat4> &placement,
-                                                   std::array<uint64_t, 3> productOrder) {
+std::unexpected<Native::Error> InvalidPage(std::string message) {
+  return std::unexpected(
+      Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = std::move(message)});
+}
+
+bool Accepted(Native::Result<void> result, std::string &error) {
+  if (result) { return true; }
+  error = std::move(result.error().Message);
+  return false;
+}
+
+Native::Result<PieceHandle> UploadPart(SceneRenderer &renderer,
+                                       const GeometryPagePartView &part,
+                                       const Mat4 &row,
+                                       const std::shared_ptr<const Mat4> &placement,
+                                       std::array<uint64_t, 3> productOrder) {
   if (part.Indices.empty()) { return PieceHandle{}; }
   if (part.Textured && (std::ranges::any_of(part.Verts,
                                             [](const StoredVertex &v) {
@@ -40,7 +51,7 @@ std::expected<PieceHandle, std::string> UploadPart(SceneRenderer &renderer,
                         std::ranges::all_of(part.Verts, [](const StoredVertex &v) {
                           return v.uv()[0] == 0 && v.uv()[1] == 0;
                         }))) {
-    return std::unexpected("textured geometry page has invalid surface coordinates");
+    return InvalidPage("textured geometry page has invalid surface coordinates");
   }
   return renderer.PlaceStructurePiece({.Tangents = part.Tangents,
                                        .Verts = part.Verts,
@@ -127,7 +138,7 @@ bool GeometryPageResidency::Upload(uint32_t tile,
                                    const Vec3 &anchorEcef,
                                    std::string &error,
                                    uint64_t sourceKey) {
-  return Store(tile, cell, baked, anchorEcef, error, sourceKey, Publication::Immediate);
+  return Accepted(Store(tile, cell, baked, anchorEcef, sourceKey, Publication::Immediate), error);
 }
 
 bool GeometryPageResidency::StageCell(uint32_t tile,
@@ -158,7 +169,7 @@ bool GeometryPageResidency::StageCell(uint32_t tile,
       return true;
     }
   }
-  return Store(tile, cell, baked, anchorEcef, error, sourceKey, Publication::Cell);
+  return Accepted(Store(tile, cell, baked, anchorEcef, sourceKey, Publication::Cell), error);
 }
 
 bool GeometryPageResidency::StageCells(uint32_t tile,
@@ -172,43 +183,36 @@ bool GeometryPageResidency::StageCells(uint32_t tile,
     return false;
   }
   const auto first = static_cast<uint32_t>(std::countr_zero(cells)) + 1u;
-  return Store(tile, first, baked, anchorEcef, error, sourceKey, Publication::Cohort);
+  return Accepted(Store(tile, first, baked, anchorEcef, sourceKey, Publication::Cohort), error);
 }
 
-bool GeometryPageResidency::StageProduct(uint32_t tile,
-                                         const GeometryPageView &baked,
-                                         const Vec3 &anchorEcef,
-                                         std::string &error,
-                                         uint64_t sourceKey) {
+Native::Result<void> GeometryPageResidency::StageProduct(uint32_t tile,
+                                                         const GeometryPageView &baked,
+                                                         const Vec3 &anchorEcef,
+                                                         uint64_t sourceKey) {
   if (Renderer_ == nullptr || sourceKey == 0 || baked.AssetKey.empty() || !baked.Coverage) {
-    error = "staged geometry product needs a renderer, key, revision and exact source coverage";
-    return false;
+    return InvalidPage(
+        "staged geometry product needs a renderer, key, revision and exact source coverage");
   }
   if (std::ranges::any_of(Pages_, [&](const ResidentGeometryPage &held) {
         return held.Tile == tile && held.SourceKey == sourceKey && held.AssetKey == baked.AssetKey;
       })) {
-    error = "geometry product is already resident";
-    return false;
+    return InvalidPage("geometry product is already resident");
   }
-  return Store(tile,
-               baked.RequestedCell.value_or(0),
-               baked,
-               anchorEcef,
-               error,
-               sourceKey,
-               Publication::Product);
+  return Store(
+      tile, baked.RequestedCell.value_or(0), baked, anchorEcef, sourceKey, Publication::Product);
 }
 
-bool GeometryPageResidency::Store(uint32_t tile,
-                                  uint32_t cell,
-                                  const GeometryPageView &baked,
-                                  const Vec3 &anchorEcef,
-                                  std::string &error,
-                                  uint64_t sourceKey,
-                                  Publication publication) {
+Native::Result<void> GeometryPageResidency::Store(uint32_t tile,
+                                                  uint32_t cell,
+                                                  const GeometryPageView &baked,
+                                                  const Vec3 &anchorEcef,
+                                                  uint64_t sourceKey,
+                                                  Publication publication) {
   const bool staged = publication != Publication::Immediate;
+  std::string error;
   if (!ValidateStore({.Tile = tile, .Cell = cell}, baked, sourceKey, publication, error)) {
-    return false;
+    return InvalidPage(std::move(error));
   }
   const auto &placement = baked.Placement;
   const Mat4 row = RowFor(anchorEcef, placement.get());
@@ -238,23 +242,10 @@ bool GeometryPageResidency::Store(uint32_t tile,
                              .Row = row,
                              .Visible = visible,
                              .Parts = {}};
-  stood.Parts.reserve(baked.Parts.size());
-  for (size_t at = 0; at < baked.Parts.size(); ++at) {
-    const auto uploaded = UploadPart(*Renderer_,
-                                     baked.Parts[at],
-                                     row,
-                                     placement,
-                                     {baked.DrawOrderGroup.value_or(sourceKey), baked.Digest, at});
-    if (!uploaded) {
-      Releases(stood);
-      ++Refused_;
-      Why_ = uploaded.error();
-      error = Why_;
-      return false;
-    }
-    if (*uploaded) {
-      stood.Parts.push_back({.Handle = *uploaded, .Passes = baked.Parts[at].Passes});
-    }
+  auto uploaded = UploadParts(stood, baked);
+  if (!uploaded) {
+    Releases(stood);
+    return uploaded;
   }
   if (!visible) {
     std::vector<SceneRenderer::PieceRows> rows;
@@ -264,7 +255,7 @@ bool GeometryPageResidency::Store(uint32_t tile,
       Releases(stood);
       ++Refused_;
       Why_ = error;
-      return false;
+      return InvalidPage(std::move(error));
     }
   }
   const WholeTileTransition retired = cell == 0 && visible
@@ -274,7 +265,7 @@ bool GeometryPageResidency::Store(uint32_t tile,
     Releases(stood);
     ++Refused_;
     Why_ = error;
-    return false;
+    return InvalidPage(std::move(error));
   }
   if (staged) {
     DiscardSupersededStage(tile, sourceKey);
@@ -295,7 +286,29 @@ bool GeometryPageResidency::Store(uint32_t tile,
   }
   RefreshDigest();
   ++Uploads_;
-  return true;
+  return {};
+}
+
+Native::Result<void> GeometryPageResidency::UploadParts(ResidentGeometryPage &stood,
+                                                        const GeometryPageView &baked) {
+  stood.Parts.reserve(baked.Parts.size());
+  for (size_t at = 0; at < baked.Parts.size(); ++at) {
+    const auto &part = baked.Parts[at];
+    auto uploaded = UploadPart(*Renderer_,
+                               part,
+                               stood.Row,
+                               baked.Placement,
+                               {stood.DrawOrderGroup.value_or(stood.SourceKey), stood.Digest, at});
+    if (!uploaded) {
+      if (uploaded.error().Kind != Native::ErrorKind::Busy) {
+        ++Refused_;
+        Why_ = uploaded.error().Message;
+      }
+      return std::unexpected(std::move(uploaded.error()));
+    }
+    if (*uploaded) { stood.Parts.push_back({.Handle = *uploaded, .Passes = part.Passes}); }
+  }
+  return {};
 }
 
 GeometryPageResidency::WholeTileTransition GeometryPageResidency::RetireCellsForWholeTile(

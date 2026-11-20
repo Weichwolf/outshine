@@ -4,6 +4,7 @@
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include "WorldCandidate.h"
+#include "test/harness/render/NativeUploadFaultDevice.h"
 #include <SDL3/SDL.h>
 #include <array>
 #include <chrono>
@@ -17,9 +18,11 @@
 namespace {
 using namespace outshine;
 using namespace outshine::Test;
+using namespace outshine::Test::Gpu;
 
 struct Fixture {
-  Render::SceneRenderer Renderer;
+  UploadFailure Upload;
+  Render::SceneRenderer Renderer{{.Context = &Upload, .Create = NativeUploadFaultDevice::Create}};
   std::unique_ptr<Core::RuntimeScene> Scene;
   Render::GeometryPageResidency Pages;
   Generators::RoadPageManifest Manifest;
@@ -91,6 +94,41 @@ struct Fixture {
     return depth[size_t{16} * 32u + x];
   }
 };
+
+void CheckBackpressure(Fixture &fixture) {
+  const auto first = fixture.Page({.Index = 0}, -1);
+  auto second = fixture.Page({.Index = 1}, 1);
+  auto &mesh = second.Geometry.Mesh;
+  constexpr size_t vertices = 600'000;
+  mesh.PositionM.resize(vertices * 3);
+  mesh.NormalM.resize(vertices * 3);
+  mesh.ColourRgba.resize(vertices * 4, 1);
+  auto publication = RoadGeometryPublication::Begin(
+      fixture.Renderer, fixture.Pages, fixture.Manifest, TangentFrame::At(fixture.Manifest.Anchor));
+  CHECK(publication, "the two-page route registers");
+  if (!publication) { return; }
+  const auto until = std::chrono::steady_clock::time_point::max();
+  CHECK((*publication)->Advance(first, fixture.Manifest.Pages[0], until).value_or(false),
+        "the first road page has staged crossings to submit");
+  const auto accepted = fixture.Pages.Handles();
+  auto &fault = fixture.Upload;
+  fault.Point = UploadFailurePoint::Acquire;
+  fault.Kind = Render::Native::ErrorKind::Busy;
+  fault.Armed = true;
+  const auto deferred = (*publication)->Advance(second, fixture.Manifest.Pages[1], until);
+  CHECK(deferred && !*deferred && fault.Rejected == 1 && fixture.Pages.Handles() == accepted,
+        "a full GPU queue keeps the packed page pending and preserves the accepted one");
+  fault.Kind = Render::Native::ErrorKind::Driver;
+  fault.Armed = true;
+  const auto failed =
+      (*publication)->Advance(second, fixture.Manifest.Pages[1], std::chrono::steady_clock::now());
+  CHECK(!failed && failed.error() == fault.Message && fault.Rejected == 2,
+        "driver failures remain errors on the same upload path");
+  const auto resumed =
+      (*publication)->Advance(second, fixture.Manifest.Pages[1], std::chrono::steady_clock::now());
+  CHECK(resumed && *resumed && (*publication)->Finish() && fixture.Pages.Handles().size() == 2,
+        "the already packed page uploads once and the complete route publishes");
+}
 
 void CheckPublication(Fixture &fixture) {
   const auto left = fixture.Page({.Index = 0}, -1);
@@ -211,6 +249,11 @@ int main() {
     Fixture fixture;
     CHECK(fixture.Open(), "crossing fixture opens");
     if (fixture.Scene) { CheckRegionCrossing(fixture); }
+  }
+  {
+    Fixture fixture;
+    CHECK(fixture.Open(), "backpressure fixture opens");
+    if (fixture.Scene) { CheckBackpressure(fixture); }
   }
   SDL_Quit();
   return Report();

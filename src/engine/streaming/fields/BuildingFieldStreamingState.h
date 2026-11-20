@@ -138,7 +138,8 @@ struct BuildingFieldStreaming::State {
                                                      uint64_t shadowCells);
   [[nodiscard]] static std::expected<SourceCoverage, std::string> OriginalCoverage(const Tile &tile,
                                                                                    uint64_t cells);
-  [[nodiscard]] static bool Stage(Context &context, Tile &tile, Cell &cell, std::string &error);
+  [[nodiscard]] static std::expected<bool, std::string>
+  Stage(Context &context, Tile &tile, Cell &cell);
   [[nodiscard]] static bool StageGroup(Context &context,
                                        const Tile &tile,
                                        Group &group,

@@ -48,23 +48,27 @@ PieceMesh SceneResources::Piece::Mesh() const noexcept {
           .Placement = Placement};
 }
 
-std::expected<PieceHandle, std::string>
+Native::Result<PieceHandle>
 SceneResources::PlacePiece(GeometryRenderer &geometry, const PieceMesh &piece, PieceOwner owner) {
-  if (!ValidGeometryPasses(piece.Passes)) {
-    return std::unexpected("piece has invalid geometry passes");
-  }
-  if (!ValidPieceUv1(piece)) { return std::unexpected(std::string(kPieceUv1Error)); }
+  const auto invalid = [](std::string message) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = std::move(message)});
+  };
+  if (!ValidGeometryPasses(piece.Passes)) { return invalid("piece has invalid geometry passes"); }
+  if (!ValidPieceUv1(piece)) { return invalid(std::string(kPieceUv1Error)); }
   if (!ValidPiecePlacement(piece)) {
-    return std::unexpected("piece placement has conflicting rows or nonfinite coordinates");
+    return invalid("piece placement has conflicting rows or nonfinite coordinates");
   }
   if (piece.Surface.From == PieceSurface::Source::Registered &&
       !HasMaterialRegistration(
           {.First = piece.Surface.Index, .Source = piece.Surface.MaterialOwner})) {
-    return std::unexpected("piece material reference has no matching live source");
+    return invalid("piece material reference has no matching live source");
   }
   if (FirstFreePiece_ == kNoResourceSlot && Pieces_.size() >= kNoResourceSlot) {
-    return std::unexpected(Says::PieceSlotLimit);
+    return invalid(Says::PieceSlotLimit);
   }
+  auto placed = geometry.PlacePiece(piece);
+  if (!placed) { return std::unexpected(std::move(placed.error())); }
   auto source = std::make_shared<const PieceSource>(
       PieceSource{.Tangents = {piece.Tangents.begin(), piece.Tangents.end()},
                   .Vertices = {piece.Verts.begin(), piece.Verts.end()},
@@ -83,8 +87,6 @@ SceneResources::PlacePiece(GeometryRenderer &geometry, const PieceMesh &piece, P
              .Passes = piece.Passes,
              .Placement = piece.Placement};
   if (held.Rows.empty()) { held.Rows.push_back(held.Row); }
-  auto placed = geometry.PlacePiece(held.Mesh());
-  if (!placed) { return std::unexpected(std::move(placed.error().Message)); }
   held.Resident = *placed;
   held.State.Occupied = true;
   uint32_t slot = FirstFreePiece_;

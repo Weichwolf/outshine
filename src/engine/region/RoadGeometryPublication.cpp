@@ -206,9 +206,10 @@ RoadGeometryPublication::Advance(const Generators::RoadPageAsset &page,
                                       .Coverage = std::move(*coverage),
                                       .Placement = std::make_shared<const Mat4>(*Placement_),
                                       .DrawOrderGroup = kRoadDrawOrderGroup};
-  std::string error;
-  if (!Pages_.StageProduct(0, view, Anchor_, error, SourceKey_)) {
-    return std::unexpected(std::move(error));
+  auto staged = Pages_.StageProduct(0, view, Anchor_, SourceKey_);
+  if (!staged) {
+    if (staged.error().Kind == Render::Native::ErrorKind::Busy) { return false; }
+    return std::unexpected(std::move(staged.error().Message));
   }
   PublicationMs_ +=
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - packed).count();
