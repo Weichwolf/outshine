@@ -95,16 +95,9 @@ struct Fixture {
     CHECK(Shadow.Casting(), "a changed source supplies a shadow rendering demand");
     auto commands = Require(device.Begin());
     Require(Geometry.FlushCrossings(commands.get()));
-    Require(commands->BeginRenderPass(
-        {.Colours = {},
-         .Depth = DepthAttachment{.Image = {.Image = Shadow.Atlas()}, .Begin = Load::Clear}}));
     StageSubmission submission;
-    Require(Shadow.Encode(frame,
-                          {.Commands = commands.get(),
-                           .Submission = submission,
-                           .Area = {.Width = kShadowAtlasPx, .Height = kShadowAtlasPx},
-                           .Clip = {.Width = kShadowAtlasPx, .Height = kShadowAtlasPx}}));
-    Require(commands->EndRenderPass());
+    Require(Shadow.Encode(
+        frame, {.Commands = commands.get(), .Submission = submission, .Area = {}, .Clip = {}}));
     Require(device.Submit(std::move(commands)));
     Geometry.CommitCrossings();
     submission.Commit();

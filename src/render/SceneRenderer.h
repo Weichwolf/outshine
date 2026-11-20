@@ -1071,7 +1071,6 @@ private:
                                                         const FrameContext &ctx,
                                                         StageSubmission &submission);
   [[nodiscard]] FrameContext Framing() const;
-  void SettleShadow();
   std::array<bool, kResourceCount> Touched_ = {{}};
   [[nodiscard]] Native::Texture *Target(Resource resource) const;
   [[nodiscard]] static Native::Texture *

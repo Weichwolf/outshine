@@ -82,28 +82,18 @@ void Draw(Device &device,
   if (!atlas.Shadow.Casting()) { return; }
   auto commands = Require(device.Begin());
   Require(geometry.FlushCrossings(commands.get()));
-  Require(commands->BeginRenderPass(
-      {.Colours = {},
-       .Depth =
-           DepthAttachment{.Image = {.Image = atlas.Shadow.Atlas()},
-                           .Begin = atlas.Shadow.PreservesAtlas() ? Load::Load : Load::Clear}}));
   StageSubmission submission;
   RejectDraw fault(std::move(commands));
   fault.Reject = reject;
   auto *target = &fault;
-  const auto result =
-      atlas.Shadow.Encode(frame,
-                          {.Commands = target,
-                           .Submission = submission,
-                           .Area = {.Width = kShadowAtlasPx, .Height = kShadowAtlasPx},
-                           .Clip = {.Width = kShadowAtlasPx, .Height = kShadowAtlasPx}});
+  const auto result = atlas.Shadow.Encode(
+      frame, {.Commands = target, .Submission = submission, .Area = {}, .Clip = {}});
   if (reject) {
     CHECK(!result && result.error().Message == "rejected local patch",
           "the dirty patch propagates actual native recording failure");
     return;
   }
   Require(result);
-  Require(target->EndRenderPass());
   if (accept) {
     const auto submitted = device.Submit(fault.Take());
     if (!submitted) {

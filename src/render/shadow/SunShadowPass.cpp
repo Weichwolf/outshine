@@ -42,19 +42,41 @@ std::array<size_t, 2> ShadowTile(size_t region) {
   return {{region % 2, region / 2}};
 }
 
-Native::Result<std::unique_ptr<Native::Texture>> CreateShadowAtlas(Native::Device &device) {
-  auto atlas =
-      device.CreateTexture({.Width = kShadowAtlasPx,
-                            .Height = kShadowAtlasPx,
-                            .Texels = Native::Format::Depth32Float,
-                            .Use = Native::TextureUse::DepthAttachment |
-                                   Native::TextureUse::Sampled | Native::TextureUse::CopySource});
+Native::Result<std::unique_ptr<Native::Texture>>
+CreateShadowAtlas(Native::Device &device, Native::UseMask<Native::TextureUse> use) {
+  auto atlas = device.CreateTexture(
+      {.Width = kShadowAtlasPx,
+       .Height = kShadowAtlasPx,
+       .Texels = Native::Format::Depth32Float,
+       .Use = use | Native::TextureUse::DepthAttachment | Native::TextureUse::CopySource});
   if (!atlas) { return std::unexpected(std::move(atlas.error())); }
   if (!*atlas) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
                                          .Message = "native device returned no sun-shadow atlas"});
   }
   return std::move(*atlas);
+}
+
+struct ShadowAtlases {
+  std::unique_ptr<Native::Texture> Combined;
+  std::unique_ptr<Native::Texture> Objects;
+};
+
+Native::Result<ShadowAtlases> CreateShadowAtlases(Native::Device &device) {
+  auto combined =
+      CreateShadowAtlas(device, Native::TextureUse::Sampled | Native::TextureUse::CopyDestination);
+  if (!combined) { return std::unexpected(std::move(combined.error())); }
+  auto objects = CreateShadowAtlas(device, {});
+  if (!objects) { return std::unexpected(std::move(objects.error())); }
+  return ShadowAtlases{.Combined = std::move(*combined), .Objects = std::move(*objects)};
+}
+
+Native::TextureRegion AtlasRegion(size_t region, const ShadowRasterPatch &patch) {
+  const auto tile = ShadowTile(region);
+  return {.X = static_cast<uint32_t>(tile[0]) * kShadowTilePx + patch.X,
+          .Y = static_cast<uint32_t>(tile[1]) * kShadowTilePx + patch.Y,
+          .Width = patch.Width,
+          .Height = patch.Height};
 }
 
 }
@@ -65,9 +87,10 @@ Native::Result<void> SunShadowPass::Allocate(Native::Device &device) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "sun-shadow atlas belongs to another device"});
   }
-  auto atlas = CreateShadowAtlas(device);
-  if (!atlas) { return std::unexpected(std::move(atlas.error())); }
-  Atlas_ = std::move(*atlas);
+  auto atlases = CreateShadowAtlases(device);
+  if (!atlases) { return std::unexpected(std::move(atlases.error())); }
+  Atlas_ = std::move(atlases->Combined);
+  ObjectAtlas_ = std::move(atlases->Objects);
   Device_ = &device;
   Cache_.Invalidate();
   return {};
@@ -80,11 +103,11 @@ Native::Result<void> SunShadowPass::Configure(GeometryRenderer &geometry, const 
   }
   const bool replacing = Device_ != gpu.Device;
   if (replacing || !DepthOnly_ || !ClearTile_ || !Atlas_) {
-    std::unique_ptr<Native::Texture> atlas;
+    ShadowAtlases atlases;
     if (replacing || !Atlas_) {
-      auto allocated = CreateShadowAtlas(*gpu.Device);
+      auto allocated = CreateShadowAtlases(*gpu.Device);
       if (!allocated) { return std::unexpected(std::move(allocated.error())); }
-      atlas = std::move(*allocated);
+      atlases = std::move(*allocated);
     }
     auto depth = ConfigureDepthOnly(*gpu.Device);
     if (!depth) { return std::unexpected(depth.error()); }
@@ -92,7 +115,10 @@ Native::Result<void> SunShadowPass::Configure(GeometryRenderer &geometry, const 
     if (!masked) { return std::unexpected(masked.error()); }
     auto clear = ConfigureTileClear(*gpu.Device);
     if (!clear) { return std::unexpected(clear.error()); }
-    if (atlas) { Atlas_ = std::move(atlas); }
+    if (atlases.Combined) {
+      Atlas_ = std::move(atlases.Combined);
+      ObjectAtlas_ = std::move(atlases.Objects);
+    }
     DepthOnly_ = std::move(*depth);
     ClearTile_ = std::move(*clear);
     Masked_ = std::move(*masked);
@@ -275,7 +301,7 @@ void SunShadowPass::BuildRegions(const LightBasis &basis,
 
 void SunShadowPass::Prepare(const FrameContext &ctx) {
   Casting_ = false;
-  PreservesAtlas_ = false;
+  PreservesObjects_ = false;
   CastBatches_ = 0;
   if (!Declared_ || Geometry_ == nullptr) { return; }
   if (Cache_.Submitted()) {
@@ -287,34 +313,33 @@ void SunShadowPass::Prepare(const FrameContext &ctx) {
   const auto geometry = Geometry_->ShadowChangesSince(PreparedGeometryRevision_);
   const auto prisms = Geometry_->Prisms().ShadowChangesSince(PreparedPrismRevision_);
   const uint64_t ground = Geometry_->Ground().Generation();
-  const bool reusable = Cache_.Submitted() && ground == PreparedGroundGeneration_;
-  const bool full = !reusable || !geometry.Complete || !prisms.Complete;
+  PreservesObjects_ = Cache_.Submitted();
+  const bool full = !PreservesObjects_ || !geometry.Complete || !prisms.Complete;
+  const bool terrainChanged = ground != PreparedGroundGeneration_;
+  CopiesWholeAtlas_ = !PreservesObjects_ || (terrainChanged && RegionCount() == kSunShadowRegions);
   Boxf bounds = geometry.Bounds;
   bounds.Cover(prisms.Bounds);
-  bool allFull = true;
-  size_t changed = 0;
   for (size_t region = 0; region < RegionCount(); ++region) {
-    RasterUpdates_[region] = PrepareShadowRaster(
+    auto objects = PrepareShadowRaster(
         AcceptedRaster_[region], Static_[region], Geometry_->AnchorM(), kShadowTilePx, full);
-    bool regionFull = RasterUpdates_[region].Texels == uint64_t{kShadowTilePx} * kShadowTilePx;
-    if (!full && !regionFull && !IncludeShadowChange(RasterUpdates_[region], bounds)) {
-      RasterUpdates_[region] = PrepareShadowRaster(
+    if (objects.Texels < uint64_t{kShadowTilePx} * kShadowTilePx &&
+        !IncludeShadowChange(objects, bounds)) {
+      objects = PrepareShadowRaster(
           AcceptedRaster_[region], Static_[region], Geometry_->AnchorM(), kShadowTilePx, true);
-      regionFull = true;
     }
-    allFull = allFull && regionFull;
+    TerrainUpdates_[region] = terrainChanged ? PrepareShadowRaster(AcceptedRaster_[region],
+                                                                   Static_[region],
+                                                                   Geometry_->AnchorM(),
+                                                                   kShadowTilePx,
+                                                                   true)
+                                             : objects;
+    RasterUpdates_[region] = objects;
     for (size_t axis = 0; axis < 2; ++axis) {
-      RegionUniforms_[region].Depth[2 + axis] =
-          static_cast<float>(RasterUpdates_[region].Origin[axis]);
+      RegionUniforms_[region].Depth[2 + axis] = static_cast<float>(objects.Origin[axis]);
     }
-    DirtyRegions_[region] = RasterUpdates_[region].Count > 0;
-    changed += DirtyRegions_[region] ? 1u : 0u;
+    Casting_ = Casting_ || TerrainUpdates_[region].Count > 0;
   }
-  if (changed != 0) {
-    PreservesAtlas_ = reusable && !allFull;
-    Cache_.Invalidate();
-    Casting_ = true;
-  }
+  if (Casting_) { Cache_.Invalidate(); }
   PreparedGeometryRevision_ = geometry.Revision;
   PreparedPrismRevision_ = prisms.Revision;
   PreparedGroundGeneration_ = ground;
@@ -325,36 +350,92 @@ void SunShadowPass::Prepare(const FrameContext &ctx) {
 Native::Result<void> SunShadowPass::Encode([[maybe_unused]] const FrameContext &ctx,
                                            const PassRecording &into) {
   if (!Casting_ || !Cache_.NeedsRecording()) { return {}; }
-  if (!DepthOnly_ || Geometry_ == nullptr || into.Commands == nullptr) {
+  if (!DepthOnly_ || !Atlas_ || !ObjectAtlas_ || Geometry_ == nullptr || into.Commands == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "shadow recording requires native resources"});
   }
-  CastBatches_ = 0;
-  for (size_t region = 0; region < RegionCount(); ++region) {
-    if (!DirtyRegions_[region]) { continue; }
-    const auto accepted = Cast(region, into);
-    if (!accepted) { return accepted; }
-  }
+  auto encoded = EncodeObjects(into);
+  if (encoded) { encoded = RestoreObjectDepths(*into.Commands); }
+  if (encoded) { encoded = EncodeTerrain(into); }
+  if (!encoded) { return encoded; }
   into.Submission.Record(Stage::LightVisibility, Cache_);
   return {};
 }
 
-Native::Result<void> SunShadowPass::Cast(size_t region, const PassRecording &into) {
+Native::Result<void> SunShadowPass::EncodeObjects(const PassRecording &into) {
+  const auto updates = std::span(RasterUpdates_).first(RegionCount());
+  if (std::ranges::none_of(updates, [](const auto &raster) { return raster.Count > 0; })) {
+    return {};
+  }
+  const auto begun = into.Commands->BeginRenderPass(
+      {.Colours = {},
+       .Depth = Native::DepthAttachment{.Image = {.Image = ObjectAtlas_.get()},
+                                        .Begin = PreservesObjects_ ? Native::Load::Load
+                                                                   : Native::Load::Clear},
+       .Label = "shadowObjects"});
+  if (!begun) { return begun; }
+  for (size_t region = 0; region < updates.size(); ++region) {
+    const auto encoded = Cast(region, updates[region], into, false);
+    if (!encoded) { return encoded; }
+  }
+  return into.Commands->EndRenderPass();
+}
+
+bool SunShadowPass::PreservesAtlas() const noexcept {
+  const auto updates = std::span(TerrainUpdates_).first(RegionCount());
+  return PreservesObjects_ && std::ranges::any_of(updates, [](const auto &raster) {
+           return raster.Texels != uint64_t{kShadowTilePx} * kShadowTilePx;
+         });
+}
+
+Native::Result<void> SunShadowPass::RestoreObjectDepths(Native::Commands &commands) {
+  const auto updates = std::span(TerrainUpdates_).first(RegionCount());
+  if (CopiesWholeAtlas_) {
+    constexpr Native::TextureRegion atlas{.Width = kShadowAtlasPx, .Height = kShadowAtlasPx};
+    return commands.Copy(*ObjectAtlas_, atlas, *Atlas_, atlas);
+  }
+  for (size_t region = 0; region < updates.size(); ++region) {
+    const auto &update = updates[region];
+    for (size_t at = 0; at < update.Count; ++at) {
+      const auto rect = AtlasRegion(region, update.Patches[at]);
+      const auto copied = commands.Copy(*ObjectAtlas_, rect, *Atlas_, rect);
+      if (!copied) { return copied; }
+    }
+  }
+  return {};
+}
+
+Native::Result<void> SunShadowPass::EncodeTerrain(const PassRecording &into) {
+  const auto begun = into.Commands->BeginRenderPass(
+      {.Colours = {},
+       .Depth =
+           Native::DepthAttachment{.Image = {.Image = Atlas_.get()}, .Begin = Native::Load::Load},
+       .Label = "shadowTerrain"});
+  if (!begun) { return begun; }
+  for (size_t region = 0; region < RegionCount(); ++region) {
+    const auto encoded = Cast(region, TerrainUpdates_[region], into, true);
+    if (!encoded) { return encoded; }
+  }
+  return into.Commands->EndRenderPass();
+}
+
+Native::Result<void> SunShadowPass::Cast(size_t region,
+                                         const ShadowRasterUpdate &update,
+                                         const PassRecording &into,
+                                         bool terrain) {
   const auto tile = ShadowTile(region);
   const Native::Viewport square{.X = static_cast<float>(tile[0]) * kShadowTilePx,
                                 .Y = static_cast<float>(tile[1]) * kShadowTilePx,
                                 .Width = kShadowTilePx,
                                 .Height = kShadowTilePx};
-  const auto &update = RasterUpdates_[region];
   for (size_t at = 0; at < update.Count; ++at) {
     const auto &patch = update.Patches[at];
-    const Native::Scissor clip{.X = static_cast<uint32_t>(tile[0]) * kShadowTilePx + patch.X,
-                               .Y = static_cast<uint32_t>(tile[1]) * kShadowTilePx + patch.Y,
-                               .Width = patch.Width,
-                               .Height = patch.Height};
+    const auto rect = AtlasRegion(region, patch);
+    const Native::Scissor clip{
+        .X = rect.X, .Y = rect.Y, .Width = rect.Width, .Height = rect.Height};
     const PassRecording recording{
         .Commands = into.Commands, .Submission = into.Submission, .Area = square, .Clip = clip};
-    if (PreservesAtlas_) {
+    if (!terrain && PreservesObjects_) {
       const auto cleared = into.Commands->Draw({.State = {.Pipeline = ClearTile_.get(),
                                                           .Bindings = {},
                                                           .Vertices = {},
@@ -366,11 +447,14 @@ Native::Result<void> SunShadowPass::Cast(size_t region, const PassRecording &int
     ShadowView uniform{.Light = ShadowPatchProjection(update.Next, patch)};
     const auto selection = ShadowPatchCullProjection(uniform.Light, patch, kShadowTilePx);
     const auto bytes = std::as_bytes(std::span(&uniform, 1));
-    const std::array bindings{
-        Native::Binding{.Set = 1, .Slot = 0, .Value = Native::Uniform{.Bytes = bytes}}};
-    const auto ground =
-        Geometry_->Ground().Cast(recording, selection, uniform.Shift, bindings, uniform.Light);
-    if (!ground) { return ground; }
+    if (terrain) {
+      const std::array bindings{
+          Native::Binding{.Set = 1, .Slot = 0, .Value = Native::Uniform{.Bytes = bytes}}};
+      const auto ground =
+          Geometry_->Ground().Cast(recording, selection, uniform.Shift, bindings, uniform.Light);
+      if (!ground) { return ground; }
+      continue;
+    }
     const auto geometry = CastGeometry(recording, bytes, selection);
     if (!geometry) { return geometry; }
     const auto prisms = Geometry_->EncodePrismShadow(

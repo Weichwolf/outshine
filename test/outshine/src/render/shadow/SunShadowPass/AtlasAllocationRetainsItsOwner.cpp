@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <expected>
 #include <string_view>
+#include <vector>
 
 namespace {
 using namespace outshine::Render;
@@ -17,16 +18,16 @@ using namespace outshine::Test::Gpu;
 class AtlasDevice final : public NativeDeviceProxy {
 public:
   using NativeDeviceProxy::NativeDeviceProxy;
-  enum class Reply { Fail, Empty, Allocate };
+  enum class Reply { Fail, FailObjects, Empty, Allocate };
   Reply Next = Reply::Fail;
-  size_t Requests = 0;
-  TextureDescription Requested;
+  std::vector<TextureDescription> Requests;
 
   Result<std::unique_ptr<Texture>> CreateTexture(TextureDescription description,
                                                  std::string_view label = {}) override {
-    ++Requests;
-    Requested = description;
-    if (Next == Reply::Fail) {
+    Requests.push_back(description);
+    if (Next == Reply::Fail ||
+        (Next == Reply::FailObjects && (static_cast<uint32_t>(description.Use) &
+                                        static_cast<uint32_t>(TextureUse::Sampled)) == 0)) {
       return std::unexpected(
           Error{.Kind = ErrorKind::Driver, .Message = "atlas allocation refused"});
     }
@@ -44,34 +45,41 @@ int main() {
         "an unrequested shadow pass owns no texture or submitted cache");
   const auto failed = pass.Allocate(device);
   CHECK(!failed && failed.error().Message == "atlas allocation refused" &&
-            pass.Atlas() == nullptr && device.Requests == 1,
+            pass.Atlas() == nullptr && device.Requests.size() == 1,
         "failed native allocation leaves no published target");
   device.Next = AtlasDevice::Reply::Empty;
   const auto empty = pass.Allocate(device);
   CHECK(!empty && empty.error().Kind == ErrorKind::Driver && pass.Atlas() == nullptr,
         "a successful native result without a texture is rejected");
+  device.Next = AtlasDevice::Reply::FailObjects;
+  CHECK(!pass.Allocate(device) && pass.Atlas() == nullptr && device.Requests.size() == 4,
+        "failure of the object atlas does not publish a partial shadow pass");
   device.Next = AtlasDevice::Reply::Allocate;
   Require(pass.Allocate(device));
   const auto *const atlas = pass.Atlas();
   CHECK(atlas != nullptr && !pass.HasSubmittedData(),
         "a successful allocation belongs to the pass without inventing shadow history");
-  const auto &requested = device.Requested;
-  const auto uses = TextureUse::DepthAttachment | TextureUse::Sampled | TextureUse::CopySource;
-  CHECK(requested.Width == kShadowAtlasPx && requested.Height == kShadowAtlasPx &&
-            requested.Texels == Format::Depth32Float &&
-            static_cast<uint32_t>(requested.Use) == static_cast<uint32_t>(uses),
-        "the owned atlas retains depth, sampling and readback contracts");
+  const auto depthUses = TextureUse::DepthAttachment | TextureUse::CopySource;
+  const auto combinedUses = depthUses | TextureUse::Sampled | TextureUse::CopyDestination;
+  const auto matches = [](const TextureDescription &requested, UseMask<TextureUse> uses) {
+    return requested.Width == kShadowAtlasPx && requested.Height == kShadowAtlasPx &&
+           requested.Texels == Format::Depth32Float &&
+           static_cast<uint32_t>(requested.Use) == static_cast<uint32_t>(uses);
+  };
+  CHECK(device.Requests.size() == 6 && matches(device.Requests[4], combinedUses) &&
+            matches(device.Requests[5], depthUses),
+        "the combined atlas supports sampling and copies, and the object atlas supplies depth");
   Require(pass.Allocate(device));
-  CHECK(pass.Atlas() == atlas && device.Requests == 3,
-        "repeated demand reuses the same texture without another allocation");
+  CHECK(pass.Atlas() == atlas && device.Requests.size() == 6,
+        "repeated demand reuses the atlases without another allocation");
   AtlasDevice another(*native);
   another.Next = AtlasDevice::Reply::Allocate;
   const auto foreign = pass.Allocate(another);
-  CHECK(!foreign && foreign.error().Kind == ErrorKind::Invalid && another.Requests == 0 &&
+  CHECK(!foreign && foreign.error().Kind == ErrorKind::Invalid && another.Requests.empty() &&
             pass.Atlas() == atlas && !pass.HasSubmittedData(),
         "another device cannot replace the live target or its cache state");
   Require(pass.Allocate(device));
-  CHECK(pass.Atlas() == atlas && device.Requests == 3,
+  CHECK(pass.Atlas() == atlas && device.Requests.size() == 6,
         "failed replacement leaves the original owner reusable");
   return Report();
 }

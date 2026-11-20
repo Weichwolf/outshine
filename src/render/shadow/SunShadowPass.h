@@ -55,9 +55,7 @@ public:
 
   [[nodiscard]] bool Casting() const { return Casting_; }
 
-  [[nodiscard]] bool Cached() const noexcept { return Cache_.Submitted() && !Casting_; }
-
-  [[nodiscard]] bool PreservesAtlas() const noexcept { return PreservesAtlas_; }
+  [[nodiscard]] bool PreservesAtlas() const noexcept;
 
   [[nodiscard]] bool HasSubmittedData() const noexcept { return Cache_.Submitted(); }
 
@@ -113,7 +111,11 @@ private:
 
   void
   BuildRegions(const LightBasis &basis, const Vec3 &centre, double radiusM, const Vec3 &preView);
-  [[nodiscard]] Native::Result<void> Cast(size_t region, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeObjects(const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeTerrain(const PassRecording &into);
+  [[nodiscard]] Native::Result<void> RestoreObjectDepths(Native::Commands &commands);
+  [[nodiscard]] Native::Result<void>
+  Cast(size_t region, const ShadowRasterUpdate &update, const PassRecording &into, bool terrain);
   [[nodiscard]] Native::Result<void>
   CastGeometry(const PassRecording &into, std::span<const std::byte> view, const Mat4f &selection);
 
@@ -122,6 +124,7 @@ private:
   GeometryRenderer *Geometry_ = nullptr;
   Native::Device *Device_ = nullptr;
   std::unique_ptr<Native::Texture> Atlas_;
+  std::unique_ptr<Native::Texture> ObjectAtlas_;
   std::unique_ptr<Native::GraphicsPipeline> DepthOnly_;
   std::unique_ptr<Native::GraphicsPipeline> ClearTile_;
   MaskedPipelines Masked_;
@@ -135,14 +138,15 @@ private:
   std::array<Mat4, kSunShadowRegions> Static_{};
   std::array<ShadowRaster, kSunShadowRegions> AcceptedRaster_{};
   std::array<ShadowRasterUpdate, kSunShadowRegions> RasterUpdates_{};
-  std::array<bool, kSunShadowRegions> DirtyRegions_{};
+  std::array<ShadowRasterUpdate, kSunShadowRegions> TerrainUpdates_{};
   std::array<ShadowRegionUniform, kSunShadowRegions> RegionUniforms_{};
   bool CameraCentred_ = false;
   uint64_t PreparedGeometryRevision_ = 0, PreparedPrismRevision_ = 0;
   uint64_t PreparedGroundGeneration_ = 0;
   StageCache Cache_;
   bool Casting_ = true;
-  bool PreservesAtlas_ = false;
+  bool PreservesObjects_ = false;
+  bool CopiesWholeAtlas_ = false;
   bool Declared_ = false;
 };
 

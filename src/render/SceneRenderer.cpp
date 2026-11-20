@@ -1321,7 +1321,7 @@ Native::Result<void> SceneRenderer::EncodeLightVisibility(const FrameContext &ct
   auto encoded = ActiveFrame().Shadow.Encode(ctx, into);
   if (!encoded) { return encoded; }
   Spent_[static_cast<size_t>(Stage::LightVisibility)].DeviceBytes =
-      static_cast<uint64_t>(kShadowAtlasPx) * kShadowAtlasPx * sizeof(float);
+      2u * static_cast<uint64_t>(kShadowAtlasPx) * kShadowAtlasPx * sizeof(float);
   ActiveContent().Geometry().ShadowedBy(ActiveFrame().Shadow.Atlas(),
                                         ActiveFrame().Atmosphere.Sampler(),
                                         ActiveState().ShadowLightIndex,
@@ -1362,12 +1362,6 @@ bool SceneRenderer::Settle(std::string &error) {
   CollectCompletedFrameTimes();
   error.clear();
   return true;
-}
-
-void SceneRenderer::SettleShadow() {
-  ActiveFrame().Shadow.Prepare(Framing());
-  Touched_[static_cast<size_t>(Resource::ShadowAtlas)] =
-      ActiveFrame().Shadow.Cached() || ActiveFrame().Shadow.PreservesAtlas();
 }
 
 EyeBasis SceneRenderer::Eye() const {
@@ -1415,8 +1409,7 @@ Native::Result<void> SceneRenderer::EncodePass(Native::Commands *commands,
                                                StageSubmission &submission) {
   const auto &declared = ActiveState().Plan->Passes()[pass];
   if (declared.Count == 1 &&
-      ActiveState().Plan->Order()[declared.First] == Stage::LightVisibility &&
-      ActiveFrame().Shadow.Cached()) {
+      ActiveState().Plan->Order()[declared.First] == Stage::LightVisibility) {
     return EncodeStage(Stage::LightVisibility,
                        ctx,
                        {.Commands = commands, .Submission = submission, .Area = {}, .Clip = {}});
@@ -1523,7 +1516,7 @@ std::expected<void, std::string> SceneRenderer::PrepareFrame() {
   const auto clipmaps = ActiveContent().Geometry().Ground().PrepareClipmaps(
       Framing(), ActiveContent().Geometry().AnchorM());
   if (!clipmaps) { return std::unexpected(clipmaps.error().Message); }
-  SettleShadow();
+  ActiveFrame().Shadow.Prepare(Framing());
   return {};
 }
 
