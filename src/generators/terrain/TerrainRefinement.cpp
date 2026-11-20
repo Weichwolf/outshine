@@ -120,7 +120,7 @@ HeightRange(std::span<const float> reference, size_t side, HeightField::GridRegi
 double DistanceToPatch(Data::TileId tile,
                        std::array<float, 2> heights,
                        const TangentFrame &frame,
-                       const Vec3 &eyeM) {
+                       const TerrainRefinementDetail &detail) {
   const outshine::Ground::GeoBounds bounds = outshine::Ground::TileBounds(tile);
   Vec3 low = {{std::numeric_limits<double>::max(),
                std::numeric_limits<double>::max(),
@@ -142,8 +142,11 @@ double DistanceToPatch(Data::TileId tile,
     }
   }
   double squaredM = 0.0;
+  const bool swept = !detail.EyeBounds.Empty();
+  const Vec3 &eyeLow = swept ? detail.EyeBounds.Min : detail.EyeM;
+  const Vec3 &eyeHigh = swept ? detail.EyeBounds.Max : detail.EyeM;
   for (size_t axis = 0; axis < 3; ++axis) {
-    const double awayM = std::max({low[axis] - eyeM[axis], eyeM[axis] - high[axis], 0.0});
+    const double awayM = std::max({low[axis] - eyeHigh[axis], eyeLow[axis] - high[axis], 0.0});
     squaredM += awayM * awayM;
   }
   return std::max(std::sqrt(squaredM), std::numeric_limits<double>::epsilon());
@@ -186,9 +189,8 @@ struct PatchSelection {
     const TerrainPatchError error = ErrorAt(index, region, grid);
     if (Detail.OrthographicPxPerM > 0.0) { return error.DeviationM * Detail.OrthographicPxPerM; }
     if (error.DeviationM == 0.0) { return 0.0; }
-    return HeightField::ProjectedErrorPx(error.DeviationM,
-                                         Detail.FocalPx,
-                                         DistanceToPatch(tile, error.HeightsM, Frame, Detail.EyeM));
+    return HeightField::ProjectedErrorPx(
+        error.DeviationM, Detail.FocalPx, DistanceToPatch(tile, error.HeightsM, Frame, Detail));
   }
 
   void Append(Data::TileId tile, HeightField::GridRegion region, size_t index) {

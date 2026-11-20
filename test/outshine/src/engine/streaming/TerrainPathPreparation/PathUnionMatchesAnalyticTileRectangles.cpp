@@ -83,6 +83,10 @@ int main() {
       path, ground, {.VectorZoom = 6, .Classification = classification, .RoadTiles = {}});
   CHECK(planned, "two camera positions produce an admitted data plan without IO");
   if (!planned) { return Report(); }
+  Keys meshes;
+  Rectangle(meshes, {.Zoom = 6, .Left = 18, .Right = 23, .Top = 18, .Bottom = 21});
+  CHECK(KeysOf(planned->Meshes) == meshes && planned->Meshes.size() == 24,
+        "moving through both fine blocks requests one covering patchwork");
   // Mesh blocks are [18,21] and [20,23], both at rows [18,21].
   // A one-cell field halo yields 8x6 fine fields and 5x4 parents.
   Keys fields;

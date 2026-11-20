@@ -5,6 +5,7 @@
 #include <array>
 #include <cstdint>
 #include <expected>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -23,6 +24,12 @@ public:
 
 [[nodiscard]] std::expected<std::vector<Data::TileId>, std::string>
 PlanPatchworkTiles(const Around &over);
+
+[[nodiscard]] std::vector<Data::TileId>
+RemoveCoveredPatchworkTiles(std::span<const Data::TileId> requested);
+
+[[nodiscard]] bool
+SweptPatchworkCovers(const TerrainSweep &sweep, const Around &request, const Vec3 &eyeM);
 
 [[nodiscard]] bool PatchworkIncludesContactTile(const Around &coverage,
                                                 const Around &request) noexcept;

@@ -79,27 +79,71 @@ std::expected<double, std::string> FrameSyncWait(std::span<const DiagnosticSampl
   return found->Value;
 }
 
-Result PrepareMotionData(Engine &engine,
-                         const BenchmarkMotion &motion,
-                         const ScenarioBenchmarkOptions &options,
-                         ScenarioBenchmarkReport &report) {
+Holds<std::vector<Vec3>>
+PlanMotionCoverage(Engine &engine, double budget, ScenarioBenchmarkReport &report) {
   if (!engine.declaration().Ground.Declared || report.Motion.LinearVelocityMps == Vec3{}) {
-    return {};
+    return std::vector<Vec3>{};
   }
   const auto began = Clock::now();
+  const auto start = engine.prepareCameraPose(budget);
+  if (!start) { return std::unexpected(start.error()); }
+  const auto motion = BenchmarkMotion::Make(*start, report.Motion);
+  if (!motion) { return std::unexpected(std::string(motion.error())); }
   std::vector<Vec3> positions;
   positions.reserve(report.Motion.Frames + 1);
-  positions.push_back(report.Start.PositionM);
+  positions.push_back(start->PositionM);
   for (size_t at = 0; at < report.Motion.Frames; ++at) {
-    auto current = motion.At(at);
+    const auto current = motion->At(at);
     if (!current) { return std::unexpected(std::string(current.error())); }
     positions.push_back(current->PositionM);
   }
-  const double leftS = options.PreloadSeconds - (report.PreloadMs + ElapsedMs(began)) / 1000.0;
+  const double remaining = budget - ElapsedMs(began) / 1000.0;
+  if (remaining <= 0) { return std::unexpected("no preload time remains to plan the camera path"); }
+  const auto planned = engine.prepareCameraPathData(positions, remaining);
+  if (!planned) { return std::unexpected(planned.error()); }
+  report.PathPreparationMs = ElapsedMs(began);
+  return positions;
+}
+
+Result PrepareMotionData(Engine &engine,
+                         std::span<const Vec3> positions,
+                         const ScenarioBenchmarkOptions &options,
+                         ScenarioBenchmarkReport &report) {
+  if (positions.empty()) { return {}; }
+  const auto began = Clock::now();
+  const double leftS =
+      options.PreloadSeconds - (report.PreloadMs + report.PathPreparationMs) / 1000.0;
   if (leftS <= 0) { return std::unexpected("no preload time remains for the camera path"); }
   const auto prepared = engine.prepareCameraPathData(positions, leftS);
-  report.PathPreparationMs = ElapsedMs(began);
+  report.PathPreparationMs += ElapsedMs(began);
   return prepared;
+}
+
+Result PrepareBenchmarkWorld(Engine &engine,
+                             const ScenarioBenchmarkOptions &options,
+                             ScenarioBenchmarkReport &report) {
+  const auto path = PlanMotionCoverage(engine, options.PreloadSeconds, report);
+  if (!path) { return std::unexpected("path planning: " + path.error()); }
+  const auto preloadAt = Clock::now();
+  const double preloadS = options.PreloadSeconds - report.PathPreparationMs / 1000.0;
+  if (const auto ready = engine.preload(preloadS, WorldQuality::Refined); !ready) {
+    return std::unexpected("preload: " + ready.error());
+  }
+  if (const auto focused = engine.advance(0.0); !focused) {
+    return std::unexpected("initial world update: " + focused.error());
+  }
+  if (!engine.settled(WorldQuality::Refined)) {
+    return std::unexpected("the initial benchmark view is not fully refined");
+  }
+  report.PreloadMs = ElapsedMs(preloadAt);
+  if (!engine.renderer().camera(report.Start)) {
+    return std::unexpected("scenario benchmark has no prepared camera");
+  }
+  if (const auto ready = PrepareMotionData(engine, *path, options, report); !ready) {
+    return std::unexpected("path preparation: " + ready.error());
+  }
+  report.Prepared = engine.loading();
+  return {};
 }
 
 Result MeasureFrames(Engine &engine,
@@ -258,26 +302,11 @@ RunScenarioBenchmark(const ScenarioBenchmarkOptions &options) {
     return std::unexpected(view.error());
   }
   report.SetupMs = ElapsedMs(began);
-  const auto preloadAt = Clock::now();
-  if (const auto ready = engine.preload(options.PreloadSeconds, WorldQuality::Refined); !ready) {
-    return std::unexpected("preload: " + ready.error());
-  }
-  if (const auto focused = engine.advance(0.0); !focused) {
-    return std::unexpected("initial world update: " + focused.error());
-  }
-  if (!engine.settled(WorldQuality::Refined)) {
-    return std::unexpected("the initial benchmark view is not fully refined");
-  }
-  report.PreloadMs = ElapsedMs(preloadAt);
-  if (!engine.renderer().camera(report.Start)) {
-    return std::unexpected("scenario benchmark has no prepared camera");
+  if (const auto ready = PrepareBenchmarkWorld(engine, options, report); !ready) {
+    return std::unexpected(ready.error());
   }
   const auto motion = BenchmarkMotion::Make(report.Start, report.Motion);
   if (!motion) { return std::unexpected(std::string(motion.error())); }
-  if (const auto ready = PrepareMotionData(engine, *motion, options, report); !ready) {
-    return std::unexpected("path preparation: " + ready.error());
-  }
-  report.Prepared = engine.loading();
   if (const auto measured = MeasureFrames(engine, *motion, report, *timing); !measured) {
     return std::unexpected(measured.error());
   }

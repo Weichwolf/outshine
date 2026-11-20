@@ -239,7 +239,7 @@ std::expected<TerrainPathPlan, std::string> PlanTerrainPath(std::span<const Arou
     const auto added = AddPoint(tiles, point, ground, sources);
     if (!added) { return std::unexpected(added.error()); }
   }
-  const std::vector<Data::TileId> meshTiles(tiles.Meshes.begin(), tiles.Meshes.end());
+  std::vector<Data::TileId> meshTiles(tiles.Meshes.begin(), tiles.Meshes.end());
   const auto fields = Generators::PlanTerrainSourceTiles(meshTiles,
                                                          {.FinestZoom = finest,
                                                           .GroundZoom = ground.BlockZoom(),
@@ -249,7 +249,8 @@ std::expected<TerrainPathPlan, std::string> PlanTerrainPath(std::span<const Arou
     return std::unexpected(added.error());
   }
   return TerrainPathPlan{.Fields = {tiles.Samples.begin(), tiles.Samples.end()},
-                         .Vectors = {tiles.Vectors.begin(), tiles.Vectors.end()}};
+                         .Vectors = {tiles.Vectors.begin(), tiles.Vectors.end()},
+                         .Meshes = std::move(meshTiles)};
 }
 
 std::expected<void, std::string>

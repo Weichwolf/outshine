@@ -33,6 +33,7 @@ Holds<std::vector<uint8_t>> Engine::State::GroundRegionParameters(const Around &
       .ErrorPx = Generators::TerrainRefinementDetail{}.ErrorPx,
       .PagesMost = Render::TerrainLattice::kMaximumPages,
       .DeclaredDigest = std::nullopt};
+  if (coverage.Sweep) { definition.EyeM = coverage.Sweep->Eyes.Middle().Axis; }
   if (!World.Surface().HasVectorSource() || World.Surface().HasDeclaredVectors()) {
     definition.DeclaredDigest = World.Surface().DeclaredDigest();
   }
@@ -69,7 +70,7 @@ Holds<bool> Engine::State::PrimeGroundRegion(GroundQuality quality) {
   if (!positioned || !*positioned) { return positioned; }
   const auto assets = World.Surface().RegionAssets();
   const auto focus = CurrentGeographicFocus();
-  const auto coverage = TerrainCoverageAt(focus);
+  const auto coverage = RequestedTerrainCoverage(focus);
   const auto parameters = GroundRegionParameters(coverage, quality);
   if (!parameters) { return std::unexpected(parameters.error()); }
   auto request = assets->PlanRequest(focus,

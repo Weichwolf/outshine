@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <numbers>
 #include <set>
 #include <tuple>
@@ -257,6 +258,20 @@ int main() {
         "fine coverage remains continuous across the antimeridian in either direction");
   CHECK(!PatchworkCoversFocus(fine(500.5, 0.1, 1), fine(500.5, 0.01, 1), 186),
         "coverage cannot extend beyond the Mercator band");
+  const std::vector<Data::TileId> sweepTiles{{.Zoom = 5, .X = 10, .Y = 10},
+                                             {.Zoom = 5, .X = 11, .Y = 10},
+                                             {.Zoom = 6, .X = 20, .Y = 20},
+                                             {.Zoom = 6, .X = 20, .Y = 21},
+                                             {.Zoom = 6, .X = 21, .Y = 20},
+                                             {.Zoom = 6, .X = 21, .Y = 21}};
+  const auto patches = RemoveCoveredPatchworkTiles(sweepTiles);
+  auto swept = contact(21.5, 21.5);
+  swept.Sweep = std::make_shared<const TerrainSweep>(
+      TerrainSweep{.Requested = sweepTiles, .Patches = patches});
+  Source sweptSource;
+  const auto crossed = LayPatchwork(sweptSource, swept);
+  CHECK(crossed && crossed->Sheets.size() == 5 && crossed->Sheets.back().Tile == sweepTiles[1],
+        "a swept terrain region retains a coarse tile wherever finer children leave a hole");
   for (const auto position : Positions()) {
     for (const auto pattern : {Pattern::Ready, Pattern::Mixed, Pattern::Pending}) {
       for (const auto [access, playableOnly] : {std::pair{TerrainTileAccess::Mesh, false},
@@ -294,7 +309,7 @@ int main() {
                                      .Grid = 2});
   CHECK(largest && largest->CoarsestZoom == 1 && source.Calls.size() <= 16 * (kZoomLevels - 1),
         "largest cascade has a bounded request count and reaches zoom one");
-  for (const auto over :
+  for (const auto &over :
        {Around{.Zoom = 0},
         Around{.Zoom = 24},
         Around{.Zoom = 6, .Levels = 0},

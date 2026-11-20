@@ -84,6 +84,7 @@ class StreetGraphTopology;
 
 namespace outshine {
 struct GroundBuildProducts;
+struct TerrainPathPlan;
 class WorldRegionBuildState;
 class BuildingFieldStreaming;
 class GroundWorldCandidate;
@@ -185,6 +186,8 @@ struct WorldRegionState {
   size_t AskedWanted = 0;
   GroundPublication GroundPublished;
   std::optional<Around> PublishedGroundCoverage;
+  std::shared_ptr<const TerrainSweep> PlannedTerrainSweep;
+  uint64_t NextTerrainSweep = 0;
   std::optional<GroundRevision> RequestedRefinedGround;
   std::unique_ptr<WorldRegionBuildState> GroundBuild;
   std::unique_ptr<WorldRegionBuildState> GroundRetirement;
@@ -594,6 +597,7 @@ struct Engine::State {
   [[nodiscard]] std::optional<Vec3> CurrentGeographicEyeEcef() const;
   [[nodiscard]] LongitudeLatitude GeographicFocusFor(const Vec3 &eye) const;
   [[nodiscard]] Around TerrainCoverageAt(LongitudeLatitude focus) const;
+  [[nodiscard]] Around RequestedTerrainCoverage(LongitudeLatitude focus) const;
   [[nodiscard]] double TerrainSightM() const noexcept;
   [[nodiscard]] static double FinestTerrainSampleRadiusM() noexcept;
   [[nodiscard]] Holds<std::vector<Around>>
@@ -603,6 +607,10 @@ struct Engine::State {
   [[nodiscard]] Holds<LongitudeLatitude>
   PreparationFocus(const Scenario::View &view,
                    std::chrono::steady_clock::time_point deadline) const;
+  [[nodiscard]] Result PrepareViewTerrain(std::span<const Around> coverage,
+                                          std::span<const Vec3> positions,
+                                          TerrainPathPlan plan,
+                                          std::chrono::steady_clock::time_point deadline);
   [[nodiscard]] bool EnsureRuntimeScene();
   void HandsPiecesOver();
   [[nodiscard]] bool UpdateVegetation(bool prepare);

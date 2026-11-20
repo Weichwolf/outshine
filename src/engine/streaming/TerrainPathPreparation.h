@@ -16,6 +16,7 @@ struct TerrainPathPlan {
   static constexpr size_t MaximumTiles = 8192;
   std::vector<Data::TileId> Fields;
   std::vector<Data::TileId> Vectors;
+  std::vector<Data::TileId> Meshes;
 };
 
 struct TerrainPathSources {
