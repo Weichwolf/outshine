@@ -40,7 +40,7 @@ std::string_view Engine::State::UrbanWorldBlocker() const noexcept {
       !Session.Declared.Ground.Osm.empty()) {
     return {};
   }
-  return World.UrbanAreas && World.UrbanAreas->Ready() ? "" : "pending resolved urban assets";
+  return World.UrbanAreas ? World.UrbanAreas->Blocker() : "pending resolved urban assets";
 }
 
 bool Engine::State::AdvanceUrbanAreas() {
@@ -72,7 +72,7 @@ bool Engine::State::AdvanceUrbanAreas() {
                                 *terrain,
                                 World.Rebuilds,
                                 World.BuildingCoverage.Regions(),
-                                World.Pieces.Digest());
+                                World.BuildingCoverage.Version());
   if (!advanced) {
     Error = std::move(advanced.error());
     return false;

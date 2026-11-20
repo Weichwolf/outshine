@@ -89,7 +89,8 @@ std::expected<bool, std::string>
 UrbanAreaStreaming::Publish(Group &group,
                             const View &view,
                             std::span<const Ground::GeoBounds> children,
-                            uint64_t childrenRevision) {
+                            uint64_t childrenRevision,
+                            bool uploadAvailable) {
   const auto &key = group.Slot->ReadyKey();
   if (group.PublishedKey == key && group.ChildrenRevision == childrenRevision &&
       (!group.Handle || Renderer_->HasPrismGrid(group.Handle))) {
@@ -105,6 +106,7 @@ UrbanAreaStreaming::Publish(Group &group,
     group.ChildrenRevision = childrenRevision;
     return false;
   }
+  if (!uploadAvailable) { return false; }
   auto views = ExcludePrismCells(
       product.Geometry,
       cuts,

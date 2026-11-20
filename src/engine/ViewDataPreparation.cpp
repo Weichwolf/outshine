@@ -147,6 +147,16 @@ Engine::prepareViewData(double durationS, double patienceS, std::span<const Vec3
   S_->Published.RecordMetric(
       "view data: planned vectors", static_cast<double>(plan->Vectors.size()), "tiles");
 
-  return PrepareTerrainPath(std::move(*plan), S_->World.Surface(), deadline);
+  auto prepared = PrepareTerrainPath(std::move(*plan), S_->World.Surface(), deadline);
+  const auto *terrain = S_->World.TerrainSurface.PublishedSurface();
+  if (!prepared || !S_->World.UrbanAreas || terrain == nullptr || positionsM.empty()) {
+    return prepared;
+  }
+  return S_->World.UrbanAreas->PrepareMotion(positionsM,
+                                             *terrain,
+                                             S_->World.Rebuilds,
+                                             S_->World.BuildingCoverage.Regions(),
+                                             S_->World.BuildingCoverage.Version(),
+                                             deadline);
 }
 }

@@ -9,6 +9,7 @@
 #include "UrbanAreaGroups.h"
 #include "UrbanPrismSlot.h"
 #include "TileGeodesy.h"
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -16,6 +17,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace outshine {
@@ -49,8 +51,17 @@ public:
           const TerrainResidency &terrain,
           uint64_t terrainRevision,
           std::span<const Ground::GeoBounds> children,
-          uint64_t childrenRevision);
+          uint64_t childrenRevision,
+          std::optional<Vec3> knownDisplacement = std::nullopt);
+  [[nodiscard]] std::expected<void, std::string>
+  PrepareMotion(std::span<const Vec3> positions,
+                const TerrainResidency &terrain,
+                uint64_t terrainRevision,
+                std::span<const Ground::GeoBounds> children,
+                uint64_t childrenRevision,
+                std::chrono::steady_clock::time_point deadline);
   [[nodiscard]] bool Ready() const noexcept;
+  [[nodiscard]] std::string_view Blocker() const noexcept;
   [[nodiscard]] bool AwaitProgress(double seconds) const;
   [[nodiscard]] Counters Costs() const noexcept;
 
@@ -72,17 +83,25 @@ private:
     Render::PrismGridHandle Handle;
     std::vector<PrismCellRect> Exclusions;
     uint64_t ChildrenRevision = 0;
+    bool Required = true;
   };
 
   struct Candidate {
     size_t Source = 0, Group = 0;
     double DistanceM = 0;
+    bool Required = true;
   };
 
   [[nodiscard]] std::expected<std::vector<Candidate>, std::string>
-  SelectGroups(const View &view, const TerrainResidency &terrain) const;
+  SelectGroups(const View &view, const TerrainResidency &terrain, Vec3 ahead) const;
   [[nodiscard]] std::expected<void, std::string> PlanSources(const View &view);
   [[nodiscard]] std::expected<bool, std::string> PollSource();
+  [[nodiscard]] std::expected<void, std::string> BindRequests(const TerrainResidency &terrain,
+                                                              bool terrainChanged);
+  [[nodiscard]] std::expected<bool, std::string> LoadGroup(Group &group,
+                                                           const TerrainResidency &terrain,
+                                                           UrbanPrismSlot::Admission admission,
+                                                           bool &captured);
   [[nodiscard]] std::expected<void, std::string>
   AdvanceGroups(const View &view,
                 const TerrainResidency &terrain,
@@ -92,13 +111,14 @@ private:
   Upload(Group &group,
          const std::shared_ptr<const PrismGrid> &geometry,
          std::span<const Render::PrismInstance> instances);
-  [[nodiscard]] std::expected<void, std::string> PlanGroups(const View &view,
-                                                            const TerrainResidency &terrain);
+  [[nodiscard]] std::expected<void, std::string>
+  PlanGroups(const View &view, const TerrainResidency &terrain, Vec3 ahead);
   [[nodiscard]] std::expected<bool, std::string>
   Publish(Group &group,
           const View &view,
           std::span<const Ground::GeoBounds> children,
-          uint64_t childrenRevision);
+          uint64_t childrenRevision,
+          bool uploadAvailable);
   void Retire(Group &group);
   std::shared_ptr<Generators::Osm::PreparedUrbanAreas> Sources_;
   Generators::Osm::MvtSchema Schema_;
