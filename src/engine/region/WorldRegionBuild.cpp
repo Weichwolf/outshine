@@ -474,6 +474,7 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
           request.Revision, alsoWhenTilesLanded, World.RimsMissing > 0)) {
     World.RetiredTerrainFields.reset();
     ReleaseRetiredVectorSnapshot();
+    if (!World.GroundBuild) { ReleaseStreetTopology(); }
     return Laid::Unchanged;
   }
 
@@ -1070,6 +1071,40 @@ Engine::State::AdvanceGroundBuildingModels(const TangentFrame &standing) {
   return GroundBuildProgress::Pending;
 }
 
+void Engine::State::BeginGroundStreetGraph(WorldRegionBuildState &state) {
+  const auto &sources = state.Candidate().Sources();
+  if (!World.StreetTopology || !World.StreetTopology->Matches(sources.Vectors, sources.Ways)) {
+    ReleaseStreetTopology();
+    World.StreetTopology =
+        std::make_shared<Generators::Osm::StreetGraphTopology>(sources.Vectors, sources.Ways);
+  }
+  const int sourceZoom = state.Coverage().Zoom;
+  const auto fields = std::make_shared<const Generators::TerrainFieldSet>(
+      state.TerrainInputs().SnapshotSourceFields());
+  Generators::Osm::StreetGraphRequest::Resolver resolve;
+  if (const auto assets = World.Surface().NetworkAssets()) {
+    resolve = Generators::Osm::StreetGraphRequest::CachedResolver(
+        assets,
+        [assets,
+         topology = World.StreetTopology,
+         fields,
+         shape = World.Surface().Pool().Shaped(),
+         sourceZoom] -> std::expected<std::string, std::string> {
+          const auto binding = fields->BindingAt(sourceZoom);
+          if (!binding) {
+            return std::unexpected("street graph terrain binding is invalid or over budget");
+          }
+          return assets->Key(
+              topology->Vectors(), topology->Ways(), shape, sourceZoom, binding->Key);
+        });
+  }
+  state.BeginStreetGraph(std::make_unique<Generators::Osm::StreetGraphRequest>(
+      *Services.Compute,
+      World.StreetTopology,
+      [fields, sourceZoom](LongitudeLatitude at) { return fields->AslMAt(sourceZoom, at); },
+      std::move(resolve)));
+}
+
 Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
   WorldRegionBuildState &state = *World.GroundBuild;
   if (state.CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsNetwork) {
@@ -1102,36 +1137,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
       World.GroundBuild.reset();
       return GroundBuildProgress::Failed;
     }
-    const int sourceZoom = state.Coverage().Zoom;
-    const auto fields = std::make_shared<const Generators::TerrainFieldSet>(
-        state.TerrainInputs().SnapshotSourceFields());
-    const auto ways = std::make_shared<const Generators::Osm::StreetField>(sources.Ways);
-    Generators::Osm::StreetGraphRequest::JobFactory begin =
-        [vectors = sources.Vectors, ways, fields, sourceZoom] {
-          return outshine::Generators::Osm::StreetGraphBuildJob::Begin(
-              *vectors, *ways, [fields, sourceZoom](LongitudeLatitude at) {
-                return fields->AslMAt(sourceZoom, at);
-              });
-        };
-    Generators::Osm::StreetGraphRequest::Resolver resolve;
-    if (const auto assets = World.Surface().NetworkAssets()) {
-      resolve = Generators::Osm::StreetGraphRequest::CachedResolver(
-          assets,
-          [assets,
-           vectors = sources.Vectors,
-           ways,
-           fields,
-           shape = World.Surface().Pool().Shaped(),
-           sourceZoom] -> std::expected<std::string, std::string> {
-            const auto binding = fields->BindingAt(sourceZoom);
-            if (!binding) {
-              return std::unexpected("street graph terrain binding is invalid or over budget");
-            }
-            return assets->Key(*vectors, *ways, shape, sourceZoom, binding->Key);
-          });
-    }
-    state.BeginStreetGraph(std::make_unique<Generators::Osm::StreetGraphRequest>(
-        *Services.Compute, std::move(begin), std::move(resolve)));
+    BeginGroundStreetGraph(state);
     return GroundBuildProgress::Pending;
   }
   auto completed = state.StreetGraphWorker()->Collect();
@@ -1153,6 +1159,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
   Published.RecordMetric(
       "network: native asset bytes", static_cast<double>(completed->value().ReadBytes), "bytes");
   state.FinishStreetGraph();
+  ReleaseStreetTopology();
   state.AdvanceStage();
   return GroundBuildProgress::Pending;
 }
@@ -1350,6 +1357,13 @@ void Engine::State::RetireGroundCandidate() {
 
 void Engine::State::ReleaseRetiredVectorSnapshot() {
   auto retired = std::move(World.RetiredVectorSnapshot);
+  if (retired && Services.Compute) {
+    (void)Services.Compute->PostDetached([held = std::move(retired)] { (void)held; });
+  }
+}
+
+void Engine::State::ReleaseStreetTopology() {
+  auto retired = std::move(World.StreetTopology);
   if (retired && Services.Compute) {
     (void)Services.Compute->PostDetached([held = std::move(retired)] { (void)held; });
   }

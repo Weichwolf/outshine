@@ -69,10 +69,15 @@ public:
 
   [[nodiscard]] const std::vector<Way> &Ways() const { return Ways_; }
 
+  [[nodiscard]] bool SharesWaysWith(const StreetField &other) const noexcept {
+    return WayVersion_ == other.WayVersion_;
+  }
+
   [[nodiscard]] StreetField Without(size_t way) const {
     assert(way < Ways_.size());
     auto retained = *this;
     retained.Ways_[way] = {};
+    retained.WayVersion_ = std::make_shared<const WayVersion>();
     return retained;
   }
 
@@ -132,6 +137,10 @@ private:
                      const SurfacePlacement &placement);
   long InvalidLayers_ = 0;
   long InvalidPlacements_ = 0;
+
+  struct WayVersion {};
+
+  std::shared_ptr<const WayVersion> WayVersion_;
   std::vector<Way> Ways_;
   std::vector<uint64_t> SourceDigests_;
   std::shared_ptr<const void> SourceOrigin_;

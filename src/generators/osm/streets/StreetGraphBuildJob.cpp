@@ -112,6 +112,15 @@ std::expected<void, std::string> StreetGraphBuildJob::AdvanceCrossings(size_t pa
   return {};
 }
 
+bool StreetGraphBuildJob::CanResumeTopology() const noexcept {
+  return Stage_ <= Stage::BeginElevation;
+}
+
+void StreetGraphBuildJob::BindHeightSource(Path::Network::HeightSource heightOf) {
+  assert(CanResumeTopology());
+  HeightOf_ = std::move(heightOf);
+}
+
 void StreetGraphBuildJob::BeginElevation() {
   Elevation_ = std::make_unique<Path::NetworkElevationJob>(
       Path::NetworkElevationJob::Begin(std::move(Graph_), std::move(HeightOf_)));

@@ -8,6 +8,7 @@
 #include <chrono>
 #include <expected>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <stop_token>
 #include <ratio>
@@ -31,13 +32,51 @@ std::string Describe(const PreparedStreetGraph::Failure &failure) {
 }
 }
 
+StreetGraphTopology::StreetGraphTopology(std::shared_ptr<const OsmField> vectors, StreetField ways)
+    : Vectors_(std::move(vectors)), Ways_(std::move(ways)) {}
+
+bool StreetGraphTopology::Matches(const std::shared_ptr<const OsmField> &vectors,
+                                  const StreetField &ways) const noexcept {
+  return Vectors_ == vectors && Ways_.SharesWaysWith(ways);
+}
+
+std::expected<StreetGraphBuildJob, std::string>
+StreetGraphTopology::Begin(Path::Network::HeightSource heightOf) {
+  if (!heightOf) { return std::unexpected("street corridor height source is absent"); }
+  if (auto saved = Take()) {
+    saved->BindHeightSource(std::move(heightOf));
+    return std::move(*saved);
+  }
+  return StreetGraphBuildJob::Begin(Vectors(), Ways(), std::move(heightOf));
+}
+
+std::optional<StreetGraphBuildJob> StreetGraphTopology::Take() {
+  const std::scoped_lock lock(Mutex_);
+  return std::exchange(Pending_, std::nullopt);
+}
+
+void StreetGraphTopology::Save(StreetGraphBuildJob job) {
+  job.BindHeightSource({});
+  const std::scoped_lock lock(Mutex_);
+  Pending_.emplace(std::move(job));
+}
+
 struct StreetGraphRequest::Work {
   explicit Work(StreetGraphBuildJob job) : Job(std::move(job)) {}
 
   Work(JobFactory factory, Resolver resolver)
       : Factory(std::move(factory)), Resolve(std::move(resolver)) {}
 
+  Work(std::shared_ptr<StreetGraphTopology> topology,
+       Path::Network::HeightSource heightOf,
+       Resolver resolver)
+      : Topology(std::move(topology)),
+        HeightOf(std::move(heightOf)),
+        Resolve(std::move(resolver)) {}
+
   std::optional<StreetGraphBuildJob> Job;
+  std::shared_ptr<StreetGraphTopology> Topology;
+  Path::Network::HeightSource HeightOf;
   JobFactory Factory;
   Resolver Resolve;
   double LongestSliceMs = 0.0, WorkerMs = 0.0;
@@ -49,12 +88,22 @@ struct StreetGraphRequest::Work {
   std::atomic<const char *> Phase{"begin-weave"};
   std::atomic<size_t> Advances{0};
 
+  [[nodiscard]] std::expected<StreetGraphBuildJob, std::string> BeginJob() {
+    if (Topology) { return Topology->Begin(std::move(HeightOf)); }
+    if (!Factory) { return std::unexpected("street graph miss has no job factory"); }
+    return Factory();
+  }
+
+  void ReleaseInputs() {
+    Job.reset();
+    Factory = {};
+    Resolve = {};
+    HeightOf = {};
+    Topology.reset();
+  }
+
   void Finish() {
-    if (Result) {
-      Job.reset();
-      Factory = {};
-      Resolve = {};
-    }
+    if (Result) { ReleaseInputs(); }
     auto expected = Status::Running;
     const auto next = Result ? Status::Complete : Status::Deferred;
     if (State.compare_exchange_strong(
@@ -62,9 +111,7 @@ struct StreetGraphRequest::Work {
       return;
     }
     Result.emplace(std::unexpected("street graph candidate canceled"));
-    Job.reset();
-    Factory = {};
-    Resolve = {};
+    ReleaseInputs();
     State.store(Status::Complete, std::memory_order_release);
   }
 };
@@ -76,6 +123,15 @@ StreetGraphRequest::StreetGraphRequest(Tasks &pool, StreetGraphBuildJob job)
 
 StreetGraphRequest::StreetGraphRequest(Tasks &pool, JobFactory factory, Resolver resolver)
     : Pool_(pool), Work_(std::make_shared<Work>(std::move(factory), std::move(resolver))) {
+  Start(pool);
+}
+
+StreetGraphRequest::StreetGraphRequest(Tasks &pool,
+                                       std::shared_ptr<StreetGraphTopology> topology,
+                                       Path::Network::HeightSource heightOf,
+                                       Resolver resolver)
+    : Pool_(pool),
+      Work_(std::make_shared<Work>(std::move(topology), std::move(heightOf), std::move(resolver))) {
   Start(pool);
 }
 
@@ -140,8 +196,7 @@ std::expected<StreetGraphBuilder::Built, std::string>
 StreetGraphRequest::Generate(Work &work, const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected("street graph candidate canceled"); }
   if (!work.Job) {
-    if (!work.Factory) { return std::unexpected("street graph miss has no job factory"); }
-    auto begun = work.Factory();
+    auto begun = work.BeginJob();
     if (!begun) { return std::unexpected(std::move(begun.error())); }
     work.Job.emplace(std::move(*begun));
   }
@@ -158,6 +213,7 @@ StreetGraphRequest::Generate(Work &work, const std::stop_token &stop) {
     if (!graph) { return std::unexpected(std::string(graph.error())); }
     return std::move(*graph);
   }
+  if (work.Topology && work.Job->CanResumeTopology()) { work.Topology->Save(std::move(*work.Job)); }
   return std::unexpected("street graph candidate canceled");
 }
 
