@@ -73,6 +73,7 @@
 namespace outshine::Generators {
 class GroundRegionRequest;
 class TerrainFieldSet;
+class TerrainHaloCache;
 class TerrainRefinementCache;
 struct TerrainDeformationMetrics;
 }
@@ -184,6 +185,7 @@ struct WorldRegionState {
   std::unique_ptr<WorldRegionBuildState> GroundRetirement;
   std::unique_ptr<Generators::TerrainFieldSet> RetiredTerrainFields;
   std::unique_ptr<Generators::TerrainRefinementCache> TerrainErrors;
+  std::shared_ptr<Generators::TerrainHaloCache> TerrainHalos;
   std::string GroundLookupRequest;
   std::unique_ptr<Generators::GroundRegionRequest> GroundLookup;
   std::unique_ptr<GroundPatchPreparation> PlacementGround;

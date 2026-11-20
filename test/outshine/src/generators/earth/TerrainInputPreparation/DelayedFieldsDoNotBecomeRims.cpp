@@ -56,8 +56,13 @@ void CheckSheetWorker(const Generators::TerrainInputPreparation &prepared,
   }
   auto inputs = prepared;
   auto candidate = original;
-  const Generators::TerrainSheetTask::Settings settings{
-      .Frame = frame, .Layout = kLayout, .FinestZoom = 4, .ProbeStride = stride};
+  const auto cache = std::make_shared<Generators::TerrainHaloCache>();
+  const Generators::TerrainSheetTask::Settings settings{.Frame = frame,
+                                                        .Layout = kLayout,
+                                                        .FinestZoom = 4,
+                                                        .ProbeStride = stride,
+                                                        .HaloCache = cache,
+                                                        .Generation = 1};
   Tasks workers(1);
   Generators::TerrainSheetTask worker(
       workers,
@@ -81,6 +86,22 @@ void CheckSheetWorker(const Generators::TerrainInputPreparation &prepared,
   CHECK((*result)->Survey.ProbePositionsM == survey.ProbePositionsM &&
             (*result)->Survey.Vertices == survey.Vertices,
         "the worker samples lighting probes from the completed height pages");
+
+  auto nextInputs = prepared;
+  auto next = original;
+  auto nextSettings = settings;
+  ++nextSettings.Generation;
+  Generators::TerrainSheetTask replacement(
+      workers,
+      nextInputs,
+      next,
+      std::move(nextSettings),
+      nextInputs.BeginRefinement(next, kLayout, {}, kMaximumPatches));
+  const auto reused = AwaitSheets(replacement, nextInputs, next);
+  CHECK(reused && *reused && cache->Hits() == expected.Sheets.size() &&
+            next.Sheets == expected.Sheets && nextInputs.RimsMissing() == 0 &&
+            (*reused)->Survey.ProbePositionsM == survey.ProbePositionsM,
+        "a replacement terrain window reuses complete pages from the same height fields");
 
   auto refusedInputs = prepared;
   auto refusedCandidate = original;

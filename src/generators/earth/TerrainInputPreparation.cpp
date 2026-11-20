@@ -2,10 +2,12 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cassert>
 #include <cmath>
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -31,6 +33,8 @@ constexpr int kSide = kPatchGrid + 1;
 constexpr int kPageSide = kSide + 2;
 constexpr size_t kInteriorNodes = static_cast<size_t>(kSide) * kSide;
 constexpr size_t kPageNodes = static_cast<size_t>(kPageSide) * kPageSide;
+constexpr size_t kCacheCopyCharge = kPageNodes / 8u;
+constexpr size_t kMaximumCachedHaloPages = 4096;
 
 [[nodiscard]] auto TileKey(Data::TileId tile) {
   return std::tuple(tile.Zoom, tile.X, tile.Y);
@@ -108,6 +112,58 @@ SourceTilesFor(const Patchwork &candidate,
   return tiles;
 }
 
+}
+
+void TerrainHaloCache::SelectWindow(uint64_t generation, std::span<const Sheet> sheets) {
+  decltype(Pages_) selected;
+  const std::scoped_lock lock(Mutex_);
+  if (generation <= Window_) { return; }
+  for (const Sheet &sheet : sheets) {
+    if (selected.size() == kMaximumCachedHaloPages) { break; }
+    auto carried = Pages_.extract(TileKey(sheet.Tile));
+    if (carried.empty()) {
+      selected.try_emplace(TileKey(sheet.Tile));
+    } else {
+      selected.insert(std::move(carried));
+    }
+  }
+  Pages_.swap(selected);
+  Window_ = generation;
+}
+
+bool TerrainHaloCache::Restore(uint64_t generation,
+                               Sheet &sheet,
+                               int sourceZoom,
+                               const SourceFields &fields) {
+  const std::scoped_lock lock(Mutex_);
+  if (generation != Window_) { return false; }
+  const auto found = Pages_.find(TileKey(sheet.Tile));
+  if (found == Pages_.end()) { return false; }
+  const Page &page = found->second;
+  if (page.SourceZoom != sourceZoom ||
+      !std::ranges::equal(page.Fields, fields, [](const auto &held, const auto &current) {
+        if (current) { return held.lock() == current; }
+        return !held.owner_before(current) && !current.owner_before(held);
+      })) {
+    return false;
+  }
+  sheet.Nodes = page.Nodes;
+  Hits_.fetch_add(1, std::memory_order_relaxed);
+  return true;
+}
+
+void TerrainHaloCache::Retain(uint64_t generation,
+                              const Sheet &sheet,
+                              int sourceZoom,
+                              const SourceFields &fields) {
+  const std::scoped_lock lock(Mutex_);
+  if (generation != Window_) { return; }
+  const auto found = Pages_.find(TileKey(sheet.Tile));
+  if (found == Pages_.end()) { return; }
+  Page &page = found->second;
+  page.Nodes = sheet.Nodes;
+  page.SourceZoom = sourceZoom;
+  std::ranges::copy(fields, page.Fields.begin());
 }
 
 const TerrainFieldSet::Entry *TerrainInputPreparation::FindField(Data::TileId tile) const {
@@ -242,8 +298,14 @@ std::string TerrainInputPreparation::FieldDiagnostic() const {
 
 TerrainInputPreparation::HaloBuildJob::HaloBuildJob(TerrainInputPreparation &inputs,
                                                     Patchwork &candidate,
-                                                    int finestZoom) noexcept
-    : Inputs_(&inputs), Candidate_(&candidate), FinestZoom_(finestZoom) {
+                                                    int finestZoom,
+                                                    TerrainHaloCache *cache,
+                                                    uint64_t generation) noexcept
+    : Inputs_(&inputs),
+      Candidate_(&candidate),
+      FinestZoom_(finestZoom),
+      Cache_(cache),
+      Generation_(generation) {
   Inputs_->RimsMissing_ = 0;
 }
 
@@ -284,20 +346,24 @@ void TerrainInputPreparation::HaloBuildJob::LoadNeighbours(Data::TileId source) 
   }
 }
 
-void TerrainInputPreparation::HaloBuildJob::PrepareSampling(const Sheet &sheet) {
+bool TerrainInputPreparation::HaloBuildJob::PrepareSampling(Sheet &sheet) {
   const int zoom = SourceZoomOf(sheet, FinestZoom_);
   const auto drop = static_cast<uint32_t>(sheet.Tile.Zoom - zoom);
   const Data::TileId source{.Zoom = zoom, .X = sheet.Tile.X >> drop, .Y = sheet.Tile.Y >> drop};
+  LoadNeighbours(source);
+  if (Whole_ && Cache_ != nullptr && Cache_->Restore(Generation_, sheet, zoom, SamplingFields_)) {
+    return true;
+  }
   const double span = 1.0 / static_cast<double>(1u << drop);
   Columns_ = SampleAxis(sheet, sheet.Tile.X, span);
   Rows_ = SampleAxis(sheet, sheet.Tile.Y, span);
-  LoadNeighbours(source);
+  return false;
 }
 
 bool TerrainInputPreparation::HaloBuildJob::BeginsSheet() {
   constexpr int side = kSide;
   while (SheetAt_ < Candidate_->Sheets.size()) {
-    const Sheet &sheet = Candidate_->Sheets[SheetAt_];
+    Sheet &sheet = Candidate_->Sheets[SheetAt_];
     if (sheet.Side != side) {
       ++SheetAt_;
       continue;
@@ -307,7 +373,11 @@ bool TerrainInputPreparation::HaloBuildJob::BeginsSheet() {
       ++SheetAt_;
       continue;
     }
-    PrepareSampling(sheet);
+    if (PrepareSampling(sheet)) {
+      ++Haloed_;
+      ++SheetAt_;
+      return true;
+    }
     Page_.assign(kPageNodes, 0.0f);
     Missing_.assign(kPageNodes, false);
     AnyMissing_ = false;
@@ -353,7 +423,11 @@ void TerrainInputPreparation::HaloBuildJob::CompletesSheet() {
     CopiesEdgeIntoRim(Page_, Missing_);
     ++Inputs_->RimsMissing_;
   }
-  Candidate_->Sheets[SheetAt_].Nodes = std::move(Page_);
+  Sheet &sheet = Candidate_->Sheets[SheetAt_];
+  sheet.Nodes = std::move(Page_);
+  if (Whole_ && !AnyMissing_ && Cache_ != nullptr) {
+    Cache_->Retain(Generation_, sheet, SourceZoomOf(sheet, FinestZoom_), SamplingFields_);
+  }
   ++Haloed_;
   ++SheetAt_;
   Working_ = false;
@@ -361,7 +435,13 @@ void TerrainInputPreparation::HaloBuildJob::CompletesSheet() {
 
 bool TerrainInputPreparation::HaloBuildJob::Advance(size_t nodesMost) {
   while (nodesMost > 0) {
-    if (!Working_ && !BeginsSheet()) { return true; }
+    if (!Working_) {
+      if (!BeginsSheet()) { return true; }
+      if (!Working_) {
+        nodesMost -= std::min(nodesMost, kCacheCopyCharge);
+        continue;
+      }
+    }
     --nodesMost;
     if (!AdvancesNode()) { continue; }
     if (NodeAt_ == kPageNodes) { CompletesSheet(); }

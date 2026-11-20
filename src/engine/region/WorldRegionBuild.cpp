@@ -837,6 +837,9 @@ Engine::State::GroundBuildProgress Engine::State::BeginGroundSheetWork(const Tan
     World.TerrainErrors =
         std::make_unique<Generators::TerrainRefinementCache>(Render::TerrainLattice::kSide);
   }
+  if (!World.TerrainHalos) {
+    World.TerrainHalos = std::make_shared<Generators::TerrainHaloCache>();
+  }
   constexpr Generators::TerrainPageLayout layout{.Side = Render::TerrainLattice::kSide, .Halo = 1};
   auto &inputs = state.TerrainInputs();
   auto refinement = inputs.BeginRefinement(patchwork,
@@ -852,7 +855,9 @@ Engine::State::GroundBuildProgress Engine::State::BeginGroundSheetWork(const Tan
       Generators::TerrainSheetTask::Settings{.Frame = standing,
                                              .Layout = layout,
                                              .FinestZoom = finestZoom,
-                                             .ProbeStride = kBounceProbeStride},
+                                             .ProbeStride = kBounceProbeStride,
+                                             .HaloCache = World.TerrainHalos,
+                                             .Generation = state.Id()},
       std::move(refinement)));
   return GroundBuildProgress::Pending;
 }

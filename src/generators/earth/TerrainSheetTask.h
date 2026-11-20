@@ -3,6 +3,7 @@
 
 #include "TerrainMesh.h"
 #include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <memory>
 #include <optional>
@@ -13,6 +14,7 @@ class Tasks;
 }
 
 namespace outshine::Generators {
+class TerrainHaloCache;
 class TerrainInputPreparation;
 class TerrainFieldSet;
 class TerrainRefinementJob;
@@ -24,6 +26,8 @@ public:
     TerrainPageLayout Layout;
     int FinestZoom = 0;
     size_t ProbeStride = 0;
+    std::shared_ptr<TerrainHaloCache> HaloCache = nullptr;
+    uint64_t Generation = 0;
   };
 
   struct Timing {

@@ -7,13 +7,17 @@
 #include "TerrainRefinement.h"
 #include "TangentFrame.h"
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -22,6 +26,33 @@ class OsmField;
 }
 
 namespace outshine::Generators {
+class TerrainHaloCache {
+public:
+  static constexpr size_t kSourceWidth = 3;
+  using SourceFields = std::array<std::shared_ptr<const ::outshine::Ground::TerrainField>,
+                                  kSourceWidth * kSourceWidth>;
+
+  void SelectWindow(uint64_t generation, std::span<const Sheet> sheets);
+  [[nodiscard]] bool
+  Restore(uint64_t generation, Sheet &sheet, int sourceZoom, const SourceFields &fields);
+  void Retain(uint64_t generation, const Sheet &sheet, int sourceZoom, const SourceFields &fields);
+
+  [[nodiscard]] size_t Hits() const noexcept { return Hits_.load(std::memory_order_relaxed); }
+
+private:
+  struct Page {
+    std::vector<float> Nodes;
+    std::array<std::weak_ptr<const ::outshine::Ground::TerrainField>, kSourceWidth * kSourceWidth>
+        Fields;
+    int SourceZoom = -1;
+  };
+
+  std::mutex Mutex_;
+  std::map<std::tuple<int, uint32_t, uint32_t>, Page> Pages_;
+  uint64_t Window_ = 0;
+  std::atomic_size_t Hits_{0};
+};
+
 class TerrainInputPreparation {
 public:
   struct FieldPreparation {
@@ -33,7 +64,11 @@ public:
 
   class HaloBuildJob {
   public:
-    HaloBuildJob(TerrainInputPreparation &inputs, Patchwork &candidate, int finestZoom) noexcept;
+    HaloBuildJob(TerrainInputPreparation &inputs,
+                 Patchwork &candidate,
+                 int finestZoom,
+                 TerrainHaloCache *cache = nullptr,
+                 uint64_t generation = 0) noexcept;
 
     [[nodiscard]] bool Advance(size_t nodesMost);
 
@@ -41,7 +76,7 @@ public:
 
   private:
     static constexpr size_t kPageWidth = kPatchGrid + 3u;
-    static constexpr size_t kNeighbourWidth = 3u;
+    static constexpr size_t kNeighbourWidth = TerrainHaloCache::kSourceWidth;
 
     struct AxisSample {
       size_t Field = 0;
@@ -51,7 +86,7 @@ public:
     [[nodiscard]] static std::array<AxisSample, kPageWidth>
     SampleAxis(const Sheet &sheet, uint32_t coordinate, double span);
     void LoadNeighbours(Data::TileId source);
-    void PrepareSampling(const Sheet &sheet);
+    [[nodiscard]] bool PrepareSampling(Sheet &sheet);
     [[nodiscard]] bool BeginsSheet();
     [[nodiscard]] bool AdvancesNode();
     void CompletesSheet();
@@ -59,13 +94,13 @@ public:
     TerrainInputPreparation *Inputs_ = nullptr;
     Patchwork *Candidate_ = nullptr;
     int FinestZoom_ = 0;
+    TerrainHaloCache *Cache_ = nullptr;
+    uint64_t Generation_ = 0;
     size_t SheetAt_ = 0;
     size_t NodeAt_ = 0;
     size_t Haloed_ = 0;
     std::optional<Data::TileId> SamplingSource_;
-    std::array<std::shared_ptr<const ::outshine::Ground::TerrainField>,
-               kNeighbourWidth * kNeighbourWidth>
-        SamplingFields_{};
+    TerrainHaloCache::SourceFields SamplingFields_{};
     std::array<AxisSample, kPageWidth> Columns_{}, Rows_{};
     std::vector<float> Page_;
     std::vector<bool> Missing_;

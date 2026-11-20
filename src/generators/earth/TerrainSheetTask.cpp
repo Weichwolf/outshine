@@ -28,9 +28,9 @@ struct TerrainSheetTask::State {
         TerrainRefinementJob refinement)
       : Inputs(std::exchange(inputs, {})),
         Pages{.Sheets = std::exchange(pages.Sheets, {})},
-        Config(settings),
+        Config(std::move(settings)),
         Refinement(std::move(refinement)),
-        Halos(Inputs, Pages, settings.FinestZoom),
+        Halos(Inputs, Pages, Config.FinestZoom, Config.HaloCache.get(), Config.Generation),
         FieldBytes(Inputs.HeapBytes()),
         PageBytes(Pages.HeapBytes()) {}
 
@@ -57,6 +57,7 @@ struct TerrainSheetTask::State {
       Product.RefinementDeduplicationMs = refinement.DeduplicationMs();
       Pages.Sheets = std::move(refinement).Take();
       Refinement.reset();
+      if (Config.HaloCache) { Config.HaloCache->SelectWindow(Config.Generation, Pages.Sheets); }
       Product.VirtualSheets = static_cast<size_t>(
           std::ranges::count_if(Pages.Sheets, [](const Sheet &sheet) { return sheet.Virtual; }));
       PageBytes.store(Pages.HeapBytes(), std::memory_order_relaxed);
@@ -131,8 +132,9 @@ TerrainSheetTask::TerrainSheetTask(Tasks &pool,
                                    Patchwork &pages,
                                    Settings settings,
                                    TerrainRefinementJob refinement)
-    : Pool_(pool), State_(std::make_shared<State>(inputs, pages, settings, std::move(refinement))) {
-  if (!settings.Layout.Valid() || settings.ProbeStride == 0 ||
+    : Pool_(pool),
+      State_(std::make_shared<State>(inputs, pages, std::move(settings), std::move(refinement))) {
+  if (!State_->Config.Layout.Valid() || State_->Config.ProbeStride == 0 ||
       !pool.PostDetachedSteps([state = State_] { return state->Step(); })) {
     State_->Failure = "terrain sheet preparation could not start";
     State_->Where.store(State::Phase::Rejected, std::memory_order_release);

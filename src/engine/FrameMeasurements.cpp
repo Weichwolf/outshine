@@ -1,6 +1,7 @@
 #include "EngineState.h"
 #include "Heap.h"
 #include "JobAdmission.h"
+#include "TerrainInputPreparation.h"
 
 #include <array>
 #include <chrono>
@@ -229,6 +230,11 @@ void Engine::State::PublishAdvanceMeasurements() {
 void Engine::State::PublishGroundMemoryMeasurements() {
   constexpr auto kSnapshotAnchor = "building triangles the world meshed";
   if (Published.RecordedThisFrame(kSnapshotAnchor)) { return; }
+  if (World.TerrainHalos) {
+    Published.RecordMetric("ground: reused sampled terrain pages",
+                           static_cast<double>(World.TerrainHalos->Hits()),
+                           "pages");
+  }
   if (Services.CacheReclaimer) {
     const auto cache = Services.CacheReclaimer->Inspect();
     Published.RecordMetric(
