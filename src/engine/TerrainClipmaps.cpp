@@ -12,6 +12,7 @@
 #include <expected>
 #include <limits>
 #include <memory>
+#include <numbers>
 #include <optional>
 #include <string>
 #include <utility>
@@ -20,6 +21,7 @@
 namespace outshine {
 namespace {
 constexpr size_t kClipmapSamplesPerSlice = 1024;
+constexpr Render::ClipmapGrid kFinestGrid{.HalfCells = 128, .Levels = 1};
 
 Vec2 GroundCamera(const Core::RuntimeScene &scene) {
   const auto &eye = scene.Watched() ? scene.Watching() : scene.Aimed();
@@ -43,8 +45,9 @@ size_t AvailableFieldBytes(const Render::Native::MemoryStatus &status) {
 }
 
 Render::ClipmapGrid GridFor(double sightM) {
-  Render::ClipmapGrid grid{.HalfCells = 128, .Levels = 1, .ViewRadiusM = sightM};
-  double reach = grid.HalfCells - 2;
+  Render::ClipmapGrid grid = kFinestGrid;
+  grid.ViewRadiusM = sightM;
+  double reach = (grid.HalfCells - 2) * grid.CellM;
   const double required = sightM + reach;
   while (reach < required && std::isfinite(reach)) {
     ++grid.Levels;
@@ -52,6 +55,10 @@ Render::ClipmapGrid GridFor(double sightM) {
   }
   return grid;
 }
+}
+
+double Engine::State::FinestTerrainSampleRadiusM() noexcept {
+  return std::numbers::sqrt2 * (kFinestGrid.HalfCells + 3) * kFinestGrid.CellM;
 }
 
 bool Engine::State::TerrainClipmapsReady() const noexcept {

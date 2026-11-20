@@ -237,6 +237,26 @@ int main() {
   CHECK(!PatchworkIncludesContactTile(bank, contact(2.5, 24.5)) &&
             !PatchworkIncludesContactTile(bank, contact(0.5, 23.5)),
         "a camera leaving the fine patchwork needs a new build");
+  const auto fine = [](double x, double y, int levels = 9) {
+    const auto at = Ground::TileFracToGeo({.X = x, .Y = y}, 17);
+    return Around{.LatitudeDeg = at.LatitudeDeg,
+                  .LongitudeDeg = at.LongitudeDeg,
+                  .Zoom = 17,
+                  .Levels = levels};
+  };
+  const auto published = fine(100003.25, 53003.1);
+  CHECK(PatchworkCoversFocus(published, fine(100003.25, 53002.9), 186),
+        "walking across an overlapping fine tile can reuse the full near footprint");
+  CHECK(!PatchworkCoversFocus(published, fine(100003.25, 53002.01), 186),
+        "a resident contact tile alone cannot cover the near footprint");
+  CHECK(!PatchworkCoversFocus(published, fine(100005.1, 53003.1), 186),
+        "crossing a coarser block boundary requires new terrain");
+  const auto east = fine(131071.5, 53001.5, 1);
+  const auto west = fine(0.5, 53001.5, 1);
+  CHECK(PatchworkCoversFocus(east, west, 186) && PatchworkCoversFocus(west, east, 186),
+        "fine coverage remains continuous across the antimeridian in either direction");
+  CHECK(!PatchworkCoversFocus(fine(500.5, 0.1, 1), fine(500.5, 0.01, 1), 186),
+        "coverage cannot extend beyond the Mercator band");
   for (const auto position : Positions()) {
     for (const auto pattern : {Pattern::Ready, Pattern::Mixed, Pattern::Pending}) {
       for (const auto [access, playableOnly] : {std::pair{TerrainTileAccess::Mesh, false},

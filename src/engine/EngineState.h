@@ -184,6 +184,7 @@ struct WorldRegionState {
   size_t AskedPending = 0;
   size_t AskedWanted = 0;
   GroundPublication GroundPublished;
+  std::optional<Around> PublishedGroundCoverage;
   std::optional<GroundRevision> RequestedRefinedGround;
   std::unique_ptr<WorldRegionBuildState> GroundBuild;
   std::unique_ptr<WorldRegionBuildState> GroundRetirement;
@@ -594,6 +595,7 @@ struct Engine::State {
   [[nodiscard]] LongitudeLatitude GeographicFocusFor(const Vec3 &eye) const;
   [[nodiscard]] Around TerrainCoverageAt(LongitudeLatitude focus) const;
   [[nodiscard]] double TerrainSightM() const noexcept;
+  [[nodiscard]] static double FinestTerrainSampleRadiusM() noexcept;
   [[nodiscard]] Holds<std::vector<Around>>
   ViewPreparationPath(const Scenario::View &view,
                       double durationS,
