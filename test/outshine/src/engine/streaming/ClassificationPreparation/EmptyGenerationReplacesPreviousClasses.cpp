@@ -7,6 +7,8 @@
 #include "Check.h"
 #include <array>
 #include <chrono>
+#include <memory>
+#include <semaphore>
 #include <string>
 #include <thread>
 
@@ -100,5 +102,24 @@ int main() {
   CHECK(field.FineSubmits() > submitted, "superseded job triggers a new fine build");
   CHECK(field.ClassAt({}, nullptr, nullptr) == -1,
         "completion cannot expose a superseded road through the camera");
+
+  field.Open(0, 0, compute);
+  area[0].Layer = "land";
+  field.Declares(area);
+  const LongitudeLatitude start{.LongitudeDeg = 0.01, .LatitudeDeg = 0};
+  const LongitudeLatitude acrossFineBoundary{.LongitudeDeg = 0.026, .LatitudeDeg = 0};
+  CHECK(field.Update(pool, start) && field.AwaitBuild(5), "initial fine raster is ready");
+  const auto release = std::make_shared<std::binary_semaphore>(0);
+  CHECK(compute.PostDetached([release] { release->acquire(); }), "coarse work waits for motion");
+  CHECK(field.Update(pool, start) && field.Update(pool, acrossFineBoundary),
+        "motion changes the fine tile while the coarse job is queued");
+  release->release();
+  CHECK(field.AwaitBuild(5) && field.Update(pool, acrossFineBoundary),
+        "completion can reuse the coarse raster and start the new fine raster");
+  CHECK(field.AwaitBuild(5) && field.Update(pool, acrossFineBoundary) && field.Complete(),
+        "crossing a fine tile publishes after the new fine raster finishes");
+  CHECK(field.ClassAt({}, nullptr, nullptr) == rule->Tpl &&
+            field.ClassAt(acrossFineBoundary, nullptr, nullptr) == -1,
+        "the paired product covers both the coarse forest and the new fine camera position");
   return Report();
 }

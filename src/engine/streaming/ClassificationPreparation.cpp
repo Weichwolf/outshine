@@ -387,7 +387,7 @@ void ClassificationPreparation::CollectFinished() {
   if (!done) { return; }
   Tier &t = TierOf(done->Returned.Grain);
   const bool current =
-      done->Returned.Source == SourceRevision() && done->Structure &&
+      done->Returned.Source.Matches(done->Returned.Grain, SourceRevision()) && done->Structure &&
       t.Generation == t.Field->Generation() && t.PtsDone == t.Field->Points().size() / 2 &&
       t.RingsDone == t.Field->Rings().size() && t.FeatsDone == t.Field->Features().size();
   t.Pts = std::move(done->Returned.Raster.Points);

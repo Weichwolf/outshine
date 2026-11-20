@@ -99,11 +99,10 @@ void ClassificationBuild::Run(Work &work, const std::stop_token &stop) {
   }
   const auto built = regions ? work.Rasterizer.Build(regions->Raster, stop) : std::nullopt;
   if (built && !stop.stop_requested()) {
-    if (work.FineSource.Frame != job.Source.Frame || work.FineSource.Fine != job.Source.Fine) {
+    if (!work.FineSource.Matches(ClassGrain::Fine, job.Source)) {
       work.Fine = std::make_shared<const TerrainClassificationMap::Grid>();
     }
-    if (work.CoarseSource.Frame != job.Source.Frame ||
-        work.CoarseSource.Coarse != job.Source.Coarse) {
+    if (!work.CoarseSource.Matches(ClassGrain::Coarse, job.Source)) {
       work.Coarse = std::make_shared<const TerrainClassificationMap::Grid>();
     }
     if (job.Grain == ClassGrain::Fine) {

@@ -20,7 +20,11 @@ public:
     uint64_t Frame = 0;
     uint64_t Fine = 0;
     uint64_t Coarse = 0;
-    bool operator==(const SourceRevision &) const = default;
+
+    [[nodiscard]] bool Matches(ClassGrain grain, const SourceRevision &other) const noexcept {
+      return Frame == other.Frame &&
+             (grain == ClassGrain::Fine ? Fine == other.Fine : Coarse == other.Coarse);
+    }
   };
 
   struct Job {
