@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -16,10 +17,14 @@ using namespace outshine::Test;
 constexpr size_t kWorkBytes = size_t{8} * 1024 * 1024;
 
 void Fill(ClipmapHeightUpdate &update) {
-  const auto points = update.Positions();
   const auto values = update.Samples();
-  for (size_t i = 0; i < points.size(); ++i) {
-    values[i] = static_cast<float>(10 + points[i][0] / 8 - points[i][1] / 16);
+  std::array<Vec2, 17> storage{};
+  for (size_t offset = 0; offset < values.size(); offset += storage.size()) {
+    const auto points = std::span{storage}.first(std::min(storage.size(), values.size() - offset));
+    CHECK(update.FillPositions(offset, points), "work slices cross row and level boundaries");
+    for (size_t i = 0; i < points.size(); ++i) {
+      values[offset + i] = static_cast<float>(10 + points[i][0] / 8 - points[i][1] / 16);
+    }
   }
 }
 
@@ -59,11 +64,11 @@ void Movement() {
     if (!update) { continue; }
     CHECK(update->HeapBytes() <= kWorkBytes, "actual owned work allocations fit admission");
     if (i < expected.size()) {
-      CHECK(update->Positions().size() == expected[i], "sampling follows only exposed bands");
+      CHECK(update->Samples().size() == expected[i], "sampling follows only exposed bands");
     }
     Fill(*update);
     CHECK(cache.Commit(*update).has_value(), "a complete update publishes");
-    if (!update->Positions().empty()) {
+    if (!update->Samples().empty()) {
       CHECK(!cache.Commit(*update), "the same nonempty update cannot publish twice");
     }
     CheckStored(cache);
@@ -93,8 +98,8 @@ void RejectionsPreserveThePreviousWindow() {
   const auto budget = cache.Plan({{800, 800}}, 1);
   CHECK(!budget && budget.error() == ClipmapHeightError::OverBudget,
         "work admission precedes query allocation");
-  const size_t exact = size_t{2} * 19 * 19 * (sizeof(Vec2) + sizeof(float)) +
-                       size_t{2} * sizeof(ClipmapHeightRegion);
+  const size_t exact =
+      size_t{2} * 19 * 19 * sizeof(float) + size_t{2} * sizeof(ClipmapHeightRegion);
   CHECK(cache.Plan({{800, 800}}, exact).has_value() && !cache.Plan({{800, 800}}, exact - 1),
         "derived complete-update byte count is an exact admission boundary");
   CHECK(!cache.Plan({{1e100, 0}}, kWorkBytes),

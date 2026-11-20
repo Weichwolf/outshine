@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <limits>
 #include <utility>
+#include <vector>
 
 namespace {
 using namespace outshine;
@@ -18,8 +19,10 @@ ClipmapHeightUpdate Samples(const ClipmapHeightCache &cache, Vec2 camera) {
   auto update = cache.Plan(camera, kBytes);
   CHECK(update.has_value(), "owned sample preparation is admitted");
   if (!update) { Failed(); }
-  for (size_t i = 0; i < update->Positions().size(); ++i) {
-    const auto at = update->Positions()[i];
+  std::vector<outshine::Vec2> points(update->Samples().size());
+  CHECK(update->FillPositions(0, points), "sample coordinates fit the planned bands");
+  for (size_t i = 0; i < points.size(); ++i) {
+    const auto at = points[i];
     update->Samples()[i] = static_cast<float>(at[0] / 16 + at[1] / 8);
   }
   return std::move(*update);

@@ -31,7 +31,8 @@ void Populate(ClipmapHeightCache &cache, Vec2 camera, bool warped) {
   CHECK(update.has_value(), "native height work is admitted");
   if (!update) { Failed(); }
   const auto samples = update->Samples();
-  const auto points = update->Positions();
+  std::vector<outshine::Vec2> points(samples.size());
+  CHECK(update->FillPositions(0, points), "sample coordinates fit the planned bands");
   for (size_t i = 0; i < points.size(); ++i) {
     const auto east = points[i][0] - camera[0];
     const auto north = points[i][1] - camera[1];

@@ -47,13 +47,13 @@ public:
       : Owner_(std::exchange(other.Owner_, nullptr)),
         Generation_(other.Generation_),
         Camera_(other.Camera_),
-        Positions_(std::move(other.Positions_)),
+        CellM_(other.CellM_),
         Samples_(std::move(other.Samples_)),
         Regions_(std::move(other.Regions_)) {}
 
   ClipmapHeightUpdate &operator=(ClipmapHeightUpdate &&) noexcept = delete;
 
-  [[nodiscard]] std::span<const Vec2> Positions() const noexcept { return Positions_; }
+  [[nodiscard]] bool FillPositions(size_t offset, std::span<Vec2> positions) const noexcept;
 
   [[nodiscard]] std::span<float> Samples() noexcept { return Samples_; }
 
@@ -62,8 +62,7 @@ public:
   [[nodiscard]] std::span<const ClipmapHeightRegion> Regions() const noexcept { return Regions_; }
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
-    return Positions_.capacity() * sizeof(Vec2) + Samples_.capacity() * sizeof(float) +
-           Regions_.capacity() * sizeof(ClipmapHeightRegion);
+    return Samples_.capacity() * sizeof(float) + Regions_.capacity() * sizeof(ClipmapHeightRegion);
   }
 
 private:
@@ -72,7 +71,7 @@ private:
   const ClipmapHeightCache *Owner_ = nullptr;
   uint64_t Generation_ = 0;
   Vec2 Camera_{};
-  std::vector<Vec2> Positions_;
+  double CellM_ = 1;
   std::vector<float> Samples_;
   std::vector<ClipmapHeightRegion> Regions_;
 };

@@ -12,6 +12,7 @@
 #include <limits>
 #include <span>
 #include <utility>
+#include <vector>
 
 namespace {
 using namespace outshine;
@@ -66,7 +67,8 @@ int main() {
     CHECK(update.has_value(), "owned source query is admitted");
     if (!update) { continue; }
     const auto samples = update->Samples();
-    const auto points = update->Positions();
+    std::vector<outshine::Vec2> points(samples.size());
+    CHECK(update->FillPositions(0, points), "sample coordinates fit the planned bands");
     for (size_t i = 0; i < points.size(); ++i) {
       samples[i] = points[i][0] > 150 ? std::numeric_limits<float>::quiet_NaN()
                                       : static_cast<float>(points[i][0] / 8 + points[i][1] / 16);

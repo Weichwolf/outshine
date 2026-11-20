@@ -5,9 +5,11 @@
 #include <expected>
 #include <memory>
 #include <optional>
+#include <span>
 #include <stop_token>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace outshine {
 struct TerrainClipmapRequest::State {
@@ -19,16 +21,17 @@ struct TerrainClipmapRequest::State {
       : Source(std::move(source)),
         Update(std::move(update)),
         SpacingM(sampling.SpacingM),
+        Positions(std::min(sampling.SamplesPerSlice, Update.Samples().size())),
         Slice(sampling.SamplesPerSlice) {}
 
   Tasks::StepResult Step() {
     if (!Source || Slice == 0) { return Fail("invalid terrain clipmap source or work slice"); }
     if (Stop.stop_requested()) { return Fail("terrain clipmap sampling cancelled"); }
-    const size_t count = std::min(Slice, Update.Positions().size() - Next);
-    const auto sampled = Source->SampleRenderHeights(Update.Positions().subspan(Next, count),
-                                                     Update.Samples().subspan(Next, count),
-                                                     SpacingM,
-                                                     Stop.get_token());
+    const size_t count = std::min(Positions.size(), Update.Samples().size() - Next);
+    const auto positions = std::span{Positions}.first(count);
+    if (!Update.FillPositions(Next, positions)) { return Fail("invalid terrain clipmap batch"); }
+    const auto sampled = Source->SampleRenderHeights(
+        positions, Update.Samples().subspan(Next, count), SpacingM, Stop.get_token());
     if (!sampled) {
       switch (sampled.error()) {
         case TerrainSamplingError::Cancelled: return Fail("terrain clipmap sampling cancelled");
@@ -39,7 +42,7 @@ struct TerrainClipmapRequest::State {
       }
     }
     Next += count;
-    if (Next != Update.Positions().size()) { return Tasks::StepResult::Yield; }
+    if (Next != Update.Samples().size()) { return Tasks::StepResult::Yield; }
     Status.store(Phase::Ready, std::memory_order_release);
     return Tasks::StepResult::Complete;
   }
@@ -53,6 +56,7 @@ struct TerrainClipmapRequest::State {
   std::shared_ptr<const TerrainSurfacePublication> Source;
   Render::ClipmapHeightUpdate Update;
   double SpacingM;
+  std::vector<Vec2> Positions;
   size_t Slice;
   size_t Next = 0;
   std::stop_source Stop;
@@ -88,6 +92,6 @@ std::optional<TerrainClipmapRequest::Result> TerrainClipmapRequest::Take() {
 }
 
 size_t TerrainClipmapRequest::HeapBytes() const noexcept {
-  return sizeof(State) + State_->Update.HeapBytes();
+  return sizeof(State) + State_->Update.HeapBytes() + State_->Positions.capacity() * sizeof(Vec2);
 }
 }

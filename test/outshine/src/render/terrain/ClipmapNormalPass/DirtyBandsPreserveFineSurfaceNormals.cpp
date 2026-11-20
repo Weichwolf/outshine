@@ -13,6 +13,7 @@
 #include <limits>
 #include <span>
 #include <utility>
+#include <vector>
 
 namespace {
 using namespace outshine;
@@ -98,8 +99,10 @@ int main() {
     auto update = cache.Plan(camera, kWorkBytes);
     CHECK(update.has_value(), "normal field selects only missing samples");
     if (!update) { continue; }
-    for (size_t i = 0; i < update->Positions().size(); ++i) {
-      const auto point = update->Positions()[i];
+    std::vector<outshine::Vec2> points(update->Samples().size());
+    CHECK(update->FillPositions(0, points), "sample coordinates fit the planned bands");
+    for (size_t i = 0; i < points.size(); ++i) {
+      const auto point = points[i];
       update->Samples()[i] = point[0] > 90
                                  ? std::numeric_limits<float>::quiet_NaN()
                                  : static_cast<float>(2 * std::sin(point[0] / 8) + point[1] / 20);

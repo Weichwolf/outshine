@@ -79,6 +79,12 @@ TerrainClipmapPreparation::Advance(Vec2 camera, TerrainClipmapAdmission admissio
     }
     return {};
   }
+  const size_t scratchPositions = std::min(admission.SamplesPerSlice, heights->Samples().size()) +
+                                  std::min(admission.SamplesPerSlice, normals->Samples().size());
+  const size_t remaining = admission.WorkBytesMost - heights->HeapBytes() - normals->HeapBytes();
+  if (scratchPositions > remaining / sizeof(Vec2)) {
+    return std::unexpected("clipmap coordinate scratch exceeds work admission");
+  }
   Heights_ = std::make_unique<TerrainClipmapRequest>(
       *Worker_,
       Source_,

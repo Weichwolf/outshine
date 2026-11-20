@@ -32,9 +32,37 @@ Bands(std::optional<ClipmapNode> previous, ClipmapNode low, uint32_t side, uint3
             .Height = height}}};
 }
 
-size_t Samples(const ClipmapHeightRegion &region) {
+size_t SampleCount(const ClipmapHeightRegion &region) {
   return static_cast<size_t>(region.Width) * region.Height;
 }
+}
+
+bool ClipmapHeightUpdate::FillPositions(size_t offset, std::span<Vec2> positions) const noexcept {
+  if (offset > Samples_.size() || positions.size() > Samples_.size() - offset) { return false; }
+  for (const auto &region : Regions_) {
+    if (positions.empty()) { break; }
+    const size_t samples = SampleCount(region);
+    if (offset >= samples) {
+      offset -= samples;
+      continue;
+    }
+    const double step = std::ldexp(CellM_, static_cast<int>(region.Level));
+    size_t y = offset / region.Width;
+    size_t x = offset % region.Width;
+    for (; y < region.Height && !positions.empty(); ++y) {
+      const size_t columns = std::min(region.Width - x, positions.size());
+      const double north = static_cast<double>(region.Low[1] + static_cast<int64_t>(y)) * step;
+      const int64_t firstEast = region.Low[0] + static_cast<int64_t>(x);
+      for (size_t column = 0; column < columns; ++column) {
+        positions[column] = {
+            {static_cast<double>(firstEast + static_cast<int64_t>(column)) * step, north}};
+      }
+      positions = positions.subspan(columns);
+      x = 0;
+    }
+    offset = 0;
+  }
+  return positions.empty();
 }
 
 std::expected<size_t, ClipmapHeightError>
@@ -105,15 +133,14 @@ ClipmapHeightCache::Measure(Vec2 camera, size_t bytesMost) const {
     const auto low = Low(camera, Levels_[i].Step);
     if (!low) { return std::unexpected(low.error()); }
     for (const auto &region : Bands(Levels_[i].Low, *low, Side_, i)) {
-      const size_t samples = Samples(region);
+      const size_t samples = SampleCount(region);
       if (samples == 0) { continue; }
       if (regions == bytesMost / sizeof(ClipmapHeightRegion)) {
         return std::unexpected(ClipmapHeightError::OverBudget);
       }
       ++regions;
       const size_t remainder = bytesMost - regions * sizeof(ClipmapHeightRegion);
-      if (count > remainder / (sizeof(Vec2) + sizeof(float)) ||
-          samples > remainder / (sizeof(Vec2) + sizeof(float)) - count) {
+      if (count > remainder / sizeof(float) || samples > remainder / sizeof(float) - count) {
         return std::unexpected(ClipmapHeightError::OverBudget);
       }
       count += samples;
@@ -130,20 +157,14 @@ ClipmapHeightCache::Plan(Vec2 camera, size_t bytesMost) const {
   update.Owner_ = this;
   update.Generation_ = Generation_;
   update.Camera_ = camera;
-  update.Positions_.reserve(size->Samples);
+  update.CellM_ = Grid_.CellM;
   update.Samples_.resize(size->Samples, std::numeric_limits<float>::quiet_NaN());
   update.Regions_.reserve(size->Regions);
   for (uint32_t i = 0; i < Levels_.size(); ++i) {
     const auto low = *Low(camera, Levels_[i].Step);
     for (const auto &region : Bands(Levels_[i].Low, low, Side_, i)) {
-      if (Samples(region) == 0) { continue; }
+      if (SampleCount(region) == 0) { continue; }
       update.Regions_.push_back(region);
-      for (uint32_t y = 0; y < region.Height; ++y) {
-        for (uint32_t x = 0; x < region.Width; ++x) {
-          update.Positions_.push_back({{static_cast<double>(region.Low[0] + x) * Levels_[i].Step,
-                                        static_cast<double>(region.Low[1] + y) * Levels_[i].Step}});
-        }
-      }
     }
   }
   return update;
