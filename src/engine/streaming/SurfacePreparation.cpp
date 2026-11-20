@@ -325,7 +325,6 @@ std::expected<void, std::string> SurfacePreparation::AdvanceAt(LongitudeLatitude
   if (Vectors_->Generation() != previousVectorGeneration) {
     Footprints_.ResetDerived();
     Ways_ = ::outshine::Generators::Osm::StreetField{};
-    WaterProducer_ = ::outshine::Generators::Osm::WaterField{};
     WaterBodies_ = Generators::WaterAsset{};
     WaterStage_ = PreparedRegions_ && WaterMode_ == WaterMode::RegionLookup ? WaterStage::Deferred
                                                                             : WaterStage::Requested;
@@ -434,7 +433,8 @@ bool SurfacePreparation::IngestedWithin(int rings) const {
   if (!RecipesReady_ || !Vectors_) { return !RecipesReady_; }
   return Vectors_->SettledWithin(rings) && Cls_.Complete() &&
          (UsesCachedRegionNetwork() || Ways_.IngestedWithin(*Vectors_, rings)) &&
-         (WaterReady() || WaterProducer_.IngestedWithin(*Vectors_, rings));
+         (WaterReady() || (WaterProducer_.UsesTerrain(*Ground_) &&
+                           WaterProducer_.IngestedWithin(*Vectors_, rings)));
 }
 
 bool SurfacePreparation::InputsReadyWithin(int rings) const {
@@ -492,6 +492,7 @@ std::string SurfacePreparation::IngestionStatus() const {
                                      : WaterProducer_.IngestedTiles()) +
          "/" + std::to_string(static_cast<int>(WaterReady())) +
          ", waterDeferrals=" + std::to_string(WaterProducer_.Deferrals()) +
+         ", waterReused=" + std::to_string(WaterProducer_.ReusedTiles()) +
          ", classes=" + std::to_string(static_cast<int>(Cls_.Complete()));
 }
 

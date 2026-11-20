@@ -85,11 +85,26 @@ struct Tile {
   std::vector<float> H;
   std::vector<Data::TileSourceIdentity> Sources;
   TerrainCertificate Certificate;
+  bool HeightProof = false;
   bool MissingBoundary = false;
   bool Resident = false;
   bool Hole = false;
   uint64_t Used = 0;
+  uint64_t ResidentRevision = 0;
 };
+
+namespace {
+bool HasHeightProof(const Tile &tile) {
+  const auto &certificate = tile.Certificate;
+  return !tile.MissingBoundary && !tile.Sources.empty() &&
+         (certificate.IsComplete() ||
+          (certificate.Dependencies().empty() &&
+           (certificate.TerrainScopeRevision() == 0 ||
+            std::ranges::all_of(tile.Sources, [](const Data::TileSourceIdentity &source) {
+              return source.From == Data::TileSourceIdentity::Origin::Shaped;
+            }))));
+}
+}
 
 struct GroundStream::Held {
   class Oracle : public TerrainSource {
@@ -385,6 +400,7 @@ const Tile *GroundStream::TileAt(long x, long y) const {
   victim->X = x;
   victim->Y = y;
   victim->Used = ++held.Clock;
+  victim->ResidentRevision = victim->Used;
   victim->Resident = true;
   victim->Hole = !square;
   victim->MissingBoundary = !square || field->HasMissingBoundary();
@@ -400,25 +416,38 @@ const Tile *GroundStream::TileAt(long x, long y) const {
   if (victim->MissingBoundary) { victim->Certificate.Invalidate(); }
   FillNodeHeights(*field, rowPostings, colPostings, victim->Nodes, &victim->H);
   victim->Sources.assign(field->Sources().begin(), field->Sources().end());
+  victim->HeightProof = HasHeightProof(*victim);
   KeepCoarse(x, y);
   return victim;
 }
 
 GroundSample GroundStream::At(LongitudeLatitude at) const {
+  return ReadHeight(at).Sample;
+}
+
+GroundQuery::HeightReading GroundStream::ReadHeight(LongitudeLatitude at) const {
   SynchronizeTerrainScope();
   if (!std::isfinite(at.LongitudeDeg) || !std::isfinite(at.LatitudeDeg)) {
-    return GroundSample::Missing();
+    return {.Sample = GroundSample::Missing()};
   }
   const Geo place = {.LongitudeDeg = Wrap180(at.LongitudeDeg), .LatitudeDeg = at.LatitudeDeg};
   const TileFrac f = ToTileFracClamped(place, Surface_.Z);
   long hx = static_cast<long>(f.X);
   const long hy = static_cast<long>(f.Y);
-  if (!WrapTile(Surface_.Z, &hx, &hy)) { return GroundSample::Missing(); }
+  if (!WrapTile(Surface_.Z, &hx, &hy)) { return {.Sample = GroundSample::Missing()}; }
   Held_->Pending = false;
   const Tile *t = TileAt(hx, hy);
-  if (t == nullptr) { return Held_->Pending ? GroundSample::Waiting() : GroundSample::Missing(); }
-  return GroundSample::At(TileHeightAslM(
-      t->H.data(), t->Nodes, t->Postings, f.X - std::floor(f.X), f.Y - std::floor(f.Y)));
+  if (t == nullptr) {
+    return {.Sample = Held_->Pending ? GroundSample::Waiting() : GroundSample::Missing()};
+  }
+  return {.Sample = GroundSample::At(TileHeightAslM(
+              t->H.data(), t->Nodes, t->Postings, f.X - std::floor(f.X), f.Y - std::floor(f.Y))),
+          .Certificate = t->HeightProof ? &t->Certificate : nullptr,
+          .ResidentRevision = t->ResidentRevision};
+}
+
+bool GroundStream::HeightInputsCurrent(const TerrainCertificate &certificate) const {
+  return Tiles_.InspectCertificate(certificate) == TerrainCertificate::Validation::Current;
 }
 
 GroundSample GroundStream::At(LongitudeLatitude at, int zoom) const {

@@ -69,19 +69,71 @@ bool AdmissionHasBudget(std::chrono::steady_clock::time_point began, size_t step
                   .count() < kWaterAdmissionBudgetMs);
 }
 
-GroundSample SampleHeight(const GroundQuery &ground,
-                          LongitudeLatitude point,
-                          WaterField::IngestMetrics &metrics) {
+}
+
+GroundSample WaterField::SampleHeight(const GroundQuery &ground,
+                                      LongitudeLatitude point,
+                                      Candidate &candidate,
+                                      IngestMetrics &metrics) {
   const auto began = std::chrono::steady_clock::now();
-  const GroundSample sampled = ground.At(point);
+  const auto reading = ground.ReadHeight(point);
   metrics.LongestQueryMs = std::max(
       metrics.LongestQueryMs,
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
   ++metrics.ValidationPoints;
-  if (sampled.Where() != GroundSample::State::Pending) { ++metrics.AdvancedUnits; }
-  return sampled;
+  if (reading.Sample.Where() != GroundSample::State::Pending) {
+    ++metrics.AdvancedUnits;
+    candidate.Observe(reading);
+  }
+  return reading.Sample;
 }
 
+void WaterField::Candidate::Observe(const GroundQuery::HeightReading &reading) {
+  if (!Reusable) { return; }
+  if (reading.Sample.Where() != GroundSample::State::Resolved || reading.Certificate == nullptr) {
+    Reusable = false;
+    return;
+  }
+  const auto &certificate = *reading.Certificate;
+  if (certificate.Dependencies().empty()) { return; }
+  if (!certificate.IsComplete()) {
+    Reusable = false;
+    return;
+  }
+  const auto found = std::ranges::lower_bound(ObservedBlocks, reading.ResidentRevision);
+  if (found != ObservedBlocks.end() && *found == reading.ResidentRevision) { return; }
+  ObservedBlocks.insert(found, reading.ResidentRevision);
+  if (Terrain.Dependencies().empty()) {
+    Terrain = certificate;
+  } else {
+    Terrain.Merge(certificate);
+  }
+  Reusable = Terrain.IsComplete();
+}
+
+bool WaterField::Candidate::Rebase(const GroundQuery &ground, const OsmField &field) {
+  if (!Reusable || (!Terrain.Dependencies().empty() && !ground.HeightInputsCurrent(Terrain))) {
+    return false;
+  }
+  const int tile =
+      field.TileIndex(static_cast<int>(Source.Tile.X), static_cast<int>(Source.Tile.Y));
+  if (tile < 0) { return false; }
+  const auto &current = field.Tiles()[static_cast<size_t>(tile)];
+  if (current.Source != Source || current.InputDigest != InputDigest ||
+      current.FeatureCount != To - From) {
+    return false;
+  }
+  const size_t firstRing = field.Features()[current.FirstFeature].FirstRing;
+  for (auto &sample : Rings) {
+    sample.Feature = current.FirstFeature + (sample.Feature - From);
+    sample.Ring = firstRing + (sample.Ring - FirstRing);
+  }
+  Feature = current.FirstFeature + (Feature - From);
+  From = current.FirstFeature;
+  To = From + current.FeatureCount;
+  FirstRing = firstRing;
+  Tile = static_cast<uint32_t>(tile);
+  return true;
 }
 
 bool WaterField::AdvanceCandidate(const GroundQuery &ground,
@@ -107,7 +159,7 @@ bool WaterField::AdvanceCandidate(const GroundQuery &ground,
     const size_t ringIndex = static_cast<size_t>(feature.FirstRing) + candidate.Ring;
     AdvanceRing(ground, field, kind == WaterKind::Surface, candidate, ringIndex, metrics);
   }
-  return candidate.Feature == candidate.To && candidate.Pending.empty();
+  return candidate.Ready();
 }
 
 void WaterField::RetryPending(const GroundQuery &ground,
@@ -124,8 +176,11 @@ void WaterField::RetryPending(const GroundQuery &ground,
     ++steps;
     const PendingPoint point = pending[visited];
     auto &samples = candidate.Rings[point.Ring];
-    const auto sampled = SampleHeight(
-        ground, PointAt(RingPoints(field, field.Rings()[samples.Ring]), point.Point), metrics);
+    const auto sampled =
+        SampleHeight(ground,
+                     PointAt(RingPoints(field, field.Rings()[samples.Ring]), point.Point),
+                     candidate,
+                     metrics);
     if (sampled.Where() == GroundSample::State::Pending) {
       pending[waiting++] = point;
     } else {
@@ -165,7 +220,7 @@ void WaterField::AdvanceRing(const GroundQuery &ground,
     return;
   }
   const auto sampled =
-      SampleHeight(ground, PointAt(RingPoints(field, ring), candidate.Point), metrics);
+      SampleHeight(ground, PointAt(RingPoints(field, ring), candidate.Point), candidate, metrics);
   if (sampled.Where() == GroundSample::State::Pending) {
     candidate.Pending.push_back({.Ring = candidate.Rings.size() - 1, .Point = candidate.Point});
   }
@@ -307,19 +362,75 @@ std::optional<float> WaterField::SurfaceLevel(std::span<double> heights) {
       heights[static_cast<size_t>(kLevelPercentile * static_cast<double>(heights.size() - 1))]);
 }
 
+bool WaterField::MatchesSource(const OsmField &field) const {
+  return !SourceGeneration_ ||
+         (*SourceGeneration_ == field.Generation() && SourceOrigin_.get() == field.OriginToken());
+}
+
+size_t WaterField::SynchronizeSource(const GroundQuery &ground,
+                                     const OsmField &field,
+                                     const RegionSurfaceRecipes &recipes,
+                                     OnLayers layers) {
+  const uint64_t terrainScope = ground.TerrainScopeRevision();
+  if (MatchesSource(field) && Ground_ == &ground && TerrainScope_ == terrainScope) { return 0; }
+  const bool sameInputs = SourceOrigin_.get() == field.OriginToken() && Ground_ == &ground &&
+                          terrainScope != 0 && TerrainScope_ == terrainScope;
+  auto kept = sameInputs ? std::move(Candidates_) : std::vector<Candidate>{};
+  *this = WaterField{};
+  SourceGeneration_ = field.Generation();
+  SourceOrigin_ = field.ShareOriginToken();
+  Ground_ = &ground;
+  TerrainScope_ = terrainScope;
+  for (auto &previous : kept) {
+    if (!previous.Rebase(ground, field)) { continue; }
+    if (previous.Ready()) { Admit(field, layers, recipes, previous); }
+    Candidates_.push_back(std::move(previous));
+  }
+  if (Admission_.Takes() != 0 && Admission_.Done(field.Tiles())) { ResolveSurfaceLevels(field); }
+  return Admission_.Takes();
+}
+
+WaterField::Candidate &WaterField::FindCandidate(const OsmField &field, size_t from, size_t to) {
+  const auto &feature = field.Features()[from];
+  const uint32_t tile = feature.Tile;
+  const auto found = std::ranges::find(Candidates_, tile, &Candidate::Tile);
+  if (found != Candidates_.end()) { return *found; }
+  const auto &source = field.Tiles()[tile];
+  return Candidates_.emplace_back(
+      Candidate{.Tile = tile,
+                .From = from,
+                .To = to,
+                .FirstRing = feature.FirstRing,
+                .Feature = from,
+                .Rings = {},
+                .Pending = {},
+                .Source = source.Source,
+                .InputDigest = source.InputDigest,
+                .Terrain = {},
+                .ObservedBlocks = {},
+                .Reusable = TerrainScope_ != 0 && !source.InputDigest.empty()});
+}
+
+void WaterField::Admit(const OsmField &field,
+                       OnLayers layers,
+                       const RegionSurfaceRecipes &recipes,
+                       const Candidate &candidate) {
+  Asset_.reset();
+  const auto first = static_cast<uint32_t>(Surfaces_.size());
+  MaterializeCandidate(field, layers, recipes, candidate);
+  ByTile_.Set(candidate.Tile, first, static_cast<uint32_t>(Surfaces_.size()));
+  Admission_.Take(candidate.Tile);
+}
+
 uint32_t WaterField::Ingest(const GroundQuery &ground,
                             const OsmField &field,
                             const RegionSurfaceRecipes &veg) {
-  if (SourceGeneration_ != field.Generation() || SourceOrigin_.get() != field.OriginToken()) {
-    *this = WaterField{};
-    SourceGeneration_ = field.Generation();
-    SourceOrigin_ = field.ShareOriginToken();
-  }
-  LastIngest_ = {};
-  const auto features = field.Features();
-  if (Admission_.Done(field.Tiles())) { return static_cast<uint32_t>(Surfaces_.size()); }
   const auto began = std::chrono::steady_clock::now();
   IngestMetrics metrics;
+  const OnLayers layers{.Poly = field.Layer(OsmLayer::WaterPolygons),
+                        .Line = field.Layer(OsmLayer::WaterLines)};
+  metrics.AdvancedUnits = SynchronizeSource(ground, field, veg, layers);
+  ReusedTiles_ += metrics.AdvancedUnits;
   const auto elapsedMs = [](std::chrono::steady_clock::time_point from) {
     return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - from)
         .count();
@@ -330,8 +441,7 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
     if (metrics.TotalMs > WorstIngest_.TotalMs) { WorstIngest_ = metrics; }
     return static_cast<uint32_t>(Surfaces_.size());
   };
-  const OnLayers layers{.Poly = field.Layer(OsmLayer::WaterPolygons),
-                        .Line = field.Layer(OsmLayer::WaterLines)};
+  if (Admission_.Done(field.Tiles())) { return finish(); }
   const auto admissionAt = std::chrono::steady_clock::now();
   size_t steps = 0;
   const auto next =
@@ -342,46 +452,18 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
                       .CandidatesMost = kWaterCandidatesPerAdmission},
                      [&](size_t from, size_t to) {
                        const auto validationAt = std::chrono::steady_clock::now();
-                       const uint32_t tile = features[from].Tile;
-                       auto found = std::ranges::find_if(
-                           Candidates_, [tile](const Candidate &one) { return one.Tile == tile; });
-                       if (found == Candidates_.end()) {
-                         Candidates_.push_back({.Tile = tile,
-                                                .From = from,
-                                                .To = to,
-                                                .Feature = from,
-                                                .Ring = 0,
-                                                .Point = 0,
-                                                .Rings = {},
-                                                .Pending = {}});
-                         found = std::prev(Candidates_.end());
-                       }
-                       if (found->From != from || found->To != to) {
-                         *found = {.Tile = tile,
-                                   .From = from,
-                                   .To = to,
-                                   .Feature = from,
-                                   .Ring = 0,
-                                   .Point = 0,
-                                   .Rings = {},
-                                   .Pending = {}};
-                       }
+                       auto &candidate = FindCandidate(field, from, to);
                        const bool resolved = AdvanceCandidate(
-                           ground, field, layers, *found, admissionAt, steps, metrics);
+                           ground, field, layers, candidate, admissionAt, steps, metrics);
                        metrics.ValidationMs += elapsedMs(validationAt);
                        return resolved;
                      });
   metrics.AdmissionMs = elapsedMs(admissionAt);
   if (!next.Found) { return finish(); }
-  Asset_.reset();
-  const auto firstSurface = static_cast<uint32_t>(Surfaces_.size());
   const auto materializationAt = std::chrono::steady_clock::now();
-  const auto staged = std::ranges::find_if(
-      Candidates_, [tile = next.Tile](const Candidate &one) { return one.Tile == tile; });
-  MaterializeCandidate(field, layers, veg, *staged);
-  ByTile_.Set(next.Tile, firstSurface, static_cast<uint32_t>(Surfaces_.size()));
-  Admission_.Take(next.Tile);
-  Candidates_.erase(staged);
+  const auto staged = std::ranges::find(Candidates_, next.Tile, &Candidate::Tile);
+  Admit(field, layers, veg, *staged);
+  if (!staged->Reusable) { Candidates_.erase(staged); }
   if (Admission_.Done(field.Tiles())) { ResolveSurfaceLevels(field); }
   metrics.MaterializationMs = elapsedMs(materializationAt);
   return finish();

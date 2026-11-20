@@ -34,10 +34,25 @@ Bytes ReadTile(const char *path) {
 class DeferredHeights final : public GroundQuery {
 public:
   bool WestPending = false;
+  bool EastPending = false;
+  bool TerrainCurrent = true;
+  uint64_t Scope = 0;
+  Ground::TerrainCertificate Certificate;
 
   [[nodiscard]] GroundSample At(LongitudeLatitude at) const override {
     if (WestPending && at.LongitudeDeg < 0) { return GroundSample::Waiting(); }
+    if (EastPending && at.LongitudeDeg > 0) { return GroundSample::Waiting(); }
     return GroundSample::At(100.0 + at.LongitudeDeg / 100.0 + at.LatitudeDeg / 100.0);
+  }
+
+  [[nodiscard]] HeightReading ReadHeight(LongitudeLatitude at) const override {
+    return {.Sample = At(at), .Certificate = &Certificate, .ResidentRevision = 1};
+  }
+
+  [[nodiscard]] uint64_t TerrainScopeRevision() const noexcept override { return Scope; }
+
+  [[nodiscard]] bool HeightInputsCurrent(const Ground::TerrainCertificate &) const override {
+    return TerrainCurrent;
   }
 
   [[nodiscard]] GroundSample Resident(LongitudeLatitude at) const override { return At(at); }
@@ -87,6 +102,56 @@ Generators::WaterAsset Snapshot(const OsmField &field, bool deferWest) {
   }
   return asset;
 }
+
+void CheckOverlappingWindows(std::span<const std::string> layers,
+                             const Bytes &tile,
+                             const Bytes &empty,
+                             const Generators::WaterAsset &expected) {
+  OsmField exposed(2, layers);
+  CHECK(exposed.Accept(2, 1, tile), "the east source is present in the initial window");
+  DeferredHeights ground;
+  ground.Scope = 1;
+  auto revisions = Ground::TerrainRevisionIndex::Create();
+  CHECK(revisions, "the fixture has an elevation revision index");
+  if (!revisions) { return; }
+  const Data::TileId terrain{.Zoom = 2, .X = 2, .Y = 1};
+  const auto stamp = (**revisions).IssueDeliveryStamp(terrain);
+  CHECK(stamp, "the fixture height has a delivery stamp");
+  if (!stamp) { return; }
+  ground.Certificate = Ground::TerrainCertificate::FromDelivery(terrain, *stamp, ground.Scope);
+  WaterField water;
+  const Generators::RegionSurfaceRecipes materials;
+  for (int i = 0; i < 32 && !water.Ingested(exposed); ++i) {
+    (void)water.Ingest(ground, exposed, materials);
+  }
+  const auto first = water.Asset(exposed);
+  CHECK(first.Complete() && first.OfTile(0).size() == 1, "the first window publishes east water");
+  CHECK(exposed.Accept(1, 1, tile) && exposed.Accept(3, 1, empty),
+        "the overlapping window adds a western neighbour and shifts the east source index");
+  CHECK(!water.Asset(exposed).Complete(), "the former geometry is not relabelled as current");
+  ground.WestPending = true;
+  ground.EastPending = true;
+  (void)water.Ingest(ground, exposed, materials);
+  CHECK(water.OfTile(1).size() == 1 && water.OfTile(0).empty(),
+        "east water survives the index shift while both terrain sources are pending");
+  ground.WestPending = false;
+  for (int i = 0; i < 32 && !water.Ingested(exposed); ++i) {
+    (void)water.Ingest(ground, exposed, materials);
+  }
+  const auto final = water.Asset(exposed);
+  CHECK(final.Complete() && std::ranges::equal(final.Levels(), expected.Levels()) &&
+            std::ranges::equal(final.Surfaces(),
+                               expected.Surfaces(),
+                               std::ranges::equal_to{},
+                               &Generators::WaterAsset::Surface::LevelM,
+                               &Generators::WaterAsset::Surface::LevelM) &&
+            first.OfTile(0).size() == 1,
+        "reused heights produce the same water and keep the old snapshot valid");
+  ground.TerrainCurrent = false;
+  CHECK(exposed.Accept(3, 1, empty), "a new source publication rechecks terrain dependencies");
+  (void)water.Ingest(ground, exposed, materials);
+  CHECK(water.OfTile(1).empty(), "old east water is withheld when its terrain proof is stale");
+}
 }
 
 int main() {
@@ -100,5 +165,6 @@ int main() {
   const auto delayed = Snapshot(field, true);
   CHECK(ordered.EncodeNative(kEncodedBudget) == delayed.EncodeNative(kEncodedBudget),
         "identical source values produce identical native bytes despite different DEM arrival");
+  CheckOverlappingWindows(layers, tile, empty, ordered);
   return Report();
 }

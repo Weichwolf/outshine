@@ -85,6 +85,7 @@ uint32_t PackedPoint(std::span<const CoordinateRange> ranges, uint32_t point) {
 }
 
 WaterAsset WaterField::Asset(const OsmField &source) const {
+  if (!MatchesSource(source)) { return WaterField{}.Asset(source); }
   const AssetInputs inputs{.Origin = source.OriginToken(),
                            .Generation = source.Generation(),
                            .Features = source.Features().size(),

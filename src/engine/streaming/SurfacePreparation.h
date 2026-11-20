@@ -248,8 +248,10 @@ public:
   void FootprintTilesSpan(double tileSpanM) { Footprints_.TilesSpan(tileSpanM); }
 
   [[nodiscard]] const Generators::WaterAsset &WaterBodies() const {
-    if (WaterStage_ != WaterStage::Ready && Vectors_) {
-      WaterBodies_ = WaterProducer_.Asset(*Vectors_);
+    if (!WaterReady() && Vectors_) {
+      WaterBodies_ = Ground_ && WaterProducer_.UsesTerrain(*Ground_)
+                         ? WaterProducer_.Asset(*Vectors_)
+                         : Generators::WaterAsset{};
     }
     return WaterBodies_;
   }
@@ -380,12 +382,14 @@ private:
 
   struct WaterInputs {
     uint64_t Generation = 0;
+    uint64_t TerrainScope = 0;
     size_t Features = 0, Tiles = 0;
     [[nodiscard]] bool operator==(const WaterInputs &) const = default;
   };
 
   [[nodiscard]] WaterInputs CurrentWaterInputs() const noexcept {
     return Vectors_ ? WaterInputs{.Generation = Vectors_->Generation(),
+                                  .TerrainScope = Ground_ ? Ground_->TerrainScopeRevision() : 0,
                                   .Features = Vectors_->Features().size(),
                                   .Tiles = Vectors_->Tiles().size()}
                     : WaterInputs{};

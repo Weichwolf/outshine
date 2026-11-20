@@ -17,6 +17,7 @@
 #include "Capacity.h"
 #include "TileRanges.h"
 #include "GroundQuery.h"
+#include "TerrainCertificate.h"
 #include "Earth.h"
 #include "TileAdmission.h"
 
@@ -82,6 +83,9 @@ public:
     size_t staged = CapacityBytes(Candidates_);
     for (const Candidate &candidate : Candidates_) {
       staged += CapacityBytes(candidate.Rings) + CapacityBytes(candidate.Pending);
+      staged += CapacityBytes(candidate.ObservedBlocks) + candidate.Terrain.HeapBytes() +
+                candidate.InputDigest.capacity() + candidate.Source.SourceId.capacity() +
+                candidate.Source.Revision.capacity();
       for (const RingSamples &ring : candidate.Rings) { staged += CapacityBytes(ring.Heights); }
     }
     staged += CapacityBytes(SurfaceInputs_);
@@ -99,15 +103,22 @@ public:
 
   [[nodiscard]] int Deferrals() const { return Admission_.Deferrals(); }
 
+  [[nodiscard]] size_t ReusedTiles() const { return ReusedTiles_; }
+
   [[nodiscard]] bool Ingested(const OsmField &field) const {
-    return Admission_.Done(field.Tiles());
+    return MatchesSource(field) && Admission_.Done(field.Tiles());
   }
 
   [[nodiscard]] bool IngestedWithin(const OsmField &field, int rings) const {
-    return Admission_.AcceptedWithin(field.Tiles(), field.CentreX(), field.CentreY(), rings);
+    return MatchesSource(field) &&
+           Admission_.AcceptedWithin(field.Tiles(), field.CentreX(), field.CentreY(), rings);
   }
 
   [[nodiscard]] size_t IngestedTiles() const { return Admission_.Takes(); }
+
+  [[nodiscard]] bool UsesTerrain(const GroundQuery &ground) const noexcept {
+    return Ground_ == &ground && TerrainScope_ == ground.TerrainScopeRevision();
+  }
 
 private:
   struct SurfaceInput {
@@ -130,10 +141,36 @@ private:
   struct Candidate {
     uint32_t Tile = 0;
     size_t From = 0, To = 0;
+    size_t FirstRing = 0;
     size_t Feature = 0, Ring = 0, Point = 0;
     std::vector<RingSamples> Rings;
     std::vector<PendingPoint> Pending;
+    Data::TileSourceIdentity Source;
+    std::string InputDigest;
+    TerrainCertificate Terrain;
+    std::vector<uint64_t> ObservedBlocks;
+    bool Reusable = false;
+
+    [[nodiscard]] bool Ready() const { return Feature == To && Pending.empty(); }
+
+    void Observe(const GroundQuery::HeightReading &reading);
+    [[nodiscard]] bool Rebase(const GroundQuery &ground, const OsmField &field);
   };
+
+  [[nodiscard]] bool MatchesSource(const OsmField &field) const;
+  size_t SynchronizeSource(const GroundQuery &ground,
+                           const OsmField &field,
+                           const RegionSurfaceRecipes &recipes,
+                           OnLayers layers);
+  void Admit(const OsmField &field,
+             OnLayers layers,
+             const RegionSurfaceRecipes &recipes,
+             const Candidate &candidate);
+  [[nodiscard]] Candidate &FindCandidate(const OsmField &field, size_t from, size_t to);
+  [[nodiscard]] static GroundSample SampleHeight(const GroundQuery &ground,
+                                                 LongitudeLatitude point,
+                                                 Candidate &candidate,
+                                                 IngestMetrics &metrics);
 
   void AddCourse(const OsmField &field,
                  size_t feature,
@@ -182,6 +219,9 @@ private:
   IngestMetrics LastIngest_;
   std::optional<uint64_t> SourceGeneration_;
   std::shared_ptr<const void> SourceOrigin_;
+  const GroundQuery *Ground_ = nullptr;
+  uint64_t TerrainScope_ = 0;
+  size_t ReusedTiles_ = 0;
 
   struct AssetInputs {
     const void *Origin = nullptr;

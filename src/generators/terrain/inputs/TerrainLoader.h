@@ -107,6 +107,8 @@ public:
   GroundStream &operator=(const GroundStream &) = delete;
 
   [[nodiscard]] GroundSample At(LongitudeLatitude at) const override;
+  [[nodiscard]] HeightReading ReadHeight(LongitudeLatitude at) const override;
+  [[nodiscard]] bool HeightInputsCurrent(const TerrainCertificate &certificate) const override;
   [[nodiscard]] GroundSample At(LongitudeLatitude at, int zoom) const;
   [[nodiscard]] GroundSample Resident(LongitudeLatitude at) const override;
   [[nodiscard]] GroundBlock BlockAt(TileSpot at) const override;
@@ -136,7 +138,7 @@ public:
 
   [[nodiscard]] TilePool &Tiles() { return Tiles_; }
 
-  [[nodiscard]] uint64_t TerrainScopeRevision() const noexcept {
+  [[nodiscard]] uint64_t TerrainScopeRevision() const noexcept override {
     return Tiles_.TerrainScopeRevision();
   }
 
