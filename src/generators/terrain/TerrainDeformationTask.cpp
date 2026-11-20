@@ -20,22 +20,25 @@
 
 namespace outshine::Generators {
 struct TerrainDeformationTask::State {
-  enum class Phase : uint8_t { Lookup, Generate, Store, Reload, Complete };
+  enum class Phase : uint8_t { Prepare, Lookup, Generate, Store, Reload, Complete };
 
   State(std::shared_ptr<PreparedTerrainAssets> cache,
         std::vector<EarthworkStamp> stamps,
         std::vector<Sheet> pages,
         TangentFrame frame,
         TerrainPageLayout layout,
-        double mostEarthworkM)
+        double mostEarthworkM,
+        StampPreparation prepare)
       : Cache(std::move(cache)),
         Stamps(std::move(stamps)),
+        PrepareStamps(std::move(prepare)),
         Frame(frame),
         Layout(layout),
         MostEarthworkM(mostEarthworkM) {
     Input.Sheets = std::move(pages);
-    LoadBytesMost = std::max(kTerrainDeformationBytesMost, Input.HeapBytes());
-    RecordHeap();
+    StampBytes = Stamps.capacity() * sizeof(EarthworkStamp);
+    Heap.store(sizeof(State) + StampBytes + Input.Sheets.capacity() * sizeof(Sheet),
+               std::memory_order_relaxed);
   }
 
   void RecordHeap() noexcept {
@@ -45,11 +48,19 @@ struct TerrainDeformationTask::State {
     if (Press) {
       bytes += Press->HeapBytes();
     } else {
-      bytes += Stamps.capacity() * sizeof(EarthworkStamp);
-      for (const EarthworkStamp &stamp : Stamps) { bytes += stamp.HeapBytes(); }
+      bytes += StampBytes;
     }
     if (Publication) { bytes += Publication->HeapBytes(); }
     Heap.store(bytes, std::memory_order_relaxed);
+  }
+
+  Tasks::StepResult Prepare() {
+    if (PrepareStamps) { std::exchange(PrepareStamps, {})(Stamps); }
+    LoadBytesMost = std::max(kTerrainDeformationBytesMost, Input.HeapBytes());
+    StampBytes = Stamps.capacity() * sizeof(EarthworkStamp);
+    for (const EarthworkStamp &stamp : Stamps) { StampBytes += stamp.HeapBytes(); }
+    Current = Phase::Lookup;
+    return Tasks::StepResult::Yield;
   }
 
   Tasks::StepResult Lookup() {
@@ -70,6 +81,7 @@ struct TerrainDeformationTask::State {
     }
     Press = std::make_unique<TerrainDeformationJob>(
         std::move(Stamps), Input, Frame, Layout, MostEarthworkM);
+    StampBytes = 0;
     Current = Phase::Generate;
     return Tasks::StepResult::Yield;
   }
@@ -152,6 +164,7 @@ struct TerrainDeformationTask::State {
     }
     Tasks::StepResult result = Tasks::StepResult::Complete;
     switch (Current) {
+      case Phase::Prepare: result = Prepare(); break;
       case Phase::Lookup: result = Lookup(); break;
       case Phase::Generate: result = Generate(); break;
       case Phase::Store: result = Store(); break;
@@ -165,17 +178,19 @@ struct TerrainDeformationTask::State {
 
   std::shared_ptr<PreparedTerrainAssets> Cache;
   std::vector<EarthworkStamp> Stamps;
+  StampPreparation PrepareStamps;
   Patchwork Input;
   PreparedTerrainDeformation Product;
   TangentFrame Frame;
   TerrainPageLayout Layout;
   double MostEarthworkM;
+  size_t StampBytes = 0;
   size_t LoadBytesMost = 0;
   std::string Key;
   std::unique_ptr<TerrainDeformationJob> Press;
   std::optional<PreparedTerrainAssets::DeformationWrite> Publication;
   std::expected<void, std::string> Outcome;
-  Phase Current = Phase::Lookup;
+  Phase Current = Phase::Prepare;
   std::stop_source Stop;
   std::chrono::steady_clock::time_point RetryAt;
   std::chrono::milliseconds Delay{1};
@@ -191,27 +206,29 @@ TerrainDeformationTask::TerrainDeformationTask(Tasks &pool,
                                                Patchwork &candidate,
                                                TangentFrame frame,
                                                TerrainPageLayout layout,
-                                               double mostEarthworkM)
+                                               double mostEarthworkM,
+                                               StampPreparation prepare)
     : Pool_(pool),
       State_(std::make_shared<State>(std::move(cache),
                                      std::move(stamps),
                                      std::move(candidate.Sheets),
                                      frame,
                                      layout,
-                                     mostEarthworkM)) {
+                                     mostEarthworkM,
+                                     std::move(prepare))) {
   Post();
 }
 
 void TerrainDeformationTask::Post() const {
   if (!Pool_.PostDetachedSteps([state = State_] { return state->Step(); })) {
     State_->Fail("compute worker rejected terrain deformation");
-    State_->RecordHeap();
     State_->Finish();
   }
 }
 
 TerrainDeformationTask::~TerrainDeformationTask() {
   (void)State_->Stop.request_stop();
+  (void)Pool_.PostDetached([state = std::move(State_)] { (void)state; });
 }
 
 bool TerrainDeformationTask::Advance() const {

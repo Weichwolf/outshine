@@ -13,6 +13,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -106,10 +107,24 @@ int main() {
   }
   Patchwork cold = Inputs();
   {
-    TerrainDeformationTask task(pool, *cache, Stamps(), cold, frame, kLayout, 30);
+    const auto caller = std::this_thread::get_id();
+    const auto preparedOn = std::make_shared<std::thread::id>();
+    TerrainDeformationTask task(pool,
+                                *cache,
+                                {},
+                                cold,
+                                frame,
+                                kLayout,
+                                30,
+                                [preparedOn](std::vector<EarthworkStamp> &contacts) {
+                                  *preparedOn = std::this_thread::get_id();
+                                  contacts = Stamps();
+                                });
     const auto result = Complete(task, cold);
     CHECK(result && result->Nodes == expected.Nodes && result->Pads.Nodes == expected.Pads.Nodes,
           "cold asset retains deformation results and contact diagnostics");
+    CHECK(result && *preparedOn != caller && *preparedOn != std::thread::id{},
+          "contact assembly runs on the deformation worker");
     CHECK(cold.Sheets == reference.Sheets && cold.Tiles == 4 && cold.ReachTiles == 4,
           "native deformation reproduces the original generator bit for bit");
   }
