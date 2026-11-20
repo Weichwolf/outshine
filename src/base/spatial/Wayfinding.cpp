@@ -541,12 +541,7 @@ bool Network::IndexOneEdge(EdgeEnds ends,
                                   Snap{.CellM = tieReachM});
   for (int64_t row = firstRow; row <= lastRow; ++row) {
     const RowShape shape = ShapeRowOver(row, Snap{.CellM = tieReachM});
-    const int64_t one = ColumnIn(shape, a.LongitudeDeg);
-    const int64_t two = ColumnIn(shape, b.LongitudeDeg);
-    const auto [firstColumn, lastColumn] =
-        ColumnsAlongShortestArc({.Degrees = a.LongitudeDeg, .Index = one},
-                                {.Degrees = b.LongitudeDeg, .Index = two},
-                                shape.Columns);
+    const auto [firstColumn, lastColumn] = EdgeColumnsInRow(ends, shape, Snap{.CellM = tieReachM});
     for (int64_t column = firstColumn; column <= lastColumn; ++column) {
       if (!IndexEdgeCell(
               ends,
@@ -558,6 +553,29 @@ bool Network::IndexOneEdge(EdgeEnds ends,
     }
   }
   return true;
+}
+
+std::pair<int64_t, int64_t>
+Network::EdgeColumnsInRow(EdgeEnds ends, const RowShape &shape, Snap pitch) const {
+  const auto [first, last] = std::minmax(ends.From, ends.To);
+  const auto &a = Nodes_[first];
+  const auto &b = Nodes_[last];
+  double startDeg = a.LongitudeDeg;
+  double endDeg = b.LongitudeDeg;
+  if (const double rise = b.LatitudeDeg - a.LatitudeDeg; rise != 0.0) {
+    const double rowPitchDeg = pitch.CellM / MetresPerDegreeLat(RadiusM_);
+    const double unwrappedEnd = a.LongitudeDeg + LonApartDeg(b.LongitudeDeg, a.LongitudeDeg);
+    const auto at = [&](int64_t row) {
+      const double fraction =
+          std::clamp((static_cast<double>(row) * rowPitchDeg - a.LatitudeDeg) / rise, 0.0, 1.0);
+      return std::lerp(a.LongitudeDeg, unwrappedEnd, fraction);
+    };
+    startDeg = at(shape.Row);
+    endDeg = at(shape.Row + 1);
+  }
+  return ColumnsAlongShortestArc({.Degrees = startDeg, .Index = ColumnIn(shape, startDeg)},
+                                 {.Degrees = endDeg, .Index = ColumnIn(shape, endDeg)},
+                                 shape.Columns);
 }
 
 size_t Network::EdgesByCell::ShardOf(int64_t key) noexcept {
@@ -655,12 +673,7 @@ void Network::MarkEdgeOverCells(EdgeEnds ends,
                                   Snap{.CellM = tieReachM});
   for (int64_t row = firstRow; row <= lastRow; ++row) {
     const RowShape shape = ShapeRowOver(row, Snap{.CellM = tieReachM});
-    const int64_t here = ColumnIn(shape, a.LongitudeDeg);
-    const int64_t there = ColumnIn(shape, b.LongitudeDeg);
-    const auto [firstColumn, lastColumn] =
-        ColumnsAlongShortestArc({.Degrees = a.LongitudeDeg, .Index = here},
-                                {.Degrees = b.LongitudeDeg, .Index = there},
-                                shape.Columns);
+    const auto [firstColumn, lastColumn] = EdgeColumnsInRow(ends, shape, Snap{.CellM = tieReachM});
     for (int64_t column = firstColumn; column <= lastColumn; ++column) {
       const int64_t key =
           KeyAt({.Row = row, .Column = ((column % shape.Columns) + shape.Columns) % shape.Columns});

@@ -458,6 +458,8 @@ private:
                                       double tieReachM,
                                       EdgesByCell &byEdgeCell,
                                       std::string &error);
+  [[nodiscard]] std::pair<int64_t, int64_t>
+  EdgeColumnsInRow(EdgeEnds ends, const RowShape &shape, Snap pitch) const;
 
   struct PerDegree {
     double Lat = 0.0;
