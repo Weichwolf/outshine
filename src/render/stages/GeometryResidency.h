@@ -176,6 +176,7 @@ struct GeometryResidency {
 
   [[nodiscard]] Native::Result<void> StandsOn(Native::Device *device);
   [[nodiscard]] bool ReusePieceStreamsFrom(const GeometryResidency &source);
+  [[nodiscard]] bool CanReuseImagesFrom(const GeometryResidency &source) const noexcept;
 
   [[nodiscard]] Native::Device *Device() const { return Device_; }
 

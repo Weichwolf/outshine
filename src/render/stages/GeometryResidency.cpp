@@ -10,6 +10,11 @@
 
 namespace outshine::Render {
 
+bool GeometryResidency::CanReuseImagesFrom(const GeometryResidency &source) const noexcept {
+  return Device_ != nullptr && Device_ == source.Device_ && Uploads_ == source.Uploads_ &&
+         source.UploadCommands_ == nullptr && source.StagedImages_.empty();
+}
+
 bool GeometryResidency::ReusePieceStreamsFrom(const GeometryResidency &source) {
   if (&source == this || Device_ != nullptr || source.Device_ == nullptr ||
       source.UploadCommands_ != nullptr || source.StagedCount_ != 0) {

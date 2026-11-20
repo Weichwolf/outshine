@@ -310,6 +310,10 @@ public:
   [[nodiscard]] bool WriteMaterialRows(std::span<const MaterialBinding> materials,
                                        std::span<const uint32_t> rows,
                                        std::string &error);
+  [[nodiscard]] bool ReuseRegisteredMaterialRows(const GeometryRenderer &source,
+                                                 std::span<const MaterialBinding> materials,
+                                                 std::span<const uint32_t> logical,
+                                                 std::string &error);
   void ClearMaterialRow(size_t which);
   void SetRegisteredPieceSurface(uint32_t logical, uint32_t physical);
 

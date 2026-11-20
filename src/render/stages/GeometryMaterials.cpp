@@ -231,6 +231,33 @@ bool GeometryRenderer::WriteMaterialRows(std::span<const MaterialBinding> materi
   return true;
 }
 
+bool GeometryRenderer::ReuseRegisteredMaterialRows(const GeometryRenderer &source,
+                                                   std::span<const MaterialBinding> materials,
+                                                   std::span<const uint32_t> logical,
+                                                   std::string &error) {
+  if (this == &source || logical.empty() || logical.size() != materials.size() ||
+      !Bound().CanReuseImagesFrom(source.Bound())) {
+    return false;
+  }
+  const auto hasRow = [&](uint32_t row) {
+    return row < source.RegisteredSlotOf_.size() &&
+           source.RegisteredSlotOf_[row] < source.Slots.size();
+  };
+  if (!std::ranges::all_of(logical, hasRow) || !ValidateMaterials(materials, error)) {
+    return false;
+  }
+  const size_t capacity = NativeMaterialSlots_ + *std::ranges::max_element(logical) + 1;
+  if (capacity > Slots.size()) { Slots.resize(capacity); }
+  for (size_t at = 0; at < logical.size(); ++at) {
+    const size_t physical = NativeMaterialSlots_ + logical[at];
+    auto &target = Slots[physical];
+    target = source.Slots[source.RegisteredSlotOf_[logical[at]]];
+    target.Row = PackMaterial(materials[at], static_cast<float>(physical + 1u));
+  }
+  TablesStale_ = true;
+  return true;
+}
+
 void GeometryRenderer::ClearMaterialRow(size_t which) {
   if (which >= Slots.size()) { return; }
   auto &slot = Slots[which];

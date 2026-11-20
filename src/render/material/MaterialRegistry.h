@@ -33,8 +33,10 @@ public:
            std::span<const MaterialRadiance> images = {});
   [[nodiscard]] bool
   Prepare(GeometryRenderer &geometry, GeometryRenderer *glass, std::string &error);
-  [[nodiscard]] bool
-  Restore(GeometryRenderer &geometry, GeometryRenderer *glass, std::string &error);
+  [[nodiscard]] bool Restore(GeometryRenderer &geometry,
+                             GeometryRenderer *glass,
+                             std::string &error,
+                             const MaterialRegistry *published = nullptr);
   [[nodiscard]] bool Contains(const MaterialRegistration &material) const noexcept;
   void CopySourcesFrom(const MaterialRegistry &source);
 
@@ -50,12 +52,22 @@ private:
     std::vector<uint32_t> Rows;
   };
 
+  struct Binding {
+    GeometryRenderer *Geometry = nullptr;
+    GeometryRenderer *Glass = nullptr;
+    uint64_t GeometryRevision = 0;
+    uint64_t GlassRevision = 0;
+
+    [[nodiscard]] bool Current() const noexcept;
+  };
+
   [[nodiscard]] static std::expected<MaterialSource, std::string>
   Resolve(Geometry source, std::span<const MaterialRadiance> images);
   [[nodiscard]] bool Write(GeometryRenderer &geometry,
                            GeometryRenderer *glass,
                            const MaterialSource &source,
-                           std::string &error);
+                           std::string &error,
+                           const Binding *resident = nullptr);
   void Collect(GeometryRenderer &geometry, GeometryRenderer *glass);
   void Retire(uint32_t which, GeometryRenderer *geometry, GeometryRenderer *glass);
   [[nodiscard]] uint32_t TakeRow();
@@ -68,13 +80,6 @@ private:
   std::shared_ptr<MaterialRetirementQueue> Retirements_ =
       std::make_shared<MaterialRetirementQueue>();
   std::vector<MaterialRetirement> Retired_;
-
-  struct Binding {
-    GeometryRenderer *Geometry = nullptr;
-    GeometryRenderer *Glass = nullptr;
-    uint64_t GeometryRevision = 0;
-    uint64_t GlassRevision = 0;
-  };
 
   std::optional<Binding> Binding_;
 };

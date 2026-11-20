@@ -342,6 +342,16 @@ void SceneRenderer::AbandonsWorldCandidate() noexcept {
   Candidate_.reset();
 }
 
+bool SceneRenderer::RestorePieceMaterials(std::string &error) {
+  auto &content = ActiveContent();
+  const auto *published = State_.Content.get();
+  return content.Scene().Resources().RestorePieceMaterials(
+      content.Geometry(),
+      content.DrawsGlass ? &content.Transmission() : nullptr,
+      error,
+      &content != published ? &published->Scene().Resources() : nullptr);
+}
+
 std::expected<void, std::string> SceneRenderer::ValidateExecutablePlan(const ExecutionPlan &plan) {
   for (const Stage stage : plan.Order()) {
     if (Executable(stage)) { continue; }

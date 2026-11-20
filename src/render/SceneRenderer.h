@@ -441,11 +441,7 @@ public:
         images);
   }
 
-  [[nodiscard]] bool RestorePieceMaterials(std::string &error) {
-    auto &content = ActiveContent();
-    return content.Scene().Resources().RestorePieceMaterials(
-        content.Geometry(), content.DrawsGlass ? &content.Transmission() : nullptr, error);
-  }
+  [[nodiscard]] bool RestorePieceMaterials(std::string &error);
 
   [[nodiscard]] size_t PieceSourceBytes() const noexcept {
     return ActiveContent().Scene().Resources().PieceSourceBytes();

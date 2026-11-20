@@ -301,8 +301,10 @@ SceneResources::RegisterPieceMaterials(GeometryRenderer &geometry,
 
 bool SceneResources::RestorePieceMaterials(GeometryRenderer &geometry,
                                            GeometryRenderer *glass,
-                                           std::string &error) {
-  return Materials_.Restore(geometry, glass, error);
+                                           std::string &error,
+                                           const SceneResources *published) {
+  return Materials_.Restore(
+      geometry, glass, error, published == nullptr ? nullptr : &published->Materials_);
 }
 
 bool SceneResources::PreparePieceMaterials(GeometryRenderer &geometry,

@@ -106,12 +106,16 @@ void MaterialRegistry::Collect(GeometryRenderer &geometry, GeometryRenderer *gla
   Retired_.clear();
 }
 
+bool MaterialRegistry::Binding::Current() const noexcept {
+  return Geometry->MaterialRevision() == GeometryRevision &&
+         (Glass == nullptr || Glass->MaterialRevision() == GlassRevision);
+}
+
 bool MaterialRegistry::Prepare(GeometryRenderer &geometry,
                                GeometryRenderer *glass,
                                std::string &error) {
   if (!Binding_ || Binding_->Geometry != &geometry || Binding_->Glass != glass ||
-      Binding_->GeometryRevision != geometry.MaterialRevision() ||
-      (glass != nullptr && Binding_->GlassRevision != glass->MaterialRevision())) {
+      !Binding_->Current()) {
     return Restore(geometry, glass, error);
   }
   Collect(geometry, glass);
@@ -121,12 +125,17 @@ bool MaterialRegistry::Prepare(GeometryRenderer &geometry,
 bool MaterialRegistry::Write(GeometryRenderer &geometry,
                              GeometryRenderer *glass,
                              const MaterialSource &source,
-                             std::string &error) {
-  const auto write = [&](GeometryRenderer &into) {
+                             std::string &error,
+                             const Binding *resident) {
+  const auto write = [&](GeometryRenderer &into, const GeometryRenderer *from) {
     if (into.NativeMaterialSlots() >= kNoMaterialSlot ||
         Rows_.size() > kNoMaterialSlot - into.NativeMaterialSlots()) {
       error = "registered material rows exceed native indices";
       return false;
+    }
+    if (from != nullptr &&
+        into.ReuseRegisteredMaterialRows(*from, source.Slots, source.RegisteredRows, error)) {
+      return true;
     }
     std::vector<uint32_t> physical;
     physical.reserve(source.RegisteredRows.size());
@@ -135,8 +144,8 @@ bool MaterialRegistry::Write(GeometryRenderer &geometry,
     }
     return into.WriteMaterialRows(source.Slots, physical, error);
   };
-  if (!write(geometry)) { return false; }
-  if (glass != nullptr && !write(*glass)) {
+  if (!write(geometry, resident == nullptr ? nullptr : resident->Geometry)) { return false; }
+  if (glass != nullptr && !write(*glass, resident == nullptr ? nullptr : resident->Glass)) {
     for (const uint32_t row : source.RegisteredRows) {
       geometry.ClearMaterialRow(geometry.NativeMaterialSlots() + row);
     }
@@ -200,7 +209,10 @@ MaterialRegistry::Register(GeometryRenderer &geometry,
 
 bool MaterialRegistry::Restore(GeometryRenderer &geometry,
                                GeometryRenderer *glass,
-                               std::string &error) {
+                               std::string &error,
+                               const MaterialRegistry *published) {
+  const bool canReuse = published != nullptr && published != this && published->Binding_ &&
+                        published->Binding_->Current();
   Binding_.reset();
   Collect(geometry, glass);
   geometry.TruncateMaterials(geometry.NativeMaterialSlots());
@@ -216,7 +228,11 @@ bool MaterialRegistry::Restore(GeometryRenderer &geometry,
       Retire(static_cast<uint32_t>(at), nullptr, nullptr);
       continue;
     }
-    if (!Write(geometry, glass, *owner, error)) {
+    const auto *resident =
+        canReuse && published->Contains({.First = record.Rows.front(), .Source = owner})
+            ? &*published->Binding_
+            : nullptr;
+    if (!Write(geometry, glass, *owner, error, resident)) {
       geometry.TruncateMaterials(geometry.NativeMaterialSlots());
       geometry.SetRegisteredPieceSurfaces({});
       if (glass != nullptr) {

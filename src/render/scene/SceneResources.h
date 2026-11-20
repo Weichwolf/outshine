@@ -85,8 +85,10 @@ public:
                          GeometryRenderer *glass,
                          Geometry source,
                          std::span<const MaterialRadiance> images = {});
-  [[nodiscard]] bool
-  RestorePieceMaterials(GeometryRenderer &geometry, GeometryRenderer *glass, std::string &error);
+  [[nodiscard]] bool RestorePieceMaterials(GeometryRenderer &geometry,
+                                           GeometryRenderer *glass,
+                                           std::string &error,
+                                           const SceneResources *published = nullptr);
   [[nodiscard]] bool
   PreparePieceMaterials(GeometryRenderer &geometry, GeometryRenderer *glass, std::string &error);
 
