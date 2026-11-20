@@ -38,12 +38,12 @@ int main() {
   Ground::HeightField::Block pinned;
   Ground::HeightField::Block copied;
   Ground::HeightField::Block missing;
-  CHECK(Generators::TerrainFieldSet::Share(sources, tile, pinned) && pinned.Terrain == raster &&
+  CHECK(Ground::HeightField::SharesField(raster, tile, pinned) && pinned.Terrain == raster &&
             pinned.Nodes.empty(),
         "exact raster pins existing storage without a second sample array");
   CHECK(Generators::TerrainFieldSet::Copy(sources, tile, copied), "independent copy is available");
-  CHECK(!Generators::TerrainFieldSet::Share(sources, {.Zoom = 2, .X = 2, .Y = 1}, missing),
-        "uncovered region cannot borrow a neighbouring raster");
+  CHECK(!Generators::TerrainFieldSet::Copy(sources, {.Zoom = 2, .X = 2, .Y = 1}, missing),
+        "uncovered region cannot sample a neighbouring raster");
   const auto shared = Ground::HeightField::Of(2, {std::move(pinned)});
   const auto owned = Ground::HeightField::Of(2, {std::move(copied)});
   sources.clear();
