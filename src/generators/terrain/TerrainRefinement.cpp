@@ -12,6 +12,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <ranges>
 #include <ratio>
 #include <span>
@@ -152,7 +153,7 @@ double DistanceToPatch(Data::TileId tile,
 
 struct PatchSelection {
   const Ground::TerrainField &Heights;
-  TerrainPatchErrors *Errors;
+  std::vector<TerrainPatchError> *Errors;
   size_t Cells;
   int SourceZoom;
   const TangentFrame &Frame;
@@ -269,8 +270,10 @@ void SelectSourcePatches(const TerrainRefinementSource &source,
   const auto grid = static_cast<size_t>(layout.Side - 1);
   size_t cells = grid;
   while (cells + 1u < std::max(source.Heights->Rows(), source.Heights->Cols())) { cells *= 2u; }
+  std::unique_lock<std::mutex> errorsLock;
+  if (source.Errors) { errorsLock = std::unique_lock(source.Errors->Mutex); }
   PatchSelection selection{.Heights = *source.Heights,
-                           .Errors = source.Errors.get(),
+                           .Errors = source.Errors ? &source.Errors->Nodes : nullptr,
                            .Cells = cells,
                            .SourceZoom = sheet.Tile.Zoom,
                            .Frame = frame,
@@ -350,7 +353,6 @@ std::expected<bool, std::string> TerrainRefinementJob::Advance(size_t sourcesMos
   }
   const size_t count = std::min(sourcesMost, Sources_.size() - NextSource_);
   const size_t end = NextSource_ + count;
-  const auto selectionAt = std::chrono::steady_clock::now();
   for (; NextSource_ < end; ++NextSource_) {
     const auto sourceAt = std::chrono::steady_clock::now();
     SelectSourcePatches(Sources_[NextSource_], Frame_, Layout_, Detail_, Corridors_, Selected_);
@@ -359,10 +361,6 @@ std::expected<bool, std::string> TerrainRefinementJob::Advance(size_t sourcesMos
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sourceAt)
             .count());
   }
-  LongestSelectionMs_ = std::max(
-      LongestSelectionMs_,
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - selectionAt)
-          .count());
   if (NextSource_ < Sources_.size()) { return false; }
   const auto deduplicationAt = std::chrono::steady_clock::now();
   auto unique = UniquePatches(std::move(Selected_));

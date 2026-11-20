@@ -6,6 +6,7 @@
 #include <expected>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <span>
 #include <string>
 #include <vector>
@@ -30,7 +31,10 @@ struct TerrainPatchError {
   std::array<float, 2> HeightsM{};
 };
 
-using TerrainPatchErrors = std::vector<TerrainPatchError>;
+struct TerrainPatchErrors {
+  std::mutex Mutex;
+  std::vector<TerrainPatchError> Nodes;
+};
 
 class TerrainRefinementCache {
 public:
@@ -74,8 +78,6 @@ public:
 
   [[nodiscard]] std::vector<Sheet> Take() noexcept;
 
-  [[nodiscard]] double LongestSelectionMs() const noexcept { return LongestSelectionMs_; }
-
   [[nodiscard]] double LongestSourceMs() const noexcept { return LongestSourceMs_; }
 
   [[nodiscard]] double DeduplicationMs() const noexcept { return DeduplicationMs_; }
@@ -90,7 +92,6 @@ private:
   size_t NextSource_ = 0;
   std::vector<Sheet> Selected_;
   std::vector<Sheet> Result_;
-  double LongestSelectionMs_ = 0.0;
   double LongestSourceMs_ = 0.0;
   double DeduplicationMs_ = 0.0;
   bool Complete_ = false;

@@ -12,7 +12,6 @@
 #include "GroundBuildSchedule.h"
 #include "BuildingFoundationTask.h"
 #include "TerrainDeformationTask.h"
-#include "TerrainRefinement.h"
 #include "TerrainInputPreparation.h"
 #include "TerrainSheetTask.h"
 #include "WaterGeometryPreparation.h"
@@ -392,16 +391,6 @@ public:
   void BeginStreetGraph(std::unique_ptr<Generators::Osm::StreetGraphRequest> worker) noexcept;
   void FinishStreetGraph() noexcept;
 
-  [[nodiscard]] Generators::TerrainRefinementJob *RefinementJob() noexcept {
-    return RefinementJob_.get();
-  }
-
-  void BeginsRefinement(std::unique_ptr<Generators::TerrainRefinementJob> job) noexcept {
-    RefinementJob_ = std::move(job);
-  }
-
-  void FinishesRefinement() noexcept { RefinementJob_.reset(); }
-
   [[nodiscard]] Generators::TerrainSheetTask *SheetWorker() noexcept { return SheetWorker_.get(); }
 
   void BeginsSheets(std::unique_ptr<Generators::TerrainSheetTask> job) noexcept {
@@ -531,7 +520,6 @@ private:
   RegionPhase RegionPhase_ = RegionPhase::Lookup;
   SurfaceInputsPhase SurfaceInputsPhase_ = SurfaceInputsPhase::Awaiting;
   std::unique_ptr<WaterGeometryPreparation> WaterWorker_;
-  std::unique_ptr<Generators::TerrainRefinementJob> RefinementJob_;
   std::unique_ptr<Generators::TerrainSheetTask> SheetWorker_;
   std::vector<EarthworkStamp> Corridors_;
   std::vector<EarthworkStamp> RoadEarthworks_;

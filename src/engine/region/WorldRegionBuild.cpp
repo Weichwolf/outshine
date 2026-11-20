@@ -46,6 +46,7 @@
 #include "Corridors.h"
 #include "BuildingFoundationJob.h"
 #include "TerrainMesh.h"
+#include "TerrainRefinement.h"
 #include "TerrainDeformation.h"
 #include "TerrainDeformationTask.h"
 #include "EngineState.h"
@@ -138,7 +139,6 @@ constexpr size_t kTerrainSheetsPerFrame = 48;
 constexpr size_t kTerrainResidencySheetsPerFrame = 64;
 constexpr size_t kShapeCookItemsPerFrame = 262144;
 constexpr size_t kClassUploadBytesPerFrame = 1u << 20u;
-constexpr size_t kTerrainRefinementSourcesPerFrame = 8;
 constexpr size_t kGroundRestorePagesPerFrame = 64;
 constexpr size_t kPieceRestorePerFrame = 4;
 
@@ -797,8 +797,9 @@ Engine::State::AdvanceGroundCandidatePreparation(const GroundRequest &request) {
   return GroundBuildProgress::Pending;
 }
 
-Engine::State::GroundBuildProgress
-Engine::State::BeginGroundSheetRefinement(const TangentFrame &standing, Patchwork &patchwork) {
+Engine::State::GroundBuildProgress Engine::State::BeginGroundSheetWork(const TangentFrame &standing,
+                                                                       Patchwork &patchwork,
+                                                                       int finestZoom) {
   WorldRegionBuildState &state = *World.GroundBuild;
   GroundBuildProducts &build = state.Candidate().Products();
   build.TerrainSurface.SetFrame(standing);
@@ -837,41 +838,34 @@ Engine::State::BeginGroundSheetRefinement(const TangentFrame &standing, Patchwor
     World.TerrainErrors =
         std::make_unique<Generators::TerrainRefinementCache>(Render::TerrainLattice::kSide);
   }
-  state.BeginsRefinement(std::make_unique<Generators::TerrainRefinementJob>(
-      state.TerrainInputs().BeginRefinement(patchwork,
-                                            {.Side = Render::TerrainLattice::kSide, .Halo = 1},
-                                            detail,
-                                            Render::TerrainLattice::kMaximumPages,
-                                            roadCorridors,
-                                            World.TerrainErrors.get())));
+  constexpr Generators::TerrainPageLayout layout{.Side = Render::TerrainLattice::kSide, .Halo = 1};
+  auto &inputs = state.TerrainInputs();
+  auto refinement = inputs.BeginRefinement(patchwork,
+                                           layout,
+                                           detail,
+                                           Render::TerrainLattice::kMaximumPages,
+                                           roadCorridors,
+                                           World.TerrainErrors.get());
+  state.BeginsSheets(std::make_unique<Generators::TerrainSheetTask>(
+      *Services.Compute,
+      inputs,
+      patchwork,
+      Generators::TerrainSheetTask::Settings{.Frame = standing,
+                                             .Layout = layout,
+                                             .FinestZoom = finestZoom,
+                                             .ProbeStride = kBounceProbeStride},
+      std::move(refinement)));
   return GroundBuildProgress::Pending;
 }
 
-Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheetWorker(
-    const TangentFrame &standing, Patchwork &patchwork, int finestZoom) {
+Engine::State::GroundBuildProgress Engine::State::CollectGroundSheets(Patchwork &patchwork) {
   WorldRegionBuildState &state = *World.GroundBuild;
-  if (state.SheetWorker() == nullptr) {
-    state.BeginsSheets(std::make_unique<Generators::TerrainSheetTask>(
-        *Services.Compute,
-        state.TerrainInputs(),
-        patchwork,
-        Generators::TerrainSheetTask::Settings{
-            .Frame = standing,
-            .Layout = {.Side = Render::TerrainLattice::kSide, .Halo = 1},
-            .FinestZoom = finestZoom,
-            .ProbeStride = kBounceProbeStride}));
-    return GroundBuildProgress::Pending;
-  }
-  if (state.CurrentSheetPhase() == Core::GroundBuildSchedule::SheetPhase::NeedsHalos) {
-    if (state.SheetWorker()->HalosReady()) { state.AdvanceSheetPhase(); }
-    return GroundBuildProgress::Pending;
-  }
   state.SamplesProductPeak();
   auto ready = state.SheetWorker()->Take(state.TerrainInputs(), patchwork);
   if (!ready) { return GroundBuildProgress::Pending; }
   state.FinishesSheets();
   if (!*ready) {
-    Error = std::string(ready->error());
+    Error = std::move(ready->error());
     World.GroundBuild.reset();
     return GroundBuildProgress::Failed;
   }
@@ -880,6 +874,16 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheetWorker(
   build.RimsMissing = state.TerrainInputs().RimsMissing();
   state.Surveying() = std::move(result.Survey);
   const auto &survey = state.Surveying();
+  Published.RecordMetric("ground refinement: worker time", result.Refinement.TotalMs, "ms");
+  Published.RecordMetric(
+      "ground refinement: longest source selection slice", result.Refinement.LongestSliceMs, "ms");
+  Published.RecordMetric(
+      "ground refinement: longest source", result.LongestRefinementSourceMs, "ms");
+  Published.RecordMetric(
+      "ground refinement: patch deduplication", result.RefinementDeduplicationMs, "ms");
+  Published.RecordMetric("ground: virtual tiles the lattice refines to",
+                         static_cast<double>(result.VirtualSheets),
+                         "tiles");
   Published.RecordMetric(
       "ground: sheets the lattice haloed", static_cast<double>(result.Haloed), "sheets");
   Published.RecordMetric("ground: rims copied for want of a neighbour",
@@ -965,49 +969,16 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
       if (*prepared) { state.AdvanceSheetPhase(); }
       return GroundBuildProgress::Pending;
     }
-    case Core::GroundBuildSchedule::SheetPhase::NeedsRefinement: {
-      if (state.RefinementJob() == nullptr) {
-        return BeginGroundSheetRefinement(standing, patchwork);
+    case Core::GroundBuildSchedule::SheetPhase::NeedsRefinement:
+      if (state.SheetWorker() == nullptr) {
+        return BeginGroundSheetWork(standing, patchwork, coverage.Zoom);
       }
-      auto refined = state.RefinementJob()->Advance(kTerrainRefinementSourcesPerFrame);
-      if (!refined) {
-        Error = std::move(refined.error());
-        World.GroundBuild.reset();
-        return GroundBuildProgress::Failed;
-      }
-      if (!*refined) { return GroundBuildProgress::Pending; }
-      Published.RecordMetric("ground refinement: longest source selection slice",
-                             state.RefinementJob()->LongestSelectionMs(),
-                             "ms");
-      Published.RecordMetric(
-          "ground refinement: longest source", state.RefinementJob()->LongestSourceMs(), "ms");
-      Published.RecordMetric(
-          "ground refinement: patch deduplication", state.RefinementJob()->DeduplicationMs(), "ms");
-      const auto replacementAt = std::chrono::steady_clock::now();
-      patchwork.Sheets = std::move(*state.RefinementJob()).Take();
-      Published.RecordMetric("ground refinement: patch replacement",
-                             std::chrono::duration<double, std::milli>(
-                                 std::chrono::steady_clock::now() - replacementAt)
-                                 .count(),
-                             "ms");
-      const auto releaseAt = std::chrono::steady_clock::now();
-      state.FinishesRefinement();
-      Published.RecordMetric(
-          "ground refinement: job release",
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - releaseAt)
-              .count(),
-          "ms");
-      Published.RecordMetric(
-          "ground: virtual tiles the lattice refines to",
-          static_cast<double>(std::ranges::count_if(
-              patchwork.Sheets, [](const Sheet &sheet) { return sheet.Virtual; })),
-          "tiles");
-      state.AdvanceSheetPhase();
+      if (state.SheetWorker()->RefinementReady()) { state.AdvanceSheetPhase(); }
       return GroundBuildProgress::Pending;
-    }
     case Core::GroundBuildSchedule::SheetPhase::NeedsHalos:
-    case Core::GroundBuildSchedule::SheetPhase::NeedsMesh:
-      return AdvanceGroundSheetWorker(standing, patchwork, coverage.Zoom);
+      if (state.SheetWorker()->HalosReady()) { state.AdvanceSheetPhase(); }
+      return GroundBuildProgress::Pending;
+    case Core::GroundBuildSchedule::SheetPhase::NeedsMesh: return CollectGroundSheets(patchwork);
     case Core::GroundBuildSchedule::SheetPhase::Ready: return GroundBuildProgress::Ready;
   }
   return GroundBuildProgress::Failed;

@@ -87,11 +87,6 @@ public:
 
   [[nodiscard]] std::string FieldDiagnostic() const;
 
-  [[nodiscard]] bool RefineByError(Patchwork &candidate,
-                                   TerrainPageLayout layout,
-                                   TerrainRefinementDetail detail,
-                                   size_t maximumPatches,
-                                   std::string &error) const;
   [[nodiscard]] TerrainRefinementJob
   BeginRefinement(const Patchwork &candidate,
                   TerrainPageLayout layout,

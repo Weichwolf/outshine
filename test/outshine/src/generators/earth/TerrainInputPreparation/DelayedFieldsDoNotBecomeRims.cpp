@@ -9,12 +9,12 @@
 #include "Check.h"
 #include <algorithm>
 #include <cstddef>
-#include <string>
 #include <vector>
 #include <array>
 #include <atomic>
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <thread>
 #include <utility>
 
@@ -22,6 +22,7 @@ namespace {
 using namespace outshine;
 using namespace outshine::Test;
 constexpr size_t kMaximumPatches = 65536;
+constexpr Generators::TerrainPageLayout kLayout{.Side = kPatchGrid + 1, .Halo = 1};
 constexpr size_t kInteriorNodes = static_cast<size_t>(kPatchGrid + 1) * (kPatchGrid + 1);
 constexpr size_t kPageNodes = static_cast<size_t>(kPatchGrid + 3) * (kPatchGrid + 3);
 constexpr size_t kDecodedBudget = size_t{1024} * 1024u;
@@ -31,36 +32,46 @@ constexpr size_t kHaloTurns = 100000;
 constexpr size_t kHaloSliceNodes = 257;
 constexpr long long kMostPosts = 100;
 
-void CheckSheetWorker(const Generators::TerrainInputPreparation &prepared,
-                      const Patchwork &unhaloed,
-                      const Patchwork &expected) {
-  constexpr Generators::TerrainPageLayout layout{.Side = kPatchGrid + 1, .Halo = 1};
-  constexpr size_t stride = 16;
-  const auto frame = TangentFrame::At({});
-  Generators::TerrainSurvey survey;
-  for (const auto &sheet : expected.Sheets) {
-    Generators::SurveyTerrainSheet(survey, sheet, frame, layout, stride);
-  }
-  auto inputs = prepared;
-  auto candidate = unhaloed;
-  Tasks workers(1);
-  Generators::TerrainSheetTask worker(
-      workers,
-      inputs,
-      candidate,
-      {.Frame = frame, .Layout = layout, .FinestZoom = 4, .ProbeStride = stride});
-  CHECK(candidate.Sheets.empty() && inputs.FieldAt(expected.Sheets.front().Tile) == nullptr,
-        "background work owns the pending candidate and its immutable source fields");
-  Ground::HeightField::Block retained;
-  CHECK(worker.SnapshotSourceFields().CopySourcedField(expected.Sheets.front().Tile, retained) &&
-            !retained.Nodes.empty() && retained.Nodes.front() == DelayedTerrainSource::HeightM,
-        "a camera replacement can retain source heights while the old worker owns the candidate");
+std::optional<Generators::TerrainSheetTask::Result>
+AwaitSheets(Generators::TerrainSheetTask &worker,
+            Generators::TerrainInputPreparation &inputs,
+            Patchwork &candidate) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
   auto result = worker.Take(inputs, candidate);
   while (!result && std::chrono::steady_clock::now() < deadline) {
     (void)worker.AwaitSlice(0.01);
     result = worker.Take(inputs, candidate);
   }
+  return result;
+}
+
+void CheckSheetWorker(const Generators::TerrainInputPreparation &prepared,
+                      const Patchwork &original,
+                      const Patchwork &expected) {
+  constexpr size_t stride = 16;
+  const auto frame = TangentFrame::At({});
+  Generators::TerrainSurvey survey;
+  for (const auto &sheet : expected.Sheets) {
+    Generators::SurveyTerrainSheet(survey, sheet, frame, kLayout, stride);
+  }
+  auto inputs = prepared;
+  auto candidate = original;
+  const Generators::TerrainSheetTask::Settings settings{
+      .Frame = frame, .Layout = kLayout, .FinestZoom = 4, .ProbeStride = stride};
+  Tasks workers(1);
+  Generators::TerrainSheetTask worker(
+      workers,
+      inputs,
+      candidate,
+      settings,
+      inputs.BeginRefinement(candidate, kLayout, {}, kMaximumPatches));
+  CHECK(candidate.Sheets.empty() && inputs.FieldAt(expected.Sheets.front().Tile) == nullptr,
+        "background work owns the pending candidate and its immutable source fields");
+  Ground::HeightField::Block retained;
+  CHECK(worker.SnapshotSourceFields().CopySourcedField(expected.Sheets.front().Tile, retained) &&
+            !retained.Nodes.empty() && retained.Nodes.front() == DelayedTerrainSource::HeightM,
+        "a camera replacement can retain source heights while the old worker owns the candidate");
+  const auto result = AwaitSheets(worker, inputs, candidate);
   CHECK(result && *result, "the background worker returns a complete product");
   if (!result || !*result) { return; }
   CHECK(candidate.Sheets == expected.Sheets &&
@@ -70,6 +81,27 @@ void CheckSheetWorker(const Generators::TerrainInputPreparation &prepared,
   CHECK((*result)->Survey.ProbePositionsM == survey.ProbePositionsM &&
             (*result)->Survey.Vertices == survey.Vertices,
         "the worker samples lighting probes from the completed height pages");
+
+  auto refusedInputs = prepared;
+  auto refusedCandidate = original;
+  Generators::TerrainSheetTask refused(
+      workers,
+      refusedInputs,
+      refusedCandidate,
+      settings,
+      refusedInputs.BeginRefinement(refusedCandidate, kLayout, {}, 0));
+  const auto failure = AwaitSheets(refused, refusedInputs, refusedCandidate);
+  CHECK(failure && !*failure && failure->error().contains("height patches") &&
+            refusedCandidate.Sheets.empty() && !refused.Take(refusedInputs, refusedCandidate),
+        "failed refinement returns the cause once and publishes no partial terrain");
+}
+
+bool Refine(const Generators::TerrainInputPreparation &inputs, Patchwork &candidate) {
+  auto job = inputs.BeginRefinement(candidate, kLayout, {}, kMaximumPatches);
+  const auto done = job.Advance(candidate.Sheets.size());
+  if (!done || !*done) { return false; }
+  candidate.Sheets = std::move(job).Take();
+  return true;
 }
 
 void CheckSourceOwnership(const Generators::TerrainInputPreparation &sheets) {
@@ -131,11 +163,7 @@ void CheckHalos(Generators::TerrainInputPreparation &sheets,
                 Patchwork &candidate,
                 const Patchwork &original,
                 const Ground::GroundStream &ground) {
-  std::string error;
-  CHECK(sheets.RefineByError(
-            candidate, {.Side = (kPatchGrid + 1), .Halo = 1}, {}, kMaximumPatches, error),
-        "resolved field refines the native candidate");
-  const Patchwork unhaloed = candidate;
+  CHECK(Refine(sheets, candidate), "resolved field refines the native candidate");
   Patchwork interrupted = candidate;
   Generators::TerrainInputPreparation interruptedSheets = sheets;
   Generators::TerrainInputPreparation::HaloBuildJob haloJob(interruptedSheets, interrupted, 4);
@@ -149,7 +177,7 @@ void CheckHalos(Generators::TerrainInputPreparation &sheets,
   CHECK(interrupted.Sheets == candidate.Sheets &&
             interruptedSheets.RimsMissing() == sheets.RimsMissing(),
         "interrupted and one-shot halo preparation produce identical pages and rim counts");
-  CheckSheetWorker(sheets, unhaloed, candidate);
+  CheckSheetWorker(sheets, original, candidate);
   for (const Sheet &sheet : candidate.Sheets) {
     CHECK(sheet.Nodes.size() == kPageNodes,
           "complete height page has all interior and rim samples");
@@ -164,9 +192,7 @@ void CheckHalos(Generators::TerrainInputPreparation &sheets,
       resident, ground, {.FinestZoom = 4, .RequestsMost = 9, .AdditionalTiles = {}});
   CHECK(residentReady.has_value() && *residentReady,
         "all fields are resident for the independent one-step preparation");
-  CHECK(residentSheets.RefineByError(
-            resident, {.Side = (kPatchGrid + 1), .Halo = 1}, {}, kMaximumPatches, error),
-        "resident source refines");
+  CHECK(Refine(residentSheets, resident), "resident source refines");
   CHECK(residentSheets.Halos(resident, 4) == resident.Sheets.size(), "resident halos complete");
   CHECK(resident.Sheets.size() == candidate.Sheets.size(),
         "paced and resident runs select the same tile count");

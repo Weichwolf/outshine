@@ -502,8 +502,8 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress RestoreGroundRoadPages(WorldRegionBuildState &state);
   [[nodiscard]] GroundBuildProgress
   AdvanceGroundSheets(const TangentFrame &standing, Patchwork &patchwork, const Around &coverage);
-  [[nodiscard]] GroundBuildProgress BeginGroundSheetRefinement(const TangentFrame &standing,
-                                                               Patchwork &patchwork);
+  [[nodiscard]] GroundBuildProgress
+  BeginGroundSheetWork(const TangentFrame &standing, Patchwork &patchwork, int finestZoom);
   [[nodiscard]] GroundBuildProgress AdvanceGroundClasses();
   [[nodiscard]] GroundBuildProgress AdvanceGroundSurface();
   [[nodiscard]] GroundBuildProgress AdvanceGroundBuildingModels(const TangentFrame &standing);
@@ -617,8 +617,7 @@ struct Engine::State {
   [[nodiscard]] StructureBuildQueue::HeightSource StructureHeightSource();
   void PublishStreetGraphMeasurements(const Generators::Osm::StreetGraphBuilder::Built &mapped,
                                       double longestSliceMs);
-  [[nodiscard]] GroundBuildProgress
-  AdvanceGroundSheetWorker(const TangentFrame &standing, Patchwork &patchwork, int finestZoom);
+  [[nodiscard]] GroundBuildProgress CollectGroundSheets(Patchwork &patchwork);
   void PublishGroundCandidateMeasurements(const GroundWorldCandidate &candidate,
                                           const WorldRegionBuildState &state);
   void PublishGroundRenderMeasurements(std::chrono::steady_clock::time_point phaseAt);

@@ -4,7 +4,6 @@
 #include <cstddef>
 #include <memory>
 #include <span>
-#include <string>
 #include <utility>
 #include <vector>
 
@@ -35,25 +34,6 @@ TerrainInputPreparation::BeginRefinement(const Patchwork &candidate,
   }
   if (cache != nullptr) { *cache = std::move(retained); }
   return {sources, Frame_, layout, detail, maximumPatches, corridors};
-}
-
-bool TerrainInputPreparation::RefineByError(Patchwork &candidate,
-                                            TerrainPageLayout layout,
-                                            TerrainRefinementDetail detail,
-                                            size_t maximumPatches,
-                                            std::string &error) const {
-  auto job = BeginRefinement(candidate, layout, detail, maximumPatches);
-  auto refined = job.Advance(candidate.Sheets.size());
-  if (!refined) {
-    error = std::move(refined.error());
-    return false;
-  }
-  if (!*refined) {
-    error = "terrain refinement did not consume its declared source budget";
-    return false;
-  }
-  candidate.Sheets = std::move(job).Take();
-  return true;
 }
 
 }

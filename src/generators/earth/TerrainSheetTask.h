@@ -6,7 +6,7 @@
 #include <expected>
 #include <memory>
 #include <optional>
-#include <string_view>
+#include <string>
 
 namespace outshine {
 class Tasks;
@@ -15,6 +15,7 @@ class Tasks;
 namespace outshine::Generators {
 class TerrainInputPreparation;
 class TerrainFieldSet;
+class TerrainRefinementJob;
 
 class TerrainSheetTask {
 public:
@@ -32,8 +33,12 @@ public:
 
   struct Completed {
     TerrainSurvey Survey;
+    Timing Refinement;
     Timing Halos;
     Timing Surveying;
+    double LongestRefinementSourceMs = 0;
+    double RefinementDeduplicationMs = 0;
+    size_t VirtualSheets = 0;
     size_t Haloed = 0;
   };
 
@@ -43,16 +48,18 @@ public:
     size_t Probes = 0;
   };
 
-  using Result = std::expected<Completed, std::string_view>;
+  using Result = std::expected<Completed, std::string>;
 
   TerrainSheetTask(Tasks &pool,
                    TerrainInputPreparation &inputs,
                    Patchwork &pages,
-                   Settings settings);
+                   Settings settings,
+                   TerrainRefinementJob refinement);
   ~TerrainSheetTask();
   TerrainSheetTask(const TerrainSheetTask &) = delete;
   TerrainSheetTask &operator=(const TerrainSheetTask &) = delete;
 
+  [[nodiscard]] bool RefinementReady() const noexcept;
   [[nodiscard]] bool HalosReady() const noexcept;
   [[nodiscard]] bool AwaitSlice(double seconds) const;
   [[nodiscard]] std::optional<Result> Take(TerrainInputPreparation &inputs, Patchwork &pages);
