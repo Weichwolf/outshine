@@ -5,6 +5,7 @@
 #include <expected>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <stop_token>
 #include <string>
@@ -14,6 +15,30 @@
 #include "PreparedStreetGraph.h"
 
 namespace outshine::Generators::Osm {
+
+class StreetGraphTopology {
+public:
+  StreetGraphTopology(std::shared_ptr<const OsmField> vectors, StreetField ways);
+
+  [[nodiscard]] bool Matches(const std::shared_ptr<const OsmField> &vectors,
+                             const StreetField &ways) const noexcept;
+
+  [[nodiscard]] const OsmField &Vectors() const noexcept { return *Vectors_; }
+
+  [[nodiscard]] const StreetField &Ways() const noexcept { return Ways_; }
+
+private:
+  friend class StreetGraphRequest;
+  [[nodiscard]] std::expected<StreetGraphBuildJob, std::string>
+  Begin(Path::Network::HeightSource heightOf);
+  [[nodiscard]] std::optional<StreetGraphBuildJob> Take();
+  void Save(StreetGraphBuildJob job);
+
+  std::shared_ptr<const OsmField> Vectors_;
+  StreetField Ways_;
+  std::mutex Mutex_;
+  std::optional<StreetGraphBuildJob> Pending_;
+};
 
 class StreetGraphRequest {
 public:
@@ -36,6 +61,10 @@ public:
   // The pool outlives this owner and every unfinished callback.
   StreetGraphRequest(Tasks &pool, StreetGraphBuildJob job);
   StreetGraphRequest(Tasks &pool, JobFactory factory, Resolver resolver = {});
+  StreetGraphRequest(Tasks &pool,
+                     std::shared_ptr<StreetGraphTopology> topology,
+                     Path::Network::HeightSource heightOf,
+                     Resolver resolver);
   ~StreetGraphRequest();
   StreetGraphRequest(const StreetGraphRequest &) = delete;
   StreetGraphRequest &operator=(const StreetGraphRequest &) = delete;

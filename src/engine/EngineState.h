@@ -78,6 +78,10 @@ class TerrainRefinementCache;
 struct TerrainDeformationMetrics;
 }
 
+namespace outshine::Generators::Osm {
+class StreetGraphTopology;
+}
+
 namespace outshine {
 struct GroundBuildProducts;
 class WorldRegionBuildState;
@@ -184,6 +188,7 @@ struct WorldRegionState {
   std::unique_ptr<WorldRegionBuildState> GroundBuild;
   std::unique_ptr<WorldRegionBuildState> GroundRetirement;
   std::shared_ptr<const Generators::Osm::OsmField> RetiredVectorSnapshot;
+  std::shared_ptr<Generators::Osm::StreetGraphTopology> StreetTopology;
   std::unique_ptr<Generators::TerrainFieldSet> RetiredTerrainFields;
   std::unique_ptr<Generators::TerrainRefinementCache> TerrainErrors;
   std::shared_ptr<Generators::TerrainHaloCache> TerrainHalos;
@@ -496,6 +501,8 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress AdvanceGroundRegion();
   void RetireGroundCandidate();
   void ReleaseRetiredVectorSnapshot();
+  void ReleaseStreetTopology();
+  void BeginGroundStreetGraph(WorldRegionBuildState &state);
   void RequestGroundStreetSources();
   void RetryGroundWithStreetSources();
   [[nodiscard]] GroundBuildProgress AdvanceGroundSurfaceInputs();

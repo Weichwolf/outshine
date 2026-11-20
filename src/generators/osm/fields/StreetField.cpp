@@ -5,6 +5,7 @@
 #include <span>
 #include <string_view>
 #include <optional>
+#include <memory>
 #include <cstddef>
 #include <utility>
 #include <bit>
@@ -88,6 +89,7 @@ uint32_t StreetField::Ingest(const OsmField &field,
   }
   if (Admission_.Done(field.Tiles())) { return static_cast<uint32_t>(Ways_.size()); }
 
+  const size_t previousWays = Ways_.size();
   const auto start = std::chrono::steady_clock::now();
   (void)Admission_.Visit(field.Tiles(), reach, [&](const TileAdmission::Next &next) {
     AdmitTile(field, veg, next);
@@ -96,6 +98,7 @@ uint32_t StreetField::Ingest(const OsmField &field,
                ? TileAdmission::Decision::Continue
                : TileAdmission::Decision::Stop;
   });
+  if (Ways_.size() != previousWays) { WayVersion_ = std::make_shared<const WayVersion>(); }
   return static_cast<uint32_t>(Ways_.size());
 }
 

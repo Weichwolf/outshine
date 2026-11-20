@@ -73,6 +73,8 @@ public:
   [[nodiscard]] double LongestSliceMs() const noexcept { return LongestSliceMs_; }
 
   [[nodiscard]] const char *PhaseName() const noexcept;
+  [[nodiscard]] bool CanResumeTopology() const noexcept;
+  void BindHeightSource(Path::Network::HeightSource heightOf);
 
 private:
   enum class Stage : uint8_t {
