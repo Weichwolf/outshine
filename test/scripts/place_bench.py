@@ -1,7 +1,6 @@
 """The Places table: native scenario runs, warm cache, three-run medians."""
 
 import json
-from copy import copy
 import math
 import platform
 import statistics
@@ -9,9 +8,10 @@ import subprocess
 import sys
 import time
 import xml.etree.ElementTree as ET
+from copy import copy
 
-from place_turn import turn_axis, turn_scenario
 from place_gpu_profile import GROUPS
+from place_turn import turn_axis, turn_scenario
 
 PROFILES = {"rtx3060": (1920, 1080, 60), "iris": (1280, 720, 30),
             "a18": (1280, 720, 30)}
@@ -169,6 +169,25 @@ def validate_report(report, options, frames, angular, linear):
             raise ValueError("still/complete turn did not retain the initial camera pose")
 
 
+def missing_measurements(report):
+    missing = []
+    cpu = report["cpu_times"]
+    if cpu["frame"] is None or cpu["work"] is None:
+        missing.append("CPU frames")
+    gpu = report["gpu_times"]
+    if gpu["frame"] is None or not gpu.get("complete"):
+        missing.append("GPU frames")
+    profile = report.get("gpu_profile", {})
+    if not profile.get("available") or len(profile.get("frames", [])) != report["motion"]["frames"]:
+        missing.append("GPU passes")
+    memory = report["process_memory"]
+    peak, current = memory.get("peak_footprint_bytes"), memory.get("footprint_bytes")
+    if (peak is None or current is None or not 0 < current <= peak
+            or memory.get("peak_scope") != "process_lifetime"):
+        missing.append("peak footprint")
+    return missing
+
+
 def summarize(reports):
     def field(*path):
         values = []
@@ -182,6 +201,12 @@ def summarize(reports):
     metrics = [{m["name"]: m["value"] for m in r["metrics"]} for r in reports]
     image_values = [r.get("image_row_variation") for r in reports]
     image_nonblank = all(v is not None and math.isfinite(v) and v > .1 for v in image_values)
+    scene_complete = len(reports) == 3 and image_nonblank and all(
+        r["measurement_complete"] and r["world_complete"] and r["unrefined_frames"] == 0
+        for r in reports
+    )
+    gaps = [{"run": index, "missing": missing}
+            for index, report in enumerate(reports, 1) if (missing := missing_measurements(report))]
     encoding = []
     for report, metric in zip(reports, metrics):
         stages = [value for key, value in metric.items()
@@ -216,8 +241,9 @@ def summarize(reports):
         "gpu_passes": {group: {key: field("gpu_profile", "gpu_passes", group, key)
                                  for key in ("p50_ms", "p99_ms", "mean_ms")}
                         for group in GROUPS},
-        "complete": len(reports) == 3 and image_nonblank and all(r["measurement_complete"] and r["world_complete"]
-                                              and r["unrefined_frames"] == 0 for r in reports),
+        "scene_complete": scene_complete,
+        "missing_measurements": gaps,
+        "complete": scene_complete and not gaps,
     }
 
 
@@ -315,7 +341,7 @@ def benchmark_places(available, selected, options, invoke, publish_shot=None):
                 driver = selected_driver(metadata, row["gpu"], options.driver)
                 row["driver"] = driver
                 identities.add((row["cpu"], row["gpu"], driver, row["commit"]))
-                if publish_shot is not None and case == "Drehung" and row["complete"]:
+                if publish_shot is not None and case == "Drehung" and row["scene_complete"]:
                     last_image = options.reports / name / case / str(output["runs"]) / "image.png"
                     image, digest = publish_shot(last_image, options.shots, name)
                     row.update({"image": str(image), "sha256": digest})
@@ -329,6 +355,8 @@ def benchmark_places(available, selected, options, invoke, publish_shot=None):
             temporary.replace(options.reports / "results.json")
             print(f"{name}/{case}: {'vollständig' if row['complete'] else 'unvollständig'}",
                   file=sys.stderr, flush=True)
+            for gap in row.get("missing_measurements", ()):
+                print(f"  Lauf {gap['run']} ohne " + ", ".join(gap["missing"]), file=sys.stderr)
     print(f"Profil {options.bench_profile}: {width}×{height}, {rate} fps, {budget:.2f} ms. "
           f"M1: CPU-Arbeit ≤ {cpu_budget} ms, GPU ≤ {gpu_budget} ms. "
           "Frame Wand enthält synchrones Warten; CPU-Arbeit zieht explizite Fence-/Acquire-Wartezeit ab. "

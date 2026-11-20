@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Exercise actual driver orchestration without requiring a graphics device."""
 
 import contextlib
@@ -53,11 +52,15 @@ class PlaceBench(unittest.TestCase):
                           "work": {"p50_ms": timing / 4, "p99_ms": timing / 2},
                           "samples": [{"frame_ms": timing, "cpu_work_ms": timing / 4,
                                        "sync_wait_ms": timing * .75}] * frames},
-            "gpu_times": {"frame": distribution,
+            "gpu_times": {"frame": distribution, "complete": True,
                           "samples": [{"submission": i + 1, "elapsed_ms": timing}
                                       for i in range(frames)]},
+            "gpu_profile": {"available": True, "frames": [{}] * frames,
+                            "gpu_passes": {"opaque": distribution}},
             "process_memory": {"peak_resident_bytes": 2**20 * index,
-                               "peak_footprint_bytes": 2**21 * index},
+                               "footprint_bytes": 2**20,
+                               "peak_footprint_bytes": 2**21 * max(1, index),
+                               "peak_scope": "process_lifetime"},
             "gpu_memory": {"resource_allocated_bytes": 2**20 * index},
             "phases_ms": {"preload": timing}, "metrics": [],
             "image_row_variation": 2.0,
@@ -69,13 +72,13 @@ class PlaceBench(unittest.TestCase):
         }
         return copy.deepcopy(report)
 
-    def run_driver(self, invoke=None):
+    def run_driver(self, invoke=None, publish_shot=None):
         stdout, stderr = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr), patch(
             "place_bench.driver_metadata", return_value={"devices": []}
         ):
             code = benchmark_places({"Husum": self.source}, ["Husum"],
-                                    self.options, invoke or self.invoke)
+                                    self.options, invoke or self.invoke, publish_shot)
         return code, json.loads((self.root / "results.json").read_text()), stdout.getvalue()
 
     def test_profiles_measure_still_turn_walk_and_flight_three_times(self):
@@ -102,7 +105,8 @@ class PlaceBench(unittest.TestCase):
                     self.assertEqual(row["peak_footprint_bytes"], 2**22)
                     self.assertIsNone(row["draws_max"])
                     self.assertIsNone(row["triangles_max"])
-                    self.assertTrue(all(p["p99_ms"] is None for p in row["gpu_passes"].values()))
+                    self.assertEqual(row["gpu_passes"]["opaque"]["p99_ms"], 14)
+                    self.assertIsNone(row["gpu_passes"]["water"]["p99_ms"])
                     self.assertTrue(row["complete"])
                 self.assertIn(f"GPU: {result['rows'][0]['gpu']}; Treiber: test driver", table)
                 self.assertEqual(table.count("| Husum |"), 4)
@@ -147,6 +151,31 @@ class PlaceBench(unittest.TestCase):
         self.assertTrue(all(row["cpu_p99_ms"] == 14 for row in result["rows"]))
         self.assertTrue(all(not row["complete"] for row in result["rows"]))
 
+    def test_missing_passes_fail_the_row_without_losing_a_complete_place_image(self):
+        self.options.bench_profile = "a18"
+        published = []
+
+        def incomplete(*args, **kwargs):
+            report = self.invoke(*args, **kwargs)
+            folder = args[3]
+            if folder.parent.name == "Drehung" and folder.name == "2":
+                report["gpu_profile"] = {"available": False, "frames": [], "gpu_passes": {}}
+            return report
+
+        def publish(image, directory, name):
+            published.append((image, name))
+            return image, "verified-place-image"
+
+        self.options.shots = self.root
+        code, result, _ = self.run_driver(incomplete, publish)
+        self.assertEqual(code, 1)
+        turn = result["rows"][1]
+        self.assertTrue(turn["scene_complete"])
+        self.assertFalse(turn["complete"])
+        self.assertEqual(turn["missing_measurements"], [{"run": 2, "missing": ["GPU passes"]}])
+        self.assertEqual(turn["gpu_p99_ms"], 14)
+        self.assertEqual(published, [(self.root / "Husum/Drehung/3/image.png", "Husum")])
+
     def test_flat_picture_rejects_a_reported_complete_world_without_discarding_times(self):
         def blank(*args, **kwargs):
             report = self.invoke(*args, **kwargs)
@@ -165,7 +194,7 @@ class PlaceBench(unittest.TestCase):
     def test_wrong_profile_and_motion_fail_the_row(self):
         for changed in ("profile", "motion", "gpu", "commit"):
             with self.subTest(changed=changed):
-                def wrong(*args, **kwargs):
+                def wrong(*args, changed=changed, **kwargs):
                     report = self.invoke(*args, **kwargs)
                     if changed == "profile":
                         report["profile"]["width_px"] = 32
@@ -181,18 +210,33 @@ class PlaceBench(unittest.TestCase):
                 self.assertEqual(code, 1)
                 self.assertTrue(all(not row["complete"] for row in result["rows"]))
 
-    def test_missing_gpu_times_are_unavailable_and_fail_budget_check(self):
+    def test_missing_gpu_times_fail_without_requiring_a_budget_check(self):
         def unavailable(*args, **kwargs):
             report = self.invoke(*args, **kwargs)
             report["gpu_times"]["frame"] = None
             return report
 
-        self.options.check_budget = True
         code, result, _ = self.run_driver(unavailable)
         self.assertEqual(code, 1)
         self.assertTrue(all(row["gpu_p99_ms"] is None for row in result["rows"]))
+        self.assertTrue(all(row["missing_measurements"][0]["missing"] == ["GPU frames"]
+                            for row in result["rows"]))
         self.assertEqual(number(None), "n/v")
         self.assertEqual(number(17, 1000 / 60), "**17.00**")
+
+    def test_a_current_memory_sample_cannot_stand_in_for_the_peak(self):
+        def sampled(*args, **kwargs):
+            report = self.invoke(*args, **kwargs)
+            report["process_memory"]["peak_scope"] = "current_sample"
+            return report
+
+        code, result, _ = self.run_driver(sampled)
+        self.assertEqual(code, 1)
+        for row in result["rows"]:
+            self.assertTrue(row["scene_complete"])
+            self.assertFalse(row["complete"])
+            self.assertEqual(row["missing_measurements"][0]["missing"], ["peak footprint"])
+            self.assertEqual(row["gpu_p99_ms"], 14)
 
     def test_startup_and_peak_keep_spikes_and_their_actual_run_and_frame(self):
         def spikes(*args, **kwargs):
@@ -252,11 +296,16 @@ class PlaceBench(unittest.TestCase):
                       "ticks": [112, 125, 124, 135]},
                      {"label": "bufferCopy", "kind": "blit", "available": True,
                       "ticks": [154, 174, 0, 0]}]
-        measured = metal_encoder_result({"calibration_gpu": [100, 200],
-                                         "calibration_cpu_ns": [0, 1_000_000],
-                                         "encoders": encoders})
+        submission = {"calibration_gpu": [100, 200], "calibration_cpu_ns": [0, 1_000_000],
+                      "encoders": encoders}
+        measured = metal_encoder_result(submission)
         self.assertAlmostEqual(measured["groups"]["opaque"], .4)
         self.assertAlmostEqual(measured["encoders"]["bufferCopy"], .2)
+        self.assertFalse(measured["missing_groups"])
+        encoders[0]["available"] = False
+        incomplete = metal_encoder_result(submission)
+        self.assertEqual(incomplete["missing_groups"], ["opaque"])
+        self.assertIsNone(incomplete["groups"]["opaque"])
 
     def test_profile_matches_measured_device_and_submissions_and_counts_all_passes(self):
         passes = [{"label": name, "kind": "render", "available": True, "gpu_ns": ns,
@@ -280,6 +329,7 @@ class PlaceBench(unittest.TestCase):
         other["submissions"][1]["passes"][0]["draw_calls"] = 8888
         (self.root / "gpu-profile.2.json").write_text(json.dumps(other))
         measured = read_vulkan_profile(self.root, report)
+        self.assertTrue(measured["available"])
         self.assertEqual([f["submission"] for f in measured["frames"]], [10, 11])
         self.assertEqual(measured["draws_max"], 12)
         self.assertEqual(measured["triangles_max"], 97)
@@ -291,12 +341,14 @@ class PlaceBench(unittest.TestCase):
         submissions[1]["passes"][0]["input_primitives"] = None
         path.write_text(json.dumps(profile))
         unavailable = read_vulkan_profile(self.root, report)
+        self.assertFalse(unavailable["available"])
         self.assertIsNone(unavailable["gpu_passes"]["opaque"])
         self.assertIsNone(unavailable["triangles_max"])
         self.assertEqual(unavailable["draws_max"], 12)
         submissions.pop(2)
         path.write_text(json.dumps(profile))
         missing = read_vulkan_profile(self.root, report)
+        self.assertFalse(missing["available"])
         self.assertIsNone(missing["gpu_passes"])
         self.assertIsNone(missing["draws_max"])
         self.assertIn("every measured GPU submission", missing["error"])
@@ -305,10 +357,10 @@ class PlaceBench(unittest.TestCase):
         def profiled(*args, **kwargs):
             report = self.invoke(*args, **kwargs)
             run = int(args[3].name) if args[3].name != "warmup" else 999
-            report["gpu_profile"] = {
+            report["gpu_profile"].update({
                 "draws_max": run * 10, "triangles_max": run * 100,
                 "gpu_passes": {group: {"p50_ms": run, "p99_ms": run * 2, "mean_ms": run}
-                               for group in GROUPS}}
+                               for group in GROUPS}})
             return report
 
         code, result, table = self.run_driver(profiled)

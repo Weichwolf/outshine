@@ -2,8 +2,8 @@
 
 import json
 import math
-from pathlib import Path
 import statistics
+from pathlib import Path
 
 GROUPS = {
     "shadows": {"lightvisibility", "sun shadow", "shadow"},
@@ -30,7 +30,7 @@ def pass_group(label):
             return group
     if "shadow" in name:
         return "shadows"
-    if name.startswith("cloud") or name.startswith("atmosphere"):
+    if name.startswith(("cloud", "atmosphere")):
         return "atmosphere"
     return None
 
@@ -74,11 +74,13 @@ def metal_encoder_result(submission):
         group = pass_group(label)
         if group is not None:
             grouped[group].extend(intervals)
-    return {
+    result = {
         scope: {name: (union_ticks(values) * ms_per_tick if values and None not in values
                        else None) for name, values in measures.items()}
         for scope, measures in (("groups", grouped), ("encoders", encoders))
     }
+    result["missing_groups"] = [group for group, values in grouped.items() if None in values]
+    return result
 
 
 def read_metal_profile(directory, report):
@@ -118,14 +120,15 @@ def read_metal_profile(directory, report):
     result["frames"] = [dict(frame, device=key[0], submission=key[1])
                         for frame, key in zip(frames, measured)]
     result["available"] = bool(frames) and all(
-        any(value is not None for value in frame["encoders"].values()) for frame in frames
+        not frame["missing_groups"] and any(value is not None for value in frame["groups"].values())
+        for frame in frames
     )
     return result
 
 
 def read_vulkan_profile(directory, report):
     paths = sorted(directory.glob("gpu-profile.*.json"))
-    result = {"paths": [str(p) for p in paths], "frames": [], "gpu_passes": None,
+    result = {"paths": [str(p) for p in paths], "frames": [], "gpu_passes": None, "available": False,
               "draws_max": None, "triangles_max": None,
               "time_basis": "inclusive native pass intervals; overlapping passes are not additive",
               "count_scope": "all raster passes, including terrain, shadows and postprocessing"}
@@ -193,4 +196,8 @@ def read_vulkan_profile(directory, report):
         values = [f[field] for f in result["frames"]]
         if all(v is not None for v in values):
             result[output] = max(values)
+    statuses = (set(frame["gpu_pass_status"].values()) for frame in result["frames"])
+    result["available"] = bool(result["frames"]) and all(
+        "measured" in status and status <= {"measured", "not_executed"} for status in statuses
+    )
     return result
