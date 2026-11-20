@@ -37,8 +37,17 @@ public:
     size_t CandidatesMost = 0;
   };
 
+  enum class Decision : uint8_t { Defer, Continue, Stop };
+
   template <typename Consumable>
   Next Ask(std::span<const OsmField::Tile> tiles, Reach over, Consumable consumable) {
+    return Visit(tiles, over, [&](const Next &one) {
+      return consumable(one.From, one.To) ? Decision::Stop : Decision::Defer;
+    });
+  }
+
+  template <typename Visitor>
+  Next Visit(std::span<const OsmField::Tile> tiles, Reach over, Visitor visit) {
     const int centreX = over.CentreX;
     const int centreY = over.CentreY;
     Candidates_.clear();
@@ -76,8 +85,9 @@ public:
     for (const Next &one : Candidates_) {
       if (over.CandidatesMost > 0 && attempted >= over.CandidatesMost) { break; }
       ++attempted;
-      if (consumable(one.From, one.To)) { return one; }
-      Deferrals_++;
+      const auto decision = visit(one);
+      if (decision == Decision::Stop) { return one; }
+      if (decision == Decision::Defer) { ++Deferrals_; }
     }
     return Next{};
   }

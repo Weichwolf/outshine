@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <string>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 using namespace outshine;
@@ -88,28 +89,35 @@ void CheckLongCourses(const std::array<std::string, 3> &layers,
                       const outshine::Generators::RegionSurfaceRecipes &materials) {
   using namespace outshine::Test;
   ::outshine::Generators::Osm::OsmField longField(6, layers);
-  std::vector<double> longLine;
-  for (int point = 0; point < 130; ++point) {
-    longLine.push_back(0.0);
-    longLine.push_back(static_cast<double>(point));
+  constexpr int courseCount = 40;
+  constexpr int pointsPerCourse = 130;
+  std::vector<::outshine::Generators::Osm::OsmField::Declared> longFeatures;
+  for (int course = 0; course < courseCount; ++course) {
+    std::vector<double> line;
+    for (int point = 0; point < pointsPerCourse; ++point) {
+      line.push_back(0.01 * course);
+      line.push_back(static_cast<double>(point));
+    }
+    longFeatures.push_back(
+        {.Layer = "water_lines", .Key = "kind", .Value = "river", .LatLon = std::move(line)});
   }
-  const std::array longFeatures{::outshine::Generators::Osm::OsmField::Declared{
-      .Layer = "water_lines", .Key = "kind", .Value = "river", .LatLon = longLine}};
   longField.Declare(longFeatures, TileAt{.X = 32, .Y = 32});
   Heights longGround;
   longGround.Pending = false;
   ::outshine::Generators::Osm::WaterField longWater;
   (void)longWater.Ingest(longGround, longField, materials);
-  CHECK(!longWater.Ingested(longField) && longGround.Queries <= 128 && longWater.Courses().empty(),
-        "large ring stops at admission step cap without partial publication");
+  CHECK(!longWater.Ingested(longField) && longWater.Courses().empty(),
+        "a tile beyond the bounded scan stays private until its complete water is ready");
   CHECK(longWater.LastIngest().AdvancedUnits > 0 && longWater.IngestedTiles() == 0,
         "unfinished bounded admission reports local work before publishing any tile");
   for (int advance = 0; advance < 10 && !longWater.Ingested(longField); ++advance) {
     (void)longWater.Ingest(longGround, longField, materials);
   }
-  CHECK(longWater.Ingested(longField) && longGround.Queries == 130 &&
-            longWater.Courses().size() == 1 && longWater.Levels().size() == 130,
-        "large ring resumes without repeating resolved points");
+  constexpr size_t expectedPoints = courseCount * pointsPerCourse;
+  CHECK(longWater.Ingested(longField) && longGround.Queries == expectedPoints &&
+            longWater.Courses().size() == courseCount &&
+            longWater.Levels().size() == expectedPoints,
+        "a large tile resumes without repeating resolved points");
   ::outshine::Generators::Osm::OsmField mixedField(6, layers);
   std::vector<::outshine::Generators::Osm::OsmField::Declared> mixedFeatures;
   mixedFeatures.reserve(301);

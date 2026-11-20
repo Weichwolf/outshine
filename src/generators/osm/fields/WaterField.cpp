@@ -22,9 +22,8 @@ constexpr double kLevelPercentile = 0.05;
 
 constexpr double kShoreToleranceM = 5.0;
 
-constexpr size_t kWaterCandidatesPerAdmission = 4;
 constexpr size_t kWaterScansPerAdmission = 4096;
-constexpr size_t kWaterSamplesPerAdmission = 128;
+constexpr size_t kPendingHeightsPerTile = 128;
 constexpr double kWaterAdmissionBudgetMs = 2.0;
 
 }
@@ -62,8 +61,8 @@ LongitudeLatitude PointAt(std::span<const double> points, size_t index) {
   return {.LongitudeDeg = points[index * 2 + 1], .LatitudeDeg = points[index * 2]};
 }
 
-bool AdmissionHasBudget(std::chrono::steady_clock::time_point began, size_t steps, size_t samples) {
-  return steps < kWaterScansPerAdmission && samples < kWaterSamplesPerAdmission &&
+bool AdmissionHasBudget(std::chrono::steady_clock::time_point began, size_t steps) {
+  return steps < kWaterScansPerAdmission &&
          (steps == 0 ||
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
                   .count() < kWaterAdmissionBudgetMs);
@@ -144,8 +143,8 @@ bool WaterField::AdvanceCandidate(const GroundQuery &ground,
                                   size_t &steps,
                                   IngestMetrics &metrics) {
   RetryPending(ground, field, candidate, began, steps, metrics);
-  while (candidate.Feature < candidate.To && candidate.Pending.size() < kWaterSamplesPerAdmission &&
-         AdmissionHasBudget(began, steps, metrics.ValidationPoints)) {
+  while (candidate.Feature < candidate.To && candidate.Pending.size() < kPendingHeightsPerTile &&
+         AdmissionHasBudget(began, steps)) {
     ++steps;
     const auto &feature = field.Features()[candidate.Feature];
     const WaterKind kind = KindOf(field, feature, on);
@@ -171,8 +170,7 @@ void WaterField::RetryPending(const GroundQuery &ground,
   auto &pending = candidate.Pending;
   size_t visited = 0;
   size_t waiting = 0;
-  for (; visited < pending.size() && AdmissionHasBudget(began, steps, metrics.ValidationPoints);
-       ++visited) {
+  for (; visited < pending.size() && AdmissionHasBudget(began, steps); ++visited) {
     ++steps;
     const PendingPoint point = pending[visited];
     auto &samples = candidate.Rings[point.Ring];
@@ -444,28 +442,31 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
   if (Admission_.Done(field.Tiles())) { return finish(); }
   const auto admissionAt = std::chrono::steady_clock::now();
   size_t steps = 0;
-  const auto next =
-      Admission_.Ask(field.Tiles(),
-                     {.CentreX = field.CentreX(),
-                      .CentreY = field.CentreY(),
-                      .Rings = kEveryRing,
-                      .CandidatesMost = kWaterCandidatesPerAdmission},
-                     [&](size_t from, size_t to) {
-                       const auto validationAt = std::chrono::steady_clock::now();
-                       auto &candidate = FindCandidate(field, from, to);
-                       const bool resolved = AdvanceCandidate(
-                           ground, field, layers, candidate, admissionAt, steps, metrics);
-                       metrics.ValidationMs += elapsedMs(validationAt);
-                       return resolved;
-                     });
-  metrics.AdmissionMs = elapsedMs(admissionAt);
-  if (!next.Found) { return finish(); }
-  const auto materializationAt = std::chrono::steady_clock::now();
-  const auto staged = std::ranges::find(Candidates_, next.Tile, &Candidate::Tile);
-  Admit(field, layers, veg, *staged);
-  if (!staged->Reusable) { Candidates_.erase(staged); }
-  if (Admission_.Done(field.Tiles())) { ResolveSurfaceLevels(field); }
-  metrics.MaterializationMs = elapsedMs(materializationAt);
+  (void)Admission_.Visit(
+      field.Tiles(),
+      {.CentreX = field.CentreX(), .CentreY = field.CentreY(), .Rings = kEveryRing},
+      [&](const TileAdmission::Next &next) {
+        if (!AdmissionHasBudget(admissionAt, steps)) { return TileAdmission::Decision::Stop; }
+        const auto validationAt = std::chrono::steady_clock::now();
+        auto &candidate = FindCandidate(field, next.From, next.To);
+        const bool resolved =
+            AdvanceCandidate(ground, field, layers, candidate, admissionAt, steps, metrics);
+        metrics.ValidationMs += elapsedMs(validationAt);
+        if (!resolved) { return TileAdmission::Decision::Defer; }
+        const auto materializationAt = std::chrono::steady_clock::now();
+        Admit(field, layers, veg, candidate);
+        if (!candidate.Reusable) {
+          Candidates_.erase(std::ranges::find(Candidates_, next.Tile, &Candidate::Tile));
+        }
+        metrics.MaterializationMs += elapsedMs(materializationAt);
+        return TileAdmission::Decision::Continue;
+      });
+  metrics.AdmissionMs = elapsedMs(admissionAt) - metrics.MaterializationMs;
+  if (Admission_.Done(field.Tiles())) {
+    const auto levelsAt = std::chrono::steady_clock::now();
+    ResolveSurfaceLevels(field);
+    metrics.MaterializationMs += elapsedMs(levelsAt);
+  }
   return finish();
 }
 
