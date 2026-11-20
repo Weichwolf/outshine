@@ -150,7 +150,10 @@ public:
   Publish(WorldRegionState &world,
           ::outshine::Generators::Osm::BuildingField &footprints,
           std::unique_ptr<Core::RuntimeScene> &published,
-          const GroundRevision &revision);
+          const GroundRevision &revision,
+          Tasks *compute = nullptr);
+
+  [[nodiscard]] bool CollectRetirement(Tasks *compute);
 
 private:
   GroundBuildProducts Products_;
@@ -163,6 +166,7 @@ private:
   bool WorldPrepared_ = false;
   bool Prepared_ = false;
   PublicationMetrics PublicationMetrics_;
+  Tasks::Handle SourceRetirement_ = Tasks::kNoTask;
   static_assert(std::is_nothrow_move_assignable_v<TerrainSurfacePublication>);
   static_assert(std::is_nothrow_move_assignable_v<::outshine::Generators::Osm::BuildingField>);
   static_assert(std::is_nothrow_move_assignable_v<Render::GeometryPageResidency>);

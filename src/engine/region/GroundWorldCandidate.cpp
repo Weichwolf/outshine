@@ -1,4 +1,5 @@
 #include "GroundWorldCandidate.h"
+#include <cassert>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -11,6 +12,13 @@
 #include <vector>
 
 namespace outshine {
+namespace {
+struct RetiredGroundSources {
+  Render::SceneResources Scene;
+  std::shared_ptr<const Path::Network> StreetGraph;
+};
+}
+
 [[nodiscard]] size_t GroundBuildProducts::OwnedHeapBytes() const noexcept {
   size_t alignmentBytes = RoadAlignments.capacity() * sizeof(NamedRoadAlignment);
   for (const NamedRoadAlignment &route : RoadAlignments) {
@@ -149,7 +157,8 @@ GroundWorldCandidate::Prepare(const Core::RuntimeScene &previous, const Ui::Font
 GroundWorldCandidate::Publish(WorldRegionState &world,
                               ::outshine::Generators::Osm::BuildingField &footprints,
                               std::unique_ptr<Core::RuntimeScene> &published,
-                              const GroundRevision &revision) {
+                              const GroundRevision &revision,
+                              Tasks *compute) {
   if (!world.GroundPublished.CanPublish()) {
     return std::unexpected("a capture holds the published ground");
   }
@@ -162,8 +171,12 @@ GroundWorldCandidate::Publish(WorldRegionState &world,
   PublicationMetrics_.OrphanStructurePieces = *reconciled;
   auto region = std::make_shared<const ::outshine::Generators::Osm::PublishedRegion>(
       SourceSnapshot(), Products_.Footprints.SnapshotAccepted());
+  auto retired = compute != nullptr ? std::make_shared<RetiredGroundSources>() : nullptr;
   auto phaseAt = std::chrono::steady_clock::now();
-  if (auto publishedWorld = World_.Publish(published); !publishedWorld) { return publishedWorld; }
+  if (auto publishedWorld = World_.Publish(published, retired ? &retired->Scene : nullptr);
+      !publishedWorld) {
+    return publishedWorld;
+  }
   PublicationMetrics_.WorldMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
   phaseAt = std::chrono::steady_clock::now();
@@ -171,6 +184,7 @@ GroundWorldCandidate::Publish(WorldRegionState &world,
   world.TerrainSurface = std::move(Products_.TerrainSurface);
   world.GroundPositionsM = std::move(Products_.PositionsM);
   world.GroundIndex = std::move(Products_.Indices);
+  if (retired) { retired->StreetGraph = std::move(world.StreetGraph); }
   world.StreetGraph = std::move(Products_.StreetGraph);
   world.Region = std::move(region);
   world.StreetGraphWayCount = Products_.StreetGraphWayCount;
@@ -195,6 +209,17 @@ GroundWorldCandidate::Publish(WorldRegionState &world,
   ++world.Relaid;
   PublicationMetrics_.RevisionMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
+  if (retired) {
+    SourceRetirement_ = compute->Post([retired = std::move(retired)] mutable { retired.reset(); });
+  }
   return {};
+}
+
+bool GroundWorldCandidate::CollectRetirement(Tasks *compute) {
+  if (SourceRetirement_ == Tasks::kNoTask) { return true; }
+  assert(compute != nullptr);
+  if (!compute->TakeCompletion(SourceRetirement_)) { return false; }
+  SourceRetirement_ = Tasks::kNoTask;
+  return true;
 }
 }

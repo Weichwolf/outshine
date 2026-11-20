@@ -317,7 +317,8 @@ bool RuntimeScene::PublishesPreparedWorld(Render::SceneRenderer &renderer,
                                           std::unique_ptr<RuntimeScene> &out,
                                           std::unique_ptr<RuntimeScene> &candidate,
                                           std::string &error,
-                                          Publication publication) {
+                                          Publication publication,
+                                          Render::SceneResources *retiredSources) {
   const bool retain = out != nullptr && publication == Publication::PreserveViewAndUi;
   if (retain) {
     candidate->Camera_ = out->Camera_;
@@ -329,7 +330,7 @@ bool RuntimeScene::PublishesPreparedWorld(Render::SceneRenderer &renderer,
   }
   const auto overlay = retain ? Render::SceneRenderer::OverlaySource::Published
                               : Render::SceneRenderer::OverlaySource::Candidate;
-  if (!renderer.PublishesWorldCandidate(error, overlay)) {
+  if (!renderer.PublishesWorldCandidate(error, overlay, retiredSources)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
     return false;

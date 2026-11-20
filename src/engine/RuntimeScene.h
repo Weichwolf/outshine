@@ -158,7 +158,8 @@ public:
                          std::unique_ptr<RuntimeScene> &out,
                          std::unique_ptr<RuntimeScene> &candidate,
                          std::string &error,
-                         Publication publication = Publication::PreserveViewAndUi);
+                         Publication publication = Publication::PreserveViewAndUi,
+                         Render::SceneResources *retiredSources = nullptr);
 
   [[nodiscard]] bool ResizeBodyInstances(size_t bodies, std::string &error);
   [[nodiscard]] bool Redeclare(std::vector<Ui::SurfaceDeclaration> surfaces, std::string &error);
