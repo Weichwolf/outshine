@@ -1,8 +1,11 @@
 #ifndef OUTSHINE_GENERATORS_TERRAIN_TERRAINREFINEMENT_H
 #define OUTSHINE_GENERATORS_TERRAIN_TERRAINREFINEMENT_H
 
+#include <array>
 #include <cstddef>
 #include <expected>
+#include <map>
+#include <memory>
 #include <span>
 #include <string>
 #include <vector>
@@ -22,9 +25,33 @@ struct TerrainRefinementDetail {
   double ErrorPx = 1.0;
 };
 
+struct TerrainPatchError {
+  double DeviationM = -1.0;
+  std::array<float, 2> HeightsM{};
+};
+
+using TerrainPatchErrors = std::vector<TerrainPatchError>;
+
+class TerrainRefinementCache {
+public:
+  explicit TerrainRefinementCache(int side) noexcept : Side_(side) {}
+
+  [[nodiscard]] std::shared_ptr<TerrainPatchErrors>
+  Retain(const std::shared_ptr<const outshine::Ground::TerrainField> &field,
+         TerrainRefinementCache &previous);
+
+private:
+  std::map<std::weak_ptr<const outshine::Ground::TerrainField>,
+           std::shared_ptr<TerrainPatchErrors>,
+           std::owner_less<>>
+      Fields_;
+  int Side_;
+};
+
 struct TerrainRefinementSource {
   const Sheet *Page = nullptr;
   const outshine::Ground::TerrainField *Heights = nullptr;
+  std::shared_ptr<TerrainPatchErrors> Errors;
 };
 
 struct TerrainRefinementCorridor {

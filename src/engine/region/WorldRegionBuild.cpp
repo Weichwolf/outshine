@@ -833,12 +833,17 @@ Engine::State::BeginGroundSheetRefinement(const TangentFrame &standing, Patchwor
   }
   Published.RecordMetric(
       "ground refinement: road corridors", static_cast<double>(roadCorridors.size()), "edges");
+  if (!World.TerrainErrors) {
+    World.TerrainErrors =
+        std::make_unique<Generators::TerrainRefinementCache>(Render::TerrainLattice::kSide);
+  }
   state.BeginsRefinement(std::make_unique<Generators::TerrainRefinementJob>(
       state.TerrainInputs().BeginRefinement(patchwork,
                                             {.Side = Render::TerrainLattice::kSide, .Halo = 1},
                                             detail,
                                             Render::TerrainLattice::kMaximumPages,
-                                            roadCorridors)));
+                                            roadCorridors,
+                                            World.TerrainErrors.get())));
   return GroundBuildProgress::Pending;
 }
 

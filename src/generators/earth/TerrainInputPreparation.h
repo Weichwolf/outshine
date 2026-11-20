@@ -97,7 +97,8 @@ public:
                   TerrainPageLayout layout,
                   TerrainRefinementDetail detail,
                   size_t maximumPatches,
-                  std::span<const TerrainRefinementCorridor> corridors = {}) const;
+                  std::span<const TerrainRefinementCorridor> corridors = {},
+                  TerrainRefinementCache *cache = nullptr) const;
   [[nodiscard]] size_t Halos(Patchwork &laid, int finestZoom);
 
   [[nodiscard]] std::optional<double> FieldUpM(int zoom, EastNorth at) const;

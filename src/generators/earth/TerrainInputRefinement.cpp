@@ -1,6 +1,8 @@
 #include "TerrainInputPreparation.h"
 
+#include <algorithm>
 #include <cstddef>
+#include <memory>
 #include <span>
 #include <string>
 #include <utility>
@@ -10,19 +12,28 @@
 
 namespace outshine::Generators {
 
-TerrainRefinementJob TerrainInputPreparation::BeginRefinement(
-    const Patchwork &candidate,
-    TerrainPageLayout layout,
-    TerrainRefinementDetail detail,
-    size_t maximumPatches,
-    std::span<const TerrainRefinementCorridor> corridors) const {
+TerrainRefinementJob
+TerrainInputPreparation::BeginRefinement(const Patchwork &candidate,
+                                         TerrainPageLayout layout,
+                                         TerrainRefinementDetail detail,
+                                         size_t maximumPatches,
+                                         std::span<const TerrainRefinementCorridor> corridors,
+                                         TerrainRefinementCache *cache) const {
   std::vector<TerrainRefinementSource> sources;
   sources.reserve(candidate.Sheets.size());
+  TerrainRefinementCache retained(layout.Side);
   for (const Sheet &sheet : candidate.Sheets) {
-    const ::outshine::Ground::TerrainField *heights = nullptr;
-    if (!sheet.Virtual && sheet.Side == layout.Side) { heights = FieldAt(sheet.Tile); }
-    sources.push_back({.Page = &sheet, .Heights = heights});
+    const auto *entry =
+        !sheet.Virtual && sheet.Side == layout.Side ? FindField(sheet.Tile) : nullptr;
+    const auto *heights = entry != nullptr ? entry->second.get() : nullptr;
+    std::shared_ptr<TerrainPatchErrors> errors;
+    if (cache != nullptr && heights != nullptr && heights->Meshable() &&
+        std::cmp_greater(std::max(heights->Rows(), heights->Cols()), layout.Side)) {
+      errors = retained.Retain(entry->second, *cache);
+    }
+    sources.push_back({.Page = &sheet, .Heights = heights, .Errors = std::move(errors)});
   }
+  if (cache != nullptr) { *cache = std::move(retained); }
   return {sources, Frame_, layout, detail, maximumPatches, corridors};
 }
 

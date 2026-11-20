@@ -11,6 +11,7 @@
 #include <format>
 #include <limits>
 #include <map>
+#include <memory>
 #include <ranges>
 #include <ratio>
 #include <span>
@@ -101,7 +102,7 @@ struct PlanarBounds {
   });
 }
 
-std::array<double, 2>
+std::array<float, 2>
 HeightRange(std::span<const float> reference, size_t side, HeightField::GridRegion region) {
   float low = std::numeric_limits<float>::max();
   float high = std::numeric_limits<float>::lowest();
@@ -116,7 +117,7 @@ HeightRange(std::span<const float> reference, size_t side, HeightField::GridRegi
 }
 
 double DistanceToPatch(Data::TileId tile,
-                       std::array<double, 2> heights,
+                       std::array<float, 2> heights,
                        const TangentFrame &frame,
                        const Vec3 &eyeM) {
   const outshine::Ground::GeoBounds bounds = outshine::Ground::TileBounds(tile);
@@ -147,37 +148,59 @@ double DistanceToPatch(Data::TileId tile,
   return std::max(std::sqrt(squaredM), std::numeric_limits<double>::epsilon());
 }
 
+[[nodiscard]] std::vector<float> SampleReference(const Ground::TerrainField &heights, size_t cells);
+
 struct PatchSelection {
-  std::span<const float> Reference;
-  size_t Side;
+  const Ground::TerrainField &Heights;
+  TerrainPatchErrors *Errors;
+  size_t Cells;
   int SourceZoom;
   const TangentFrame &Frame;
   TerrainPageLayout Layout;
   TerrainRefinementDetail Detail;
   std::span<const TerrainRefinementCorridor> Corridors;
   std::vector<Sheet> &Selected;
+  std::vector<float> Reference;
 
-  [[nodiscard]] double
-  ScreenError(Data::TileId tile, HeightField::GridRegion region, size_t grid) const {
-    const double errorM = HeightField::InterpolationErrorM(Reference, Side, region, grid);
-    if (Detail.OrthographicPxPerM > 0.0) { return errorM * Detail.OrthographicPxPerM; }
-    if (errorM == 0.0) { return 0.0; }
-    return HeightField::ProjectedErrorPx(
-        errorM,
-        Detail.FocalPx,
-        DistanceToPatch(tile, HeightRange(Reference, Side, region), Frame, Detail.EyeM));
+  [[nodiscard]] TerrainPatchError Evaluate(HeightField::GridRegion region, size_t grid) {
+    if (Reference.empty()) { Reference = SampleReference(Heights, Cells); }
+    const size_t side = Cells + 1u;
+    const double deviation = HeightField::InterpolationErrorM(Reference, side, region, grid);
+    return {.DeviationM = deviation,
+            .HeightsM =
+                deviation > 0.0 ? HeightRange(Reference, side, region) : std::array<float, 2>{}};
   }
 
-  void Append(Data::TileId tile, HeightField::GridRegion region) const {
+  [[nodiscard]] TerrainPatchError
+  ErrorAt(size_t index, HeightField::GridRegion region, size_t grid) {
+    if (Errors == nullptr) { return Evaluate(region, grid); }
+    if (index >= Errors->size()) { Errors->resize(index + 1u); }
+    TerrainPatchError &error = (*Errors)[index];
+    if (error.DeviationM < 0.0) { error = Evaluate(region, grid); }
+    return error;
+  }
+
+  [[nodiscard]] double
+  ScreenError(Data::TileId tile, size_t index, HeightField::GridRegion region, size_t grid) {
+    const TerrainPatchError error = ErrorAt(index, region, grid);
+    if (Detail.OrthographicPxPerM > 0.0) { return error.DeviationM * Detail.OrthographicPxPerM; }
+    if (error.DeviationM == 0.0) { return 0.0; }
+    return HeightField::ProjectedErrorPx(error.DeviationM,
+                                         Detail.FocalPx,
+                                         DistanceToPatch(tile, error.HeightsM, Frame, Detail.EyeM));
+  }
+
+  void Append(Data::TileId tile, HeightField::GridRegion region, size_t index) {
     const auto grid = static_cast<size_t>(Layout.Side - 1);
-    if (region.Cells > grid && (ScreenError(tile, region, grid) > Detail.ErrorPx ||
+    if (region.Cells > grid && (ScreenError(tile, index, region, grid) > Detail.ErrorPx ||
                                 CorridorNeedsDetail(tile, Frame, Layout, Corridors))) {
       const size_t half = region.Cells / 2u;
       for (uint32_t child = 0; child < 4; ++child) {
         const uint32_t column = child % 2u;
         const uint32_t row = child / 2u;
         Append({.Zoom = tile.Zoom + 1, .X = tile.X * 2u + column, .Y = tile.Y * 2u + row},
-               {.X = region.X + column * half, .Y = region.Y + row * half, .Cells = half});
+               {.X = region.X + column * half, .Y = region.Y + row * half, .Cells = half},
+               index * 4u + 1u + child);
       }
       return;
     }
@@ -246,16 +269,17 @@ void SelectSourcePatches(const TerrainRefinementSource &source,
   const auto grid = static_cast<size_t>(layout.Side - 1);
   size_t cells = grid;
   while (cells + 1u < std::max(source.Heights->Rows(), source.Heights->Cols())) { cells *= 2u; }
-  const std::vector<float> reference = SampleReference(*source.Heights, cells);
-  const PatchSelection selection{.Reference = reference,
-                                 .Side = cells + 1u,
-                                 .SourceZoom = sheet.Tile.Zoom,
-                                 .Frame = frame,
-                                 .Layout = layout,
-                                 .Detail = detail,
-                                 .Corridors = corridors,
-                                 .Selected = selected};
-  selection.Append(sheet.Tile, {.Cells = cells});
+  PatchSelection selection{.Heights = *source.Heights,
+                           .Errors = source.Errors.get(),
+                           .Cells = cells,
+                           .SourceZoom = sheet.Tile.Zoom,
+                           .Frame = frame,
+                           .Layout = layout,
+                           .Detail = detail,
+                           .Corridors = corridors,
+                           .Selected = selected,
+                           .Reference = {}};
+  selection.Append(sheet.Tile, {.Cells = cells}, 0);
 }
 
 std::expected<std::vector<Sheet>, std::string> UniquePatches(std::vector<Sheet> selected) {
@@ -282,6 +306,19 @@ std::expected<std::vector<Sheet>, std::string> UniquePatches(std::vector<Sheet> 
   return unique;
 }
 
+}
+
+std::shared_ptr<TerrainPatchErrors>
+TerrainRefinementCache::Retain(const std::shared_ptr<const Ground::TerrainField> &field,
+                               TerrainRefinementCache &previous) {
+  const std::weak_ptr key{field};
+  if (Side_ == previous.Side_) {
+    auto retained = previous.Fields_.extract(key);
+    if (!retained.empty()) { return Fields_.insert(std::move(retained)).position->second; }
+  }
+  const auto [at, inserted] = Fields_.try_emplace(key);
+  if (inserted) { at->second = std::make_shared<TerrainPatchErrors>(); }
+  return at->second;
 }
 
 TerrainRefinementJob::TerrainRefinementJob(std::span<const TerrainRefinementSource> sources,
