@@ -756,13 +756,16 @@ std::expected<bool, std::string> RuntimeScene::AdvanceBuild(size_t itemsMost) {
       return false;
     }
     case GeometryBuildStage::Index:
-      advanced = IndexBuild();
-      BuildStage_ = GeometryBuildStage::Finish;
-      break;
-    case GeometryBuildStage::Finish:
-      advanced = FinishBuild();
-      BuildStage_ = GeometryBuildStage::Finalize;
-      break;
+    case GeometryBuildStage::Finish: {
+      const bool indexing = BuildStage_ == GeometryBuildStage::Index;
+      auto uploaded =
+          Renderer_->UploadGeometry([&] { return indexing ? IndexBuild() : FinishBuild(); });
+      if (!uploaded) { return uploaded; }
+      if (*uploaded) {
+        BuildStage_ = indexing ? GeometryBuildStage::Finish : GeometryBuildStage::Finalize;
+      }
+      return false;
+    }
     case GeometryBuildStage::Finalize:
       advanced = FinalizeBuild();
       BuildStage_ = GeometryBuildStage::Idle;
@@ -1111,7 +1114,6 @@ bool RuntimeScene::SetGeometry(outshine::Geometry &&built,
                                size_t drivenParts,
                                const Material &wearing,
                                std::string &error) {
-  const auto offlineUploads = Renderer_->OfflineUploads(std::chrono::seconds(5));
   if (auto valid = ValidGeometryBuild(built, drivenParts); !valid) {
     error = std::move(valid.error());
     return false;
@@ -1125,6 +1127,7 @@ bool RuntimeScene::SetRetainedGeometry(std::shared_ptr<const Geometry> built,
                                        size_t drivenParts,
                                        const Material &wearing,
                                        std::string &error) {
+  const auto offlineUploads = Renderer_->OfflineUploads(std::chrono::seconds(5));
   auto began = BeginRetainedGeometryBuild(std::move(built), drivenParts, Material(wearing));
   if (!began) {
     error = std::move(began.error());

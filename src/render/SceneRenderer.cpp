@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <expected>
+#include <functional>
 #include <memory>
 #include <numbers>
 #include <cmath>
@@ -1338,6 +1339,32 @@ Native::Result<void> SceneRenderer::EncodeLightVisibility(const FrameContext &ct
                                         ActiveFrame().Shadow.Regions(),
                                         ActiveFrame().Shadow.RegionCount());
   return {};
+}
+
+std::expected<bool, std::string>
+SceneRenderer::UploadGeometry(const std::function<std::expected<void, std::string>()> &prepare) {
+  if (!Uploads_) { return std::unexpected(Says::kRendererNotReady); }
+  auto commands = Uploads_->Begin();
+  if (!commands) {
+    if (UploadBudget_.count() == 0 && commands.error().Kind == Native::ErrorKind::Busy) {
+      return false;
+    }
+    return std::unexpected(std::move(commands.error().Message));
+  }
+  auto &geometry = ActiveContent().Scene().Meshes();
+  {
+    auto record = geometry.RecordUploads(**commands);
+    if (!record) { return std::unexpected(std::move(record.error().Message)); }
+    if (auto prepared = prepare(); !prepared) {
+      return std::unexpected(std::move(prepared.error()));
+    }
+    if (auto flushed = geometry.SubmitPendingUploads(); !flushed) {
+      return std::unexpected(std::move(flushed.error().Message));
+    }
+  }
+  auto submitted = Uploads_->Submit(std::move(*commands));
+  if (!submitted) { return std::unexpected(std::move(submitted.error().Message)); }
+  return true;
 }
 
 bool SceneRenderer::Settle(std::string &error) {
