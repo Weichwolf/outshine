@@ -74,21 +74,21 @@ void CheckSourceOwnership(const Generators::TerrainInputPreparation &sheets) {
   Ground::HeightField::Block child;
   Ground::HeightField::Block route;
   Ground::HeightField::Block absent;
-  CHECK(sheets.ShareSourcedField({.Zoom = 4, .X = 8, .Y = 8}, exact) && !exact.Sources.empty() &&
-            exact.Raster.Side == 4 && exact.Terrain && exact.Nodes.empty(),
+  const auto snapshot = sheets.SnapshotSourceFields();
+  CHECK(sheets.ShareExactSourceField({.Zoom = 4, .X = 8, .Y = 8}, exact) &&
+            !exact.Sources.empty() && exact.Raster.Side == 4 && exact.Terrain &&
+            exact.Nodes.empty(),
         "the exact source keeps its native raster and provenance");
-  CHECK(sheets.ShareSourcedField({.Zoom = 5, .X = 16, .Y = 16}, child) &&
+  CHECK(snapshot.CopySourcedField({.Zoom = 5, .X = 16, .Y = 16}, child) &&
             child.Sources == exact.Sources &&
             std::ranges::all_of(
                 child.Nodes, [](float height) { return height == DelayedTerrainSource::HeightM; }),
         "a child height tile resamples its sourced ancestor without inventing provenance");
-  CHECK(sheets.ShareSourcedField(routeTiles.front(), route) && !route.Sources.empty() &&
-            std::ranges::all_of(
-                route.Nodes, [](float height) { return height == DelayedTerrainSource::HeightM; }),
+  CHECK(sheets.ShareExactSourceField(routeTiles.front(), route) && !route.Sources.empty() &&
+            route.Terrain && route.Terrain->AtM(0u, 0u) == DelayedTerrainSource::HeightM,
         "an off-camera route tile is prepared as a sourced field");
-  CHECK(!sheets.ShareSourcedField({.Zoom = 5, .X = 2, .Y = 2}, absent),
+  CHECK(!snapshot.CopySourcedField({.Zoom = 5, .X = 2, .Y = 2}, absent),
         "a tile outside sourced coverage is not qualified as fine terrain");
-  const auto snapshot = sheets.SnapshotSourceFields();
   Generators::TerrainInputPreparation cleared = sheets;
   cleared.Reset();
   CHECK(sheets.HeapBytes() >=
@@ -112,12 +112,14 @@ void CheckSourceOwnership(const Generators::TerrainInputPreparation &sheets) {
         "reset and reacquisition do not accumulate earlier field memory");
   inputOwner = {};
   Ground::HeightField::Block publishedChild;
-  CHECK(transferred.ShareSourcedField({.Zoom = 5, .X = 16, .Y = 16}, publishedChild) &&
+  CHECK(transferred.SnapshotSourceFields().CopySourcedField({.Zoom = 5, .X = 16, .Y = 16},
+                                                            publishedChild) &&
             publishedChild.Sources == child.Sources && publishedChild.Nodes == child.Nodes,
         "source preparation ownership survives transfer and preserves ancestor resampling");
   Ground::HeightField::Block pinned;
-  CHECK(snapshot.ShareSourcedField({.Zoom = 4, .X = 8, .Y = 8}, pinned) &&
-            pinned.Sources == exact.Sources && pinned.Nodes == exact.Nodes,
+  CHECK(snapshot.CopySourcedField({.Zoom = 4, .X = 8, .Y = 8}, pinned) &&
+            pinned.Sources == exact.Sources && !pinned.Nodes.empty() &&
+            pinned.Nodes.front() == DelayedTerrainSource::HeightM,
         "a worker snapshot keeps immutable sourced fields after the candidate releases them");
 }
 

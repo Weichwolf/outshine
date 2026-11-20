@@ -39,13 +39,6 @@ public:
 
   [[nodiscard]] std::expected<Binding, BindingError> BindingAt(int zoom) const;
 
-  [[nodiscard]] bool ShareSourcedField(Data::TileId tile,
-                                       ::outshine::Ground::HeightField::Block &into) const;
-
-  [[nodiscard]] static bool Share(std::span<const Entry> fields,
-                                  Data::TileId tile,
-                                  ::outshine::Ground::HeightField::Block &into);
-
   TerrainFieldSet() = default;
 
   explicit TerrainFieldSet(

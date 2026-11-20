@@ -27,7 +27,6 @@ public:
     int FinestZoom;
     size_t RequestsMost;
     const ::outshine::Generators::Osm::OsmField *Vectors = nullptr;
-    bool BuildingFootprints = true;
     std::span<const Data::TileId> AdditionalTiles;
   };
 
@@ -104,8 +103,8 @@ public:
   [[nodiscard]] std::optional<double> AslMAt(int zoom, LongitudeLatitude at) const;
 
   [[nodiscard]] const ::outshine::Ground::TerrainField *FieldAt(Data::TileId tile) const;
-  [[nodiscard]] bool ShareSourcedField(Data::TileId tile,
-                                       ::outshine::Ground::HeightField::Block &into) const;
+  [[nodiscard]] bool ShareExactSourceField(Data::TileId tile,
+                                           ::outshine::Ground::HeightField::Block &into) const;
   [[nodiscard]] TerrainFieldSet SnapshotSourceFields() const;
 
   void Reset() {

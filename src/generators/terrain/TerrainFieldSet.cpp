@@ -128,25 +128,6 @@ TerrainFieldSet::TerrainFieldSet(std::vector<Entry> fields,
   if (!std::ranges::is_sorted(Fields_, {}, key)) { std::ranges::stable_sort(Fields_, {}, key); }
 }
 
-bool TerrainFieldSet::ShareSourcedField(Data::TileId tile,
-                                        ::outshine::Ground::HeightField::Block &into) const {
-  return Share(Fields_, tile, into);
-}
-
-bool TerrainFieldSet::Share(std::span<const Entry> fields,
-                            Data::TileId tile,
-                            ::outshine::Ground::HeightField::Block &into) {
-  if (tile.Zoom < 0 || tile.Zoom > ::outshine::Ground::HeightField::MaximumTileZoom) {
-    return false;
-  }
-  const auto found = SourceFor(fields, tile);
-  if (found == fields.end()) { return false; }
-  return found->first == tile
-             ? ::outshine::Ground::HeightField::SharesField(found->second, tile, into)
-             : ::outshine::Ground::HeightField::ResamplesSourcedAncestor(
-                   *found->second, found->first, tile, into);
-}
-
 bool TerrainFieldSet::Copy(std::span<const Entry> fields,
                            Data::TileId tile,
                            ::outshine::Ground::HeightField::Block &into) {

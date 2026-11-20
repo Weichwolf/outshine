@@ -943,14 +943,13 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
         return GroundBuildProgress::Failed;
       }
       if (!*original) { return GroundBuildProgress::Pending; }
-      const auto prepared = state.TerrainInputs().PrepareFields(
-          patchwork,
-          World.Surface().Ground(),
-          {.FinestZoom = coverage.Zoom,
-           .RequestsMost = kTerrainSheetsPerFrame,
-           .Vectors = state.Candidate().Sources().Vectors.get(),
-           .BuildingFootprints = state.Revision().Quality == GroundQuality::Refined,
-           .AdditionalTiles = state.RoadHeightTiles()});
+      const auto prepared =
+          state.TerrainInputs().PrepareFields(patchwork,
+                                              World.Surface().Ground(),
+                                              {.FinestZoom = coverage.Zoom,
+                                               .RequestsMost = kTerrainSheetsPerFrame,
+                                               .Vectors = state.Candidate().Sources().Vectors.get(),
+                                               .AdditionalTiles = state.RoadHeightTiles()});
       if (!prepared) {
         Error = prepared.error();
         World.GroundBuild.reset();

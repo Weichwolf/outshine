@@ -44,7 +44,7 @@ std::set<Key> Keys(std::span<const Data::TileId> tiles) {
   return result;
 }
 
-void CheckBuildingCoverage() {
+void CheckVectorSourceCoverage() {
   ::outshine::Generators::Osm::OsmField vectors(
       2,
       ::outshine::Generators::Osm::OsmLayerNames(
@@ -65,66 +65,10 @@ void CheckBuildingCoverage() {
                    southEast.LatitudeDeg,
                    northWest.LongitudeDeg}}}};
   vectors.Declare(buildings, Ground::TileAt{.X = 2, .Y = 2});
-  auto buildingExpected = NeighbourOracle({.Zoom = 2, .X = 2, .Y = 2});
-  for (uint32_t y = 8; y <= 9; ++y) {
-    for (uint32_t x = 8; x <= 9; ++x) { buildingExpected.emplace(4, x, y); }
-  }
-  const auto buildingsPlan = Generators::PlanTerrainSourceTiles(
-      {}, {.FinestZoom = 4, .Vectors = &vectors, .AdditionalTiles = {}});
-  CHECK(buildingsPlan && Keys(*buildingsPlan) == buildingExpected,
-        "vector neighbours and building footprints contribute different source resolutions");
-  const auto streetsPlan = Generators::PlanTerrainSourceTiles({},
-                                                              {.FinestZoom = 4,
-                                                               .Vectors = &vectors,
-                                                               .BuildingFootprints = false,
-                                                               .AdditionalTiles = {},
-                                                               .MaximumTiles = 9});
-  CHECK(streetsPlan && Keys(*streetsPlan) == NeighbourOracle({.Zoom = 2, .X = 2, .Y = 2}),
-        "initial street coverage retains source halos without refining every building footprint");
-  constexpr double datelineWest = 179.0;
-  constexpr double datelineEast = 181.0;
-  constexpr double longitudeCycle = 360.0;
-  constexpr double wideLatitude = 60.0;
-  constexpr double wideLongitude = 170.0;
-  const auto datelineNorth = Ground::TileFracToGeo({.X = 0.0, .Y = 128.25}, 8);
-  const auto datelineSouth = Ground::TileFracToGeo({.X = 0.0, .Y = 129.75}, 8);
-  buildings.front().LatLon = {datelineNorth.LatitudeDeg,
-                              datelineWest,
-                              datelineNorth.LatitudeDeg,
-                              datelineEast,
-                              datelineSouth.LatitudeDeg,
-                              datelineEast,
-                              datelineSouth.LatitudeDeg,
-                              datelineWest};
-  vectors.Declare(buildings, Ground::TileAt{.X = 3, .Y = 2});
-  auto seamExpected = NeighbourOracle({.Zoom = 2, .X = 3, .Y = 2});
-  for (const uint32_t x : {0u, 255u}) {
-    for (const uint32_t y : {128u, 129u}) { seamExpected.emplace(8, x, y); }
-  }
-  const auto seam = Generators::PlanTerrainSourceTiles(
-      {}, {.FinestZoom = 8, .Vectors = &vectors, .AdditionalTiles = {}});
-  CHECK(seam && Keys(*seam) == seamExpected,
-        "buffered buildings crossing 180 degrees request both adjacent world columns");
-  for (size_t at = 1; at < buildings.front().LatLon.size(); at += 2) {
-    buildings.front().LatLon[at] -= longitudeCycle;
-  }
-  vectors.Declare(buildings, Ground::TileAt{.X = 3, .Y = 2});
-  const auto wrapped = Generators::PlanTerrainSourceTiles(
-      {}, {.FinestZoom = 8, .Vectors = &vectors, .AdditionalTiles = {}});
-  CHECK(wrapped && seam && *wrapped == *seam,
-        "changing the unwrapped longitude origin cannot change source demand");
-  buildings.front().LatLon = {-wideLatitude,
-                              -wideLongitude,
-                              -wideLatitude,
-                              wideLongitude,
-                              wideLatitude,
-                              wideLongitude,
-                              wideLatitude,
-                              -wideLongitude};
-  vectors.Declare(buildings, Ground::TileAt{.X = 2, .Y = 2});
-  CHECK(!Generators::PlanTerrainSourceTiles(
-            {}, {.FinestZoom = 30, .Vectors = &vectors, .AdditionalTiles = {}}),
-        "a huge valid footprint is refused before enumerating billions of source tiles");
+  const auto plan = Generators::PlanTerrainSourceTiles(
+      {}, {.FinestZoom = 4, .Vectors = &vectors, .AdditionalTiles = {}, .MaximumTiles = 9});
+  CHECK(plan && Keys(*plan) == NeighbourOracle({.Zoom = 2, .X = 2, .Y = 2}),
+        "a distant building keeps its vector source halo without preloading fine height fields");
 }
 
 }
@@ -178,6 +122,6 @@ int main() {
                 fine, {.FinestZoom = 6, .AdditionalTiles = {}, .MaximumTiles = 8193}),
         "source grids and allocation budgets have explicit finite limits");
 
-  CheckBuildingCoverage();
+  CheckVectorSourceCoverage();
   return Report();
 }

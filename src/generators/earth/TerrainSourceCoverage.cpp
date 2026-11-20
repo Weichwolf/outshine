@@ -1,7 +1,6 @@
 #include "TerrainSourceCoverage.h"
 
 #include <algorithm>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -12,14 +11,11 @@
 #include <vector>
 
 #include "HeightField.h"
-#include "Units.h"
 #include "OsmField.h"
-#include "OsmLayer.h"
 #include "TileGeodesy.h"
 
 namespace outshine::Generators {
 namespace {
-constexpr uint8_t kPolygonFeature = 3;
 
 [[nodiscard]] auto TileKey(Data::TileId tile) {
   return std::tuple(tile.Zoom, tile.X, tile.Y);
@@ -69,54 +65,10 @@ private:
 };
 
 using PlanResult = std::expected<void, std::string>;
-constexpr double kPoleLatitudeDeg = 90.0;
 constexpr auto kBudgetRefusal = "terrain source coverage exceeds its tile budget";
 
 [[nodiscard]] PlanResult BudgetExceeded() {
   return std::unexpected(kBudgetRefusal);
-}
-
-[[nodiscard]] bool ValidBounds(const ::outshine::Generators::Osm::OsmField::Feature &feature) {
-  return std::isfinite(feature.MinLon) && std::isfinite(feature.MaxLon) &&
-         std::isfinite(feature.MinLat) && std::isfinite(feature.MaxLat) &&
-         feature.MinLat >= -kPoleLatitudeDeg && feature.MaxLat <= kPoleLatitudeDeg &&
-         feature.MinLon <= feature.MaxLon && feature.MinLat <= feature.MaxLat &&
-         feature.MaxLon - feature.MinLon <= kDegPerTurn;
-}
-
-[[nodiscard]] uint32_t BoundsRow(double lat, int zoom) {
-  const auto at =
-      ::outshine::Ground::ToTileFracClamped({.LongitudeDeg = 0.0, .LatitudeDeg = lat}, zoom);
-  const double last = std::ldexp(1.0, zoom) - 1.0;
-  return static_cast<uint32_t>(std::clamp(std::floor(at.Y), 0.0, last));
-}
-
-[[nodiscard]] PlanResult AddBuilding(TilePlan &plan,
-                                     const ::outshine::Generators::Osm::OsmField::Feature &feature,
-                                     TerrainSourceCoverage coverage) {
-  if (!ValidBounds(feature)) { return std::unexpected("building height bounds are invalid"); }
-  const uint32_t side = uint32_t{1} << static_cast<uint32_t>(coverage.FinestZoom);
-  const double minLon = std::remainder(feature.MinLon, kDegPerTurn);
-  const double maxLon = minLon + (feature.MaxLon - feature.MinLon);
-  const auto column = [side](double lon) {
-    return static_cast<uint64_t>(std::floor((lon + kDegPerHalfTurn) / kDegPerTurn * side));
-  };
-  const uint64_t first = column(minLon);
-  const uint64_t width = std::min(column(maxLon) - first + 1u, static_cast<uint64_t>(side));
-  const uint32_t lowY = BoundsRow(feature.MaxLat, coverage.FinestZoom);
-  const uint32_t highY = BoundsRow(feature.MinLat, coverage.FinestZoom);
-  const uint64_t height = static_cast<uint64_t>(highY) - lowY + 1u;
-  if (width * height > coverage.MaximumTiles) { return BudgetExceeded(); }
-  for (uint32_t y = lowY; y <= highY; ++y) {
-    for (uint64_t col = 0; col < width; ++col) {
-      if (!plan.Add({.Zoom = coverage.FinestZoom,
-                     .X = static_cast<uint32_t>((first + col) % side),
-                     .Y = y})) {
-        return BudgetExceeded();
-      }
-    }
-  }
-  return {};
 }
 
 [[nodiscard]] PlanResult
@@ -148,15 +100,6 @@ AddSources(TilePlan &plan, std::span<const Data::TileId> sources, TerrainSourceC
     const auto drop = static_cast<uint32_t>(source.Zoom - zoom);
     source = {.Zoom = zoom, .X = source.X >> drop, .Y = source.Y >> drop};
     if (!plan.Neighbours(source)) { return BudgetExceeded(); }
-  }
-  if (!coverage.BuildingFootprints) { return {}; }
-  const int buildings = vectors.Layer(::outshine::Generators::Osm::OsmLayer::Buildings);
-  for (const auto &feature : vectors.Features()) {
-    if (feature.Type != kPolygonFeature || std::cmp_not_equal(feature.Layer, buildings)) {
-      continue;
-    }
-    const auto added = AddBuilding(plan, feature, coverage);
-    if (!added) { return added; }
   }
   return {};
 }

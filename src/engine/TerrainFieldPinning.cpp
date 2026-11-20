@@ -7,7 +7,7 @@ bool PinTerrainField(const Generators::TerrainInputPreparation *inputs,
                      const Ground::GroundStream &source,
                      Data::TileId tile,
                      Ground::HeightField::Block &into) {
-  if (inputs != nullptr && inputs->ShareSourcedField(tile, into)) { return true; }
+  if (inputs != nullptr && inputs->ShareExactSourceField(tile, into)) { return true; }
   return Ground::HeightField::SharesField(source.StitchedField(tile), tile, into);
 }
 }

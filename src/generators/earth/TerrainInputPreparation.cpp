@@ -104,7 +104,6 @@ SourceTilesFor(const Patchwork &candidate,
                                       {.FinestZoom = preparation.FinestZoom,
                                        .GroundZoom = groundZoom,
                                        .Vectors = preparation.Vectors,
-                                       .BuildingFootprints = preparation.BuildingFootprints,
                                        .AdditionalTiles = preparation.AdditionalTiles});
   return tiles;
 }
@@ -128,9 +127,12 @@ const ::outshine::Ground::TerrainField *TerrainInputPreparation::FieldAt(Data::T
   return field != nullptr ? field->second.get() : nullptr;
 }
 
-bool TerrainInputPreparation::ShareSourcedField(
+bool TerrainInputPreparation::ShareExactSourceField(
     Data::TileId tile, ::outshine::Ground::HeightField::Block &into) const {
-  return TerrainFieldSet::Share(Fields_, tile, into);
+  const auto *const field = FindField(tile);
+  return field != nullptr && field->second && !field->second->Sources().empty() &&
+         !field->second->HasMissingBoundary() &&
+         ::outshine::Ground::HeightField::SharesField(field->second, tile, into);
 }
 
 TerrainFieldSet TerrainInputPreparation::SnapshotSourceFields() const {

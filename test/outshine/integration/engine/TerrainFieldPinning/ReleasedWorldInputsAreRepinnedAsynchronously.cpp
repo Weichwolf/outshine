@@ -29,6 +29,21 @@ template <typename Poll> bool UntilReady(Poll poll) {
   return false;
 }
 
+void CheckFineContact(const Generators::TerrainInputPreparation &inputs,
+                      const Ground::GroundStream &ground,
+                      DelayedTerrainSource &source) {
+  const Data::TileId child{.Zoom = 5, .X = 16, .Y = 16};
+  Ground::HeightField::Block field;
+  source.Released = false;
+  CHECK(!PinTerrainField(&inputs, ground, child, field),
+        "a fine building contact waits for its requested tile even when its parent is prepared");
+  source.Released = true;
+  CHECK(UntilReady([&] { return PinTerrainField(&inputs, ground, child, field); }) &&
+            field.Terrain && field.At.Zoom == child.Zoom &&
+            field.Terrain->Data()[0] == DelayedTerrainSource::HeightM,
+        "the contact can use the complete child field after the asynchronous request");
+}
+
 void CheckReleasedInputs(Generators::TerrainInputPreparation &inputs,
                          TerrainSurfacePublication &published,
                          const Ground::GroundStream &ground,
@@ -61,7 +76,8 @@ void CheckReleasedInputs(Generators::TerrainInputPreparation &inputs,
           return ready && *ready;
         }),
         "world preparation owns its complete source coverage");
-  CHECK(inputs.ShareSourcedField(tile, retained), "a worker pins a consumed world input");
+  CheckFineContact(inputs, ground, source);
+  CHECK(inputs.ShareExactSourceField(tile, retained), "a worker pins a consumed world input");
   inputs.Framed(TangentFrame::At({}));
   published.SetFrame(TangentFrame::At({}));
   std::string error;
@@ -72,7 +88,7 @@ void CheckReleasedInputs(Generators::TerrainInputPreparation &inputs,
   const auto cameraHeight = published.HeightMAt(camera);
   const size_t before = inputs.HeapBytes();
   inputs.Reset();
-  CHECK(inputs.HeapBytes() < before && !inputs.ShareSourcedField(tile, field),
+  CHECK(inputs.HeapBytes() < before && !inputs.ShareExactSourceField(tile, field),
         "completed world preparation releases its source ownership");
   CHECK(cameraHeight.has_value() && published.HeightMAt(camera) == cameraHeight &&
             published.PublishedSurface() != nullptr,
