@@ -15,12 +15,14 @@ namespace outshine {
 namespace {
 constexpr int64_t kBias = 0x20000000LL;
 constexpr double kCellM = 32;
+constexpr uint32_t kQuadrantOffset = 28;
+constexpr uint32_t kStampMask = (1u << kQuadrantOffset) - 1u;
 constexpr uint64_t kMostDenseCells = 1u << 22u;
 constexpr uint64_t kSupportEntriesMost = 64;
 constexpr uint32_t kMostCellShift = std::numeric_limits<int64_t>::digits;
 
-int64_t CellOf(double metres) {
-  return static_cast<int64_t>(std::floor(metres / kCellM));
+int64_t CellOf(double metres, uint32_t baseShift) {
+  return static_cast<int64_t>(std::floor(metres / (baseShift == 0 ? kCellM : kCellM / 2)));
 }
 
 int64_t CoarseCell(int64_t fine, uint32_t shift) {
@@ -33,8 +35,8 @@ uint64_t KeyOf(int64_t east, int64_t north) {
 }
 }
 
-uint32_t EarthworkStampIndex::ShiftFor(const CellBounds &bounds) {
-  for (uint32_t shift = 0; shift < kMostCellShift; ++shift) {
+uint32_t EarthworkStampIndex::ShiftFor(const CellBounds &bounds, uint32_t firstShift) {
+  for (uint32_t shift = firstShift; shift < kMostCellShift; ++shift) {
     const auto wide = static_cast<uint64_t>(CoarseCell(bounds.HighE, shift)) -
                       static_cast<uint64_t>(CoarseCell(bounds.LowE, shift));
     const auto tall = static_cast<uint64_t>(CoarseCell(bounds.HighN, shift)) -
@@ -49,21 +51,26 @@ uint32_t EarthworkStampIndex::ShiftFor(const CellBounds &bounds) {
 
 EarthworkStampIndex::EarthworkStampIndex(std::span<const EarthworkStamp> stamps,
                                          std::span<const double> widthsM,
-                                         Support support) {
+                                         Support support)
+    : Base_(support == Support::Aprons && stamps.size() <= size_t{kStampMask} + 1 ? 1u : 0u) {
   for (size_t index = 0; index < stamps.size(); ++index) {
     const auto &stamp = stamps[index];
     const double apronM = widthsM[index] + stamp.PlanarSupportM.value_or(0.0);
     const double reachM = support == Support::Rejection && RejectsWithinPolygonOnly(stamp)
                               ? std::min(apronM, kEarthworkContactToleranceM)
                               : apronM;
-    const CellBounds bounds{.LowE = CellOf(stamp.LowE - reachM),
-                            .HighE = CellOf(stamp.HighE + reachM),
-                            .LowN = CellOf(stamp.LowN - reachM),
-                            .HighN = CellOf(stamp.HighN + reachM),
+    const auto cell = [&](double metres, int64_t edge) {
+      if (Base_.Shift != 0 && stamp.Profile) { return 2 * CellOf(metres, 0) + edge; }
+      return CellOf(metres, Base_.Shift);
+    };
+    const CellBounds bounds{.LowE = cell(stamp.LowE - reachM, 0),
+                            .HighE = cell(stamp.HighE + reachM, 1),
+                            .LowN = cell(stamp.LowN - reachM, 0),
+                            .HighN = cell(stamp.HighN + reachM, 1),
                             .Stamp = static_cast<uint32_t>(index)};
-    const uint32_t shift = ShiftFor(bounds);
-    if (shift == 0) {
-      Base_.Add(bounds, bounds.Stamp);
+    const uint32_t shift = ShiftFor(bounds, Base_.Shift);
+    if (shift == Base_.Shift) {
+      Base_.Add(bounds, bounds.Stamp, Base_.Shift != 0);
       continue;
     }
     const auto entry = static_cast<uint32_t>(CoarseSupports_.size());
@@ -79,7 +86,18 @@ EarthworkStampIndex::EarthworkStampIndex(std::span<const EarthworkStamp> stamps,
   for (auto &level : CoarseLevels_) { level.Build(); }
 }
 
-void EarthworkStampIndex::CellLevel::Add(const CellBounds &bounds, uint32_t stamp) {
+uint32_t EarthworkStampIndex::QuadrantMask(const CellBounds &bounds, std::array<int64_t, 2> cell) {
+  const auto [east, north] = cell;
+  const uint32_t columns = static_cast<uint32_t>(bounds.LowE <= 2 * east) |
+                           (static_cast<uint32_t>(bounds.HighE > 2 * east) << 1u);
+  const uint32_t lower = bounds.LowN <= 2 * north ? columns : 0u;
+  const uint32_t upper = bounds.HighN > 2 * north ? columns : 0u;
+  return (lower | (upper << 2u)) << kQuadrantOffset;
+}
+
+void EarthworkStampIndex::CellLevel::Add(const CellBounds &bounds,
+                                         uint32_t stamp,
+                                         bool packQuadrants) {
   const int64_t firstE = CoarseCell(bounds.LowE, Shift);
   const int64_t lastE = CoarseCell(bounds.HighE, Shift);
   const int64_t firstN = CoarseCell(bounds.LowN, Shift);
@@ -87,7 +105,7 @@ void EarthworkStampIndex::CellLevel::Add(const CellBounds &bounds, uint32_t stam
   for (int64_t east = firstE; east <= lastE; ++east) {
     for (int64_t north = firstN; north <= lastN; ++north) {
       CellKeys.push_back(KeyOf(east, north));
-      StampIndices.push_back(stamp);
+      StampIndices.push_back(packQuadrants ? stamp | QuadrantMask(bounds, {east, north}) : stamp);
     }
   }
 }
@@ -163,8 +181,18 @@ std::span<const uint32_t> EarthworkStampIndex::CellLevel::At(std::array<int64_t,
 
 std::span<const uint32_t> EarthworkStampIndex::At(EastNorth point,
                                                   EarthworkStampQuery &scratch) const {
-  const std::array cell{CellOf(point.EastM), CellOf(point.NorthM)};
-  const auto base = Base_.At(cell);
+  const std::array cell{CellOf(point.EastM, Base_.Shift), CellOf(point.NorthM, Base_.Shift)};
+  auto base = Base_.At(cell);
+  if (Base_.Shift != 0) {
+    const uint32_t quadrant =
+        (static_cast<uint32_t>(cell[0]) & 1u) | ((static_cast<uint32_t>(cell[1]) & 1u) << 1u);
+    const uint32_t bit = 1u << (kQuadrantOffset + quadrant);
+    scratch.BaseCandidates.clear();
+    for (const uint32_t candidate : base) {
+      if ((candidate & bit) != 0) { scratch.BaseCandidates.push_back(candidate & kStampMask); }
+    }
+    base = scratch.BaseCandidates;
+  }
   if (CoarseLevels_.empty()) { return base; }
   scratch.CoarseCandidates.clear();
   for (const auto &level : CoarseLevels_) {

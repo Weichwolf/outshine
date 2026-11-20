@@ -19,10 +19,12 @@ inline constexpr double kEarthworkContactToleranceM = 1.e-6;
 
 struct EarthworkStampQuery {
   std::vector<uint32_t> Candidates;
+  std::vector<uint32_t> BaseCandidates;
   std::vector<uint32_t> CoarseCandidates;
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
-    return (Candidates.capacity() + CoarseCandidates.capacity()) * sizeof(uint32_t);
+    return (Candidates.capacity() + BaseCandidates.capacity() + CoarseCandidates.capacity()) *
+           sizeof(uint32_t);
   }
 };
 
@@ -46,7 +48,7 @@ private:
   struct CellLevel {
     explicit CellLevel(uint32_t shift = 0) : Shift(shift) {}
 
-    void Add(const CellBounds &bounds, uint32_t stamp);
+    void Add(const CellBounds &bounds, uint32_t stamp, bool packQuadrants = false);
     void Build();
     void BuildSparse();
     [[nodiscard]] size_t CellOffset(uint64_t key) const;
@@ -60,7 +62,8 @@ private:
     std::vector<uint32_t> StampIndices;
   };
 
-  [[nodiscard]] static uint32_t ShiftFor(const CellBounds &bounds);
+  [[nodiscard]] static uint32_t ShiftFor(const CellBounds &bounds, uint32_t firstShift);
+  [[nodiscard]] static uint32_t QuadrantMask(const CellBounds &bounds, std::array<int64_t, 2> cell);
 
   CellLevel Base_;
   std::vector<CellLevel> CoarseLevels_;
