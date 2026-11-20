@@ -14,7 +14,10 @@
 namespace {
 enum class SupportSize : uint8_t { Small, Mixed };
 
-void Verify(bool sparse, bool reverse, SupportSize size = SupportSize::Small) {
+void Verify(bool sparse,
+            bool reverse,
+            SupportSize size,
+            outshine::EarthworkStampIndex::Support support) {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr size_t count = 1000;
@@ -32,6 +35,7 @@ void Verify(bool sparse, bool reverse, SupportSize size = SupportSize::Small) {
     stamp.HighE = stamp.LowE + edgeM;
     stamp.HighN = stamp.LowN + edgeM * 0.75;
     stamp.PlanarSupportM = at % 7 == 0 ? 6 : 0;
+    if (at % 11 == 0) { stamp.Profile.emplace(); }
     widthsM[at] = static_cast<double>(at % 3) * 8;
     points.push_back({.EastM = stamp.LowE, .NorthM = stamp.LowN});
     points.push_back({.EastM = stamp.HighE, .NorthM = stamp.HighN});
@@ -43,23 +47,28 @@ void Verify(bool sparse, bool reverse, SupportSize size = SupportSize::Small) {
     std::ranges::reverse(widthsM);
   }
   const auto began = std::chrono::steady_clock::now();
-  const EarthworkStampIndex index(stamps, widthsM);
+  const EarthworkStampIndex index(stamps, widthsM, support);
   const auto built = std::chrono::steady_clock::now();
   EarthworkStampQuery scratch;
   size_t visits = 0;
   for (const auto point : points) { visits += index.At(point, scratch).size(); }
   const auto queried = std::chrono::steady_clock::now();
   for (const auto point : points) {
-    const double east = std::floor(point.EastM / 32);
-    const double north = std::floor(point.NorthM / 32);
     std::vector<uint32_t> expected;
     for (size_t at = 0; at < stamps.size(); ++at) {
       const auto &stamp = stamps[at];
       const double reachM = widthsM[at] + stamp.PlanarSupportM.value_or(0.0);
-      if (std::floor((stamp.LowE - reachM) / 32) <= east &&
-          east <= std::floor((stamp.HighE + reachM) / 32) &&
-          std::floor((stamp.LowN - reachM) / 32) <= north &&
-          north <= std::floor((stamp.HighN + reachM) / 32)) {
+      const bool rejection = support == EarthworkStampIndex::Support::Rejection;
+      const double radiusM = rejection && RejectsWithinPolygonOnly(stamp)
+                                 ? std::min(reachM, kEarthworkContactToleranceM)
+                                 : reachM;
+      const double cellM = rejection || stamp.Profile ? 32.0 : 16.0;
+      const double east = std::floor(point.EastM / cellM);
+      const double north = std::floor(point.NorthM / cellM);
+      if (std::floor((stamp.LowE - radiusM) / cellM) <= east &&
+          east <= std::floor((stamp.HighE + radiusM) / cellM) &&
+          std::floor((stamp.LowN - radiusM) / cellM) <= north &&
+          north <= std::floor((stamp.HighN + radiusM) / cellM)) {
         expected.push_back(static_cast<uint32_t>(at));
       }
     }
@@ -129,11 +138,16 @@ int main() {
   EarthworkStampQuery scratch;
   CHECK(empty.At({}, scratch).empty() && empty.HeapBytes() == 0,
         "empty input retains no cell payload");
-  for (const bool sparse : {false, true}) {
-    for (const bool reverse : {false, true}) { Verify(sparse, reverse); }
+  for (const auto support :
+       {EarthworkStampIndex::Support::Aprons, EarthworkStampIndex::Support::Rejection}) {
+    for (const bool sparse : {false, true}) {
+      for (const bool reverse : {false, true}) {
+        Verify(sparse, reverse, SupportSize::Small, support);
+      }
+    }
+    Verify(false, false, SupportSize::Mixed, support);
+    Verify(true, true, SupportSize::Mixed, support);
   }
-  Verify(false, false, SupportSize::Mixed);
-  Verify(true, true, SupportSize::Mixed);
   VerifyLargeSupports();
   return Report();
 }
