@@ -81,14 +81,16 @@ public:
 
   [[nodiscard]] uint32_t RevisionDifference(const GroundRevision &revision) const noexcept {
     auto inputs = revision;
-    if (Schedule_.CurrentStage() == Core::GroundBuildSchedule::Stage::NeedsClasses) {
-      inputs.Classes = Revision_.Classes;
-    }
+    if (!ClassificationBound()) { inputs.Classes = Revision_.Classes; }
     if (SurfaceInputsPhase_ != SurfaceInputsPhase::Bound) {
       inputs.StreetTiles = Revision_.StreetTiles;
       inputs.WaterTiles = Revision_.WaterTiles;
     }
     return Revision_.CandidateDifferenceMask(inputs);
+  }
+
+  [[nodiscard]] bool ClassificationBound() const noexcept {
+    return Schedule_.ClassificationBound();
   }
 
   [[nodiscard]] const Around &Coverage() const noexcept { return Coverage_; }

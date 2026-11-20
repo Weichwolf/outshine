@@ -427,23 +427,31 @@ bool SurfacePreparation::Drained() const {
 }
 
 bool SurfacePreparation::Ingested() const {
-  return InputsReady() && (!RecipesReady_ || WaterReady());
+  return InputsReady() && WaterInputsReady(std::nullopt);
 }
 
-bool SurfacePreparation::IngestedWithin(int rings) const {
-  return InputsReadyWithin(rings) && (!RecipesReady_ || WaterReady() ||
-                                      (WaterProducer_.UsesTerrain(*Ground_) &&
-                                       WaterProducer_.IngestedWithin(*Vectors_, rings)));
+bool SurfacePreparation::VectorSurfacesReady(std::optional<int> rings) const {
+  return StreetInputsReady(rings) && WaterInputsReady(rings);
 }
 
 bool SurfacePreparation::InputsReadyWithin(int rings) const {
-  return VectorGeometryReady(rings) && ClassificationReady() &&
-         (!RecipesReady_ || UsesCachedRegionNetwork() || Ways_.IngestedWithin(*Vectors_, rings));
+  return ClassificationReady() && StreetInputsReady(rings);
 }
 
 bool SurfacePreparation::InputsReady() const {
-  return VectorGeometryReady(std::nullopt) && ClassificationReady() &&
-         (!RecipesReady_ || UsesCachedRegionNetwork() || Ways_.Ingested(*Vectors_));
+  return ClassificationReady() && StreetInputsReady(std::nullopt);
+}
+
+bool SurfacePreparation::StreetInputsReady(std::optional<int> rings) const {
+  return VectorGeometryReady(rings) &&
+         (!RecipesReady_ || UsesCachedRegionNetwork() ||
+          (rings ? Ways_.IngestedWithin(*Vectors_, *rings) : Ways_.Ingested(*Vectors_)));
+}
+
+bool SurfacePreparation::WaterInputsReady(std::optional<int> rings) const {
+  return !RecipesReady_ || WaterReady() ||
+         (rings && WaterProducer_.UsesTerrain(*Ground_) &&
+          WaterProducer_.IngestedWithin(*Vectors_, *rings));
 }
 
 bool SurfacePreparation::VectorGeometryReady(std::optional<int> rings) const {

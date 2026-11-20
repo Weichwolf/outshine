@@ -21,11 +21,11 @@ int main() {
         "terrain phases advance in their declared order");
   CHECK(!schedule.AdvanceSheetPhase(), "a complete terrain candidate cannot advance again");
   constexpr GroundBuildSchedule::Stage kRequired[] = {
-      GroundBuildSchedule::Stage::NeedsClasses,
       GroundBuildSchedule::Stage::NeedsGroundSurface,
       GroundBuildSchedule::Stage::NeedsModels,
       GroundBuildSchedule::Stage::NeedsNetwork,
       GroundBuildSchedule::Stage::NeedsRoadAlignments,
+      GroundBuildSchedule::Stage::NeedsClasses,
       GroundBuildSchedule::Stage::NeedsCorridors,
       GroundBuildSchedule::Stage::NeedsBuildingContacts,
       GroundBuildSchedule::Stage::NeedsEarthworks,
@@ -37,6 +37,8 @@ int main() {
     const auto stage = kRequired[at];
     CHECK(schedule.CurrentStage() == stage,
           "a candidate remains at each complete production phase until its owner advances it");
+    CHECK(schedule.ClassificationBound() == (stage >= GroundBuildSchedule::Stage::NeedsCorridors),
+          "street networks and road alignments precede class-dependent corridor generation");
     if (at + 1u < std::size(kRequired)) {
       CHECK(schedule.AdvanceStage(), "only the current production phase can advance");
     }

@@ -1015,6 +1015,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundClasses() {
   if (state.CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsClasses) {
     return GroundBuildProgress::Ready;
   }
+  if (!World.Surface().ClassificationReady()) { return GroundBuildProgress::Pending; }
   GroundBuildProducts &build = state.Candidate().Products();
   static const Heap::Tag kClassingTag("ground-classify");
   const Heap::Tagged classing(kClassingTag);
@@ -1025,7 +1026,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundClasses() {
   build.TerrainClassificationMap = std::move(classed.Structure);
   build.ClassUpload = std::move(classed.Upload);
   state.AdvanceStage();
-  return GroundBuildProgress::Pending;
+  return GroundBuildProgress::Ready;
 }
 
 Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSurface() {
@@ -1461,12 +1462,14 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
 
 Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSurfaceInputs() {
   WorldRegionBuildState &state = *World.GroundBuild;
+  if (state.ClassificationBound() && !World.Surface().ClassificationReady()) {
+    return GroundBuildProgress::Pending;
+  }
   if (state.HasReadyRegion()) { return GroundBuildProgress::Ready; }
   World.Surface().RequestWater();
-  const bool ready = state.Revision().Quality == GroundQuality::Refined
-                         ? World.Surface().Ingested()
-                         : World.Surface().IngestedWithin(0);
-  if (!ready) { return GroundBuildProgress::Pending; }
+  const auto rings =
+      state.Revision().Quality == GroundQuality::Refined ? std::nullopt : std::optional{0};
+  if (!World.Surface().VectorSurfacesReady(rings)) { return GroundBuildProgress::Pending; }
   if (state.SurfaceInputsBound()) { return GroundBuildProgress::Ready; }
   const auto origin = Session.Declared.Ground.Origin;
   const auto frame =
@@ -1970,11 +1973,7 @@ bool Engine::State::AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQual
   if (sheetProgress != GroundBuildProgress::Ready) {
     return sheetProgress != GroundBuildProgress::Failed;
   }
-  if (surface == GroundBuildProgress::Pending || !World.Surface().ClassificationReady()) {
-    return true;
-  }
-  const GroundBuildProgress classes = AdvanceGroundClasses();
-  if (classes == GroundBuildProgress::Failed) { return false; }
+  if (surface == GroundBuildProgress::Pending) { return true; }
   const GroundBuildProgress materialProgress = AdvanceGroundSurface();
   if (materialProgress != GroundBuildProgress::Ready) {
     return materialProgress != GroundBuildProgress::Failed;
@@ -1987,6 +1986,8 @@ bool Engine::State::AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQual
   }
   const GroundBuildProgress roads = AdvanceGroundRoadAlignments(standing);
   if (roads != GroundBuildProgress::Ready) { return roads != GroundBuildProgress::Failed; }
+  const GroundBuildProgress classes = AdvanceGroundClasses();
+  if (classes != GroundBuildProgress::Ready) { return classes != GroundBuildProgress::Failed; }
   const GroundBuildProgress bakes = AdvanceGroundBuildingContacts();
   if (bakes != GroundBuildProgress::Ready) { return bakes != GroundBuildProgress::Failed; }
   const GroundBuildProgress construction = AdvanceGroundConstructionStages(standing, laid, state);
