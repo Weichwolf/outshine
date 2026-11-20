@@ -28,15 +28,23 @@ constexpr double kRad2Deg = kDegPerHalfTurn / kPi;
 
 }
 
-TileIndex TileIndex::Of(Geo g, int z) noexcept {
+TileIndex::State TileIndex::Classify(Geo g) noexcept {
   if (!std::isfinite(g.LatitudeDeg) || !std::isfinite(g.LongitudeDeg) ||
-      std::abs(g.LatitudeDeg) > kPoleLatDeg || std::abs(g.LongitudeDeg) > kDegPerHalfTurn ||
-      z < 0 || z > std::numeric_limits<uint32_t>::digits) {
-    return {State::InvalidInput, Data::TileId{}};
+      std::abs(g.LatitudeDeg) > kPoleLatDeg || std::abs(g.LongitudeDeg) > kDegPerHalfTurn) {
+    return State::InvalidInput;
   }
   if (g.LatitudeDeg < -kMercatorLatMaxDeg || g.LatitudeDeg > kMercatorLatMaxDeg) {
-    return {State::OutsideMercatorBand, Data::TileId{}};
+    return State::OutsideMercatorBand;
   }
+  return State::Inside;
+}
+
+TileIndex TileIndex::Of(Geo g, int z) noexcept {
+  if (z < 0 || z > std::numeric_limits<uint32_t>::digits) {
+    return {State::InvalidInput, Data::TileId{}};
+  }
+  const State where = Classify(g);
+  if (where != State::Inside) { return {where, Data::TileId{}}; }
 
   const double n = std::ldexp(1.0, z);
   const double xf = (g.LongitudeDeg + kDegPerHalfTurn) / kDegPerTurn * n;

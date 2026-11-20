@@ -60,9 +60,11 @@ std::optional<std::array<double, 2>> TerrainResidency::AslBoundsM() const noexce
 
 std::optional<double> TerrainResidency::HeightMAt(LongitudeLatitude at) const noexcept {
   const Ground::Geo geo{.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg};
-  if (!Ground::TileIndex::Of(geo, 0).Tile()) { return std::nullopt; }
+  if (Ground::TileIndex::Classify(geo) != Ground::TileIndex::State::Inside) { return std::nullopt; }
   const Ground::TileFrac base = Ground::ToTileFracClamped(geo, 0);
   for (int zoom = static_cast<int>(kZoomLevels) - 1; zoom >= 0; --zoom) {
+    const auto level = PageLevels_[static_cast<size_t>(zoom)];
+    if (!Publishing_ && level.First == level.End) { continue; }
     const double span = std::ldexp(1.0, zoom);
     const double x = base.X * span;
     const double y = base.Y * span;

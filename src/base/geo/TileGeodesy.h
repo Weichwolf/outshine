@@ -38,6 +38,7 @@ class TileIndex {
 public:
   enum class State { Inside, OutsideMercatorBand, InvalidInput };
 
+  [[nodiscard]] static State Classify(Geo g) noexcept;
   [[nodiscard]] static TileIndex Of(Geo g, int z) noexcept;
 
   [[nodiscard]] State Where() const { return Where_; }
