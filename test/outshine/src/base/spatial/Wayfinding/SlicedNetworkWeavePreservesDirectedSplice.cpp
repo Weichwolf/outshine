@@ -74,11 +74,32 @@ void CheckSlice(const outshine::Path::Network &oracle, size_t budget) {
           "directed routes and station lengths match the one-shot oracle");
   }
 }
+
+void CheckLongDiagonal() {
+  using namespace outshine;
+  using namespace outshine::Test;
+  auto network = Path::Network::Create({.CellM = 2}, {});
+  CHECK(network, "long diagonal fixture has a valid network");
+  if (!network) { return; }
+  constexpr std::array<double, 4> road{0.0, 0.0, 0.05, 0.05};
+  constexpr std::array<double, 4> spur{0.025, 0.025, 0.02, 0.031};
+  CHECK(network->Lay(road, {.HalfWidthM = 1}) && network->Lay(spur, {.HalfWidthM = 1}),
+        "a side street meets the diagonal between its endpoints");
+  std::string error;
+  CHECK(network->Weave(error), "the diagonal and side street fit the tie index");
+  CHECK(network
+            ->Plan({.LongitudeDeg = 0.031, .LatitudeDeg = 0.02},
+                   {.LongitudeDeg = 0.05, .LatitudeDeg = 0.05},
+                   0)
+            .Found,
+        "the side street can route onto the diagonal");
+}
 }
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  CheckLongDiagonal();
   auto oracle = Fixture();
   CHECK(oracle.has_value(), "directed crossing fixture accepted");
   if (!oracle) { return Report(); }
