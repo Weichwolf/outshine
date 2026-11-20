@@ -1,4 +1,5 @@
 #include "WorldRegionBuildState.h"
+#include "GroundPatchwork.h"
 #include "StreetGraphRequest.h"
 #include "StructureCell.h"
 #include "TerrainClipmapPreparation.h"
@@ -19,6 +20,14 @@
 
 namespace outshine {
 WorldRegionBuildState::~WorldRegionBuildState() = default;
+
+bool WorldRegionBuildState::CanContinue(const GroundRevision &revision,
+                                        const Around &coverage) const noexcept {
+  if (revision.Region == Revision_.Region) { return RevisionDifference(revision) == 0; }
+  auto inputs = revision;
+  inputs.Region = Revision_.Region;
+  return RevisionDifference(inputs) == 0 && PatchworkIncludesContactTile(Coverage_, coverage);
+}
 
 Generators::TerrainFieldSet WorldRegionBuildState::SnapshotSourceFields() const {
   return SheetWorker_ ? SheetWorker_->SnapshotSourceFields()

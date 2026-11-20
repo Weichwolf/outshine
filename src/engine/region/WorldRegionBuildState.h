@@ -76,9 +76,8 @@ public:
                         uint64_t id);
   ~WorldRegionBuildState();
 
-  [[nodiscard]] bool Matches(const GroundRevision &revision) const noexcept {
-    return RevisionDifference(revision) == 0;
-  }
+  [[nodiscard]] bool CanContinue(const GroundRevision &revision,
+                                 const Around &coverage) const noexcept;
 
   [[nodiscard]] uint32_t RevisionDifference(const GroundRevision &revision) const noexcept {
     auto inputs = revision;

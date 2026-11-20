@@ -738,7 +738,7 @@ bool Engine::State::BuildWaterSurfaces(const TangentFrame &standing,
 
 Engine::State::GroundBuildProgress
 Engine::State::AdvanceGroundCandidatePreparation(const GroundRequest &request) {
-  if (!World.GroundBuild || !World.GroundBuild->Matches(request.Revision)) {
+  if (!World.GroundBuild || !World.GroundBuild->CanContinue(request.Revision, request.Coverage)) {
     if (World.GroundBuild) {
       Published.RecordMetric(
           "ground candidate: revision mismatch mask",

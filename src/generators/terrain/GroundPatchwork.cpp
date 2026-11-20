@@ -208,6 +208,19 @@ std::expected<std::vector<Data::TileId>, std::string> PlanPatchworkTiles(const A
   return tiles;
 }
 
+bool PatchworkIncludesContactTile(const Around &coverage, const Around &request) noexcept {
+  if (!ValidCoverage(coverage) || !ValidCoverage(request) || coverage.Zoom != request.Zoom ||
+      coverage.Levels != request.Levels || coverage.Grid != request.Grid) {
+    return false;
+  }
+  const TileBlock covered = BlockAt(coverage, 0);
+  const TileBlock wanted = BlockAt(request, 0);
+  long column = wanted.ContactX - covered.X;
+  if (!Ground::WrapTile(coverage.Zoom, &column, &wanted.ContactY)) { return false; }
+  const long row = wanted.ContactY - covered.Y;
+  return column < kBlockTiles && row >= 0 && row < kBlockTiles;
+}
+
 std::expected<Patchwork, std::string> Patchworker::Lay(TileMeshes &tiles,
                                                        const Around &over) const {
   return LayPatchwork(tiles, over);
