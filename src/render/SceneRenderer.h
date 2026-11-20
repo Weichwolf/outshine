@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <memory>
 #include <expected>
+#include <functional>
 #include <utility>
 #include <optional>
 #include <string>
@@ -569,6 +570,9 @@ public:
     return ActiveContent().Geometry().FinishMesh(ticket, mesh, error) &&
            (!ActiveContent().DrawsGlass || ActiveContent().Transmission().SetMesh(mesh, error));
   }
+
+  [[nodiscard]] std::expected<bool, std::string>
+  UploadGeometry(const std::function<std::expected<void, std::string>()> &prepare);
 
   [[nodiscard]] bool GeometryMeshPending() const noexcept {
     return ActiveContent().Geometry().MeshPending();

@@ -1,6 +1,7 @@
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include "Check.h"
+#include "test/harness/render/NativeUploadFaultDevice.h"
 #include <SDL3/SDL.h>
 #include <array>
 #include <cstddef>
@@ -13,6 +14,22 @@
 namespace {
 using namespace outshine;
 using namespace outshine::Test;
+using namespace outshine::Test::Gpu;
+
+void ExpectPendingOnBusy(Core::RuntimeScene &scene,
+                         const Render::SceneRenderer &renderer,
+                         UploadFailure &fault) {
+  fault.Point = UploadFailurePoint::Acquire;
+  fault.Kind = Render::Native::ErrorKind::Busy;
+  fault.Armed = true;
+  const auto submissions = fault.AcceptedSubmissions;
+  const auto waits = fault.Waits;
+  const auto advanced = scene.AdvanceGeometryBuild(1);
+  CHECK(advanced && !*advanced && scene.GeometryBuildActive() && renderer.GeometryMeshPending(),
+        "queue pressure leaves the same prepared mesh pending");
+  CHECK(fault.Rejected == 1 && fault.AcceptedSubmissions == submissions && fault.Waits == waits,
+        "a busy frame does not submit or wait for geometry uploads");
+}
 
 void CheckBuildSchedules() {
   Geometry seed;
@@ -39,7 +56,9 @@ void CheckBuildSchedules() {
   declaration.Outputs = {"sceneLinear"};
   declaration.Materials.front().Unlit = true;
   Render::SceneRenderer directRenderer;
-  Render::SceneRenderer pacedRenderer;
+  UploadFailure fault;
+  Render::SceneRenderer pacedRenderer{
+      {.Context = &fault, .Create = NativeUploadFaultDevice::Create}};
   std::unique_ptr<Core::RuntimeScene> direct;
   std::unique_ptr<Core::RuntimeScene> paced;
   std::string error;
@@ -70,6 +89,9 @@ void CheckBuildSchedules() {
         CHECK(advanced.has_value(), advanced ? "paced stage advances" : advanced.error().c_str());
         if (!advanced) { break; }
         complete = *advanced;
+        if (pacedRenderer.GeometryMeshPending() && !sawPendingUpload) {
+          ExpectPendingOnBusy(*paced, pacedRenderer, fault);
+        }
         sawPendingUpload |= pacedRenderer.GeometryMeshPending();
         CHECK(paced->GeometryBuildActive() != complete,
               "build remains active exactly until finalization");
