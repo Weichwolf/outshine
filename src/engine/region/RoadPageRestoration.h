@@ -25,6 +25,9 @@ public:
     size_t NativeBytesMost;
   };
 
+  static constexpr Limits DefaultLimits{.PendingMost = 4,
+                                        .NativeBytesMost = size_t{8} * 1024u * 1024u};
+
   [[nodiscard]] static std::expected<std::unique_ptr<RoadPageRestoration>, std::string>
   Begin(Tasks &pool,
         std::shared_ptr<Generators::PreparedRoadPages> pages,
@@ -32,7 +35,8 @@ public:
         std::optional<std::span<const uint32_t>> selected = std::nullopt,
         std::string manifestKey = {},
         std::optional<Vec3> eye = std::nullopt,
-        Limits limits = {.PendingMost = 4, .NativeBytesMost = size_t{8} * 1024u * 1024u});
+        Limits limits = DefaultLimits,
+        std::shared_ptr<AssetPipeline> publications = {});
   using Consumer =
       std::function<std::expected<bool, std::string>(const Generators::RoadPageAsset &,
                                                      const Generators::RoadPageReference &,
@@ -45,23 +49,38 @@ public:
 
   [[nodiscard]] size_t NativeBytes() const noexcept { return NativeBytes_; }
 
+  [[nodiscard]] size_t RecoveredPages() const noexcept { return RecoveredPages_; }
+
   [[nodiscard]] const RoadMeshingStats &Meshing() const noexcept { return Meshing_; }
 
 private:
+  enum class Stage : uint8_t { Read, Recipe, Publish, Verify };
+
   struct Pending {
     uint32_t Index;
+    Stage Step = Stage::Read;
     std::optional<RoadPageQueue::Result> Result;
+    RoadPageQueue::RecipeProducer Producer;
   };
 
   RoadPageRestoration(Tasks &pool,
                       std::shared_ptr<Generators::PreparedRoadPages> pages,
                       std::shared_ptr<const Generators::RoadPageManifest> manifest,
-                      Limits limits);
+                      Limits limits,
+                      std::shared_ptr<AssetPipeline> publications);
   [[nodiscard]] bool OrderPages(const Vec3 &eye);
   [[nodiscard]] std::expected<void, std::string> Prefetch();
   [[nodiscard]] std::expected<void, std::string> CollectReady();
   [[nodiscard]] std::expected<void, std::string> Collect();
+  [[nodiscard]] bool CanRepair(const Generators::RoadPageReference &reference) const noexcept;
+  [[nodiscard]] std::expected<void, std::string>
+  Repair(Pending &pending, const Generators::RoadPageReference &reference);
+  [[nodiscard]] std::expected<void, std::string>
+  VerifyRepair(Pending &pending, const Generators::RoadPageReference &reference);
+  [[nodiscard]] std::expected<void, std::string>
+  CollectPayload(const Generators::RoadPageReference &reference, RoadPageQueue::Product &product);
   void FinishPage();
+  bool RepairEnabled_;
   RoadPageQueue Queue_;
   std::shared_ptr<const Generators::RoadPageManifest> Manifest_;
   std::vector<uint32_t> Selected_;
@@ -73,6 +92,7 @@ private:
   size_t Requested_ = 0;
   size_t WindowBytes_ = 0;
   size_t NativeBytes_ = 0;
+  size_t RecoveredPages_ = 0;
   std::string ManifestKey_;
   bool Missing_ = false;
 };

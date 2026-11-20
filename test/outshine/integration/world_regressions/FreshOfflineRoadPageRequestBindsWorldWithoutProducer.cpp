@@ -145,14 +145,75 @@ std::optional<Fixture> SeedBound(const std::filesystem::path &directory) {
 }
 
 bool Finish(RoadPageRestoration &restore, Geometry &world) {
+  const auto consume =
+      [&](const RoadPageAsset &page,
+          const RoadPageReference &,
+          std::chrono::steady_clock::time_point) -> std::expected<bool, std::string> {
+    const auto &mesh = page.Geometry.Mesh;
+    if (world.surfaces() == 0 && !world.addSurface("streets", Material{})) {
+      return std::unexpected("road fixture material failed");
+    }
+    const auto part = world.addPart("streets", MaterialInstance(0));
+    if (!part || !world.setPositions(*part, mesh.PositionM) ||
+        !world.setNormals(*part, mesh.NormalM) || !world.setColours(*part, mesh.ColourRgba) ||
+        !world.setTriangles(*part, mesh.Index)) {
+      return std::unexpected("road fixture geometry failed");
+    }
+    return true;
+  };
   const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (std::chrono::steady_clock::now() < until) {
-    const auto ready = restore.Advance(world);
+    const auto ready = restore.Advance(consume);
     if (!ready || restore.Missing()) { return false; }
     if (*ready) { return true; }
     std::this_thread::yield();
   }
   return false;
+}
+
+void CheckEviction(Tasks &pool,
+                   const std::shared_ptr<AssetCache> &cache,
+                   const std::shared_ptr<PreparedRoadPages> &pages,
+                   const std::shared_ptr<const RoadPageManifest> &manifest,
+                   const std::string &key,
+                   const RoadMeshBuffers &original) {
+  using namespace outshine::Test;
+  constexpr size_t mebibyte = size_t{1024} * 1024;
+  auto publications =
+      std::make_shared<AssetPipeline>(pool,
+                                      AssetPipeline::Limits{.JobsMost = 1,
+                                                            .ConsumersMost = 2,
+                                                            .TicketsMost = 2,
+                                                            .InputBytesMost = 4 * mebibyte,
+                                                            .ReceiptBytesMost = 8192});
+  const auto &reference = manifest->Pages[0];
+  const auto address = StoredRoadPageAddress(*manifest, reference);
+  const auto recipe = pages->PlanRecipeRead(address, mebibyte);
+  CHECK(recipe && cache->Remove(reference.Key),
+        "evicting the mesh leaves its manifest and any separate recipe available");
+  if (!recipe) { return; }
+  auto restore = RoadPageRestoration::Begin(pool,
+                                            pages,
+                                            manifest,
+                                            std::nullopt,
+                                            key,
+                                            std::nullopt,
+                                            RoadPageRestoration::DefaultLimits,
+                                            std::move(publications));
+  CHECK(restore, "the offline reader admits the existing region after mesh eviction");
+  if (!restore) { return; }
+  Geometry world;
+  const bool finished = Finish(**restore, world);
+  const auto retained = pages->LoadManifest(key);
+  if (*recipe) {
+    CHECK(finished && retained && *retained && world.parts() == 1 &&
+              std::ranges::equal(world.positionsOf(0), original.PositionM) &&
+              std::ranges::equal(world.trianglesOf(0), original.Index),
+          "the stored recipe restores the original road and the same region remains usable");
+  } else {
+    CHECK(!finished && (*restore)->Missing() && retained && !*retained && world.parts() == 0,
+          "without the recipe a true miss requests source regeneration, never partial geometry");
+  }
 }
 
 void CheckAppearance(Tasks &pool,
@@ -188,7 +249,8 @@ int ChildResult() {
 
 int Offline(const char *directory, const Fixture &fixture) {
   using namespace outshine::Test;
-  auto opened = PreparedRoadPages::Open(outshine::Test::OpenAssetStore(directory));
+  const auto cache = outshine::Test::OpenAssetStore(directory);
+  auto opened = PreparedRoadPages::Open(cache);
   CHECK(opened, "a fresh process opens only the finished native cache");
   if (!opened) { return ChildResult(); }
   const std::shared_ptr<PreparedRoadPages> pages = std::move(*opened);
@@ -212,6 +274,7 @@ int Offline(const char *directory, const Fixture &fixture) {
             std::ranges::equal(world.trianglesOf(0), mesh.Index),
         "world positions, normals, colours and indices equal the finished native lease");
   CheckAppearance(pool, pages, **manifest);
+  CheckEviction(pool, cache, pages, **manifest, fixture.Manifest, mesh);
   std::println("ROADPAGE_OFFLINE pages={} native_bytes={} world_parts={}",
                restore ? (*restore)->Pages() : 0,
                (**hit).NativeBytes,

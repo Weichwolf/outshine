@@ -38,10 +38,13 @@ RoadPageRestoration::RoadPageRestoration(
     Tasks &pool,
     std::shared_ptr<Generators::PreparedRoadPages> pages,
     std::shared_ptr<const Generators::RoadPageManifest> manifest,
-    Limits limits)
-    : Queue_(pool,
+    Limits limits,
+    std::shared_ptr<AssetPipeline> publications)
+    : RepairEnabled_(publications != nullptr),
+      Queue_(pool,
              std::move(pages),
-             {.PendingMost = limits.PendingMost, .PageBytesMost = kPageBytesMost}),
+             {.PendingMost = limits.PendingMost, .PageBytesMost = kPageBytesMost},
+             std::move(publications)),
       Manifest_(std::move(manifest)),
       Limits_(limits) {}
 
@@ -52,15 +55,16 @@ RoadPageRestoration::Begin(Tasks &pool,
                            std::optional<std::span<const uint32_t>> selected,
                            std::string manifestKey,
                            std::optional<Vec3> eye,
-                           Limits limits) {
+                           Limits limits,
+                           std::shared_ptr<AssetPipeline> publications) {
   if (!pages || !manifest || manifest->Materials.surfaces() != 1 ||
       manifest->Materials.parts() != 0 || manifest->Materials.images() != 0 ||
       manifest->Pages.size() > std::numeric_limits<uint32_t>::max() || limits.PendingMost == 0 ||
       limits.NativeBytesMost == 0 || !Generators::ValidRoadPageAppearance(manifest->Appearance)) {
     return std::unexpected("road restoration needs complete native page and material metadata");
   }
-  auto result = std::unique_ptr<RoadPageRestoration>(
-      new RoadPageRestoration(pool, std::move(pages), std::move(manifest), limits));
+  auto result = std::unique_ptr<RoadPageRestoration>(new RoadPageRestoration(
+      pool, std::move(pages), std::move(manifest), limits, std::move(publications)));
   result->ManifestKey_ = std::move(manifestKey);
   if (selected) {
     result->Selected_.assign(selected->begin(), selected->end());
@@ -148,10 +152,10 @@ std::expected<void, std::string> RoadPageRestoration::Prefetch() {
                              page.ByteCount > Limits_.NativeBytesMost - WindowBytes_)) {
       break;
     }
-    if (!Queue_.RequestCached(page.Key, {.Key = ManifestKey_})) {
+    if (!Queue_.RequestCached(page.Key, {.Key = CanRepair(page) ? std::string{} : ManifestKey_})) {
       return std::unexpected("road restoration lookup admission failed");
     }
-    Window_.push_back({.Index = index, .Result = std::nullopt});
+    Window_.push_back({.Index = index, .Result = std::nullopt, .Producer = {}});
     WindowBytes_ += static_cast<size_t>(page.ByteCount);
     ++Requested_;
   }
@@ -173,23 +177,99 @@ std::expected<void, std::string> RoadPageRestoration::CollectReady() {
 
 std::expected<void, std::string> RoadPageRestoration::Collect() {
   if (Window_.empty()) { return std::unexpected("road restoration has no admitted page"); }
-  auto &ready = Window_.front().Result;
+  auto &pending = Window_.front();
+  const auto &reference = Manifest_->Pages[pending.Index];
+  if (pending.Producer) { return Repair(pending, reference); }
+  auto ready = std::exchange(pending.Result, std::nullopt);
   if (!ready) { return {}; }
-  auto one = std::move(*ready);
-  const auto &reference = Manifest_->Pages[Selected_[Next_]];
+  auto &one = *ready;
+  switch (pending.Step) {
+    case Stage::Recipe: {
+      if (one && *one) {
+        auto *producer = std::get_if<RoadPageQueue::RecipeProducer>(&**one);
+        if (producer == nullptr || !*producer) {
+          return std::unexpected("road repair did not receive a recipe producer");
+        }
+        pending.Producer = std::move(*producer);
+        return Repair(pending, reference);
+      }
+      [[fallthrough]];
+    }
+    case Stage::Publish:
+      if (!one) {
+        Log::Warn(LogTag::World,
+                  "road_page_recipe_repair_failed",
+                  {{"page", reference.Key}, {"reason", one.error()}});
+      }
+      return VerifyRepair(pending, reference);
+    case Stage::Read:
+      if (one && !*one && CanRepair(reference)) {
+        if (!Queue_.RequestRecipe(Generators::StoredRoadPageAddress(*Manifest_, reference))) {
+          return std::unexpected("road repair recipe admission failed");
+        }
+        pending.Step = Stage::Recipe;
+        return {};
+      }
+      break;
+    case Stage::Verify: break;
+  }
   if (!one) { return std::unexpected(std::move(one.error())); }
   if (!*one) {
     Missing_ = true;
-    for (const auto &pending : Window_) { Queue_.Cancel(Manifest_->Pages[pending.Index].Key); }
+    for (const auto &page : Window_) { Queue_.Cancel(Manifest_->Pages[page.Index].Key); }
     return {};
   }
-  auto *loaded = std::get_if<Generators::RoadPageLease>(&**one);
+  const auto collected = CollectPayload(reference, **one);
+  if (collected && pending.Step == Stage::Verify) { ++RecoveredPages_; }
+  return collected;
+}
+
+bool RoadPageRestoration::CanRepair(const Generators::RoadPageReference &reference) const noexcept {
+  return RepairEnabled_ && !reference.PositionErrorM;
+}
+
+std::expected<void, std::string>
+RoadPageRestoration::Repair(Pending &pending, const Generators::RoadPageReference &reference) {
+  const auto admitted =
+      Queue_.RequestRecord({.Address = Generators::StoredRoadPageAddress(*Manifest_, reference),
+                            .Parent = {},
+                            .RequestKey = {},
+                            .NativeBytesMost = kPageBytesMost},
+                           pending.Producer);
+  if (!admitted) {
+    Log::Warn(LogTag::World,
+              "road_page_recipe_repair_failed",
+              {{"page", reference.Key}, {"reason", admitted.error()}});
+    pending.Producer.reset();
+    return VerifyRepair(pending, reference);
+  }
+  if (*admitted) {
+    pending.Producer.reset();
+    pending.Step = Stage::Publish;
+  }
+  return {};
+}
+
+std::expected<void, std::string>
+RoadPageRestoration::VerifyRepair(Pending &pending,
+                                  const Generators::RoadPageReference &reference) {
+  if (!Queue_.RequestCached(reference.Key, {.Key = ManifestKey_})) {
+    return std::unexpected("road repair verification admission failed");
+  }
+  pending.Step = Stage::Verify;
+  return {};
+}
+
+std::expected<void, std::string>
+RoadPageRestoration::CollectPayload(const Generators::RoadPageReference &reference,
+                                    RoadPageQueue::Product &product) {
+  auto *loaded = std::get_if<Generators::RoadPageLease>(&product);
   if (loaded == nullptr) {
     return std::unexpected("road restoration received metadata instead of payload");
   }
   Loaded_ = std::move(loaded->Page);
   if (!Loaded_ || Loaded_->Address != Generators::StoredRoadPageAddress(*Manifest_, reference) ||
-      loaded->NativeBytes != reference.ByteCount ||
+      loaded->NativeBytes != reference.ByteCount || loaded->Record.Bounds != reference.Bounds ||
       (!reference.ShapeKey.empty() && reference.Sources.size() != reference.Parts.size())) {
     return std::unexpected(
         "road restoration product differs from its plan, material, appearance or frame");
