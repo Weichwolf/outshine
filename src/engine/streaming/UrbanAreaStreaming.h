@@ -71,6 +71,7 @@ private:
     Generators::Osm::PreparedUrbanAreas::Request Request;
     Generators::Osm::PreparedUrbanAreas::SourceDelivery SourceDelivery;
     std::vector<size_t> OccupiedGroups;
+    bool Required = true;
   };
 
   struct Group {
@@ -94,7 +95,14 @@ private:
 
   [[nodiscard]] std::expected<std::vector<Candidate>, std::string>
   SelectGroups(const View &view, const TerrainResidency &terrain, Vec3 ahead) const;
+  [[nodiscard]] static std::expected<std::vector<Candidate>, std::string>
+  OrderGroupCandidates(std::vector<Candidate> candidates, std::optional<Candidate> upcoming);
   [[nodiscard]] std::expected<void, std::string> PlanSources(const View &view);
+  [[nodiscard]] Source NewSource(Data::TileId tile, bool required) const;
+  [[nodiscard]] std::expected<void, std::string>
+  PrepareMotionSources(std::span<const Vec3> positions,
+                       const View &view,
+                       std::chrono::steady_clock::time_point deadline);
   [[nodiscard]] std::expected<bool, std::string> PollSource();
   [[nodiscard]] std::expected<void, std::string> BindRequests(const TerrainResidency &terrain,
                                                               bool terrainChanged);
@@ -133,6 +141,7 @@ private:
   uint64_t Captures_ = 0, Publications_ = 0;
   uint64_t WantedChildrenRevision_ = 0;
   bool Planned_ = false;
+  bool MotionSources_ = false;
 };
 }
 #endif
