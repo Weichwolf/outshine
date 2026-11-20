@@ -140,26 +140,35 @@ Native::Result<void> ClipmapSurface::Publish(const ClipmapHeightUpdate &heights,
   return {};
 }
 
+bool ClipmapSurface::Covers(Vec2 camera) const noexcept {
+  const auto &grid = Heights_.Grid();
+  const auto outer = Heights_.Origin(grid.Levels - 1);
+  if (!outer) { return false; }
+  const double outerStep = std::ldexp(grid.CellM, static_cast<int>(grid.Levels - 1));
+  const double reach = grid.HalfCells * outerStep;
+  for (size_t axis = 0; axis < 2; ++axis) {
+    const double centre = static_cast<double>((*outer)[axis] + grid.HalfCells + 1) * outerStep;
+    const double guard = 64 * std::numeric_limits<float>::epsilon() *
+                         (std::abs(centre) + reach + std::abs(camera[axis]) + grid.ViewRadiusM + 1);
+    if (!std::isfinite(camera[axis]) ||
+        std::abs(camera[axis] - centre) + grid.ViewRadiusM + guard > reach) {
+      return false;
+    }
+  }
+  return true;
+}
+
 Native::Result<void> ClipmapSurface::Prepare(const ClipmapView &view) {
   if (View_ == view && !Rings_.empty()) { return {}; }
   const auto origin = Heights_.Origin(0);
   if (!origin) { return std::unexpected(Invalid("clipmap height window is unpublished")); }
-  Vec2 focus;
+  if (!Covers(view.Camera)) {
+    return std::unexpected(Invalid("camera left the prepared clipmap window"));
+  }
   const auto &grid = Heights_.Grid();
-  const auto outer = Heights_.Origin(grid.Levels - 1);
-  if (!outer) { return std::unexpected(Invalid("clipmap outer window is unpublished")); }
-  const double outerStep = std::ldexp(grid.CellM, static_cast<int>(grid.Levels - 1));
-  const double reach = grid.HalfCells * outerStep;
+  Vec2 focus;
   for (size_t axis = 0; axis < 2; ++axis) {
     focus[axis] = static_cast<double>((*origin)[axis] + grid.HalfCells + 1) * grid.CellM;
-    const double centre = static_cast<double>((*outer)[axis] + grid.HalfCells + 1) * outerStep;
-    const double guard =
-        64 * std::numeric_limits<float>::epsilon() *
-        (std::abs(centre) + reach + std::abs(view.Camera[axis]) + grid.ViewRadiusM + 1);
-    if (!std::isfinite(view.Camera[axis]) ||
-        std::abs(view.Camera[axis] - centre) + grid.ViewRadiusM + guard > reach) {
-      return std::unexpected(Invalid("camera left the prepared clipmap window"));
-    }
   }
   auto sampled = view;
   sampled.Camera = sampled.PreviousCamera = focus;

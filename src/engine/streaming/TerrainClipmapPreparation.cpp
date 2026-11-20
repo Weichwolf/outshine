@@ -98,6 +98,10 @@ bool TerrainClipmapPreparation::Ready() const noexcept {
   return Surface_->Complete();
 }
 
+bool TerrainClipmapPreparation::ReadyAt(Vec2 camera) const noexcept {
+  return Ready() && Surface_->Covers(camera);
+}
+
 size_t TerrainClipmapPreparation::HeapBytes() const noexcept {
   return (Heights_ ? Heights_->HeapBytes() : 0) + (Normals_ ? Normals_->HeapBytes() : 0) +
          (PreparedHeights_ ? PreparedHeights_->HeapBytes() : 0) +

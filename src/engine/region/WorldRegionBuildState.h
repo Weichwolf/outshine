@@ -28,6 +28,8 @@
 #include <vector>
 
 namespace outshine {
+class TerrainClipmapPreparation;
+
 namespace Generators::Osm {
 class StreetGraphRequest;
 }
@@ -92,6 +94,8 @@ public:
 
   [[nodiscard]] GroundWorldCandidate &Candidate() noexcept { return Candidate_; }
 
+  [[nodiscard]] const GroundWorldCandidate &Candidate() const noexcept { return Candidate_; }
+
   [[nodiscard]] Generators::TerrainInputPreparation &TerrainInputs() noexcept {
     return TerrainInputs_;
   }
@@ -149,6 +153,14 @@ public:
   }
 
   [[nodiscard]] ResidencyBuild &Residency() noexcept { return Residency_; }
+
+  [[nodiscard]] std::unique_ptr<TerrainClipmapPreparation> &StagedClipmaps() noexcept {
+    return StagedClipmaps_;
+  }
+
+  [[nodiscard]] const TerrainClipmapPreparation *StagedClipmaps() const noexcept {
+    return StagedClipmaps_.get();
+  }
 
   [[nodiscard]] Generators::TerrainSurvey &Surveying() noexcept { return Surveying_; }
 
@@ -500,6 +512,7 @@ private:
   std::unique_ptr<RoadPageConstruction> RoadPages_;
   std::unique_ptr<RoadPageRestoration> RoadRestoration_;
   std::unique_ptr<RoadGeometryPublication> RoadPublication_;
+  std::unique_ptr<TerrainClipmapPreparation> StagedClipmaps_;
   std::shared_ptr<const Generators::RoadPageManifest> RoadManifest_;
   std::string SurfaceManifestKey_;
   bool RoadsRestored_ = false;

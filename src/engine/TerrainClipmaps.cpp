@@ -1,7 +1,9 @@
 #include "EngineState.h"
+#include "RuntimeScene.h"
 #include "TerrainClipmapPreparation.h"
 #include "TerrainFieldSet.h"
 #include "TerrainLoader.h"
+#include "WorldRegionBuildState.h"
 #include "device/native/MemoryStatus.h"
 #include <algorithm>
 #include <cmath>
@@ -17,6 +19,13 @@
 
 namespace outshine {
 namespace {
+constexpr size_t kClipmapSamplesPerSlice = 1024;
+
+Vec2 GroundCamera(const Core::RuntimeScene &scene) {
+  const auto &eye = scene.Watched() ? scene.Watching() : scene.Aimed();
+  return {{eye.EyeM[0], -eye.EyeM[2]}};
+}
+
 size_t AvailableFieldBytes(const Render::Native::MemoryStatus &status) {
   uint64_t bytes = std::numeric_limits<size_t>::max();
   if (status.RecommendedWorkingSetBytes && status.ResourceAllocatedBytes) {
@@ -47,17 +56,44 @@ Render::ClipmapGrid GridFor(double sightM) {
 
 bool Engine::State::TerrainClipmapsReady() const noexcept {
   return World.TerrainSurface.PublishedSurface() == nullptr ||
-         (World.ClipmapPublication == World.Relaid && World.TerrainClipmaps &&
-          World.TerrainClipmaps->Ready());
+         (World.TerrainClipmaps && Picture.Standing &&
+          World.TerrainClipmaps->ReadyAt(GroundCamera(*Picture.Standing)));
 }
 
 Result Engine::State::AdvanceTerrainClipmaps() {
-  if (World.TerrainSurface.PublishedSurface() == nullptr || !Services.Compute ||
-      !Picture.Standing) {
+  if (!World.TerrainClipmaps || !Picture.Standing) { return {}; }
+  const size_t bytesMost = AvailableFieldBytes(Picture.Device.ReadMemoryStatus());
+  const Vec2 camera = GroundCamera(*Picture.Standing);
+  const auto advanced =
+      World.TerrainClipmaps->Advance(camera,
+                                     {.WorkBytesMost = bytesMost,
+                                      .StagingBytesMost = bytesMost,
+                                      .SamplesPerSlice = kClipmapSamplesPerSlice});
+  Published.RecordMetric(
+      "terrain clipmaps: prepared", World.TerrainClipmaps->ReadyAt(camera) ? 1 : 0, "bool");
+  Published.RecordMetric("terrain clipmaps: worker storage",
+                         static_cast<double>(World.TerrainClipmaps->HeapBytes()),
+                         "bytes");
+  return advanced;
+}
+
+bool Engine::State::CandidateTerrainClipmapsReady(
+    const WorldRegionBuildState &state) const noexcept {
+  const auto *clipmaps = state.StagedClipmaps();
+  return state.Candidate().Products().TerrainSurface.PublishedSurface() == nullptr ||
+         (clipmaps != nullptr && Picture.Standing &&
+          clipmaps->ReadyAt(GroundCamera(*Picture.Standing)));
+}
+
+Result Engine::State::AdvanceCandidateTerrainClipmaps(WorldRegionBuildState &state) {
+  if (!state.Residency().ResidencyReady || !Picture.Standing ||
+      CandidateTerrainClipmapsReady(state)) {
     return {};
   }
+  if (!Services.Compute) { return std::unexpected("terrain clipmaps require a compute worker"); }
   const size_t bytesMost = AvailableFieldBytes(Picture.Device.ReadMemoryStatus());
-  if (World.ClipmapPublication != World.Relaid || !World.TerrainClipmaps) {
+  auto &clipmaps = state.StagedClipmaps();
+  if (!clipmaps) {
     std::shared_ptr<const Ground::TerrainField> parent;
     std::optional<Data::SourceFailure> failure;
     constexpr Data::TileId root{.Zoom = 0, .X = 0, .Y = 0};
@@ -70,23 +106,21 @@ Result Engine::State::AdvanceTerrainClipmaps() {
     }
     std::vector<Generators::TerrainFieldSet::Entry> parents;
     parents.emplace_back(root, std::move(parent));
-    auto source = std::make_shared<TerrainSurfacePublication>(World.TerrainSurface);
+    const auto &terrain = state.Candidate().Products().TerrainSurface;
+    auto source = std::make_shared<TerrainSurfacePublication>(terrain);
     source->SetRenderFallback(
         std::make_shared<const Generators::TerrainFieldSet>(std::move(parents)));
     auto surface = Picture.Device.CreateTerrainClipmaps(GridFor(TerrainSightM()), bytesMost);
-    if (!surface) { return std::unexpected(surface.error().Message); }
-    World.TerrainClipmaps = std::make_unique<TerrainClipmapPreparation>(
+    if (!surface) {
+      if (surface.error().Kind == Render::Native::ErrorKind::Busy) { return {}; }
+      return std::unexpected(surface.error().Message);
+    }
+    clipmaps = std::make_unique<TerrainClipmapPreparation>(
         *Services.Compute, std::move(source), std::move(*surface));
-    World.ClipmapPublication = World.Relaid;
   }
-  const auto advanced = World.TerrainClipmaps->Advance(
-      Picture.Device.TerrainClipmapPosition(),
-      {.WorkBytesMost = bytesMost, .StagingBytesMost = bytesMost, .SamplesPerSlice = 1024});
-  Published.RecordMetric(
-      "terrain clipmaps: prepared", World.TerrainClipmaps->Ready() ? 1 : 0, "bool");
-  Published.RecordMetric("terrain clipmaps: worker storage",
-                         static_cast<double>(World.TerrainClipmaps->HeapBytes()),
-                         "bytes");
-  return advanced;
+  return clipmaps->Advance(GroundCamera(*Picture.Standing),
+                           {.WorkBytesMost = bytesMost,
+                            .StagingBytesMost = bytesMost,
+                            .SamplesPerSlice = kClipmapSamplesPerSlice});
 }
 }

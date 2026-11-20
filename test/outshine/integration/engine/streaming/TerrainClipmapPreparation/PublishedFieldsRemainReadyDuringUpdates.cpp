@@ -36,13 +36,15 @@ void CheckCoverage(Render::SceneRenderer &renderer, const TerrainSurfacePublicat
     if (!advanced) { return; }
     (void)worker.AwaitCompletion(0.001);
   }
-  CHECK(preparation.Ready(), "initial coverage requires two completely published fields");
+  CHECK(preparation.ReadyAt(camera), "initial coverage requires two completely published fields");
   std::binary_semaphore release{0};
   const auto held = worker.Post([&] { release.acquire(); });
   CHECK(held != Tasks::kNoTask, "the compute worker accepts a held queue item");
   CHECK(preparation.Advance({{2002, -2000}}, kAdmission).has_value(),
         "movement queues new bands behind existing work");
-  CHECK(preparation.Ready(), "pending replacement work preserves the accepted world coverage");
+  CHECK(preparation.ReadyAt(camera),
+        "pending replacement work preserves the accepted world coverage");
+  CHECK(!preparation.ReadyAt({{2020, -2000}}), "a teleport beyond the sampled field must wait");
   release.release();
   worker.Wait(held);
 }

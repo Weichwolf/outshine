@@ -787,7 +787,9 @@ bool Engine::State::AwaitWorldWorkerProgress(std::chrono::duration<double> patie
 }
 
 bool Engine::State::WorldPreparationPending() const {
-  return !TerrainClipmapsReady() || WeatherRunning() || GroundSurfaceWorkPending() ||
+  return !TerrainClipmapsReady() ||
+         (World.GroundBuild && !CandidateTerrainClipmapsReady(*World.GroundBuild)) ||
+         WeatherRunning() || GroundSurfaceWorkPending() ||
          (World.BuildingFields && World.BuildingFields->Read().Pending != 0) ||
          World.RoadAlignmentBuilds.Busy() ||
          (World.OsmSource && World.OsmSource->PendingCount() > 0) ||

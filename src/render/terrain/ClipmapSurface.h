@@ -26,6 +26,7 @@ public:
   [[nodiscard]] Native::Result<void> Prepare(const ClipmapView &view);
   [[nodiscard]] ClipmapFields Fields() const noexcept;
   [[nodiscard]] bool Complete() const noexcept;
+  [[nodiscard]] bool Covers(Vec2 camera) const noexcept;
   [[nodiscard]] uint64_t HeldBytes() const noexcept;
   [[nodiscard]] uint64_t DeviceBytes() const noexcept;
   [[nodiscard]] uint32_t Triangles() const noexcept;

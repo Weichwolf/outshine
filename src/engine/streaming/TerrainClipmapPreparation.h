@@ -32,6 +32,7 @@ public:
   [[nodiscard]] std::expected<void, std::string> Advance(Vec2 camera,
                                                          TerrainClipmapAdmission admission);
   [[nodiscard]] bool Ready() const noexcept;
+  [[nodiscard]] bool ReadyAt(Vec2 camera) const noexcept;
   [[nodiscard]] size_t HeapBytes() const noexcept;
 
 private:

@@ -1850,6 +1850,35 @@ void Engine::State::FinishGroundPublication(const Patchwork &laid,
       "tiles that overlap a finer level", static_cast<double>(laid.Overlapped), "tiles");
 }
 
+bool Engine::State::PublishGroundCandidate(WorldRegionBuildState &state) {
+  if (state.CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsPublication) {
+    Error = "ground candidate reached an invalid stage";
+    return false;
+  }
+  if (!CandidateTerrainClipmapsReady(state)) { return true; }
+  const auto phaseAt = std::chrono::steady_clock::now();
+  state.PublishesFootprints();
+  GroundWorldCandidate &candidate = state.Candidate();
+  if (auto published = candidate.Publish(
+          World, World.Surface().Footprints(), Picture.Standing, state.Revision());
+      !published) {
+    Error = std::move(published.error());
+    World.GroundBuild.reset();
+    return false;
+  }
+  World.TerrainClipmaps = std::move(state.StagedClipmaps());
+  Published.RecordMetric(
+      "ground candidate: publication",
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
+      "ms");
+  PublishGroundCandidateMeasurements(candidate, state);
+  assert(!World.GroundRetirement);
+  World.GroundRetirement = std::move(World.GroundBuild);
+  PublishGroundRenderMeasurements(phaseAt);
+  FinishGroundPublication(*state.Laid(), state.Coverage(), state.Began());
+  return true;
+}
+
 bool Engine::State::AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQuality quality) {
   static const Heap::Tag kGroundBuildTag("world-ground");
   const Heap::Tagged groundBuildScope(kGroundBuildTag);
@@ -1879,6 +1908,10 @@ bool Engine::State::AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQual
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - buildAt)
           .count());
   if (progress != GroundBuildProgress::Ready) { return progress != GroundBuildProgress::Failed; }
+  if (auto clipmaps = AdvanceCandidateTerrainClipmaps(*World.GroundBuild); !clipmaps) {
+    Error = std::move(clipmaps.error());
+    return false;
+  }
   const GroundBuildProgress region = AdvanceGroundRegion();
   if (region != GroundBuildProgress::Ready) { return region != GroundBuildProgress::Failed; }
   WorldRegionBuildState &state = *World.GroundBuild;
@@ -1888,8 +1921,6 @@ bool Engine::State::AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQual
   assert(phase < Cost.GroundPhases.size());
   const ScopedCounter phaseTime(Cost.GroundPhases[phase]);
   const Around &over = state.Coverage();
-  GroundWorldCandidate &candidate = state.Candidate();
-  const auto rebuildBegan = state.Began();
 
   const GroundBuildProgress patchwork = AdvanceGroundPatchwork(over);
   if (patchwork != GroundBuildProgress::Ready) { return patchwork != GroundBuildProgress::Failed; }
@@ -1923,28 +1954,6 @@ bool Engine::State::AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQual
   if (construction != GroundBuildProgress::Ready) {
     return construction != GroundBuildProgress::Failed;
   }
-  if (state.CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsPublication) {
-    Error = "ground candidate reached an invalid stage";
-    return false;
-  }
-  const auto phaseAt = std::chrono::steady_clock::now();
-  state.PublishesFootprints();
-  if (auto published = candidate.Publish(
-          World, World.Surface().Footprints(), Picture.Standing, state.Revision());
-      !published) {
-    Error = std::move(published.error());
-    World.GroundBuild.reset();
-    return false;
-  }
-  Published.RecordMetric(
-      "ground candidate: publication",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
-      "ms");
-  PublishGroundCandidateMeasurements(candidate, state);
-  assert(!World.GroundRetirement);
-  World.GroundRetirement = std::move(World.GroundBuild);
-  PublishGroundRenderMeasurements(phaseAt);
-  FinishGroundPublication(laid, over, rebuildBegan);
-  return true;
+  return PublishGroundCandidate(state);
 }
 }

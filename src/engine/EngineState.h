@@ -202,7 +202,6 @@ struct WorldRegionState {
   size_t StructurePlanAt = 0;
   size_t StructurePlanBurst = 0;
   size_t Relaid = 0;
-  size_t ClipmapPublication = 0;
   std::unique_ptr<TerrainClipmapPreparation> TerrainClipmaps;
   size_t Asked = 0;
   double RebuildMs = 0.0;
@@ -531,6 +530,7 @@ struct Engine::State {
                                           WorldRegionBuildState &state);
   [[nodiscard]] bool BuildGroundResidency(Patchwork &patchwork, WorldRegionBuildState &state);
   [[nodiscard]] bool PublishGroundGeometry(WorldRegionBuildState &state);
+  [[nodiscard]] bool PublishGroundCandidate(WorldRegionBuildState &state);
   [[nodiscard]] GroundBuildProgress AdvanceGroundConstructionStages(const TangentFrame &standing,
                                                                     Patchwork &patchwork,
                                                                     WorldRegionBuildState &state);
@@ -589,6 +589,9 @@ struct Engine::State {
   [[nodiscard]] bool UpdateVegetation(bool prepare);
   [[nodiscard]] Result AdvanceTerrainClipmaps();
   [[nodiscard]] bool TerrainClipmapsReady() const noexcept;
+  [[nodiscard]] Result AdvanceCandidateTerrainClipmaps(WorldRegionBuildState &state);
+  [[nodiscard]] bool
+  CandidateTerrainClipmapsReady(const WorldRegionBuildState &state) const noexcept;
   [[nodiscard]] bool AdvanceStructureBuilds(size_t landsMost);
   [[nodiscard]] bool AdvanceBuildingFields();
   [[nodiscard]] bool AdvanceUrbanAreas();

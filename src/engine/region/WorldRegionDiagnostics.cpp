@@ -15,6 +15,9 @@
 namespace outshine {
 namespace {
 std::string GroundGeometryDiagnostic(WorldRegionBuildState &state) {
+  if (state.CurrentStage() == Core::GroundBuildSchedule::Stage::NeedsPublication) {
+    return ", publication awaiting terrain clipmaps";
+  }
   if (state.CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsGeometry) { return {}; }
   if (state.RegionStatus() == WorldRegionBuildState::RegionPhase::Storing) {
     return ", geometry waiting for region storage";

@@ -1,6 +1,7 @@
 #include "WorldRegionBuildState.h"
 #include "StreetGraphRequest.h"
 #include "StructureCell.h"
+#include "TerrainClipmapPreparation.h"
 
 #include <algorithm>
 #include <cassert>
@@ -151,6 +152,7 @@ WorldRegionBuildState::AdvanceWater(Tasks &pool,
   BuildingEarthworks_.reset();
   SheetWorker_.reset();
   RoadPlanning_.reset();
+  StagedClipmaps_.reset();
   if (WaterWorker_) {
     WaterWorker_->Cancel();
     if (!WaterWorker_->Complete()) { return false; }

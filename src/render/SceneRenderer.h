@@ -366,11 +366,6 @@ public:
     return ActiveContent().Geometry().Ground().CreateClipmaps(grid, bytesMost);
   }
 
-  [[nodiscard]] Vec2 TerrainClipmapPosition() const {
-    const Vec3 position = ActiveState().Camera.EyeM - ActiveContent().Geometry().AnchorM();
-    return {{position[0], -position[2]}};
-  }
-
   [[nodiscard]] bool
   SetPieceInstances(PieceHandle which, std::span<const Mat4> rows, std::string &error) {
     return ActiveContent().Scene().Resources().SetPieceInstances(
