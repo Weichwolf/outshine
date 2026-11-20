@@ -226,6 +226,17 @@ void CheckCoverage(const Around &over, Pattern pattern) {
 
 int main() {
   using namespace outshine::Test;
+  const auto contact = [](double x, double y) {
+    const auto at = Ground::TileFracToGeo({.X = x, .Y = y}, 6);
+    return Around{
+        .LatitudeDeg = at.LatitudeDeg, .LongitudeDeg = at.LongitudeDeg, .Zoom = 6, .Levels = 4};
+  };
+  const auto bank = contact(63.5, 25.5);
+  CHECK(PatchworkIncludesContactTile(bank, contact(0.5, 24.5)),
+        "a camera crossing the antimeridian stays in the active fine patchwork");
+  CHECK(!PatchworkIncludesContactTile(bank, contact(2.5, 24.5)) &&
+            !PatchworkIncludesContactTile(bank, contact(0.5, 23.5)),
+        "a camera leaving the fine patchwork needs a new build");
   for (const auto position : Positions()) {
     for (const auto pattern : {Pattern::Ready, Pattern::Mixed, Pattern::Pending}) {
       for (const auto [access, playableOnly] : {std::pair{TerrainTileAccess::Mesh, false},

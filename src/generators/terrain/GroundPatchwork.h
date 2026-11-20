@@ -24,6 +24,9 @@ public:
 [[nodiscard]] std::expected<std::vector<Data::TileId>, std::string>
 PlanPatchworkTiles(const Around &over);
 
+[[nodiscard]] bool PatchworkIncludesContactTile(const Around &coverage,
+                                                const Around &request) noexcept;
+
 }
 
 #endif
