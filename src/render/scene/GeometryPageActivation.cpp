@@ -173,6 +173,13 @@ bool GeometryPageResidency::PublishSelection(uint32_t tile,
   const auto first = std::ranges::lower_bound(Pages_, tile, {}, &ResidentGeometryPage::Tile);
   const auto last = std::find_if(
       first, Pages_.end(), [tile](const ResidentGeometryPage &held) { return held.Tile != tile; });
+  const bool switchesSource = std::ranges::any_of(first, last, [sourceKey](const auto &page) {
+    return page.Visible && page.SourceKey != sourceKey;
+  });
+  const auto retires = [tile, sourceKey, switchesSource](const auto &page) {
+    return page.Tile == tile && ((page.Cell == 0 && page.Mode != Publication::Product) ||
+                                 (switchesSource && page.SourceKey != sourceKey));
+  };
   size_t parts = 0;
   for (auto at = first; at != last; ++at) { parts += at->Parts.size(); }
   std::vector<SceneRenderer::PieceRows> rows;
@@ -193,14 +200,9 @@ bool GeometryPageResidency::PublishSelection(uint32_t tile,
     target.Page->Passes = target.Passes;
   }
   for (auto at = first; at != last; ++at) {
-    if ((at->Cell == 0 && at->Mode != Publication::Product) || at->SourceKey != sourceKey) {
-      Releases(*at);
-    }
+    if (retires(*at)) { Releases(*at); }
   }
-  std::erase_if(Pages_, [tile, sourceKey](const ResidentGeometryPage &held) {
-    return held.Tile == tile &&
-           ((held.Cell == 0 && held.Mode != Publication::Product) || held.SourceKey != sourceKey);
-  });
+  std::erase_if(Pages_, retires);
   RefreshDigest();
   return true;
 }
@@ -274,10 +276,6 @@ bool GeometryPageResidency::ValidateResidentSources(uint32_t tile,
   for (auto at = first; at != last; ++at) {
     if (at->Visible && visibleSource != at->SourceKey) {
       error = "visible geometry cells have mixed source revisions";
-      return false;
-    }
-    if (at->SourceKey != source.Key && at->SourceKey != visibleSource) {
-      error = "staged geometry cell belongs to another source revision";
       return false;
     }
     if (at->SourceKey == source.Key && at->Cell != 0 &&

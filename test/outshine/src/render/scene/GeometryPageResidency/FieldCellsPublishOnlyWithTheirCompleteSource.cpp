@@ -96,7 +96,8 @@ bool StageCellProduct(GeometryPageResidency &pages,
                       const MaterialRegistration *shadow = nullptr,
                       const SourceCoverage *coverage = nullptr,
                       std::string_view assetKey = {},
-                      double depth = 2) {
+                      double depth = 2,
+                      uint64_t sourceKey = kSource) {
   const Vec2 horizontal{{cell == 1 ? -.8 : 0, cell == 1 ? 0 : .8}};
   const auto vertices = Vertices(frame, horizontal, depth);
   constexpr std::array<uint32_t, 6> indices{0, 1, 2, 0, 2, 3};
@@ -132,7 +133,7 @@ bool StageCellProduct(GeometryPageResidency &pages,
        .Coverage = coverage != nullptr ? std::optional(*coverage) : std::nullopt},
       frame.OriginEcef(),
       error,
-      kSource);
+      sourceKey);
 }
 
 std::vector<float> Draw(SceneRenderer &renderer) {
@@ -407,6 +408,31 @@ void CheckExactSources(SceneRenderer &renderer,
   main[0].ExpectedSources = &*expected;
   CHECK(pages.ActivateCells(kTile, kCells, main, fine, error) && Draw(renderer) != before,
         "exact source ownership publishes atomically with independent original shadows");
+  const auto current = Draw(renderer);
+  auto incoming = kCells;
+  ++incoming.Key;
+  const auto stage = [&](uint32_t cell) {
+    return StageCellProduct(pages,
+                            frame,
+                            cell,
+                            LevelOfDetail::Fine,
+                            original,
+                            GeometryPasses::MainAndShadow,
+                            error,
+                            nullptr,
+                            nullptr,
+                            {},
+                            2,
+                            incoming.Key);
+  };
+  CHECK(stage(1), "the next source can prepare its first cell beside the published revision");
+  CHECK(pages.ActivateCells(kTile, kCells, main, fine, error) && Draw(renderer) == current,
+        "the current source can refresh its complete cut while the next source is staged");
+  CHECK(!pages.ActivateCells(kTile, incoming, fine, error) && Draw(renderer) == current,
+        "a partial next source cannot hide the current source");
+  CHECK(stage(2) && pages.ActivateCells(kTile, incoming, fine, error) && Draw(renderer) == before &&
+            pages.CellsActive(kTile, fine, incoming.Key),
+        "a complete next source replaces the prior cut atomically");
   pages.Clear();
 }
 
