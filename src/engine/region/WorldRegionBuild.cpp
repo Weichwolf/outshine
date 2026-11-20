@@ -62,7 +62,6 @@
 #include "StreetGraphBuilder.h"
 #include "StreetGraphRequest.h"
 #include "GroundRegionRequest.h"
-#include "WaterGeometryPreparation.h"
 #include "BinaryValueArchive.h"
 #include "RoadHeightCoverage.h"
 #include "RoadRefinementCoverage.h"
@@ -1412,26 +1411,18 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSurfaceInputs() {
                          : World.Surface().IngestedWithin(0);
   if (!ready) { return GroundBuildProgress::Pending; }
   if (state.SurfaceInputsBound()) { return GroundBuildProgress::Ready; }
-  const auto &water = World.Surface().WaterBodies();
-  if (water.SurfacesReady()) {
-    state.BindSurfaceInputs(World.Surface().Ways(), water);
-    RecordWaterSurfaceState(Published, water);
-    return GroundBuildProgress::Ready;
-  }
   const auto origin = Session.Declared.Ground.Origin;
   const auto frame =
       TangentFrame::At({.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg});
-  auto result = state.AdvanceWater(*Services.Compute, water, frame);
+  auto result = World.Surface().AdvanceWaterGeometry(*Services.Compute, frame);
   if (!result) { return GroundBuildProgress::Pending; }
   if (!*result) {
     Error = std::move(result->error());
     return GroundBuildProgress::Failed;
   }
-  if (!result->value().Water.SharesInputsWith(water)) {
-    state.DiscardWaterPreparation();
-    return GroundBuildProgress::Pending;
+  if (result->value().WorkerMs > 0.0) {
+    Published.RecordMetric("water: geometry preparation worker", result->value().WorkerMs, "ms");
   }
-  Published.RecordMetric("water: geometry preparation worker", result->value().WorkerMs, "ms");
   state.BindSurfaceInputs(World.Surface().Ways(), result->value().Water);
   RecordWaterSurfaceState(Published, result->value().Water);
   return GroundBuildProgress::Ready;

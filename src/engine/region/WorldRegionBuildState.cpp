@@ -110,24 +110,6 @@ void WorldRegionBuildState::BindSurfaceInputs(const Generators::Osm::StreetField
   Revision_.WaterTiles = water.IngestedTiles();
   Candidate_.BindSurfaceInputs(streets, water);
   SurfaceInputsPhase_ = SurfaceInputsPhase::Bound;
-  WaterWorker_.reset();
-}
-
-[[nodiscard]] std::optional<std::expected<WaterGeometryPreparation::Completed, std::string>>
-WorldRegionBuildState::AdvanceWater(Tasks &pool,
-                                    const Generators::WaterAsset &source,
-                                    const TangentFrame &frame) {
-  if (WaterWorker_ && !WaterWorker_->Matches(source)) {
-    WaterWorker_->Cancel();
-    if (!WaterWorker_->Complete()) { return std::nullopt; }
-    WaterWorker_.reset();
-  }
-  if (!WaterWorker_) {
-    WaterWorker_ = std::make_unique<WaterGeometryPreparation>(pool, source, frame);
-    SurfaceInputsPhase_ = SurfaceInputsPhase::Preparing;
-    return std::nullopt;
-  }
-  return WaterWorker_->Collect();
 }
 
 [[nodiscard]] bool WorldRegionBuildState::InstallRegion(GroundRegionAsset region, bool hit) {
@@ -160,11 +142,6 @@ WorldRegionBuildState::AdvanceWater(Tasks &pool,
   SheetWorker_.reset();
   RoadPlanning_.reset();
   StagedClipmaps_.reset();
-  if (WaterWorker_) {
-    WaterWorker_->Cancel();
-    if (!WaterWorker_->Complete()) { return false; }
-    WaterWorker_.reset();
-  }
   if (StreetGraphWorker_) {
     StreetGraphWorker_->Cancel();
     if (!StreetGraphWorker_->Complete()) { return false; }

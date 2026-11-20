@@ -241,6 +241,7 @@ void SurfacePreparation::Close() {
   PreparedRoads_.reset();
   AssetStore_.reset();
   StreetMode_ = StreetMode::Source;
+  WaterWorker_.reset();
   WaterProducer_ = Generators::Osm::WaterField{};
   WaterBodies_ = Generators::WaterAsset{};
   WaterStage_ = WaterStage::Requested;
@@ -451,6 +452,30 @@ bool SurfacePreparation::VectorInputsReady(std::optional<int> rings) const {
   if (!RecipesReady_ || !Vectors_) { return !RecipesReady_; }
   return Cls_.Complete() &&
          (rings ? Vectors_->SettledWithin(*rings) : Vectors_->PendingTiles() == 0);
+}
+
+std::optional<std::expected<WaterGeometryPreparation::Completed, std::string>>
+SurfacePreparation::AdvanceWaterGeometry(Tasks &pool, const TangentFrame &frame) {
+  const auto &source = WaterBodies();
+  if (WaterWorker_ && !WaterWorker_->Matches(source)) {
+    WaterWorker_->Cancel();
+    if (WaterWorker_->Complete()) {
+      WaterWorker_.reset();
+    } else if (!source.SurfacesReady()) {
+      return std::nullopt;
+    }
+  }
+  if (source.SurfacesReady()) { return WaterGeometryPreparation::Completed{.Water = source}; }
+  if (!WaterWorker_) {
+    WaterWorker_ = std::make_unique<WaterGeometryPreparation>(pool, source, frame);
+    return std::nullopt;
+  }
+  auto result = WaterWorker_->Collect();
+  if (result) {
+    WaterWorker_.reset();
+    if (*result && WaterReady()) { WaterBodies_ = result->value().Water; }
+  }
+  return result;
 }
 
 void SurfacePreparation::UseCachedRegionNetwork(LongitudeLatitude focus) {

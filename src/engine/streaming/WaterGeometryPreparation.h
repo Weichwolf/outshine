@@ -29,7 +29,7 @@ public:
   [[nodiscard]] bool Complete() const noexcept;
 
   [[nodiscard]] bool Matches(const Generators::WaterAsset &source) const noexcept {
-    return Source_.SharesInputsWith(source);
+    return !Stop_.stop_requested() && Source_.SharesInputsWith(source);
   }
 
 private:

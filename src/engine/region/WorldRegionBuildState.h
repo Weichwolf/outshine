@@ -14,7 +14,6 @@
 #include "TerrainDeformationTask.h"
 #include "TerrainInputPreparation.h"
 #include "TerrainSheetTask.h"
-#include "WaterGeometryPreparation.h"
 #include "GroundRegionRequest.h"
 #include "WaterSurfaceBuilder.h"
 #include <algorithm>
@@ -41,7 +40,7 @@ public:
   enum class GeometrySubmission : uint8_t { Classes, ClassRanges, Begin, Cook };
   enum class CorridorCompletion : uint8_t { Build, Retire };
   enum class RegionPhase : uint8_t { Lookup, Loading, Miss, Hit, Storing, Stored, Bypass };
-  enum class SurfaceInputsPhase : uint8_t { Awaiting, Preparing, Bound };
+  enum class SurfaceInputsPhase : uint8_t { Awaiting, Bound };
 
   struct ProductMemory {
     size_t Candidate = 0;
@@ -210,14 +209,6 @@ public:
 
   [[nodiscard]] bool SurfaceInputsBound() const noexcept {
     return SurfaceInputsPhase_ == SurfaceInputsPhase::Bound;
-  }
-
-  [[nodiscard]] std::optional<std::expected<WaterGeometryPreparation::Completed, std::string>>
-  AdvanceWater(Tasks &pool, const Generators::WaterAsset &source, const TangentFrame &frame);
-
-  void DiscardWaterPreparation() {
-    WaterWorker_.reset();
-    SurfaceInputsPhase_ = SurfaceInputsPhase::Awaiting;
   }
 
   [[nodiscard]] Patchwork *Laid() noexcept { return Patchwork_ ? &*Patchwork_ : nullptr; }
@@ -519,7 +510,6 @@ private:
   std::string RegionRequest_;
   RegionPhase RegionPhase_ = RegionPhase::Lookup;
   SurfaceInputsPhase SurfaceInputsPhase_ = SurfaceInputsPhase::Awaiting;
-  std::unique_ptr<WaterGeometryPreparation> WaterWorker_;
   std::unique_ptr<Generators::TerrainSheetTask> SheetWorker_;
   std::vector<EarthworkStamp> Corridors_;
   std::vector<EarthworkStamp> RoadEarthworks_;

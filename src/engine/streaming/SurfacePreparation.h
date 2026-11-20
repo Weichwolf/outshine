@@ -28,6 +28,7 @@
 #include "TilePool.h"
 #include "RegionSurfaceRecipes.h"
 #include "WaterField.h"
+#include "WaterGeometryPreparation.h"
 
 #include "ContentDirectories.h"
 
@@ -308,6 +309,9 @@ public:
     if (WaterStage_ == WaterStage::Deferred) { WaterStage_ = WaterStage::Requested; }
   }
 
+  [[nodiscard]] std::optional<std::expected<WaterGeometryPreparation::Completed, std::string>>
+  AdvanceWaterGeometry(Tasks &pool, const TangentFrame &frame);
+
   void RestoreWater(Generators::WaterAsset water) {
     WaterBodies_ = std::move(water);
     WaterProducer_ = Generators::Osm::WaterField{};
@@ -381,6 +385,7 @@ private:
   ::outshine::Generators::Osm::BuildingField Footprints_;
   ::outshine::Generators::Osm::WaterField WaterProducer_;
   mutable Generators::WaterAsset WaterBodies_;
+  std::unique_ptr<WaterGeometryPreparation> WaterWorker_;
 
   struct WaterInputs {
     uint64_t Generation = 0;
