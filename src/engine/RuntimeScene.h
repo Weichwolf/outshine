@@ -436,6 +436,7 @@ private:
   [[nodiscard]] bool Submit(std::string &error);
 
   Render::SceneRenderer *Renderer_ = nullptr;
+  bool OwnsPublishedWorld_ = false;
   Ui::SurfaceSession Ui_;
   Declaration Declared_;
   Vec3 GroundAlbedo_ = kGroundAlbedoUnsaid;

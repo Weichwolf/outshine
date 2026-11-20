@@ -23,7 +23,6 @@ public:
 
   ~WorldCandidate() {
     if (Scene_) {
-      const auto editing = Renderer_.EditWorldCandidate();
       Scene_.reset();
       Renderer_.AbandonsWorldCandidate();
     }

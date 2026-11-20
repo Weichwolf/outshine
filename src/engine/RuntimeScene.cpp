@@ -100,7 +100,7 @@ RuntimeScene::RuntimeScene(Render::SceneRenderer &renderer,
 }
 
 RuntimeScene::~RuntimeScene() {
-  if (Renderer_ == nullptr) { return; }
+  if (Renderer_ == nullptr || !OwnsPublishedWorld_) { return; }
 
   std::string ignored;
   (void)Renderer_->SetGeometryMesh(Render::MeshInput{}, ignored);
@@ -127,15 +127,12 @@ bool RuntimeScene::Open(Render::SceneRenderer &renderer,
     return false;
   }
   if (frameGeometry) { candidate->FrameGeometry(); }
-  if (!renderer.Settle(error) || !renderer.PublishesWorldCandidate(error)) {
+  if (!renderer.Settle(error)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
     return false;
   }
-  candidate->StopEditingCandidate();
-  HandOffRenderer(out);
-  out = std::move(candidate);
-  return true;
+  return PublishesPreparedWorld(renderer, out, candidate, error, Publication::ReplaceDeclaration);
 }
 
 bool RuntimeScene::Prepare(Render::SceneRenderer &renderer,
@@ -340,6 +337,7 @@ bool RuntimeScene::PublishesPreparedWorld(Render::SceneRenderer &renderer,
   if (retain) { candidate->Ui_ = std::move(out->Ui_); }
   candidate->StopEditingCandidate();
   HandOffRenderer(out);
+  candidate->OwnsPublishedWorld_ = true;
   out = std::move(candidate);
   return true;
 }

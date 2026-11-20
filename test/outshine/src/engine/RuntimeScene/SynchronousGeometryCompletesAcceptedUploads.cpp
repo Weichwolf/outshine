@@ -1,7 +1,9 @@
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
+#include "StoredVertex.h"
 #include "Viewing.h"
+#include "WorldCandidate.h"
 #include "test/harness/render/NativeDeviceProxy.h"
 #include <SDL3/SDL.h>
 #include <array>
@@ -12,6 +14,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 namespace {
@@ -25,6 +28,7 @@ struct QueueState {
   Native::Device *Backing = nullptr;
   std::optional<Native::Completion> Last;
   size_t BlockedBegins = 0;
+  size_t BufferRequests = 0;
   bool Pressure = false;
   bool NeedsWait = false;
   bool FailWait = false;
@@ -52,6 +56,12 @@ public:
                                            .Message = "accepted upload completion is deferred"});
     }
     return Backing().Begin();
+  }
+
+  Native::Result<std::unique_ptr<Native::Buffer>>
+  CreateBuffer(Native::BufferDescription description, std::string_view label) override {
+    ++State_.BufferRequests;
+    return Backing().CreateBuffer(description, label);
   }
 
   Native::Result<Native::Completion> Submit(std::unique_ptr<Native::Commands> commands) override {
@@ -90,6 +100,41 @@ Geometry Triangle() {
         "the synchronous product contains complete native triangles");
   return geometry;
 }
+
+void CheckAbandonment(Render::SceneRenderer &renderer,
+                      Core::RuntimeScene &scene,
+                      QueueState &state) {
+  std::string error;
+  std::optional<Native::Completion> before;
+  size_t bufferRequests = 0;
+  {
+    Core::WorldCandidate candidate(renderer);
+    const auto prepared = candidate.Prepare(scene, nullptr);
+    CHECK(prepared && renderer.Settle(error), "the replacement has complete private resources");
+    if (!prepared) { return; }
+    Geometry materials;
+    CHECK(materials.addSurface("private", Material{}), "the private piece has a material");
+    const auto registration = renderer.RegisterPieceMaterials(std::move(materials));
+    CHECK(registration, "the replacement owns the new material registration");
+    if (!registration) { return; }
+    const std::array vertices{StoredVertex::Of({{0, 0, 0}}, {}, {{0, 0, 1}}),
+                              StoredVertex::Of({{1, 0, 0}}, {}, {{0, 0, 1}}),
+                              StoredVertex::Of({{0, 1, 0}}, {}, {{0, 0, 1}})};
+    constexpr std::array<uint32_t, 3> indices{0, 1, 2};
+    Render::PieceMesh mesh{};
+    mesh.Verts = vertices;
+    mesh.Indices = indices;
+    mesh.Surface = Render::PieceSurface::Registered(*registration);
+    CHECK(renderer.PlacePiece(mesh), "the abandoned replacement contains native piece geometry");
+    before = state.Last;
+    bufferRequests = state.BufferRequests;
+  }
+  CHECK(before && state.Last && before->Device == state.Last->Device &&
+            before->Serial == state.Last->Serial && bufferRequests == state.BufferRequests,
+        "abandoning a camera replacement neither allocates nor submits new native work");
+  CHECK(!renderer.HasWorldCandidate() && scene.Draw(error) && renderer.Settle(error),
+        "the published scene remains drawable after a replacement is abandoned");
+}
 }
 
 int main() {
@@ -124,6 +169,9 @@ int main() {
       CHECK(scene->Advance(error) && scene->Draw(error),
             "the first frame can acquire the device after synchronous construction");
       CHECK(renderer.Settle(error), "the accepted frame completes before the failure case");
+      state.Pressure = false;
+      CheckAbandonment(renderer, *scene, state);
+      state.Pressure = true;
       state.FailWait = true;
       CHECK(!scene->SetGeometry(Triangle(), 0, error) && error == kWaitFailure,
             "native completion failure reaches the synchronous geometry caller unchanged");
