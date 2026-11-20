@@ -16,6 +16,7 @@
 #include "TerrainSheetTask.h"
 #include "TerrainClassificationMap.h"
 #include "GroundRegionRequest.h"
+#include "Tasks.h"
 #include "WaterSurfaceBuilder.h"
 #include <algorithm>
 #include <cassert>
@@ -298,7 +299,7 @@ public:
     return Surveying_.ProbePositionsM.capacity() * sizeof(Vec3f);
   }
 
-  [[nodiscard]] bool AdvancesRetirement(size_t sheetsMost) noexcept;
+  [[nodiscard]] bool AdvancesRetirement(Tasks *compute, size_t sheetsMost) noexcept;
 
   void SamplesProductPeak() noexcept { RecordsProductPeak(); }
 
@@ -475,6 +476,8 @@ public:
   [[nodiscard]] uint8_t Progress() const noexcept;
 
 private:
+  [[nodiscard]] bool ReleasesRetiredSheets(Tasks *compute, size_t sheetsMost) noexcept;
+
   [[nodiscard]] static size_t StampHeapBytes(std::span<const EarthworkStamp> stamps) noexcept {
     size_t bytes = 0;
     for (const auto &stamp : stamps) { bytes += stamp.HeapBytes(); }
@@ -501,6 +504,7 @@ private:
   bool CorridorsPlanned_ = false;
   size_t NextRoadSurfaceTransfer_ = 0;
   std::optional<Patchwork> Patchwork_;
+  Tasks::Handle SheetRetirement_ = Tasks::kNoTask;
   std::unique_ptr<Generators::BuildingFoundationTask> BuildingEarthworks_;
   std::unique_ptr<Generators::TerrainDeformationTask> TerrainDeformation_;
   std::unique_ptr<Generators::Corridors::Job> CorridorJob_;

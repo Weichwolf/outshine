@@ -137,11 +137,37 @@ void WorldRegionBuildState::BindSurfaceInputs(const Generators::Osm::StreetField
   return true;
 }
 
-[[nodiscard]] bool WorldRegionBuildState::AdvancesRetirement(size_t sheetsMost) noexcept {
+bool WorldRegionBuildState::ReleasesRetiredSheets(Tasks *compute, size_t sheetsMost) noexcept {
+  if (SheetRetirement_ != Tasks::kNoTask) {
+    assert(compute != nullptr);
+    if (!compute->TakeCompletion(SheetRetirement_)) { return false; }
+    SheetRetirement_ = Tasks::kNoTask;
+  }
+  if (!Patchwork_) { return true; }
+  auto &sheets = Patchwork_->Sheets;
+  if (compute != nullptr && !sheets.empty()) {
+    const auto retired = std::make_shared<std::vector<Sheet>>();
+    retired->swap(sheets);
+    SheetRetirement_ = compute->Post([retired] { std::vector<Sheet>{}.swap(*retired); });
+    if (SheetRetirement_ != Tasks::kNoTask) {
+      Patchwork_.reset();
+      return false;
+    }
+    retired->swap(sheets);
+  }
+  const size_t count = std::min(sheetsMost, sheets.size());
+  for (size_t released = 0; released < count; ++released) { sheets.pop_back(); }
+  if (!sheets.empty()) { return false; }
+  Patchwork_.reset();
+  return true;
+}
+
+bool WorldRegionBuildState::AdvancesRetirement(Tasks *compute, size_t sheetsMost) noexcept {
   BuildingEarthworks_.reset();
   SheetWorker_.reset();
   RoadPlanning_.reset();
   StagedClipmaps_.reset();
+  const bool sheetsReleased = ReleasesRetiredSheets(compute, sheetsMost);
   if (StreetGraphWorker_) {
     StreetGraphWorker_->Cancel();
     if (!StreetGraphWorker_->Complete()) { return false; }
@@ -151,13 +177,7 @@ void WorldRegionBuildState::BindSurfaceInputs(const Generators::Osm::StreetField
     if (!CorridorJob_->RetireStep(kCorridorRetireUnitsPerFrame)) { return false; }
     CorridorJob_.reset();
   }
-  if (Patchwork_) {
-    const size_t count = std::min(sheetsMost, Patchwork_->Sheets.size());
-    for (size_t released = 0; released < count; ++released) { Patchwork_->Sheets.pop_back(); }
-    if (!Patchwork_->Sheets.empty()) { return false; }
-    Patchwork_.reset();
-  }
-  return true;
+  return sheetsReleased;
 }
 
 [[nodiscard]] bool

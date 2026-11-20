@@ -1701,7 +1701,8 @@ bool Engine::State::PublishGroundGeometry(WorldRegionBuildState &state) {
 bool Engine::State::AdvancesGroundRetirement() {
   if (!World.GroundRetirement) { return true; }
   const auto retirementAt = std::chrono::steady_clock::now();
-  const bool retired = World.GroundRetirement->AdvancesRetirement(kGroundRestorePagesPerFrame);
+  const bool retired = World.GroundRetirement->AdvancesRetirement(Services.Compute.get(),
+                                                                  kGroundRestorePagesPerFrame);
   if (retired) { World.GroundRetirement.reset(); }
   Cost.GroundRetirement.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - retirementAt)
