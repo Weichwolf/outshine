@@ -41,13 +41,13 @@ bool StreetGraphTopology::Matches(const std::shared_ptr<const OsmField> &vectors
 }
 
 std::expected<StreetGraphBuildJob, std::string>
-StreetGraphTopology::Begin(Path::Network::HeightSource heightOf) {
+StreetGraphTopology::Begin(Path::Network::HeightSource heightOf, const Path::Network *retained) {
   if (!heightOf) { return std::unexpected("street corridor height source is absent"); }
   if (auto saved = Take()) {
     saved->BindHeightSource(std::move(heightOf));
     return std::move(*saved);
   }
-  return StreetGraphBuildJob::Begin(Vectors(), Ways(), std::move(heightOf));
+  return StreetGraphBuildJob::Begin(Vectors(), Ways(), std::move(heightOf), retained);
 }
 
 std::optional<StreetGraphBuildJob> StreetGraphTopology::Take() {
@@ -69,13 +69,16 @@ struct StreetGraphRequest::Work {
 
   Work(std::shared_ptr<StreetGraphTopology> topology,
        Path::Network::HeightSource heightOf,
-       Resolver resolver)
+       Resolver resolver,
+       std::shared_ptr<const Path::Network> retained)
       : Topology(std::move(topology)),
+        Retained(std::move(retained)),
         HeightOf(std::move(heightOf)),
         Resolve(std::move(resolver)) {}
 
   std::optional<StreetGraphBuildJob> Job;
   std::shared_ptr<StreetGraphTopology> Topology;
+  std::shared_ptr<const Path::Network> Retained;
   Path::Network::HeightSource HeightOf;
   JobFactory Factory;
   Resolver Resolve;
@@ -89,7 +92,10 @@ struct StreetGraphRequest::Work {
   std::atomic<size_t> Advances{0};
 
   [[nodiscard]] std::expected<StreetGraphBuildJob, std::string> BeginJob() {
-    if (Topology) { return Topology->Begin(std::move(HeightOf)); }
+    if (Topology) {
+      const auto retained = std::move(Retained);
+      return Topology->Begin(std::move(HeightOf), retained.get());
+    }
     if (!Factory) { return std::unexpected("street graph miss has no job factory"); }
     return Factory();
   }
@@ -99,6 +105,7 @@ struct StreetGraphRequest::Work {
     Factory = {};
     Resolve = {};
     HeightOf = {};
+    Retained.reset();
     Topology.reset();
   }
 
@@ -129,9 +136,11 @@ StreetGraphRequest::StreetGraphRequest(Tasks &pool, JobFactory factory, Resolver
 StreetGraphRequest::StreetGraphRequest(Tasks &pool,
                                        std::shared_ptr<StreetGraphTopology> topology,
                                        Path::Network::HeightSource heightOf,
-                                       Resolver resolver)
+                                       Resolver resolver,
+                                       std::shared_ptr<const Path::Network> retained)
     : Pool_(pool),
-      Work_(std::make_shared<Work>(std::move(topology), std::move(heightOf), std::move(resolver))) {
+      Work_(std::make_shared<Work>(
+          std::move(topology), std::move(heightOf), std::move(resolver), std::move(retained))) {
   Start(pool);
 }
 

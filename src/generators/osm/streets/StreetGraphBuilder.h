@@ -41,6 +41,7 @@ public:
     double ElevateLongestMs = 0.0;
     Path::NetworkElevationJob::SliceWorst ElevationSlices;
     double PublishMs = 0.0;
+    bool ReusedTopology = false;
   };
 
   [[nodiscard]] static Built BuildOneShot(const ::outshine::Generators::Osm::StreetField &ways,
@@ -54,6 +55,9 @@ private:
   LayWays(const ::outshine::Generators::Osm::StreetField &ways,
           std::span<const double> points,
           Path::Network &graph);
+  [[nodiscard]] static bool MatchesWays(const ::outshine::Generators::Osm::StreetField &ways,
+                                        std::span<const double> points,
+                                        const Path::Network &graph);
 };
 
 class StreetGraphBuildJob {
@@ -61,7 +65,8 @@ public:
   [[nodiscard]] static std::expected<StreetGraphBuildJob, std::string>
   Begin(const ::outshine::Generators::Osm::OsmField &vectors,
         const ::outshine::Generators::Osm::StreetField &ways,
-        Path::Network::HeightSource heightOf);
+        Path::Network::HeightSource heightOf,
+        const Path::Network *retained = nullptr);
   StreetGraphBuildJob(const StreetGraphBuildJob &) = delete;
   StreetGraphBuildJob &operator=(const StreetGraphBuildJob &) = delete;
   StreetGraphBuildJob(StreetGraphBuildJob &&) noexcept = default;

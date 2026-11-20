@@ -24,12 +24,22 @@ StreetGraphBuildJob::StreetGraphBuildJob(Path::Network &&graph,
 std::expected<StreetGraphBuildJob, std::string>
 StreetGraphBuildJob::Begin(const ::outshine::Generators::Osm::OsmField &vectors,
                            const ::outshine::Generators::Osm::StreetField &ways,
-                           Path::Network::HeightSource heightOf) {
+                           Path::Network::HeightSource heightOf,
+                           const Path::Network *retained) {
   const auto began = std::chrono::steady_clock::now();
+  if (!heightOf) { return std::unexpected("street corridor height source is absent"); }
+  if (retained != nullptr && StreetGraphBuilder::MatchesWays(ways, vectors.Points(), *retained)) {
+    StreetGraphBuildJob job(Path::Network(*retained), std::move(heightOf));
+    job.Built_.Ways = job.Graph_.WayCount();
+    job.Built_.ReusedTopology = true;
+    job.Built_.LayMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+    job.Stage_ = Stage::BeginCrossings;
+    return job;
+  }
   auto created = Path::Network::Create(Path::Snap{.CellM = StreetGraphBuilder::kNodeSnapM},
                                        Path::Sphere{.RadiusM = kWgs84A});
   if (!created) { return std::unexpected(std::string(created.error())); }
-  if (!heightOf) { return std::unexpected("street corridor height source is absent"); }
   StreetGraphBuildJob job(std::move(*created), std::move(heightOf));
   if (const auto laid = StreetGraphBuilder::LayWays(ways, vectors.Points(), job.Graph_); !laid) {
     return std::unexpected(std::string(laid.error()));

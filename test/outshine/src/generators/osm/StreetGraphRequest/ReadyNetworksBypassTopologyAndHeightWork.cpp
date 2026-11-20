@@ -63,6 +63,36 @@ std::shared_ptr<Generators::Osm::OsmField> Input(bool bridge) {
         "a crossing street fixture is declared");
   return field;
 }
+
+void CheckTerrainChange(Tasks &pool,
+                        const std::shared_ptr<const Path::Network> &published,
+                        const std::shared_ptr<Generators::Osm::OsmField> &vectors,
+                        const Generators::Osm::StreetField &ways,
+                        bool sameWays) {
+  auto retained = std::make_shared<Generators::Osm::StreetGraphTopology>(vectors, ways);
+  constexpr double kNewHeightM = 220;
+  StreetGraphRequest rebuild(
+      pool,
+      std::move(retained),
+      [kNewHeightM](LongitudeLatitude) { return std::optional{kNewHeightM}; },
+      {},
+      published);
+  const auto completed = Await(rebuild);
+  if (!completed) { return; }
+  CHECK(completed->Graph.ReusedTopology == sameWays,
+        "new terrain reuses matching ways, and a bridge change rebuilds the topology");
+  const auto &current = completed->Graph.Graph;
+  const auto old = published->Profile({.Way = 0, .StationM = 0});
+  const auto newProfile = current->Profile({.Way = 0, .StationM = 0});
+  CHECK(old && newProfile && old->HeightM != kNewHeightM && newProfile->HeightM == kNewHeightM,
+        "the rebuilt graph samples the new terrain and the published graph retains its height");
+  if (sameWays) {
+    CHECK(current->EdgeCount() == published->EdgeCount() &&
+              current->NodeCount() == published->NodeCount() &&
+              current->CrossingsJoined() == published->CrossingsJoined(),
+          "elevation preserves the network connections of unchanged streets");
+  }
+}
 }
 
 int main() {
@@ -135,6 +165,8 @@ int main() {
   CHECK(bridgeWays.Ingest(*bridge, templates) == 2, "bridge input is normalized");
   CHECK(cache->Key(*bridge, bridgeWays, {}, 14, terrainBinding) != key,
         "bridge classification invalidates the asset even with unchanged centreline points");
+  CheckTerrainChange(pool, cold->Graph.Graph, vectors, *ways, true);
+  CheckTerrainChange(pool, cold->Graph.Graph, bridge, bridgeWays, false);
   Ground::ShapedGround changed;
   changed.Seed = 1;
   CHECK(cache->Key(*vectors, *ways, changed, 14, terrainBinding) != key &&

@@ -1,9 +1,12 @@
 #include "StreetGraphBuilder.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <ratio>
 #include <span>
 #include <string_view>
@@ -18,6 +21,32 @@ namespace outshine::Generators::Osm {
 namespace Says {
 constexpr auto kInvalidStreetPointRange =
     "vector street point range exceeds the supplied coordinate stream";
+}
+
+namespace {
+bool MakesWay(const StreetField::Way &lane) {
+  return lane.Form == StreetField::Shape::Ribbon && lane.PointCount >= 2;
+}
+
+std::optional<std::span<const double>> WayPoints(const StreetField::Way &lane,
+                                                 std::span<const double> points) {
+  const size_t first = static_cast<size_t>(lane.FirstPoint) * 2;
+  if (first > points.size() || lane.PointCount > (points.size() - first) / 2) {
+    return std::nullopt;
+  }
+  return points.subspan(first, static_cast<size_t>(lane.PointCount) * 2);
+}
+
+Path::WayClass WayProperties(const StreetField::Way &lane, size_t tag) {
+  return {.HalfWidthM = static_cast<double>(lane.HalfWidthM),
+          .SpeedMps = static_cast<double>(lane.SpeedMps),
+          .Lanes = lane.Lanes,
+          .Priority = lane.Priority,
+          .Oneway = lane.Oneway,
+          .Sealed = lane.Sealed,
+          .Spans = lane.Bridge,
+          .Tag = tag};
+}
 }
 
 StreetGraphBuilder::Built
@@ -68,29 +97,35 @@ StreetGraphBuilder::LayWays(const ::outshine::Generators::Osm::StreetField &ways
                             Path::Network &graph) {
   for (size_t at = 0; at < ways.Ways().size(); ++at) {
     const ::outshine::Generators::Osm::StreetField::Way &lane = ways.Ways()[at];
-    if (lane.Form != ::outshine::Generators::Osm::StreetField::Shape::Ribbon ||
-        lane.PointCount < 2) {
-      continue;
-    }
-    const size_t first = static_cast<size_t>(lane.FirstPoint) * 2;
-    if (first > points.size() || lane.PointCount > (points.size() - first) / 2) {
-      return std::unexpected(Says::kInvalidStreetPointRange);
-    }
-    const auto laid = graph.Lay(points.subspan(first, static_cast<size_t>(lane.PointCount) * 2),
-                                Path::WayClass{.HalfWidthM = static_cast<double>(lane.HalfWidthM),
-                                               .MaxGradient = 0.0,
-                                               .MinRadiusM = 0.0,
-                                               .Friction = 0.0,
-                                               .SpeedMps = static_cast<double>(lane.SpeedMps),
-                                               .Lanes = lane.Lanes,
-                                               .Priority = lane.Priority,
-                                               .Oneway = lane.Oneway,
-                                               .Sealed = lane.Sealed,
-                                               .Spans = lane.Bridge,
-                                               .Tag = at});
+    if (!MakesWay(lane)) { continue; }
+    const auto coordinates = WayPoints(lane, points);
+    if (!coordinates) { return std::unexpected(Says::kInvalidStreetPointRange); }
+    const auto laid = graph.Lay(*coordinates, WayProperties(lane, at));
     if (!laid) { return laid; }
   }
   return {};
+}
+
+bool StreetGraphBuilder::MatchesWays(const StreetField &ways,
+                                     std::span<const double> points,
+                                     const Path::Network &graph) {
+  if (!graph.UsesTopologyGrid(Path::Snap{.CellM = kNodeSnapM}, Path::Sphere{.RadiusM = kWgs84A}) ||
+      graph.WayCount() != static_cast<size_t>(std::ranges::count_if(ways.Ways(), MakesWay))) {
+    return false;
+  }
+  std::vector<uint8_t> seen(ways.Ways().size());
+  for (size_t way = 0; way < graph.WayCount(); ++way) {
+    const size_t tag = graph.TagOf(way);
+    if (tag >= seen.size() || seen[tag] != 0) { return false; }
+    const auto &lane = ways.Ways()[tag];
+    const auto coordinates = WayPoints(lane, points);
+    if (!MakesWay(lane) || !coordinates ||
+        !graph.MatchesWay(way, *coordinates, WayProperties(lane, tag))) {
+      return false;
+    }
+    seen[tag] = 1;
+  }
+  return true;
 }
 
 }

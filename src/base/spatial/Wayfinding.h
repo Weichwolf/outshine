@@ -67,6 +67,8 @@ struct WayClass {
   bool Sealed = false;
   bool Spans = false;
   size_t Tag = 0;
+
+  [[nodiscard]] bool operator==(const WayClass &) const noexcept = default;
 };
 
 struct Route {
@@ -142,6 +144,10 @@ public:
   [[nodiscard]] std::optional<LongitudeLatitude> PositionOfNode(size_t node) const noexcept;
   [[nodiscard]] std::span<const Connection> ConnectionsFrom(size_t node) const noexcept;
   [[nodiscard]] std::span<const double> CoordinatesOfWay(size_t way) const noexcept;
+  [[nodiscard]] bool UsesTopologyGrid(Snap snap, Sphere sphere) const noexcept;
+  [[nodiscard]] bool MatchesWay(size_t way,
+                                std::span<const double> coordinates,
+                                const WayClass &properties) const noexcept;
   [[nodiscard]] std::optional<size_t> NodeOfWayPoint(size_t way, size_t point) const noexcept;
 
   [[nodiscard]] size_t ConnectionCapacityBytes() const noexcept {

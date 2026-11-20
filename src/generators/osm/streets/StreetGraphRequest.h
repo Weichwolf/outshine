@@ -30,7 +30,7 @@ public:
 private:
   friend class StreetGraphRequest;
   [[nodiscard]] std::expected<StreetGraphBuildJob, std::string>
-  Begin(Path::Network::HeightSource heightOf);
+  Begin(Path::Network::HeightSource heightOf, const Path::Network *retained);
   [[nodiscard]] std::optional<StreetGraphBuildJob> Take();
   void Save(StreetGraphBuildJob job);
 
@@ -64,7 +64,8 @@ public:
   StreetGraphRequest(Tasks &pool,
                      std::shared_ptr<StreetGraphTopology> topology,
                      Path::Network::HeightSource heightOf,
-                     Resolver resolver);
+                     Resolver resolver,
+                     std::shared_ptr<const Path::Network> retained = {});
   ~StreetGraphRequest();
   StreetGraphRequest(const StreetGraphRequest &) = delete;
   StreetGraphRequest &operator=(const StreetGraphRequest &) = delete;
