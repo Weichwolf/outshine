@@ -27,6 +27,9 @@ PlanPatchworkTiles(const Around &over);
 [[nodiscard]] bool PatchworkIncludesContactTile(const Around &coverage,
                                                 const Around &request) noexcept;
 
+[[nodiscard]] bool
+PatchworkCoversFocus(const Around &coverage, const Around &request, double radiusM) noexcept;
+
 }
 
 #endif

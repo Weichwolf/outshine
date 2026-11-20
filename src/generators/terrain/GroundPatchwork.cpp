@@ -221,6 +221,41 @@ bool PatchworkIncludesContactTile(const Around &coverage, const Around &request)
   return column < kBlockTiles && row >= 0 && row < kBlockTiles;
 }
 
+bool PatchworkCoversFocus(const Around &coverage, const Around &request, double radiusM) noexcept {
+  if (!PatchworkIncludesContactTile(coverage, request) || !std::isfinite(radiusM) ||
+      radiusM <= 0.0) {
+    return false;
+  }
+  const int levels = std::min(coverage.Levels, coverage.Zoom);
+  for (int level = 1; level < levels; ++level) {
+    const TileBlock held = BlockAt(coverage, level);
+    const TileBlock wanted = BlockAt(request, level);
+    if (held.X != wanted.X || held.Y != wanted.Y) { return false; }
+  }
+  const auto block = BlockAt(coverage, 0);
+  const double tiles = std::ldexp(1.0, coverage.Zoom);
+  const auto northwest = Ground::TileFracToGeo(
+      {.X = static_cast<double>(block.X), .Y = static_cast<double>(std::max(0L, block.Y))},
+      coverage.Zoom);
+  const auto southeast =
+      Ground::TileFracToGeo({.X = static_cast<double>(block.X + kBlockTiles),
+                             .Y = std::min(tiles, static_cast<double>(block.Y + kBlockTiles))},
+                            coverage.Zoom);
+  constexpr double minimumRadiusM = kWgs84A * (1.0 - kWgs84E2);
+  const double radiusRad = radiusM / minimumRadiusM;
+  const double latSpan = radiusRad * kRad2Deg;
+  const double latitude = request.LatitudeDeg;
+  if (latitude - latSpan <= southeast.LatitudeDeg || latitude + latSpan >= northwest.LatitudeDeg) {
+    return false;
+  }
+  if (tiles <= kBlockTiles) { return true; }
+  const double lonSpan = radiusRad * kRad2Deg / std::cos((std::abs(latitude) + latSpan) * kDeg2Rad);
+  const double offset = request.LongitudeDeg - northwest.LongitudeDeg;
+  const double eastward = offset - kDegPerTurn * std::floor(offset / kDegPerTurn);
+  const double width = southeast.LongitudeDeg - northwest.LongitudeDeg;
+  return lonSpan < eastward && eastward + lonSpan < width;
+}
+
 std::expected<Patchwork, std::string> Patchworker::Lay(TileMeshes &tiles,
                                                        const Around &over) const {
   return LayPatchwork(tiles, over);

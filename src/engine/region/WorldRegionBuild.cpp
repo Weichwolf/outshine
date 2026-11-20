@@ -59,6 +59,7 @@
 #include "WaterBasinStamps.h"
 #include "GroundBuildSchedule.h"
 #include "GroundMesher.h"
+#include "GroundPatchwork.h"
 #include "StreetGraphBuilder.h"
 #include "StreetGraphRequest.h"
 #include "GroundRegionRequest.h"
@@ -419,9 +420,17 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
   const double atLon = at.LongitudeDeg;
   const Ground::TileFrac here = Ground::ToTileFracClamped(
       Ground::Geo{.LongitudeDeg = atLon, .LatitudeDeg = atLat}, over.Zoom);
-  const uint64_t from = (static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.X))) << 32U) ^
-                        static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.Y))) ^
-                        (static_cast<uint64_t>(over.Levels) << 56u);
+  constexpr unsigned kGroundRegionLevelsShift = 56u;
+  uint64_t from = (static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.X))) << 32U) ^
+                  static_cast<uint64_t>(static_cast<int64_t>(std::floor(here.Y))) ^
+                  (static_cast<uint64_t>(over.Levels) << kGroundRegionLevelsShift);
+  if (from != previous.Region && World.PublishedGroundCoverage && World.TerrainClipmaps &&
+      previous.Quality == GroundQuality::Refined && World.Pending == 0 && World.Bare == 0 &&
+      World.RimsMissing == 0 &&
+      PatchworkCoversFocus(*World.PublishedGroundCoverage, over, FinestTerrainSampleRadiusM())) {
+    request.Coverage = *World.PublishedGroundCoverage;
+    from = previous.Region;
+  }
   World.Surface().Pool().Focus({.LongitudeDeg = atLon, .LatitudeDeg = atLat});
   ++World.Asked;
   Around asking = over;
@@ -1917,6 +1926,7 @@ bool Engine::State::PublishGroundCandidate(WorldRegionBuildState &state) {
     return false;
   }
   World.TerrainClipmaps = std::move(state.StagedClipmaps());
+  World.PublishedGroundCoverage = state.Coverage();
   Published.RecordMetric(
       "ground candidate: publication",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
