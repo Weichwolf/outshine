@@ -96,8 +96,7 @@ Result
 CheckPreloadVectorInputs(const Ground::SurfacePreparation &stack, LongitudeLatitude at, int ring) {
   const auto *vectors = stack.Vectors();
   if (vectors == nullptr || vectors->RefusedTiles() == 0) { return {}; }
-  const auto window =
-      Generators::Osm::OsmField::SourceWindow(at, vectors->Zoom(), ring, Ground::kVectorTiles);
+  const auto window = stack.VectorWindowAt(at, ring);
   if (!window) { return std::unexpected(std::string(window.error())); }
   for (const auto &failure : vectors->SourceFailures()) {
     if (!failure) { continue; }

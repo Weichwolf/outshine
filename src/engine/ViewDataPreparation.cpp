@@ -217,6 +217,12 @@ Result Engine::State::PrepareViewTerrain(std::span<const Around> coverage,
                                          TerrainPathPlan plan,
                                          Clock::time_point deadline) {
   if (!positions.empty() && !World.GroundPublished.Current()) {
+    std::vector<LongitudeLatitude> route;
+    route.reserve(coverage.size());
+    for (const auto &at : coverage) {
+      route.push_back({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg});
+    }
+    World.Surface().PlanMotionCoverage(route);
     auto sweep = PlanMotionTerrain(
         coverage, positions, std::move(plan.Meshes), FinestTerrainSampleRadiusM());
     if (sweep) {

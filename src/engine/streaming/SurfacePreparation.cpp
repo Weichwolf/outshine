@@ -230,6 +230,7 @@ SurfacePreparation::OpenSession(const ContentDirectories &under,
 void SurfacePreparation::Close() {
   Cls_.Close();
   Vectors_.reset();
+  VectorMotion_.reset();
   PreparedUrban_.reset();
   PreparedVectors_.reset();
   Ground_.reset();
@@ -285,6 +286,44 @@ SurfacePreparation::ValidatePosition(LongitudeLatitude at) const {
   return ::outshine::Generators::Osm::OsmField::Locate(at, VectorZoom_);
 }
 
+void SurfacePreparation::PlanMotionCoverage(std::span<const LongitudeLatitude> path) {
+  if (!HasVectorSource_ || !Declared_.empty()) { return; }
+  VectorMotion_ = Generators::Osm::OsmField::CoverPath(path, VectorZoom_, kVectorRing);
+  Cls_.PlanMotionCoverage(path);
+}
+
+const Generators::Osm::OsmTileCoverage *
+SurfacePreparation::PlannedVectorCoverageAt(LongitudeLatitude at) const {
+  if (!VectorMotion_) { return nullptr; }
+  const auto current =
+      Generators::Osm::OsmField::SourceWindow(at, VectorZoom_, kVectorRing, kVectorTiles);
+  return current && VectorMotion_->Window.Covers(*current) ? &*VectorMotion_ : nullptr;
+}
+
+std::expected<Generators::Osm::OsmTileWindow, std::string_view>
+SurfacePreparation::VectorWindowAt(LongitudeLatitude at, int rings) const {
+  if (const auto *motion = PlannedVectorCoverageAt(at)) { return motion->Window; }
+  return Generators::Osm::OsmField::SourceWindow(at, VectorZoom_, rings, kVectorTiles);
+}
+
+std::expected<Generators::Osm::OsmField::BuildMetrics, std::string>
+SurfacePreparation::BuildVectors(LongitudeLatitude at,
+                                 TileAt tile,
+                                 const Generators::Osm::OsmTileCoverage *motion,
+                                 int rings) {
+  if (!HasVectorSource_ || !Declared_.empty()) {
+    Vectors_->Declare(
+        std::span<const Generators::Osm::OsmField::Declared>(Declared_), tile, DeclaredDigest_);
+    return Generators::Osm::OsmField::BuildMetrics{};
+  }
+  constexpr Generators::Osm::OsmField::ParseBudget parsing{.TilesMost =
+                                                               kVectorParseTilesPerAdvanceAt};
+  const auto built = motion != nullptr ? Vectors_->Build(*Pool_, *motion, parsing)
+                                       : Vectors_->Build(*Pool_, at, rings, kVectorTiles, parsing);
+  if (!built) { return std::unexpected(built.error()); }
+  return Vectors_->LastBuildMetrics();
+}
+
 std::expected<void, std::string> SurfacePreparation::AdvanceAt(LongitudeLatitude at,
                                                                SurfacePreparationBudget budget) {
   const auto restandAt = std::chrono::steady_clock::now();
@@ -297,8 +336,10 @@ std::expected<void, std::string> SurfacePreparation::AdvanceAt(LongitudeLatitude
   const auto vectorTile = ValidatePosition(at);
   if (!vectorTile) { return std::unexpected(std::string(vectorTile.error())); }
   if (!Pool_) { return complete(); }
+  const auto *motion = PlannedVectorCoverageAt(at);
+  const auto centre = motion != nullptr ? motion->Centre : *vectorTile;
   if (UsesCachedRegionNetwork() &&
-      (vectorTile->X != CachedNetworkTile_.X || vectorTile->Y != CachedNetworkTile_.Y)) {
+      (centre.X != CachedNetworkTile_.X || centre.Y != CachedNetworkTile_.Y)) {
     RequestStreets();
   }
   const auto classificationAt = std::chrono::steady_clock::now();
@@ -313,16 +354,9 @@ std::expected<void, std::string> SurfacePreparation::AdvanceAt(LongitudeLatitude
     Footprints_.AnchorAt(Cls_.OriginEcef());
   }
   const uint64_t previousVectorGeneration = Vectors_->Generation();
-  if (HasVectorSource_ && Declared_.empty()) {
-    const auto built = Vectors_->Build(
-        *Pool_, at, budget.VectorRing, kVectorTiles, {.TilesMost = kVectorParseTilesPerAdvanceAt});
-    if (!built) { return std::unexpected(built.error()); }
-    metrics.VectorBuild = Vectors_->LastBuildMetrics();
-  } else {
-    Vectors_->Declare(std::span<const ::outshine::Generators::Osm::OsmField::Declared>(Declared_),
-                      *vectorTile,
-                      DeclaredDigest_);
-  }
+  const auto built = BuildVectors(at, *vectorTile, motion, budget.VectorRing);
+  if (!built) { return std::unexpected(built.error()); }
+  metrics.VectorBuild = *built;
   if (Vectors_->Generation() != previousVectorGeneration) {
     Footprints_.ResetDerived();
     Ways_ = ::outshine::Generators::Osm::StreetField{};

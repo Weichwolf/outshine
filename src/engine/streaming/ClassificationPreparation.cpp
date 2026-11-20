@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <mutex>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <span>
@@ -32,6 +33,9 @@ constexpr double kMsPerMicrosecond = 1e-3;
 
 namespace {
 
+using ClassRaster = Generators::ClassificationRasterizer;
+using Generators::Osm::OsmField;
+
 double Clock() {
   using namespace std::chrono;
   return static_cast<double>(
@@ -39,6 +43,20 @@ double Clock() {
          kMsPerMicrosecond;
 }
 
+ClassRaster::GridLayout EncloseGrids(const ClassRaster::GridLayout &first,
+                                     const ClassRaster::GridLayout &second,
+                                     double cellM) {
+  const double west = std::min(first.WestM, second.WestM);
+  const double south = std::min(first.SouthM, second.SouthM);
+  const double east =
+      std::max(first.WestM + first.Width * cellM, second.WestM + second.Width * cellM);
+  const double north =
+      std::max(first.SouthM + first.Height * cellM, second.SouthM + second.Height * cellM);
+  return {.WestM = west,
+          .SouthM = south,
+          .Width = static_cast<int>((east - west) / cellM),
+          .Height = static_cast<int>((north - south) / cellM)};
+}
 }
 
 std::unique_ptr<Generators::Osm::OsmField> ClassificationPreparation::CreateField(int zoom) const {
@@ -67,7 +85,10 @@ void ClassificationPreparation::Close() {
   Builder_.reset();
   Submitted_.reset();
   Prepared_.reset();
-  for (Tier *tier : {&Fine_, &Coarse_}) { tier->Reset(); }
+  for (Tier *tier : {&Fine_, &Coarse_}) {
+    tier->Reset();
+    tier->Motion.reset();
+  }
   const std::scoped_lock lock(Mu_);
   Published_ = {};
   Restored_.reset();
@@ -79,15 +100,85 @@ bool ClassificationPreparation::Restore(std::shared_ptr<const TerrainClassificat
       classes->Frame().OriginEcef().Axis != Frame_.OriginEcef().Axis) {
     return false;
   }
-  const auto fits = [](const TerrainClassificationMap::Grid &grid, const Tier &tier) {
-    return grid.W == 2 * tier.HalfCells && grid.H == grid.W && grid.CellM == tier.CellM;
-  };
-  if (!fits(classes->Fine(), Fine_) || !fits(classes->Coarse(), Coarse_)) { return false; }
+  if (!GridMatches(classes->Fine(), Fine_) || !GridMatches(classes->Coarse(), Coarse_)) {
+    return false;
+  }
   const std::scoped_lock lock(Mu_);
   Restored_ = std::move(classes);
   Published_ = {.Classes = Restored_,
                 .Upload = std::make_shared<const Render::PackedTerrainClassification>(*Restored_)};
   return true;
+}
+
+bool ClassificationPreparation::GridMatches(const TerrainClassificationMap::Grid &grid,
+                                            const Tier &tier) noexcept {
+  if (grid.CellM != tier.CellM) { return false; }
+  if (!tier.Motion) { return grid.W == 2 * tier.HalfCells && grid.H == grid.W; }
+  const auto &wanted = tier.Motion->Layout;
+  return grid.OrgE == wanted.WestM && grid.OrgN == wanted.SouthM && grid.W == wanted.Width &&
+         grid.H == wanted.Height;
+}
+
+void ClassificationPreparation::PlanMotionCoverage(std::span<const LongitudeLatitude> path) {
+  if (path.size() < 2 || !HasSourceRequests()) { return; }
+  PlanTierMotion(Fine_, path);
+  PlanTierMotion(Coarse_, path);
+}
+
+void ClassificationPreparation::PlanTierMotion(Tier &tier,
+                                               std::span<const LongitudeLatitude> path) const {
+  auto vectors = OsmField::CoverPath(path, tier.Zoom, tier.TileRadius);
+  const EastNorth start = Project(path.front());
+  auto layout = tier.GridAt(start);
+  const auto cells = static_cast<int64_t>(layout.Width) * layout.Height;
+  bool drifted = false;
+  for (const auto at : path.subspan(1)) {
+    const auto cam = Project(at);
+    const auto grid = tier.GridAt(cam);
+    const auto span = EncloseGrids(layout, grid, tier.CellM);
+    if (static_cast<int64_t>(span.Width) * span.Height > 4 * cells) { break; }
+    layout = span;
+    drifted |= std::abs(cam.EastM - start.EastM) > tier.SlackM ||
+               std::abs(cam.NorthM - start.NorthM) > tier.SlackM;
+  }
+  if (!vectors && !drifted) { return; }
+  if (!vectors) {
+    const auto centre = OsmField::Locate(path.front(), tier.Zoom);
+    const auto window = OsmField::SourceWindow(
+        path.front(), tier.Zoom, tier.TileRadius, std::numeric_limits<int>::max());
+    if (!centre || !window) { return; }
+    vectors = Generators::Osm::OsmTileCoverage{
+        .Centre = *centre, .Window = *window, .Ring = tier.TileRadius};
+  }
+  tier.Motion = MotionCoverage{.Layout = layout, .Vectors = *vectors};
+}
+
+std::array<const ClassificationPreparation::MotionCoverage *, 2>
+ClassificationPreparation::MotionCoverages() const noexcept {
+  return {Fine_.Motion ? &*Fine_.Motion : nullptr, Coarse_.Motion ? &*Coarse_.Motion : nullptr};
+}
+
+void ClassificationPreparation::CheckTierMotion(Tier &tier, LongitudeLatitude at, EastNorth cam) {
+  if (!tier.Motion) { return; }
+  const auto wanted =
+      OsmField::SourceWindow(at, tier.Zoom, tier.TileRadius, std::numeric_limits<int>::max());
+  const auto &layout = tier.Motion->Layout;
+  const auto normal = tier.GridAt(cam);
+  const auto span = EncloseGrids(layout, normal, tier.CellM);
+  if (!wanted || !tier.Motion->Vectors.Window.Covers(*wanted) || span.Width != layout.Width ||
+      span.Height != layout.Height) {
+    tier.Motion.reset();
+    tier.Stale = true;
+  }
+}
+
+ClassRaster::GridLayout ClassificationPreparation::Tier::GridAt(EastNorth cam) const {
+  ClassRaster::Input input;
+  input.CamE = cam.EastM;
+  input.CamN = cam.NorthM;
+  input.CellM = CellM;
+  input.HalfCells = HalfCells;
+  return ClassRaster::LayoutOf(input);
 }
 
 void ClassificationPreparation::Tier::Settle() {
@@ -279,6 +370,7 @@ ClassificationPreparation::LendTo(Tier &t, ClassGrain grain, double camE, double
   }
   job.Raster.BoundaryHaloM = reachM + .5 * t.CellM;
   job.Raster.HalfCells = t.HalfCells;
+  if (t.Motion) { job.Raster.Layout = t.Motion->Layout; }
   job.UnmappedRow = Recipes_->UnmappedRow();
   job.Raster.Points = std::move(t.Pts);
   job.Raster.Rings = std::move(t.Rings);
@@ -300,7 +392,7 @@ bool ClassificationPreparation::SubmitDue(double camE, double camN) {
     const double cx = t.OrgE + t.HalfCells * t.CellM;
     const double cy = t.OrgN + t.HalfCells * t.CellM;
     const bool drifted =
-        t.Have && (std::fabs(camE - cx) > t.SlackM || std::fabs(camN - cy) > t.SlackM);
+        !t.Motion && t.Have && (std::fabs(camE - cx) > t.SlackM || std::fabs(camN - cy) > t.SlackM);
     if (t.Have && !t.Stale && !drifted) { continue; }
     if (!Builder_->Submit(LendTo(t, grain, camE, camN))) { return false; }
     Submitted_ = grain;
@@ -319,6 +411,15 @@ bool ClassificationPreparation::HasSourceRequests() const noexcept {
          Declared_.empty();
 }
 
+std::expected<int, std::string>
+ClassificationPreparation::BuildSources(Tier &tier, TilePool &tiles, LongitudeLatitude at) {
+  if (tier.Motion) {
+    return tier.Field->Build(tiles, tier.Motion->Vectors, OsmField::ParseBudget{});
+  }
+  const size_t width = size_t{2} * static_cast<size_t>(tier.TileRadius) + 1;
+  return tier.Field->Build(tiles, at, tier.TileRadius, width * width);
+}
+
 std::expected<void, std::string> ClassificationPreparation::Update(TilePool &tiles,
                                                                    LongitudeLatitude at) {
   const auto fine = ::outshine::Generators::Osm::OsmField::Locate(at, Fine_.Zoom);
@@ -326,14 +427,18 @@ std::expected<void, std::string> ClassificationPreparation::Update(TilePool &til
   const auto coarse = ::outshine::Generators::Osm::OsmField::Locate(at, Coarse_.Zoom);
   if (!coarse) { return std::unexpected(std::string(coarse.error())); }
   if (!Opened_ || (Recipes_ == nullptr) || !Recipes_->Ready()) { return {}; }
+  const EastNorth cam = Project(at);
+  CheckTierMotion(Fine_, at, cam);
+  CheckTierMotion(Coarse_, at, cam);
+  Cam_[0] = cam.EastM;
+  Cam_[1] = cam.NorthM;
 
   if (Restored_) {
-    const EastNorth cam = Project(at);
-    Cam_[0] = cam.EastM;
-    Cam_[1] = cam.NorthM;
     const auto covers = [cam](const TerrainClassificationMap::Grid &grid, const Tier &tier) {
-      return std::fabs(cam.EastM - (grid.OrgE + tier.HalfCells * grid.CellM)) <= tier.SlackM &&
-             std::fabs(cam.NorthM - (grid.OrgN + tier.HalfCells * grid.CellM)) <= tier.SlackM;
+      return GridMatches(grid, tier) &&
+             (tier.Motion ||
+              (std::fabs(cam.EastM - (grid.OrgE + tier.HalfCells * grid.CellM)) <= tier.SlackM &&
+               std::fabs(cam.NorthM - (grid.OrgN + tier.HalfCells * grid.CellM)) <= tier.SlackM));
     };
     if (covers(Restored_->Fine(), Fine_) && covers(Restored_->Coarse(), Coarse_)) { return {}; }
     const std::scoped_lock lock(Mu_);
@@ -347,14 +452,9 @@ std::expected<void, std::string> ClassificationPreparation::Update(TilePool &til
   }
   const double t0 = Clock();
   if (HasSourceRequests()) {
-    const auto fineBuilt = Fine_.Field->Build(
-        tiles, at, Fine_.TileRadius, (size_t{2} * kFineRings + 1) * (size_t{2} * kFineRings + 1));
+    const auto fineBuilt = BuildSources(Fine_, tiles, at);
     if (!fineBuilt) { return std::unexpected(fineBuilt.error()); }
-    const auto coarseBuilt =
-        Coarse_.Field->Build(tiles,
-                             at,
-                             Coarse_.TileRadius,
-                             (size_t{2} * kCoarseRings + 1) * (size_t{2} * kCoarseRings + 1));
+    const auto coarseBuilt = BuildSources(Coarse_, tiles, at);
     if (!coarseBuilt) { return std::unexpected(coarseBuilt.error()); }
   } else {
     const std::span<const ::outshine::Generators::Osm::OsmField::Declared> these(Declared_);
@@ -368,10 +468,6 @@ std::expected<void, std::string> ClassificationPreparation::Update(TilePool &til
   StreamMs_ = t1 - t0;
   IngestMs_ = t2 - t1;
 
-  const EastNorth cam = Project(at);
-  Cam_[0] = cam.EastM;
-  Cam_[1] = cam.NorthM;
-
   CollectFinished();
 
   if (!Submitted_ && Fine_.Field->PendingTiles() == 0 && Coarse_.Field->PendingTiles() == 0) {
@@ -379,6 +475,7 @@ std::expected<void, std::string> ClassificationPreparation::Update(TilePool &til
       return std::unexpected("classification compute queue is closed");
     }
   }
+  if (Fine_.Motion || Coarse_.Motion) { ReleaseBuildInputs(); }
   return {};
 }
 

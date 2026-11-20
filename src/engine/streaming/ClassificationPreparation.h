@@ -40,6 +40,14 @@ class ClassificationPreparation {
 public:
   [[nodiscard]] bool HasSourceRequests() const noexcept;
 
+  struct MotionCoverage {
+    Generators::ClassificationRasterizer::GridLayout Layout;
+    Generators::Osm::OsmTileCoverage Vectors;
+  };
+
+  void PlanMotionCoverage(std::span<const LongitudeLatitude> path);
+  [[nodiscard]] std::array<const MotionCoverage *, 2> MotionCoverages() const noexcept;
+
   struct SourceWindow {
     int Zoom;
     int Ring;
@@ -189,6 +197,7 @@ private:
     std::vector<Generators::ClassificationRasterizer::Feature> Feats;
     size_t FeatsDone = 0;
     double OrgE = 0, OrgN = 0;
+    std::optional<MotionCoverage> Motion;
     bool Have = false;
     bool Stale = true;
     bool ArraysLent = false;
@@ -210,10 +219,17 @@ private:
 
     void Settle();
     void Reset();
+    [[nodiscard]] Generators::ClassificationRasterizer::GridLayout GridAt(EastNorth cam) const;
     [[nodiscard]] size_t HeapBytes() const;
   };
 
   void Ingest(Tier &t);
+  void PlanTierMotion(Tier &tier, std::span<const LongitudeLatitude> path) const;
+  static void CheckTierMotion(Tier &tier, LongitudeLatitude at, EastNorth cam);
+  [[nodiscard]] static std::expected<int, std::string>
+  BuildSources(Tier &tier, TilePool &tiles, LongitudeLatitude at);
+  [[nodiscard]] static bool GridMatches(const TerrainClassificationMap::Grid &grid,
+                                        const Tier &tier) noexcept;
   void CollectFinished();
   void AppendFeature(Tier &t, const ::outshine::Generators::Osm::OsmField::Feature &f);
   [[nodiscard]] bool SubmitDue(double camE, double camN);
