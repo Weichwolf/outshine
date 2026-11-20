@@ -39,28 +39,8 @@ bool IntersectsSweep(Vec3 offset, double reach, Vec3 ahead, double aheadSquared)
   return Dot(remaining, remaining) <= reach * reach;
 }
 
-}
-
-UrbanAreaStreaming::UrbanAreaStreaming(std::shared_ptr<Generators::Osm::PreparedUrbanAreas> sources,
-                                       Generators::Osm::MvtSchema schema)
-    : Sources_(std::move(sources)), Schema_(schema) {}
-
-UrbanAreaStreaming::~UrbanAreaStreaming() {
-  for (auto &group : Groups_) { Retire(group); }
-}
-
-void UrbanAreaStreaming::Into(Render::SceneRenderer &renderer) noexcept {
-  Renderer_ = &renderer;
-}
-
-void UrbanAreaStreaming::Retire(Group &group) {
-  if (Renderer_ != nullptr && group.Handle) { Renderer_->ReleasePrismGrid(group.Handle); }
-  group.Handle = {};
-  group.Slot->Clear();
-  if (group.Slot->InFlight()) { Retiring_.push_back(std::move(group.Slot)); }
-}
-
-std::expected<void, std::string> UrbanAreaStreaming::PlanSources(const View &view) {
+std::expected<std::vector<Data::TileId>, std::string>
+SourceTiles(const UrbanAreaStreaming::View &view) {
   const double radius = ResolvedRadius(view);
   const double angle = radius / (kWgs84A * (1 - kWgs84F) * (1 - kWgs84F));
   const double latitude = view.Focus.LatitudeDeg * kDeg2Rad;
@@ -84,29 +64,102 @@ std::expected<void, std::string> UrbanAreaStreaming::PlanSources(const View &vie
   if (count > kSourcesMost) {
     return std::unexpected("resolved urban source demand exceeds budget");
   }
-  std::vector<Source> wanted;
+  std::vector<Data::TileId> wanted;
   wanted.reserve(count);
   for (long row = north; row <= south; ++row) {
     for (long column = west; column <= east; ++column) {
       long wrapped = column;
       if (!Ground::WrapTile(kSourceZoom, &wrapped, &row)) { continue; }
-      const Data::TileId tile{.Zoom = kSourceZoom,
-                              .X = static_cast<uint32_t>(wrapped),
-                              .Y = static_cast<uint32_t>(row)};
-      const auto held = std::ranges::find(Areas_, tile, &Source::Owner);
-      if (held != Areas_.end()) {
-        wanted.push_back(std::move(*held));
-      } else {
-        wanted.push_back({.Owner = tile,
-                          .Request = {tile, Schema_, {.PatchSide = 32}},
-                          .SourceDelivery = {},
-                          .OccupiedGroups = {}});
-      }
+      wanted.push_back({.Zoom = kSourceZoom,
+                        .X = static_cast<uint32_t>(wrapped),
+                        .Y = static_cast<uint32_t>(row)});
+    }
+  }
+  return wanted;
+}
+
+Vec3 PathEye(const TangentFrame &frame, const Vec3 &position) {
+  return frame.ToEcefPosition(
+      {.EastM = position[0], .NorthM = RenderFrame::NorthOfZ(position[2]), .UpM = position[1]});
+}
+
+std::expected<std::vector<Data::TileId>, std::string>
+SourceTilesAlongPath(const UrbanAreaStreaming::View &view, std::span<const Vec3> positions) {
+  auto tiles = SourceTiles(view);
+  if (!tiles) { return tiles; }
+  for (const auto &position : positions) {
+    const auto eye = PathEye(view.Frame, position);
+    const auto point = Ground::EcefToGeoWgs84({.X = eye[0], .Y = eye[1], .Z = eye[2]});
+    if (!std::isfinite(point.LatitudeDeg) || !std::isfinite(point.LongitudeDeg)) { break; }
+    auto future = view;
+    future.Focus = {.LongitudeDeg = point.LongitudeDeg, .LatitudeDeg = point.LatitudeDeg};
+    const auto requested = SourceTiles(future);
+    if (!requested) { break; }
+    const size_t previous = tiles->size();
+    for (const auto tile : *requested) {
+      if (!std::ranges::contains(*tiles, tile)) { tiles->push_back(tile); }
+    }
+    if (tiles->size() > kSourcesMost) {
+      tiles->resize(previous);
+      break;
+    }
+  }
+  return tiles;
+}
+
+}
+
+UrbanAreaStreaming::UrbanAreaStreaming(std::shared_ptr<Generators::Osm::PreparedUrbanAreas> sources,
+                                       Generators::Osm::MvtSchema schema)
+    : Sources_(std::move(sources)), Schema_(schema) {}
+
+UrbanAreaStreaming::~UrbanAreaStreaming() {
+  for (auto &group : Groups_) { Retire(group); }
+}
+
+void UrbanAreaStreaming::Into(Render::SceneRenderer &renderer) noexcept {
+  Renderer_ = &renderer;
+}
+
+void UrbanAreaStreaming::Retire(Group &group) {
+  if (Renderer_ != nullptr && group.Handle) { Renderer_->ReleasePrismGrid(group.Handle); }
+  group.Handle = {};
+  group.Slot->Clear();
+  if (group.Slot->InFlight()) { Retiring_.push_back(std::move(group.Slot)); }
+}
+
+std::expected<void, std::string> UrbanAreaStreaming::PlanSources(const View &view) {
+  const auto tiles = SourceTiles(view);
+  if (!tiles) { return std::unexpected(tiles.error()); }
+  if (MotionSources_ && std::ranges::all_of(*tiles, [this](Data::TileId tile) {
+        return std::ranges::contains(Areas_, tile, &Source::Owner);
+      })) {
+    for (auto &area : Areas_) { area.Required = std::ranges::contains(*tiles, area.Owner); }
+    return {};
+  }
+  MotionSources_ = false;
+  std::vector<Source> wanted;
+  wanted.reserve(tiles->size());
+  for (const auto tile : *tiles) {
+    const auto held = std::ranges::find(Areas_, tile, &Source::Owner);
+    if (held != Areas_.end()) {
+      held->Required = true;
+      wanted.push_back(std::move(*held));
+    } else {
+      wanted.push_back(NewSource(tile, true));
     }
   }
   Areas_ = std::move(wanted);
   NextSource_ = 0;
   return {};
+}
+
+UrbanAreaStreaming::Source UrbanAreaStreaming::NewSource(Data::TileId tile, bool required) const {
+  return {.Owner = tile,
+          .Request = {tile, Schema_, {.PatchSide = 32}},
+          .SourceDelivery = {},
+          .OccupiedGroups = {},
+          .Required = required};
 }
 
 std::expected<bool, std::string> UrbanAreaStreaming::PollSource() {
@@ -153,19 +206,20 @@ UrbanAreaStreaming::SelectGroups(const View &view,
   std::vector<Candidate> candidates;
   std::optional<Candidate> upcoming;
   for (size_t source = 0; source < Areas_.size(); ++source) {
-    const auto &area = Areas_[source].SourceDelivery.Product;
-    if (!area || area->Occupied == 0) { continue; }
+    const auto &input = Areas_[source];
+    const auto &area = input.SourceDelivery.Product;
+    if (!area || area->Occupied == 0 || (!input.Required && !moving)) { continue; }
     auto groups = Generators::Osm::UrbanAreaGroups::Make(
         *area, {.PatchesPerSide = kPatchesPerGroupSide, .GroupsMost = 1024});
     if (!groups) { return std::unexpected(std::string(groups.error())); }
-    for (const size_t group : Areas_[source].OccupiedGroups) {
+    for (const size_t group : input.OccupiedGroups) {
       const auto range = groups->At(group);
       if (!range) { return std::unexpected("urban group has no intrinsic range"); }
       const auto bounds = area->BoundPatch(*range, *heights);
       if (!bounds) { return std::unexpected(std::string(bounds.error())); }
       const Vec3 offset = bounds->CentreEcef - view.EyeEcef;
       const double distance = Length(offset) - bounds->RadiusM;
-      if (distance <= radius) {
+      if (input.Required && distance <= radius) {
         candidates.push_back({.Source = source, .Group = group, .DistanceM = distance});
       } else if (moving && (!upcoming || distance < upcoming->DistanceM) &&
                  IntersectsSweep(offset, radius + bounds->RadiusM, ahead, aheadSquared)) {
@@ -174,6 +228,12 @@ UrbanAreaStreaming::SelectGroups(const View &view,
       }
     }
   }
+  return OrderGroupCandidates(std::move(candidates), upcoming);
+}
+
+std::expected<std::vector<UrbanAreaStreaming::Candidate>, std::string>
+UrbanAreaStreaming::OrderGroupCandidates(std::vector<Candidate> candidates,
+                                         std::optional<Candidate> upcoming) {
   if (candidates.size() > kGroupsMost) {
     return std::unexpected("resolved urban group demand " + std::to_string(candidates.size()) +
                            " exceeds residency budget " + std::to_string(kGroupsMost));
@@ -295,6 +355,38 @@ UrbanAreaStreaming::Advance(const View &view,
 }
 
 std::expected<void, std::string>
+UrbanAreaStreaming::PrepareMotionSources(std::span<const Vec3> positions,
+                                         const View &view,
+                                         std::chrono::steady_clock::time_point deadline) {
+  if (MotionSources_) {
+    MotionSources_ = false;
+    std::erase_if(Areas_, [](const Source &area) { return !area.Required; });
+    NextSource_ = 0;
+  }
+  const auto tiles = SourceTilesAlongPath(view, positions);
+  if (!tiles) { return std::unexpected(tiles.error()); }
+  const size_t previous = Areas_.size();
+  for (const auto tile : *tiles) {
+    if (!std::ranges::contains(Areas_, tile, &Source::Owner)) {
+      Areas_.push_back(NewSource(tile, false));
+    }
+  }
+  if (Areas_.size() == previous) { return {}; }
+  using State = Generators::Osm::PreparedUrbanAreas::State;
+  while (std::ranges::any_of(
+      Areas_, [](const Source &area) { return area.SourceDelivery.Status != State::Ready; })) {
+    const auto progress = PollSource();
+    if (!progress) { return std::unexpected(progress.error()); }
+    const double remaining =
+        std::chrono::duration<double>(deadline - std::chrono::steady_clock::now()).count();
+    if (remaining <= 0) { return std::unexpected("urban route source preparation timed out"); }
+    if (!*progress) { (void)Sources_->AwaitProgress(std::min(remaining, kMostAwaitS)); }
+  }
+  MotionSources_ = true;
+  return {};
+}
+
+std::expected<void, std::string>
 UrbanAreaStreaming::PrepareMotion(std::span<const Vec3> positions,
                                   const TerrainResidency &terrain,
                                   uint64_t terrainRevision,
@@ -303,11 +395,9 @@ UrbanAreaStreaming::PrepareMotion(std::span<const Vec3> positions,
                                   std::chrono::steady_clock::time_point deadline) {
   if (!View_ || positions.size() < 2 || std::chrono::steady_clock::now() >= deadline) { return {}; }
   const View view = *View_;
+  if (auto ready = PrepareMotionSources(positions, view, deadline); !ready) { return ready; }
   const Vec3 endpoint = positions[std::min(kLookaheadUpdates, positions.size() - 1)];
-  const Vec3 ahead = view.Frame.ToEcefPosition({.EastM = endpoint[0],
-                                                .NorthM = RenderFrame::NorthOfZ(endpoint[2]),
-                                                .UpM = endpoint[1]}) -
-                     view.EyeEcef;
+  const Vec3 ahead = PathEye(view.Frame, endpoint) - view.EyeEcef;
   if (auto begun = Advance(view, terrain, terrainRevision, children, childrenRevision, ahead);
       !begun) {
     return begun;
@@ -390,7 +480,7 @@ bool UrbanAreaStreaming::Ready() const noexcept {
 std::string_view UrbanAreaStreaming::Blocker() const noexcept {
   using State = Generators::Osm::PreparedUrbanAreas::State;
   if (!Planned_ || std::ranges::any_of(Areas_, [](const Source &area) {
-        return area.SourceDelivery.Status != State::Ready;
+        return area.Required && area.SourceDelivery.Status != State::Ready;
       })) {
     return "pending resolved urban sources";
   }
