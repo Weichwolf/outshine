@@ -61,9 +61,10 @@ std::string Engine::State::StructureViewDiagnostic() const {
                             : std::nullopt;
     diagnostic += ", needed original cells=" + (needed ? std::to_string(*needed) : "unknown");
     bool described = false;
-    World.Pieces.ForEachDigest(
+    World.Pieces.ForEachTileDigest(
+        tile,
         [&](const auto &page) {
-          if (described || page.Tile != tile) { return; }
+          if (described) { return; }
           if (page.SourceKey == source && !page.Detail && page.View &&
               page.View->Contains(eye, prints.Projection(), eyeEcef)) {
             return;

@@ -182,25 +182,15 @@ public:
   void ForEachDigest(Each each,
                      GeometryPasses passes = GeometryPasses::Main,
                      bool includeHidden = false) const {
-    for (const auto &stood : Pages_) {
-      if ((!stood.Visible && !includeHidden) ||
-          (passes != GeometryPasses::MainAndShadow &&
-           stood.Passes != GeometryPasses::MainAndShadow && stood.Passes != passes)) {
-        continue;
-      }
-      each(DigestRecord{.Tile = stood.Tile,
-                        .Cell = stood.Cell,
-                        .Digest = stood.Digest,
-                        .SourceKey = stood.SourceKey,
-                        .FallbackHeights = stood.FallbackHeights,
-                        .Detail = stood.Detail,
-                        .OccupiedCells = stood.OccupiedCells,
-                        .Passes = stood.Passes,
-                        .AssetKey = stood.AssetKey,
-                        .Coverage = stood.Coverage ? &*stood.Coverage : nullptr,
-                        .View = stood.SelectedView ? &*stood.SelectedView : nullptr,
-                        .ErrorBound = stood.ErrorBound ? &*stood.ErrorBound : nullptr});
-    }
+    VisitDigests(Pages_, each, passes, includeHidden);
+  }
+
+  template <typename Each>
+  void ForEachTileDigest(uint32_t tile,
+                         Each each,
+                         GeometryPasses passes = GeometryPasses::Main,
+                         bool includeHidden = false) const {
+    VisitDigests(PagesForTile(tile), each, passes, includeHidden);
   }
 
   [[nodiscard]] std::vector<PieceHandle> Handles() const {
@@ -266,6 +256,34 @@ private:
     std::vector<ResidentPart> Parts;
     GeometryPasses Passes = GeometryPasses::MainAndShadow;
   };
+
+  [[nodiscard]] std::span<const ResidentGeometryPage> PagesForTile(uint32_t tile) const noexcept;
+
+  template <typename Each>
+  static void VisitDigests(std::span<const ResidentGeometryPage> pages,
+                           Each &each,
+                           GeometryPasses passes,
+                           bool includeHidden) {
+    for (const auto &stood : pages) {
+      if ((!stood.Visible && !includeHidden) ||
+          (passes != GeometryPasses::MainAndShadow &&
+           stood.Passes != GeometryPasses::MainAndShadow && stood.Passes != passes)) {
+        continue;
+      }
+      each(DigestRecord{.Tile = stood.Tile,
+                        .Cell = stood.Cell,
+                        .Digest = stood.Digest,
+                        .SourceKey = stood.SourceKey,
+                        .FallbackHeights = stood.FallbackHeights,
+                        .Detail = stood.Detail,
+                        .OccupiedCells = stood.OccupiedCells,
+                        .Passes = stood.Passes,
+                        .AssetKey = stood.AssetKey,
+                        .Coverage = stood.Coverage ? &*stood.Coverage : nullptr,
+                        .View = stood.SelectedView ? &*stood.SelectedView : nullptr,
+                        .ErrorBound = stood.ErrorBound ? &*stood.ErrorBound : nullptr});
+    }
+  }
 
   [[nodiscard]] static std::pair<uint32_t, uint32_t>
   AddressOf(const ResidentGeometryPage &stood) noexcept {

@@ -497,6 +497,12 @@ bool GeometryPageResidency::HasCell(uint32_t tile,
   });
 }
 
+std::span<const GeometryPageResidency::ResidentGeometryPage>
+GeometryPageResidency::PagesForTile(uint32_t tile) const noexcept {
+  const auto window = std::ranges::equal_range(Pages_, tile, {}, &ResidentGeometryPage::Tile);
+  return {window.begin(), window.end()};
+}
+
 bool GeometryPageResidency::HasIntrinsicTile(uint32_t tile,
                                              CellSource source,
                                              GeometryPasses passes,

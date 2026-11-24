@@ -57,20 +57,20 @@ BuildingFieldStreaming::State::BindOriginals(Context &context,
   std::optional<OriginalProduct> whole;
   uint64_t collected = 0;
   std::string error;
-  const auto geographicEye = GeoFromEcef(WorldCamera(context).EyeM);
+  const Vec3 worldEye = WorldCamera(context).EyeM;
+  const auto geographicEye = GeoFromEcef(worldEye);
   if (!geographicEye) { return result; }
   const LongitudeLatitude eye{.LongitudeDeg = geographicEye->LongitudeDeg,
                               .LatitudeDeg = geographicEye->LatitudeDeg};
-  context.Pages.ForEachDigest(
+  context.Pages.ForEachTileDigest(
+      tile.Index,
       [&](const auto &page) {
-        if (!error.empty() || page.Tile != tile.Index || page.SourceKey != sourceKey ||
+        if (!error.empty() || page.SourceKey != sourceKey ||
             page.Detail == LevelOfDetail::Skyline) {
           return;
         }
         const auto &prints = context.Surface.Footprints();
-        if (!OriginalSupportsView(page, sourceKey, prints, eye, WorldCamera(context).EyeM)) {
-          return;
-        }
+        if (!OriginalSupportsView(page, sourceKey, prints, eye, worldEye)) { return; }
         OriginalProduct product{.Legacy = {.Cell = page.Cell,
                                            .Detail = page.Detail,
                                            .OccupiedCells = page.OccupiedCells},
