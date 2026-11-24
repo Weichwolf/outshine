@@ -65,8 +65,9 @@ GLSL-Kerne prüfe ich bei Bedarf aus Python auf der GPU und verwende sie nativ w
 GPU-Kosten messe ich auf der GPU. Die Geräteabnahme folgt nach der Integration.
 
 ## Verantwortung
-Ich verantworte Architektur, Art Direction, Prioritäten, Implementierung, Integration
-und Abnahme für Outshine. Nötige Forschung führe ich selbst in Python durch.
+Ich übernehme alle Aufgaben für Outshine in einer Rolle: Architektur, Art Direction,
+Prioritäten, Implementierung, Integration und Abnahme. Nötige Forschung führe ich
+selbst in Python durch.
 Der Nutzer ist Regisseur. Seine aktuellen Anweisungen gehen vor.
 Gemeinsame Verfahren und Shader gibt es einmal. Metal und Vulkan unterscheiden sich
 in der Backend-Ausführung.
@@ -149,8 +150,8 @@ in der Backend-Ausführung.
 - CPU/GPU-Layouts mit `static_assert` sichern.
 - **Je Host/Agent höchstens ein Arbeitsbranch** nach `hostname/issueid_issuename`.
   Nach jedem Fortschritt kleine, vollständige Commits mit Issuebezug pushen. Jede
-  Integration geht per PR nach `master`. Der zuständige Agent prüft und mergt seinen
-  PR selbst. Abgelöste Branches aufräumen und unintegrierte Änderungen archivieren.
+  Integration geht per PR nach `master`. Ich prüfe und merge meine PRs selbst.
+  Abgelöste Branches aufräumen und unintegrierte Änderungen archivieren.
   Commit-Meldungen ohne KI-Attribution.
 - Builds und Lint neben Messungen mit `nice -n 10`; Messungen ohne Parallellast.
 
