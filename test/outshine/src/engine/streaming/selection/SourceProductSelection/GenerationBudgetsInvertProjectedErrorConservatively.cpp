@@ -76,5 +76,23 @@ int main() {
   CHECK(Selection::GeometryErrorLimitM(badBounds, camera, budget, 0, true) == 0 &&
             Selection::GeometryErrorLimitM(badBounds, camera.EyeM, viewport, budget) == 0,
         "nonfinite bounds cannot grant generation work in either projection model");
+  const Vec3 anchor{{6000000, 2000000, 1000000}};
+  const Box offRoute{.Min = anchor + Vec3{{0, 900, -1}}, .Max = anchor + Vec3{{100, 1000, 1}}};
+  const ViewPath diagonal{.Start = anchor, .End = anchor + Vec3{{1000, 1000, 0}}};
+  const double routeError = Selection::GeometryErrorLimitM(offRoute, diagonal, viewport, budget);
+  const double distance = 800 / std::numbers::sqrt2;
+  const double limit = distance / (displacement * scale + scale + 1);
+  CHECK(routeError > limit * (1 - 1e-10) && routeError <= limit,
+        "the curved-world coordinate magnitude does not broaden a diagonal route into its box");
+  auto wide = diagonal;
+  wide.RadiusM = 10;
+  CHECK(Selection::GeometryErrorLimitM(offRoute, wide, viewport, budget) < routeError,
+        "off-route prediction margin can only tighten the allowed world error");
+  wide.RadiusM = distance;
+  CHECK(Selection::GeometryErrorLimitM(offRoute, wide, viewport, budget) == 0,
+        "a swept eye volume touching the bounds preserves the fine representation");
+  const ViewPath crossing{.Start = {{-1000, 0, 0}}, .End = {{1000, 0, 0}}};
+  CHECK(Selection::GeometryErrorLimitM(bounds, crossing, viewport, budget) == 0,
+        "safe endpoints cannot hide a fine-detail requirement between them");
   return Report();
 }

@@ -15,6 +15,7 @@
 
 #include "Vec3.h"
 #include "Box.h"
+#include "ViewPath.h"
 
 #include "TileMeshes.h"
 #include "EarthworkStamp.h"
@@ -39,6 +40,7 @@ struct TerrainSweep {
   std::vector<Data::TileId> Patches;
   LongitudeLatitude Focus{};
   Box Eyes{};
+  std::optional<ViewPath> EyePath = std::nullopt;
   int Levels = 1;
   uint64_t Region = 0;
 };

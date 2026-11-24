@@ -33,13 +33,20 @@ std::shared_ptr<TerrainSweep> PlanMotionTerrain(std::span<const Around> coverage
     return {};
   }
   Box eyes;
-  for (const Vec3 position : positions) { eyes.Cover(position); }
+  ViewPath eyePath{.Start = positions.front(), .End = positions.back()};
+  for (const Vec3 position : positions) {
+    eyes.Cover(position);
+    eyePath.RadiusM = std::max(eyePath.RadiusM, eyePath.DistanceTo(position));
+  }
+  double roundoff = 0;
   for (size_t axis = 0; axis < 3; ++axis) {
     const double guard = 64 * std::numeric_limits<double>::epsilon() *
                          std::max({std::abs(eyes.Min[axis]), std::abs(eyes.Max[axis]), 1.0});
     eyes.Min[axis] -= guard;
     eyes.Max[axis] += guard;
+    roundoff += guard;
   }
+  eyePath.RadiusM += roundoff;
   const int levels = std::ranges::max(coverage, {}, &Around::Levels).Levels;
   auto patches = RemoveCoveredPatchworkTiles(requested);
   return std::make_shared<TerrainSweep>(
@@ -48,6 +55,7 @@ std::shared_ptr<TerrainSweep> PlanMotionTerrain(std::span<const Around> coverage
                    .Focus = {.LongitudeDeg = coverage.front().LongitudeDeg,
                              .LatitudeDeg = coverage.front().LatitudeDeg},
                    .Eyes = eyes,
+                   .EyePath = eyePath,
                    .Levels = levels});
 }
 }

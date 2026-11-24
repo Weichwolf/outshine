@@ -36,6 +36,7 @@ public:
     Vec2 ViewportPx;
     ProjectedErrorBudget Projection;
     double TranslationM = 0;
+    std::optional<Vec3> PathEnd = std::nullopt;
   };
 
   [[nodiscard]] static std::expected<std::unique_ptr<RoadPageRestoration>, std::string>

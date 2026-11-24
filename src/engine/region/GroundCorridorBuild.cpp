@@ -5,9 +5,11 @@
 #include "DiagnosticLedger.h"
 #include "WaterSurfaceBuilder.h"
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <expected>
 #include <format>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <ratio>
@@ -19,6 +21,28 @@ namespace outshine {
 namespace {
 constexpr size_t kCorridorLanesPerFrame = 128;
 constexpr size_t kCorridorNodesPerFrame = 64;
+
+std::optional<RoadPageRestoration::DisplayView> RoadDisplayView(const ViewPath &path,
+                                                                const TangentFrame &frame,
+                                                                const Render::Viewpoint &camera,
+                                                                Vec2 viewport) {
+  if (camera.Kind == Render::CameraKind::Orthographic) { return std::nullopt; }
+  const auto toEcef = [&frame](const Vec3 &eye) {
+    return frame.ToEcefPosition({.EastM = eye[0], .NorthM = -eye[2], .UpM = eye[1]});
+  };
+  const Vec3 start = toEcef(path.Start);
+  const Vec3 finish = toEcef(path.End);
+  const double focal = viewport[1] / (2.0 * std::tan(camera.YfovRad * 0.5));
+  const double roundingM =
+      (Length(start) + Length(finish)) * (8 * std::numeric_limits<double>::epsilon());
+  return RoadPageRestoration::DisplayView{
+      .Eye = start,
+      .ViewportPx = viewport,
+      .Projection = {.FocalPx = focal},
+      .TranslationM =
+          std::nextafter(path.RadiusM + roundingM, std::numeric_limits<double>::infinity()),
+      .PathEnd = finish};
+}
 
 std::expected<void, std::string>
 AdvanceRoadPlan(EngineServices &services,
@@ -260,14 +284,23 @@ Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
                              "bool");
     }
     const auto origin = Session.Declared.Ground.Origin;
+    const auto frame =
+        TangentFrame::At({.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg});
     auto publication = RoadGeometryPublication::Begin(
-        Picture.Device,
-        state.Candidate().Products().Roads,
-        *state.RoadManifest(),
-        TangentFrame::At({.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg}));
+        Picture.Device, state.Candidate().Products().Roads, *state.RoadManifest(), frame);
     if (!publication) {
       Error = std::move(publication.error());
       return GroundBuildProgress::Failed;
+    }
+    std::optional<RoadPageRestoration::DisplayView> display;
+    if (const auto &sweep = state.Coverage().Sweep; sweep && sweep->EyePath && Picture.Standing) {
+      const auto &camera =
+          Picture.Standing->Watched() ? Picture.Standing->Watching() : Picture.Standing->Aimed();
+      display = RoadDisplayView(*sweep->EyePath,
+                                frame,
+                                camera,
+                                {{static_cast<double>(Picture.Frame.WidthPx),
+                                  static_cast<double>(Picture.Frame.HeightPx)}});
     }
     auto restore = RoadPageRestoration::Begin(*Services.Compute,
                                               World.Surface().RoadAssets(),
@@ -276,7 +309,8 @@ Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
                                               state.SurfaceManifestKey(),
                                               CurrentGeographicEyeEcef(),
                                               RoadPageRestoration::DefaultLimits,
-                                              Services.AssetPublications());
+                                              Services.AssetPublications(),
+                                              display);
     if (!restore) {
       Error = std::move(restore.error());
       return GroundBuildProgress::Failed;
@@ -300,6 +334,9 @@ Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
       "ground candidate: restored road pages", static_cast<double>(restore->Pages()), "pages");
   Published.RecordMetric("ground candidate: recovered road pages",
                          static_cast<double>(restore->RecoveredPages()),
+                         "pages");
+  Published.RecordMetric("ground candidate: road display pages",
+                         static_cast<double>(restore->DisplayPages()),
                          "pages");
   Published.RecordMetric("ground candidate: retained resident road pages",
                          static_cast<double>(publication->RetainedPages()),

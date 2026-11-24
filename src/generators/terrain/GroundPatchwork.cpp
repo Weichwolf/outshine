@@ -253,7 +253,10 @@ std::vector<Data::TileId> RemoveCoveredPatchworkTiles(std::span<const Data::Tile
 }
 
 bool SweptPatchworkCovers(const TerrainSweep &sweep, const Around &request, const Vec3 &eyeM) {
-  if (!sweep.Eyes.Holds(eyeM)) { return false; }
+  if (!sweep.Eyes.Holds(eyeM) ||
+      (sweep.EyePath && !(sweep.EyePath->DistanceTo(eyeM) <= sweep.EyePath->RadiusM))) {
+    return false;
+  }
   const auto wanted = PlanPatchworkTiles(request);
   return wanted && std::ranges::includes(sweep.Requested, *wanted, {}, TileAddress, TileAddress);
 }

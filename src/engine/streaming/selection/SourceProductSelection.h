@@ -4,6 +4,7 @@
 #include "ProjectedErrorBudget.h"
 #include "Vec2.h"
 #include "Vec3.h"
+#include "ViewPath.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -85,6 +86,10 @@ public:
                                                   const Vec2 &viewportPx,
                                                   ProjectedErrorBudget projection,
                                                   double translationM = 0);
+  [[nodiscard]] static double GeometryErrorLimitM(const Box &bounds,
+                                                  const ViewPath &path,
+                                                  const Vec2 &viewportPx,
+                                                  ProjectedErrorBudget projection);
 
 private:
   struct Node {

@@ -157,8 +157,15 @@ std::optional<RoadPageQueue::DisplayPage>
 RoadPageRestoration::PreferredDisplay(const Generators::RoadPageReference &reference) const {
   if (!Display_ || reference.PositionErrorM || reference.Level != 0) { return std::nullopt; }
   const auto &view = *Display_;
-  const double error = SourceProductSelection::GeometryErrorLimitM(
-      reference.Bounds, view.Eye, view.ViewportPx, view.Projection, view.TranslationM);
+  const double error =
+      view.PathEnd
+          ? SourceProductSelection::GeometryErrorLimitM(
+                reference.Bounds,
+                ViewPath{view.Eye, *view.PathEnd, view.TranslationM},
+                view.ViewportPx,
+                view.Projection)
+          : SourceProductSelection::GeometryErrorLimitM(
+                reference.Bounds, view.Eye, view.ViewportPx, view.Projection, view.TranslationM);
   constexpr std::array errors{1.0, 0.5, 0.25, 0.125};
   const auto *const selected =
       std::ranges::find_if(errors, [error](double level) { return level <= error; });

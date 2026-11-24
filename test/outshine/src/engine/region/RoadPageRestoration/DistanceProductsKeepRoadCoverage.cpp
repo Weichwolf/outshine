@@ -48,7 +48,8 @@ void Restore(const std::shared_ptr<PreparedRoadPages> &pages,
              const Vec3 &eye,
              double travelM,
              const std::vector<std::string> &keys,
-             size_t displayPages) {
+             size_t displayPages,
+             std::optional<Vec3> pathEnd = std::nullopt) {
   Tasks pool(1);
   const auto restoration = RoadPageRestoration::Begin(
       pool,
@@ -62,7 +63,8 @@ void Restore(const std::shared_ptr<PreparedRoadPages> &pages,
       RoadPageRestoration::DisplayView{.Eye = eye,
                                        .ViewportPx = {{1280, 720}},
                                        .Projection = {.FocalPx = 600, .AllowedErrorPx = 1},
-                                       .TranslationM = travelM});
+                                       .TranslationM = travelM,
+                                       .PathEnd = pathEnd});
   CHECK(restoration, "the same manifest supports different camera travel domains");
   if (!restoration) { return; }
   std::vector<std::string> seen;
@@ -132,8 +134,11 @@ void CheckDistanceProducts(const std::filesystem::path &directory) {
   CHECK(removed, "the far road remains available after its original payload is evicted");
   const Vec3 far = first.Bounds.Min + Vec3{{0, 0, 5000}};
   Restore(pages, manifest, far, 0, {coarse->Key, manifest->Pages[1].Key}, 1);
+  Restore(
+      pages, manifest, far, 0, {coarse->Key, manifest->Pages[1].Key}, 1, far + Vec3{{6000, 0, 0}});
   CHECK(Bake(*pages, original), "the fine road can be made ready again");
   Restore(pages, manifest, far, 5000, {first.Key, manifest->Pages[1].Key}, 0);
+  Restore(pages, manifest, far, 0, {first.Key, manifest->Pages[1].Key}, 0, first.Bounds.Middle());
 }
 }
 
