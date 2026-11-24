@@ -191,6 +191,7 @@ public:
     Vec3 AnchorEcef;
     uint64_t SourceKey = 0;
     uint64_t InitialCells = 0;
+    std::span<const std::optional<LevelOfDetail>> CellDetails;
     bool SourceComplete = true;
     std::optional<::outshine::Generators::Osm::BuildingField::PendingAcceptance> Footprints;
     Publication Publish = Publication::Source;

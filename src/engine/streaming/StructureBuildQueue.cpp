@@ -1244,20 +1244,26 @@ StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
   Generators::BakedTile &baked = *completed;
   PrepareGeometry(baked, bake.Task.Raw());
   const bool complete = !bake.InitialCells || bake.InitialCells->Remaining() == 0;
-  Landing landing{.Tile = bake.Task.Tile(),
-                  .Baked = &baked,
-                  .AnchorEcef = bake.Task.Raw().AnchorEcef,
-                  .SourceKey = bake.SourceKey,
-                  .InitialCells = bake.InitialCells ? bake.InitialCells->Cells() : 0,
-                  .SourceComplete = complete,
-                  .Footprints = std::nullopt,
-                  .Publish = bake.Revision.OriginalCells ? Landing::Publication::Products
-                                                         : Landing::Publication::Source};
+  const uint32_t tile = bake.Task.Tile();
+  const auto *accepted = prints.InputOfTile(tile);
+  const bool current =
+      complete && bake.SourceKey != 0 && QualifiedSourceKey(prints, tile) == bake.SourceKey;
+  const bool partial =
+      bake.Revision.OriginalCells &&
+      (!current || accepted == nullptr || *bake.Revision.OriginalCells != accepted->OccupiedCells);
+  Landing landing{
+      .Tile = tile,
+      .Baked = &baked,
+      .AnchorEcef = bake.Task.Raw().AnchorEcef,
+      .SourceKey = bake.SourceKey,
+      .InitialCells = bake.InitialCells ? bake.InitialCells->Cells() : 0,
+      .CellDetails = bake.InitialCells ? bake.InitialCells->Details()
+                                       : std::span<const std::optional<LevelOfDetail>>{},
+      .SourceComplete = complete,
+      .Footprints = std::nullopt,
+      .Publish = partial ? Landing::Publication::Products : Landing::Publication::Source};
   if (!complete) { return landing; }
-  if (bake.Revision.Purpose != BuildPurpose::TerrainContacts && landing.SourceKey != 0 &&
-      QualifiedSourceKey(prints, landing.Tile) == landing.SourceKey) {
-    return landing;
-  }
+  if (bake.Revision.Purpose != BuildPurpose::TerrainContacts && current) { return landing; }
   const std::optional<Data::TileSourceIdentity> vectorSource =
       baked.Coordinates->Origin.Provenance ? std::nullopt
                                            : VectorSource(*vectors, bake.Task.Tile());

@@ -190,6 +190,36 @@ void Publish(Fixture &fixture) {
         "the first complete adaptive cell set publishes without a monolithic predecessor");
 }
 
+void MixedDetailPublishesCompleteParent(Fixture &fixture) {
+  constexpr uint32_t tile = kTile + 2;
+  auto shell = Mesh(1, 1);
+  shell.RequestedDetail = LevelOfDetail::Shell;
+  auto fine = Mesh(1, 2);
+  fine.RequestedDetail = LevelOfDetail::Fine;
+  const std::array details{shell.RequestedDetail, fine.RequestedDetail};
+  StructureBuildQueue::Landing landing{.Tile = tile,
+                                       .Baked = &shell,
+                                       .AnchorEcef = fixture.Frame.OriginEcef(),
+                                       .SourceKey = kNewSource,
+                                       .InitialCells = 3,
+                                       .CellDetails = details,
+                                       .SourceComplete = false,
+                                       .Footprints = std::nullopt};
+  const auto previous = fixture.Visible().size();
+  CHECK(PublishStructureSource(fixture.Pieces, landing, fixture.Materials, fixture.Error) &&
+            fixture.Visible().size() == previous,
+        "a shell waits for its fine sibling before publication");
+  landing.Baked = &fine;
+  landing.SourceComplete = true;
+  const std::array<Render::GeometryPageResidency::CellSelection, 2> expected{{
+      {.Cell = 1, .Detail = LevelOfDetail::Shell},
+      {.Cell = 2, .Detail = LevelOfDetail::Fine},
+  }};
+  CHECK(PublishStructureSource(fixture.Pieces, landing, fixture.Materials, fixture.Error) &&
+            fixture.Pieces.CellsActive(tile, expected, kNewSource),
+        "a complete parent publishes the detail that each cell actually carries");
+}
+
 void CoverageTracksLiveSourceInputs(Fixture &fixture) {
   auto &pieces = fixture.Pieces;
   const auto reset = [&] {
@@ -285,6 +315,7 @@ int main() {
     CHECK(opened, "the world fixture opens");
     if (opened) {
       Publish(fixture);
+      MixedDetailPublishesCompleteParent(fixture);
       CoverageTracksLiveSourceInputs(fixture);
     }
   }
