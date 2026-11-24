@@ -34,7 +34,7 @@ struct AssetCache::State {
   // Payload estimates guide reclamation; the VFS enforces the physical quota.
   [[nodiscard]] std::expected<void, AssetCacheError> BeginWrite(size_t payloadBytes = 0) const;
   [[nodiscard]] std::expected<void, AssetCacheError>
-  StorePublication(const AssetCache::Publication &publication);
+  StorePublications(std::span<const AssetCache::Publication> publications, size_t storedBytes);
   ~State();
 };
 

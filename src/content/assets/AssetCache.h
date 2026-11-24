@@ -107,6 +107,8 @@ public:
   PublicationBufferBytes(size_t nativeBytes);
   // Busy leaves the owned package intact for a later background step.
   [[nodiscard]] std::expected<void, AssetCacheError> Publish(const PreparedAssetWrite &prepared);
+  [[nodiscard]] std::expected<void, AssetCacheError>
+  PublishBatch(std::span<const PreparedAssetWrite> packages);
 
   [[nodiscard]] std::expected<std::optional<AssetRecord>, AssetCacheError>
   Find(std::string_view key) const;
@@ -162,7 +164,7 @@ private:
   struct State;
   struct Publication;
   [[nodiscard]] std::expected<void, AssetCacheError>
-  PublishPrepared(const Publication &publication);
+  PublishPrepared(std::span<const Publication> publications);
   [[nodiscard]] std::expected<bool, AssetCacheError>
   BindRequest(std::string_view key,
               std::string_view requestKey,
