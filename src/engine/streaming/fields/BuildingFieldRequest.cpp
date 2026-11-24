@@ -5,6 +5,7 @@
 #include "BuildingMaterials.h"
 #include "ImpostorMetadataRequest.h"
 #include "ImpostorFieldLoad.h"
+#include "ImpostorSurface.h"
 #include "ImpostorViewJob.h"
 #include "TileGeodesy.h"
 #include "Geodesy.h"
@@ -87,9 +88,23 @@ ProjectSupport(const Render::ImpostorPoseBounds &hull,
 }
 
 struct BuildingFieldRequest::State {
-  struct PreparedRaster {
+  struct PreparedField {
     std::shared_ptr<const ImpostorAtlas> Field;
     std::shared_ptr<const Render::MaterialFieldInput> Input;
+    std::optional<Geometry> Surface;
+
+    std::expected<void, std::string>
+    Prepare(const ImpostorAtlas &field, size_t bytes, Preparation product) {
+      if (product == Preparation::DisplaySurface) {
+        Surface = Render::BuildImpostorSurface(field, 0, Render::ImpostorSurfaceDetail::Flat);
+        if (!Surface) { return std::unexpected("building display surface failed"); }
+        return {};
+      }
+      auto input = Render::MaterialFieldInput::Prepare(field, 0, bytes);
+      if (!input) { return std::unexpected(input.error()); }
+      Input = std::move(*input);
+      return {};
+    }
   };
 
   AssetPipeline *Pipeline;
@@ -100,7 +115,7 @@ struct BuildingFieldRequest::State {
   std::optional<ImpostorMetadataRequest> Metadata;
   std::optional<AssetPipeline::RequestTicket> Ticket;
   std::optional<ImpostorFieldLoad> Load;
-  std::shared_ptr<PreparedRaster> Raster = std::make_shared<PreparedRaster>();
+  std::shared_ptr<PreparedField> Prepared = std::make_shared<PreparedField>();
   Product Value;
   Demand Requested;
   Budget Limits;
@@ -209,13 +224,8 @@ struct BuildingFieldRequest::State {
           Requested.View,
           Limits.FieldBytesMost,
           std::move(*Ticket),
-          [raster = Raster, bytes = Limits.RasterBytesMost](
-              const ImpostorAtlas &field) -> std::expected<void, std::string> {
-            auto input = Render::MaterialFieldInput::Prepare(field, 0, bytes);
-            if (!input) { return std::unexpected(input.error()); }
-            raster->Input = std::move(*input);
-            return {};
-          });
+          [output = Prepared, bytes = Limits.RasterBytesMost, prepare = Requested.Prepare](
+              const ImpostorAtlas &field) { return output->Prepare(field, bytes, prepare); });
       if (!loaded) { return std::unexpected(loaded.error()); }
       Ticket.reset();
       Load.emplace(std::move(*loaded));
@@ -331,12 +341,17 @@ BuildingFieldRequest::Poll() {
   auto field = state.PollField();
   if (!field) { return std::unexpected(state.Error = field.error()); }
   if (!*field) { return nullptr; }
-  state.Raster->Field = std::move(*field);
-  state.Value.Field = state.Raster->Field;
-  state.Value.RenderInput =
-      std::shared_ptr<const Render::MaterialFieldInput>(state.Raster, state.Raster->Input.get());
+  state.Prepared->Field = std::move(*field);
+  state.Value.Field = state.Prepared->Field;
+  state.Value.RenderInput = std::shared_ptr<const Render::MaterialFieldInput>(
+      state.Prepared, state.Prepared->Input.get());
   state.Producer.reset();
   return std::shared_ptr<const Product>(State_, &state.Value);
+}
+
+std::optional<Geometry> BuildingFieldRequest::TakeDisplaySurface() {
+  return State_ && State_->Value.Field ? std::exchange(State_->Prepared->Surface, std::nullopt)
+                                       : std::nullopt;
 }
 
 void BuildingFieldRequest::Cancel() noexcept {

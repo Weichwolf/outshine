@@ -132,15 +132,17 @@ DemandFor(const BuildingFieldStreaming::Context &context,
   const auto lens =
       Render::Lens::From(context.Camera, context.Renderer.PictureW(), context.Renderer.PictureH());
   if (!lens) { return std::nullopt; }
-  return BuildingFieldRequest::Demand{.Directions = {direction},
-                                      .Pixels = pixels,
-                                      .View = {0},
-                                      .GeometricView = BuildingFieldRequest::Pose{
-                                          .Camera = camera,
-                                          .Optics = *lens,
-                                          .GeometryErrorMostPx = projection.AllowedErrorPx,
-                                          .Space = BuildingFieldRequest::CoordinateSpace::World,
-                                          .Domain = BuildingFieldRequest::ViewDomain::Panoramic}};
+  return BuildingFieldRequest::Demand{
+      .Directions = {direction},
+      .Pixels = pixels,
+      .View = {0},
+      .GeometricView =
+          BuildingFieldRequest::Pose{.Camera = camera,
+                                     .Optics = *lens,
+                                     .GeometryErrorMostPx = projection.AllowedErrorPx,
+                                     .Space = BuildingFieldRequest::CoordinateSpace::World,
+                                     .Domain = BuildingFieldRequest::ViewDomain::Panoramic},
+      .Prepare = BuildingFieldRequest::Preparation::DisplaySurface};
 }
 
 std::optional<BuildingFieldRequest::Budget> BudgetFor(

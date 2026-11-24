@@ -144,6 +144,7 @@ struct BuildingFieldStreaming::State {
                                        const Tile &tile,
                                        Group &group,
                                        const BuildingFieldRequest::Product &product,
+                                       Geometry geometry,
                                        std::string &error);
   static void Reject(Cell &cell);
   [[nodiscard]] static bool ValidPose(const Context &context, Group &group);
