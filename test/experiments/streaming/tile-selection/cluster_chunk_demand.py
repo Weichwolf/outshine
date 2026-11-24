@@ -98,6 +98,7 @@ def count_work(snapshot, sizes):
     meta = json.loads((snapshot / "geometry.json").read_text())
     report = json.loads((snapshot / "benchmark.json").read_text())
     roots = read("roots", 12)
+    batches = read("batches", len(meta["batch_columns"]))
     templates = read("templates", 4)
     spheres = read("cluster_spheres", 12, np.float32)
     placements = read("placements", 16, np.float32).reshape(-1, 4, 4).transpose(0, 2, 1)
@@ -120,6 +121,22 @@ def count_work(snapshot, sizes):
         np.int64
     )
     assert (index_words == roots[:, 10]).all()
+    batch_field = {name: at for at, name in enumerate(meta["batch_columns"])}
+    paired = batches[roots[:, 7]]
+    complete_range = (
+        contiguous & (counts > 0) & (paired[:, batch_field["instances"]] == 1)
+    )
+    complete_range &= index_words == paired[:, batch_field["index_count"]]
+    first_word = roots[counts > 0, 9] + templates[roots[counts > 0, 4], 1]
+    complete_range[counts > 0] &= (
+        first_word == paired[counts > 0, batch_field["first_index"]]
+    )
+    source_extent = int(np.max(roots[owners, 9] + first_index + index_count))
+    scratch_words = int(index_words.sum())
+    material_layout = paired[
+        :, [batch_field[key] for key in ("material", "layout", "motion")]
+    ]
+    same_binding = (material_layout[1:] == material_layout[:-1]).all(axis=1)
     root_position, root_radius = affine_bounds(
         model, roots[:, :4].copy().view(np.float32)
     )
@@ -134,6 +151,8 @@ def count_work(snapshot, sizes):
     measurements = []
     complete_roots = []
     direct_words = []
+    full_batch_words = []
+    full_and_partial_dispatches = []
     indirect_words = []
     final_root_mask = None
     for eye, normals, offset in view_planes(report, meta):
@@ -179,6 +198,20 @@ def count_work(snapshot, sizes):
         accepted = inside & (all_visible == counts)
         complete_roots.append(int(counts[accepted].sum()))
         direct_words.append(int(index_words[accepted & contiguous].sum()))
+        direct = accepted & complete_range
+        full_batch_words.append(int(index_words[direct].sum()))
+        # Draw the admitted source range once. Only remaining adjacent compatible
+        # indirect rows can use the old grouped command.
+        indirect = root_kept & (counts > 0)
+        grouped_previous = indirect[1:] & indirect[:-1] & same_binding
+        grouped_after = grouped_previous & ~direct[1:] & ~direct[:-1]
+        full_and_partial_dispatches.append(
+            [
+                int(indirect.sum() - grouped_previous.sum()),
+                int(indirect.sum() - grouped_after.sum()),
+                int(direct.sum()),
+            ]
+        )
         indirect_words.append(int(index_count[root_kept[owners] & leaf_visible].sum()))
         new = {}
         for size, (groups, members, lo, hi) in chunks.items():
@@ -204,6 +237,16 @@ def count_work(snapshot, sizes):
         "root_cull_leaf_tests": sum(accepted for accepted, _ in measurements),
         "terminal_leaves_accepted_by_entire_root": sum(complete_roots),
         "source_index_words_from_contiguous_accepted_roots": sum(direct_words),
+        "source_index_words_from_complete_batch_ranges": sum(full_batch_words),
+        "required_index_arena_bytes": 4 * (source_extent + scratch_words),
+        "arena_fits_32bit_byte_addresses": 4 * (source_extent + scratch_words)
+        <= np.iinfo(np.uint32).max,
+        "estimated_grouped_commands": dict(
+            zip(
+                ("baseline", "split_by_index_buffer", "direct_rows"),
+                np.sum(full_and_partial_dispatches, axis=0).tolist(),
+            )
+        ),
         "index_words_after_leaf_frustum": sum(indirect_words),
         "final_root_mask_mismatches": int(
             np.count_nonzero(final_root_mask != (read("visible", 1).ravel() != 0))
