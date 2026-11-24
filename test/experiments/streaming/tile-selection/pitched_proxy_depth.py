@@ -10,7 +10,7 @@ from pathlib import Path
 from time import perf_counter
 
 import numpy as np
-from building_proxy_budget import build_catalogue
+from building_proxy_budget import page_bounds
 from building_proxy_depth import raster_work
 from PIL import Image, ImageDraw
 from tile_selection import (
@@ -103,38 +103,32 @@ def boxes(shapes):
     return np.stack((world.min(axis=1), world.max(axis=1)), axis=1)
 
 
-def select(shapes, route, size_px, guard):
+def select(shapes, route, size_px, guard, page_m=960):
     began = perf_counter()
     bounds = boxes(shapes)
+    if not len(bounds):
+        return np.empty(0, dtype=bool), 0, 0.0, 0.0, bounds
     diameter = np.linalg.norm(bounds[:, 1] - bounds[:, 0], axis=1)
-    kind = shapes[3]
-    # Keep each roof family in its own pages. Every page has one plane count.
-    selected = np.zeros(len(bounds), dtype=bool)
-    headers = []
-    for family in (0, 1, 3):
-        group = np.flatnonzero(kind == family)
-        if not len(group):
-            continue
-        _, page_bounds, slot, support, _ = build_catalogue(
-            (
-                bounds[group][:, :, (0, 2)],
-                np.full(len(group), 10),
-                diameter[group],
-                None,
-            ),
-            240,
-        )
-        headers.append((group, page_bounds, slot, support))
+    horizontal = bounds[:, :, (0, 2)]
+    cell = np.floor(horizontal.mean(axis=1) / page_m).astype(np.int64)
+    envelope, owner = page_bounds(cell, horizontal)
+    order = np.lexsort((diameter, owner))
+    sorted_sizes = diameter[order]
+    offsets = np.r_[0, np.cumsum(np.bincount(owner, minlength=len(envelope)))]
     built_ms = (perf_counter() - began) * 1000
     path = camera_path(route, np.zeros(3), np.eye(3))
     focal, diagonal, _ = panoramic_projection(route)
-    pages = 0
     began = perf_counter()
-    for group, page_bounds, slot, support in headers:
-        distance = distance_from_segment(page_bounds, *path[:, (0, 2)]) - guard
-        keep = support <= distance * size_px / (focal * diagonal**2)
-        pages += int(keep.sum())
-        selected[group] = keep[slot]
+    distance = distance_from_segment(envelope, *path[:, (0, 2)]) - guard
+    diameter_limit = distance * (size_px / (focal * diagonal**2))
+    selected = np.zeros(len(bounds), dtype=bool)
+    pages = 0
+    # Each occupied range fits one contiguous read from its tile payload.
+    for low, high, limit in zip(offsets, offsets[1:], diameter_limit):
+        count = np.searchsorted(sorted_sizes[low:high], limit, side="right")
+        if count != 0:
+            selected[order[low : low + count]] = True
+            pages += 1
     return selected, pages, (perf_counter() - began) * 1000, built_ms, bounds
 
 
@@ -275,12 +269,13 @@ def main():
     cli.add_argument("--lat", type=float, required=True)
     cli.add_argument("--lon", type=float, required=True)
     cli.add_argument("--pixels", type=float, default=16)
+    cli.add_argument("--page-m", type=float, default=960)
     cli.add_argument("--cache", type=Path)
     cli.add_argument("--exporter", type=Path)
     cli.add_argument("--cache-radius-m", type=float, default=8200)
     args = cli.parse_args()
-    if not math.isfinite(args.pixels) or args.pixels <= 0:
-        cli.error("projected support must be finite and positive")
+    if any(not math.isfinite(v) or v <= 0 for v in (args.pixels, args.page_m)):
+        cli.error("projected support and page size must be finite and positive")
     if (args.cache is None) != (args.exporter is None):
         cli.error("--cache and --exporter go together")
     if args.cache:
@@ -296,7 +291,9 @@ def main():
         )
     route = json.loads(args.benchmark.read_text())
     shapes = load_shapes(args.forms, args.lat, args.lon)
-    take, pages, select_ms, built_ms, bounds = select(shapes, route, args.pixels, 64)
+    take, pages, select_ms, built_ms, bounds = select(
+        shapes, route, args.pixels, 64, args.page_m
+    )
     shapes, bounds = tuple(x[take] for x in shapes), bounds[take]
     normals, limits = plane_words(shapes)
     focal, _, _ = panoramic_projection(route)
@@ -334,6 +331,7 @@ def main():
             {
                 "recipes": counts,
                 "pages": pages,
+                "page_m": args.page_m,
                 "catalogue_build_ms": built_ms,
                 "select_ms": select_ms,
                 "views": views,
