@@ -503,6 +503,43 @@ GeometryPageResidency::PagesForTile(uint32_t tile) const noexcept {
   return {window.begin(), window.end()};
 }
 
+namespace {
+struct IntrinsicTileCoverage {
+  uint64_t Leaves = 0;
+  uint64_t Visible = 0;
+  bool Overlap = false;
+  std::array<uint64_t, kGeometryPageCellsMost> Groups{};
+
+  void Add(uint64_t cells, bool visible) {
+    if (visible) {
+      Overlap = Overlap || (Visible & cells) != 0;
+      Visible |= cells;
+    }
+    if (std::has_single_bit(cells)) {
+      Leaves |= cells;
+      return;
+    }
+    auto &group = Groups[static_cast<size_t>(std::countr_zero(cells))];
+    if (std::popcount(cells) > std::popcount(group)) { group = cells; }
+  }
+
+  [[nodiscard]] bool Complete(uint64_t required, bool includeHidden) const {
+    if (!Overlap && Visible == required) { return true; }
+    if (!includeHidden) { return false; }
+    uint64_t remaining = required;
+    while ((remaining & ~Leaves) != 0) {
+      const auto first = static_cast<size_t>(std::countr_zero(remaining));
+      const uint64_t group = Groups[first];
+      const uint64_t leaf = (uint64_t{1} << first) & Leaves;
+      const uint64_t next = group != 0 && (group & remaining) == group ? group : leaf;
+      if (next == 0) { return false; }
+      remaining &= ~next;
+    }
+    return true;
+  }
+};
+}
+
 bool GeometryPageResidency::HasIntrinsicTile(uint32_t tile,
                                              CellSource source,
                                              GeometryPasses passes,
@@ -510,32 +547,31 @@ bool GeometryPageResidency::HasIntrinsicTile(uint32_t tile,
                                              std::optional<Vec3> eye,
                                              ProjectedErrorBudget projection) const noexcept {
   if (source.Key == 0 || source.Occupied == 0) { return false; }
-  const auto first = std::ranges::lower_bound(Pages_, std::pair{tile, uint32_t{0}}, {}, AddressOf);
-  const auto last = std::find_if(
-      first, Pages_.end(), [tile](const ResidentGeometryPage &held) { return held.Tile != tile; });
-  uint64_t covered = 0;
-  for (auto at = first; at != last; ++at) {
-    if ((!at->Visible && !includeHidden) ||
-        (passes != GeometryPasses::MainAndShadow && at->Passes != GeometryPasses::MainAndShadow &&
-         at->Passes != passes) ||
-        !at->Detail || at->SourceKey != source.Key || at->FallbackHeights || at->SelectedView) {
+  IntrinsicTileCoverage covered;
+  for (const auto &page : PagesForTile(tile)) {
+    if ((!page.Visible && !includeHidden) ||
+        (passes != GeometryPasses::MainAndShadow && page.Passes != GeometryPasses::MainAndShadow &&
+         page.Passes != passes) ||
+        !page.Detail || page.SourceKey != source.Key || page.FallbackHeights || page.SelectedView) {
       continue;
     }
-    if (at->Detail != LevelOfDetail::Fine &&
-        (!at->ErrorBound || !at->ErrorBound->Allows(source.Key, eye, projection))) {
+    if (page.Detail != LevelOfDetail::Fine &&
+        (!page.ErrorBound || !page.ErrorBound->Allows(source.Key, eye, projection))) {
       continue;
     }
-    if (at->Cell == 0) {
-      if (at->OccupiedCells == source.Occupied) { return true; }
+    const uint64_t cells = page.OccupiedCells;
+    if (page.Cell == 0) {
+      if (cells == source.Occupied) { return true; }
       continue;
     }
-    if (at->Cell > kGeometryPageCellsMost ||
-        at->OccupiedCells != (uint64_t{1} << (at->Cell - 1u))) {
-      return false;
+    if (cells == 0 || (cells & ~source.Occupied) != 0 ||
+        page.Cell != static_cast<uint32_t>(std::countr_zero(cells)) + 1u) {
+      continue;
     }
-    covered |= at->OccupiedCells;
+    if (cells == source.Occupied) { return true; }
+    covered.Add(cells, page.Visible);
   }
-  return covered == source.Occupied;
+  return covered.Complete(source.Occupied, includeHidden);
 }
 
 bool GeometryPageResidency::CellsActive(uint32_t tile,

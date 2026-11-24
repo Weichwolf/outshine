@@ -169,6 +169,13 @@ void CheckCohorts(SceneRenderer &renderer,
                          .RequestedDetail = LevelOfDetail::Massed,
                          .RequestedCell = 1,
                          .OccupiedCells = kCells.Occupied};
+  const Vec3 anchor = frame.OriginEcef();
+  const Vec3 far = anchor + Vec3{{100, 0, 0}};
+  const ProjectedErrorBudget projection{.FocalPx = 720};
+  group.ErrorBound = GeometryErrorBound{
+      .SourceKey = kSource,
+      .Bounds = {.Min = anchor - Vec3{{3, 3, 3}}, .Max = anchor + Vec3{{3, 3, 3}}},
+      .UpperM = 0.05};
   std::string error;
   const auto before = Draw(renderer);
   CHECK(!pages.StageCell(kTile, 1, group, frame.OriginEcef(), error, kSource),
@@ -186,6 +193,9 @@ void CheckCohorts(SceneRenderer &renderer,
       [&](const GeometryPageResidency::DigestRecord &record) { coverage |= record.OccupiedCells; });
   CHECK(coverage == kCells.Occupied,
         "downstream coverage sees every source cell behind a single visible cohort");
+  CHECK(pages.HasIntrinsicTile(kTile, kCells, GeometryPasses::Main, false, far, projection) &&
+            !pages.HasIntrinsicTile(kTile, kCells, GeometryPasses::Main, false, anchor, projection),
+        "the resident parent counts as complete coverage inside its valid projected error");
   const auto painted = Draw(renderer);
   constexpr size_t left = (size_t{16} * 32 + 8) * 4;
   constexpr size_t right = (size_t{16} * 32 + 24) * 4;
@@ -211,6 +221,8 @@ void CheckCohorts(SceneRenderer &renderer,
       GeometryPageResidency::CellSelection{.Cell = 2, .Detail = LevelOfDetail::Fine}};
   CHECK(pages.ActivateCells(kTile, kCells, children, error),
         "complete mixed children replace the parent without duplicating source coverage");
+  CHECK(pages.HasIntrinsicTile(kTile, kCells, GeometryPasses::Main, false, far, projection),
+        "the mixed visible cut still provides complete source coverage");
   const auto mixed = Draw(renderer);
   CHECK(mixed[left] == .75f && mixed[right + 1] == before[right + 1],
         "the original remainder remains visible beside the finer native field");
@@ -230,6 +242,34 @@ void CheckCohorts(SceneRenderer &renderer,
   CHECK(pages.ActivateCells(kTile, kCells, fine, error), "the original fine cells remain held");
   CHECK(Draw(renderer) == before,
         "returning to near geometry restores the original complete image");
+  constexpr uint32_t other = kTile + 1;
+  const GeometryPageResidency::CellSource partition{.Key = kSource, .Occupied = 7};
+  group.OccupiedCells = 5;
+  CHECK(pages.StageCells(other, group, anchor, error, kSource) &&
+            !pages.HasIntrinsicTile(other, partition, GeometryPasses::Main, true, far, projection),
+        "a staged group cannot claim a missing portion of the source");
+  auto leaf = group;
+  leaf.Digest = 301;
+  leaf.RequestedDetail = LevelOfDetail::Fine;
+  leaf.RequestedCell = 2;
+  leaf.OccupiedCells = 2;
+  CHECK(pages.StageCells(other, leaf, anchor, error, kSource) &&
+            pages.HasIntrinsicTile(other, partition, GeometryPasses::Main, true, far, projection) &&
+            !pages.HasIntrinsicTile(other, partition, GeometryPasses::Main, false, far, projection),
+        "a staged parent and a separate fine leaf form a complete cut before publication");
+  pages.Retire(other);
+  group.Digest = 302;
+  group.OccupiedCells = 3;
+  CHECK(pages.StageCells(other, group, anchor, error, kSource), "the first cohort can stage");
+  group.Digest = 303;
+  group.RequestedCell = 2;
+  group.OccupiedCells = 6;
+  CHECK(
+      pages.StageCells(other, group, anchor, error, kSource) &&
+          !pages.HasIntrinsicTile(
+              other, {.Key = kSource, .Occupied = 7}, GeometryPasses::Main, true, far, projection),
+      "two partially overlapping staged cohorts cannot pass as a complete tile cut");
+  pages.Retire(other);
   CHECK(pages.ValidateSources(error), "all grouped and original native source leases remain valid");
 }
 
