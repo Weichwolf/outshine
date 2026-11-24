@@ -184,6 +184,57 @@ def local_frame(latitude_deg, longitude_deg):
     return anchor, np.column_stack((east, up, south))
 
 
+def camera_path(route, anchor, axes):
+    motion = route["motion"]
+    start, finish = (
+        np.asarray(motion[end]["position_m"]) for end in ("start", "finish")
+    )
+    travel = (
+        np.asarray(motion["linear_velocity_mps"])
+        * motion["time_step_s"]
+        * motion["frames"]
+    )
+    if not np.allclose(start + travel, finish, atol=1e-5, rtol=0):
+        raise ValueError("expected a straight recorded camera path")
+    return np.stack((start, finish)) @ axes.T + anchor
+
+
+def distance_from_box(boxes, eye_min, eye_max):
+    gap = np.maximum(boxes[:, 0] - eye_max, eye_min - boxes[:, 1])
+    return np.linalg.norm(np.maximum(0, gap), axis=1)
+
+
+def distance_from_segment(boxes, start, finish):
+    """Minimise the squared distance on each interval between box face crossings."""
+    ray = finish - start
+    moving = ray != 0
+    if not moving.any():
+        return distance_from_box(boxes, start, start)
+    crossing = ((boxes[:, :, moving] - start[moving]) / ray[moving]).clip(0, 1)
+    cuts = np.sort(crossing.reshape(len(boxes), -1), axis=1)
+    cuts = np.column_stack((np.zeros(len(boxes)), cuts, np.ones(len(boxes))))
+    begin, end = cuts[:, :-1], cuts[:, 1:]
+    probe = start + ((begin + end) * 0.5)[:, :, None] * ray
+    below = probe < boxes[:, 0, None]
+    above = probe > boxes[:, 1, None]
+    active = below | above
+    targets = np.where(below, boxes[:, 0, None], boxes[:, 1, None])
+    slope = np.sum(active * ray * ray, axis=2)
+    optimum = np.sum(active * (targets - start) * ray, axis=2)
+    np.divide(optimum, slope, out=optimum, where=slope > 0)
+    point = start + np.clip(optimum, begin, end)[:, :, None] * ray
+    offset = np.maximum(boxes[:, 0, None] - point, point - boxes[:, 1, None])
+    return np.min(np.linalg.norm(np.maximum(offset, 0), axis=2), axis=1)
+
+
+def panoramic_projection(route):
+    profile, motion = route["profile"], route["motion"]
+    tangent = math.tan(math.radians(motion["start"]["perspective_fov_deg"]) / 2)
+    focal = profile["height_px"] / (2 * tangent)
+    tx, ty = profile["width_px"] / (2 * focal), profile["height_px"] / (2 * focal)
+    return focal, math.hypot(1, tx, ty), focal * math.hypot(math.sqrt(2), tx + ty)
+
+
 def cached_bounds(database, anchor, axes, radius_m):
     where = (
         "SELECT DISTINCT a.minx,a.miny,a.minz,a.maxx,a.maxy,a.maxz FROM bounds AS b "

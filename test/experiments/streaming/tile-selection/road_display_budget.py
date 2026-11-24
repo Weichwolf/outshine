@@ -7,7 +7,6 @@ The trial does not generate road variants or estimate bytes saved.
 
 import argparse
 import json
-import math
 import sqlite3
 import struct
 import subprocess
@@ -18,7 +17,13 @@ from hashlib import sha256
 from pathlib import Path
 
 import numpy as np
-from tile_selection import local_frame
+from tile_selection import (
+    camera_path,
+    distance_from_box,
+    distance_from_segment,
+    local_frame,
+    panoramic_projection,
+)
 
 
 class Cursor:
@@ -105,34 +110,17 @@ def manifests(database, location):
             yield key, content
 
 
-def measure(baseline, route, location, axes, flight_cut=None):
-    motion = route["motion"]
-    start = np.asarray(motion["start"]["position_m"])
-    finish = np.asarray(motion["finish"]["position_m"])
-    delta = (
-        np.asarray(motion["linear_velocity_mps"])
-        * motion["frames"]
-        * motion["time_step_s"]
-    )
-    if not np.allclose(start + delta, finish, atol=1e-5, rtol=0):
-        raise ValueError("the benchmark must report a straight constant-velocity path")
-    endpoints = tuple(
-        np.asarray(route["motion"][side]["position_m"]) @ axes.T + location
-        for side in ("start", "finish")
-    )
-    eye_min = np.minimum(*endpoints)
-    eye_max = np.maximum(*endpoints)
+def measure(baseline, route, location, axes, flight_cut=None, exact_path=False):
+    start, finish = camera_path(route, location, axes)
     boxes = np.stack([b for _, b, _, _, _ in baseline])
-    delta = np.maximum(np.maximum(boxes[:, 0] - eye_max, eye_min - boxes[:, 1]), 0)
-    distance = np.linalg.norm(delta, axis=1)
-    mode = route["profile"]
-    tangent = math.tan(
-        math.radians(route["motion"]["start"]["perspective_fov_deg"]) / 2
+    distance = (
+        distance_from_segment(boxes, start, finish)
+        if exact_path
+        else distance_from_box(
+            boxes, np.minimum(start, finish), np.maximum(start, finish)
+        )
     )
-    focal = mode["height_px"] / (2 * tangent)
-    tx, ty = mode["width_px"] / (2 * focal), mode["height_px"] / (2 * focal)
-    depth = math.hypot(1, tx, ty)
-    displacement = focal * math.hypot(math.sqrt(2), tx + ty)
+    _, depth, displacement = panoramic_projection(route)
     allowed = distance / (displacement * depth + depth + 1)
     errors = (0.125, 0.25, 0.5, 1.0)
     selected = np.searchsorted(errors, allowed, side="right")
@@ -173,7 +161,7 @@ def main():
     parser.add_argument(
         "--flight-cut",
         type=Path,
-        help="write selected keys and errors for the native probe",
+        help="write selected keys and errors for the exact flight path",
     )
     args = parser.parse_args()
     if args.flight_cut and not args.manifest:
@@ -213,8 +201,14 @@ def main():
                     "manifest": key,
                     "pages": count,
                     "stationary": measure(baseline, still, location, axes),
-                    "flight": measure(
-                        baseline, flight, location, axes, args.flight_cut
+                    "flight": measure(baseline, flight, location, axes),
+                    "flight_segment": measure(
+                        baseline,
+                        flight,
+                        location,
+                        axes,
+                        args.flight_cut,
+                        exact_path=True,
                     ),
                 }
             )

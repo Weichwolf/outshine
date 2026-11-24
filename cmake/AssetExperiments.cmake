@@ -38,9 +38,14 @@ add_executable(outshine_experiment_road_display EXCLUDE_FROM_ALL
   "${PROJECT_SOURCE_DIR}/test/experiments/streaming/tile-selection/RoadDisplayCache.cpp")
 target_link_libraries(outshine_experiment_road_display PRIVATE outshine_generators_road_pages)
 
+add_executable(outshine_experiment_building_shell_metadata EXCLUDE_FROM_ALL
+  "${PROJECT_SOURCE_DIR}/test/experiments/streaming/tile-selection/BuildingShellMetadata.cpp")
+target_link_libraries(outshine_experiment_building_shell_metadata PRIVATE outshine_generators_building)
+
 foreach(probe IN ITEMS outshine_experiment_urban_bake outshine_experiment_plant_prepare
     outshine_experiment_urban_control outshine_experiment_source_geometry outshine_experiment_building_geometry_cache
     outshine_experiment_source_group_bake outshine_experiment_building_geometry_asset
-    outshine_experiment_source_inputs outshine_experiment_road_display)
+    outshine_experiment_source_inputs outshine_experiment_road_display
+    outshine_experiment_building_shell_metadata)
   target_compile_options(${probe} PRIVATE -fno-exceptions)
 endforeach()
