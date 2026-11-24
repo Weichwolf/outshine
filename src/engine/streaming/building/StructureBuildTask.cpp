@@ -108,28 +108,18 @@ struct StructureBuildTask::Comparison {
            !tile.FallbackHeights;
   }
 
-  bool
-  QualifyShell(const Generators::RawTile &raw, Generators::BakedTile &variant, Output &output) {
-    if (!Request.UseShellBound || raw.RequestedDetail != LevelOfDetail::Shell ||
-        !raw.RequestedCell || *raw.RequestedCell == 0 ||
-        *raw.RequestedCell > variant.CellShellErrorM.size()) {
+  bool CertifyShell(const Generators::RawTile &raw, Generators::BakedTile &variant) {
+    if (raw.RequestedDetail != LevelOfDetail::Shell || !raw.RequestedCell ||
+        *raw.RequestedCell == 0 || *raw.RequestedCell > variant.CellShellErrorM.size()) {
       return false;
     }
     const double error = variant.CellShellErrorM[*raw.RequestedCell - 1];
     if (!(error > 0) || !std::isfinite(error)) { return false; }
-    const auto bounds = variant.BoundsAt(raw.AnchorEcef);
-    const GeometryErrorBound projected{
-        .SourceKey = Request.SourceKey, .Bounds = bounds, .UpperM = error};
-    if (!projected.Allows(
-            Request.SourceKey, raw.EyeEcef, raw.Projection, Generators::kStructureEyeReuseM)) {
-      return false;
-    }
-    variant.WorldBounds = bounds;
+    variant.WorldBounds = variant.BoundsAt(raw.AnchorEcef);
     variant.SurfaceError =
         Generators::StructureSurfaceErrorInterval{.Upper = {.SourceKey = Request.SourceKey,
                                                             .ReferenceToVariantM = error,
                                                             .VariantToReferenceM = error}};
-    Finish(output, std::nullopt);
     return true;
   }
 
@@ -144,7 +134,13 @@ struct StructureBuildTask::Comparison {
       Finish(output, Generators::StructureSurfaceErrorFailure::InvalidGeometry);
       return;
     }
-    if (QualifyShell(raw, *Variant, output)) { return; }
+    if (Request.UseShellBound) {
+      const bool certified = CertifyShell(raw, *Variant);
+      Finish(output,
+             certified ? std::nullopt
+                       : std::optional{Generators::StructureSurfaceErrorFailure::InvalidGeometry});
+      return;
+    }
     ReferenceRaw = raw;
     ReferenceRaw.RequestedDetail = LevelOfDetail::Fine;
     ReferenceRaw.Projection.AllowedErrorPx = 0.0;
