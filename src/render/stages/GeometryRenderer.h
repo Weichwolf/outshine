@@ -658,7 +658,7 @@ private:
   void BindShadowResources(DrawResources &resources,
                            const DrawBatch &batch,
                            std::span<const std::byte> view) const;
-  [[nodiscard]] size_t IndirectRunEnd(size_t first) const noexcept;
+  [[nodiscard]] size_t IndirectRunEnd(size_t first, const BatchFrustum &visible) const noexcept;
   [[nodiscard]] bool Retable(std::string &error);
   [[nodiscard]] bool BuildMainMeshBatches(std::string &error);
   [[nodiscard]] bool PrepareMainMeshTables(std::string &error);
