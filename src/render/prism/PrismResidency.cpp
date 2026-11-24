@@ -69,6 +69,38 @@ Native::Result<uint64_t> PrismResidency::Place(std::shared_ptr<const PrismGrid> 
   return Next_++;
 }
 
+Native::Result<uint64_t> PrismResidency::PlaceConvex(std::span<const ConvexPrism> shapes,
+                                                     uint32_t material) {
+  if (Device_ == nullptr || shapes.empty() || Next_ == std::numeric_limits<uint64_t>::max()) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid,
+                      .Message = "convex prism registration requires shapes and device"});
+  }
+  auto packed = PackConvexPrisms(shapes);
+  if (!packed) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "invalid convex prism or placement"});
+  }
+  const auto samples = std::as_bytes(std::span(packed->Samples));
+  const auto patches = std::as_bytes(std::span(packed->Patches));
+  auto uploaded = UploadPrismBuffers(*Device_, Queue_, samples, patches);
+  if (!uploaded) { return std::unexpected(uploaded.error()); }
+  PrismProduct product{.Id = Next_,
+                       .Material = material,
+                       .Source = {},
+                       .Info = {},
+                       .Records = {},
+                       .Buffers = {std::move((*uploaded)[0]), std::move((*uploaded)[1])}};
+  RecordShadowChanges(product, packed->Patches);
+  product.Records = std::move(packed->Patches);
+  Products_.push_back(std::move(product));
+  Costs_.SampleBytes += samples.size();
+  Costs_.PatchBytes += patches.size();
+  ++Costs_.Submissions;
+  ++Generation_;
+  return Next_++;
+}
+
 Native::Result<void> PrismResidency::ReplaceInstances(PrismProduct &product,
                                                       std::span<const PrismInstance> instances) {
   auto records = PackPrismPlacements(*product.Source, product.Info, instances);
@@ -103,9 +135,9 @@ Native::Result<void> PrismResidency::ReplaceInstances(PrismProduct &product,
 Native::Result<void> PrismResidency::SetInstances(uint64_t id,
                                                   std::span<const PrismInstance> instances) {
   const auto found = std::ranges::find(Products_, id, &PrismProduct::Id);
-  if (found == Products_.end()) {
+  if (found == Products_.end() || !found->Source) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
-                                         .Message = "prism product is no longer resident"});
+                                         .Message = "prism grid is no longer resident"});
   }
   return ReplaceInstances(*found, instances);
 }
@@ -123,9 +155,7 @@ Boxf PrismResidency::Bounds() const noexcept {
   Boxf bounds;
   for (const auto &product : Products_) {
     for (const auto &record : product.Records) {
-      const Boxf local{.Min = {{0, record.Shape[3], 0}},
-                       .Max = {{record.Bounds[1], record.Bounds[0], record.Bounds[2]}}};
-      bounds.Cover(local.Through(record.Current));
+      bounds.Cover(record.LocalBounds().Through(record.Current));
     }
   }
   return bounds;

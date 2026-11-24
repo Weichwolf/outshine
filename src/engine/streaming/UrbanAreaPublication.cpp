@@ -93,7 +93,7 @@ UrbanAreaStreaming::Publish(Group &group,
                             bool uploadAvailable) {
   const auto &key = group.Slot->ReadyKey();
   if (group.PublishedKey == key && group.ChildrenRevision == childrenRevision &&
-      (!group.Handle || Renderer_->HasPrismGrid(group.Handle))) {
+      (!group.Handle || Renderer_->HasPrism(group.Handle))) {
     return false;
   }
   const auto &product = *group.Slot->Ready();
@@ -102,7 +102,7 @@ UrbanAreaStreaming::Publish(Group &group,
   }
   auto cuts = Exclusions(*group.Area, group.Patches, children);
   if (group.PublishedKey == key && group.Exclusions == cuts &&
-      (!group.Handle || Renderer_->HasPrismGrid(group.Handle))) {
+      (!group.Handle || Renderer_->HasPrism(group.Handle))) {
     group.ChildrenRevision = childrenRevision;
     return false;
   }
@@ -116,7 +116,7 @@ UrbanAreaStreaming::Publish(Group &group,
   const auto info = InspectPrismGrid(*geometry);
   if (!info) { return std::unexpected("urban view references an invalid cached prism grid"); }
   if (info->Occupied == 0) {
-    if (group.Handle) { Renderer_->ReleasePrismGrid(group.Handle); }
+    if (group.Handle) { Renderer_->ReleasePrism(group.Handle); }
     group.Handle = {};
   } else {
     std::vector<Render::PrismInstance> instances;
@@ -160,7 +160,7 @@ UrbanAreaStreaming::Upload(Group &group,
     if (!material) { return std::unexpected(material.error()); }
     Material_ = *material;
   }
-  if (Renderer_->HasPrismGrid(group.Handle)) {
+  if (Renderer_->HasPrism(group.Handle)) {
     auto replaced = Renderer_->ReplacePrismGrid(group.Handle, geometry, instances, *Material_);
     if (!replaced && replaced.error().Kind == Render::Native::ErrorKind::Busy) { return false; }
     if (!replaced) { return std::unexpected(replaced.error().Message); }

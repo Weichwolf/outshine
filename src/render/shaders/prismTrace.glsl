@@ -1,5 +1,6 @@
 #include "prismData.glsl"
 #include "prismPlane.glsl"
+#include "convexProxyHit.glsl"
 layout(location = 0) flat in mat4 prismLocalFromClip;
 layout(location = 4) flat in uint prismPatchIndex;
 
@@ -26,10 +27,26 @@ bool prismInterval(vec3 origin, vec3 inverseDirection, vec3 low, vec3 high,
   return entry <= leave && leave >= 0.0;
 }
 
-bool tracePrism(out vec3 point, out vec3 normal, out float height) {
-  PrismPatch gridPatch = prismPatches[prismPatchIndex];
-  vec2 pixel = (gl_FragCoord.xy - prismViewport.area.xy) / prismViewport.area.zw;
-  vec2 ndc = vec2(pixel.x * 2.0 - 1.0, 1.0 - pixel.y * 2.0);
+bool traceConvexPrism(uint offset, vec3 origin, vec3 direction,
+                      out vec3 point, out vec3 normal, out float height) {
+  vec4 planes[7];
+  float offsets[7];
+  for (uint i = 0u; i < 7u; ++i) {
+    uint address = offset + 2u * i;
+    planes[i] = vec4(prismSamples[address], prismSamples[address + 1u]);
+    offsets[i] = planes[i].w;
+    planes[i].w -= dot(origin, planes[i].xyz);
+  }
+  uint surface;
+  float depth = convexProxyHit(direction, planes, surface);
+  if (!(depth > 0.0)) { return false; }
+  point = origin + direction * depth;
+  normal = planes[surface].xyz;
+  height = offsets[surface];
+  return true;
+}
+
+bool tracePrism(PrismPatch gridPatch, vec2 ndc, out vec3 point, out vec3 normal, out float height) {
   vec4 start = prismLocalFromClip * vec4(ndc, 1.0, 1.0);
   vec4 finish = prismLocalFromClip * vec4(ndc, 0.0, 1.0);
   vec3 origin = start.xyz / start.w;
@@ -43,6 +60,9 @@ bool tracePrism(out vec3 point, out vec3 normal, out float height) {
     ray /= largest;
   }
   vec3 direction = normalize(ray);
+  if (gridPatch.samples.w != 0u) {
+    return traceConvexPrism(gridPatch.samples.x, origin, direction, point, normal, height);
+  }
   vec3 inverseDirection = 1.0 / direction;
   float begin, end;
   vec3 unused;
@@ -95,7 +115,7 @@ bool tracePrism(out vec3 point, out vec3 normal, out float height) {
   return false;
 }
 
-bool tracePrism(out vec3 point, out vec3 normal) {
-  float height;
-  return tracePrism(point, normal, height);
+vec2 prismScreenNdc() {
+  vec2 pixel = (gl_FragCoord.xy - prismViewport.area.xy) / prismViewport.area.zw;
+  return vec2(pixel.x * 2.0 - 1.0, 1.0 - pixel.y * 2.0);
 }

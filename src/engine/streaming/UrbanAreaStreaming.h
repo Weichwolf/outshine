@@ -81,7 +81,7 @@ private:
     std::vector<Generators::Osm::UrbanPatchRange> Patches;
     std::string SourceKey, Request, PublishedKey;
     std::unique_ptr<UrbanPrismSlot> Slot;
-    Render::PrismGridHandle Handle;
+    Render::PrismHandle Handle;
     std::vector<PrismCellRect> Exclusions;
     uint64_t ChildrenRevision = 0;
     bool Required = true;

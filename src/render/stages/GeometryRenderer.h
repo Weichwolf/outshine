@@ -173,9 +173,11 @@ public:
   [[nodiscard]] Native::Result<uint64_t> PlacePrismGrid(std::shared_ptr<const PrismGrid> source,
                                                         std::span<const PrismInstance> instances,
                                                         uint32_t material);
+  [[nodiscard]] Native::Result<uint64_t> PlaceConvexPrisms(std::span<const ConvexPrism> shapes,
+                                                           uint32_t material);
   [[nodiscard]] Native::Result<void>
   SetPrismGridInstances(uint64_t id, std::span<const PrismInstance> instances);
-  void ReleasePrismGrid(uint64_t id);
+  void ReleasePrism(uint64_t id);
   [[nodiscard]] Native::Result<void> EncodePrismShadow(const PassRecording &into,
                                                        const PrismDepthView &view) const;
 
@@ -390,6 +392,7 @@ private:
                                                   const FrameUniforms &uniforms) const;
   [[nodiscard]] Native::Result<void> EncodePrisms(const PassRecording &into,
                                                   const FrameUniforms &uniforms);
+  [[nodiscard]] Native::Result<void> ValidatePrismMaterial(uint32_t material) const;
   [[nodiscard]] Native::Result<void> DrawBatchRange(const PassRecording &into,
                                                     size_t first,
                                                     bool culled,

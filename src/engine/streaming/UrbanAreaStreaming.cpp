@@ -122,7 +122,7 @@ void UrbanAreaStreaming::Into(Render::SceneRenderer &renderer) noexcept {
 }
 
 void UrbanAreaStreaming::Retire(Group &group) {
-  if (Renderer_ != nullptr && group.Handle) { Renderer_->ReleasePrismGrid(group.Handle); }
+  if (Renderer_ != nullptr && group.Handle) { Renderer_->ReleasePrism(group.Handle); }
   group.Handle = {};
   group.Slot->Clear();
   if (group.Slot->InFlight()) { Retiring_.push_back(std::move(group.Slot)); }
@@ -259,7 +259,7 @@ UrbanAreaStreaming::PlanGroups(const View &view, const TerrainResidency &terrain
     if (held != Groups_.end()) {
       held->Required = candidate.Required;
       if (!held->Required && held->Handle) {
-        Renderer_->ReleasePrismGrid(held->Handle);
+        Renderer_->ReleasePrism(held->Handle);
         held->Handle = {};
         held->PublishedKey.clear();
       }

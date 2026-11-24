@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_PRISM_PRISMPLACEMENTS_H
 
 #include "GpuPrismPatch.h"
+#include "ConvexPrism.h"
 #include <PrismGrid.h>
 #include "PrismInstance.h"
 #include <cstdint>
@@ -16,10 +17,19 @@ enum class PrismInstanceError : uint8_t {
   NonfinitePlacement,
   NonAffinePlacement,
   SingularPlacement,
-  InstanceCount
+  InstanceCount,
+  InvalidConvexPrism
 };
 
 [[nodiscard]] std::expected<std::vector<GpuPrismPatch>, PrismInstanceError> PackPrismPlacements(
     const PrismGrid &grid, const PrismGridInfo &info, std::span<const PrismInstance> instances);
+
+struct ConvexPrismUpload {
+  std::vector<PrismSpan> Samples;
+  std::vector<GpuPrismPatch> Patches;
+};
+
+[[nodiscard]] std::expected<ConvexPrismUpload, PrismInstanceError>
+PackConvexPrisms(std::span<const ConvexPrism> shapes);
 }
 #endif

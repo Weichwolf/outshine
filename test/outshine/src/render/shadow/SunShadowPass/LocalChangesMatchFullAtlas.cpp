@@ -301,7 +301,7 @@ void Prisms(Device &device, GeometryRenderer &geometry, Atlas &partial, Atlas &f
   Compare(device, geometry, partial, full, frame);
   Require(geometry.SetPrismGridInstances(id, {}));
   Compare(device, geometry, partial, full, frame);
-  geometry.ReleasePrismGrid(id);
+  geometry.ReleasePrism(id);
   Compare(device, geometry, partial, full, frame);
   CHECK(!partial.Shadow.Casting(), "retiring already empty prisms preserves the atlas");
 }

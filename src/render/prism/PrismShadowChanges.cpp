@@ -27,12 +27,16 @@ bool SameDepth(const GpuPrismPatch &before, const GpuPrismPatch &after) noexcept
 }
 
 std::optional<Boxf> BoundsOf(const GpuPrismPatch &record) noexcept {
-  const double halfWidth = static_cast<double>(record.Bounds[1]) / 2;
-  const double halfDepth = static_cast<double>(record.Bounds[2]) / 2;
-  const double middle = (static_cast<double>(record.Shape[3]) + record.Bounds[0]) / 2;
-  const double halfHeight = (static_cast<double>(record.Bounds[0]) - record.Shape[3]) / 2;
-  const auto local =
-      PackSphere({halfWidth, middle, halfDepth}, std::hypot(halfWidth, halfHeight, halfDepth));
+  const auto bounds = record.LocalBounds();
+  std::array<double, 3> centre{};
+  std::array<double, 3> half{};
+  for (size_t axis = 0; axis < 3; ++axis) {
+    const double low = bounds.Min[axis];
+    const double high = bounds.Max[axis];
+    centre[axis] = (high + low) / 2;
+    half[axis] = (high - low) / 2;
+  }
+  const auto local = PackSphere(centre, std::hypot(half[0], half[1], half[2]));
   if (!local) { return std::nullopt; }
   Mat4 row{};
   for (size_t at = 0; at < row.Column.size(); ++at) { row[at] = record.Current[at]; }

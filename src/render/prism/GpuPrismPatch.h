@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_PRISM_GPUPRISMPATCH_H
 #define OUTSHINE_RENDER_PRISM_GPUPRISMPATCH_H
 
+#include "Box.h"
 #include "Mat4.h"
 #include <array>
 #include <cstddef>
@@ -18,6 +19,12 @@ struct alignas(16) GpuPrismPatch {
   std::array<float, 4> Bounds{};
 
   [[nodiscard]] bool operator==(const GpuPrismPatch &) const = default;
+
+  [[nodiscard]] Boxf LocalBounds() const noexcept {
+    const Vec3f lower =
+        Samples[3] == 0 ? Vec3f{{0, Shape[3], 0}} : Vec3f{{Shape[0], Shape[1], Shape[2]}};
+    return {.Min = lower, .Max = {{Bounds[1], Bounds[0], Bounds[2]}}};
+  }
 };
 
 static_assert(std::is_standard_layout_v<GpuPrismPatch>);

@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <print>
 #include <span>
 #include <utility>
 #include <memory>
@@ -55,7 +56,7 @@ std::shared_ptr<const PrismGrid> Source(float upper) {
 
 void CheckMappedNormal(Core::RuntimeScene &scene,
                        SceneRenderer &renderer,
-                       PrismGridHandle handle,
+                       PrismHandle handle,
                        std::span<const PrismInstance> instances) {
   Geometry materials;
   constexpr std::array<uint8_t, 4> texel{128, 255, 128, 255};
@@ -137,7 +138,7 @@ Geometry FilteredMaterial(bool reference) {
 
 void CheckMipFiltering(Core::RuntimeScene &scene,
                        SceneRenderer &renderer,
-                       PrismGridHandle handle,
+                       PrismHandle handle,
                        std::span<const PrismInstance> instances) {
   const auto draw = [&](bool reference) {
     const auto slot = renderer.RegisterPieceMaterials(FilteredMaterial(reference));
@@ -179,7 +180,7 @@ void CheckMipFiltering(Core::RuntimeScene &scene,
 
 void CheckFacadePartitioning(Core::RuntimeScene &scene,
                              SceneRenderer &renderer,
-                             PrismGridHandle handle,
+                             PrismHandle handle,
                              std::span<const PrismInstance> instances) {
   auto eye = Viewpoint::LookAt({.EyeM = {{0, 3, 10}}, .AimM = {{0, 3, 0}}}, 0.0);
   CHECK(eye, "the facade control observes multiple complete storeys");
@@ -280,6 +281,75 @@ void CheckNativeMaterialRemap(Core::RuntimeScene &scene,
         "a retained prism still draws its own red PBR material after physical slots move");
 }
 
+void CheckConvexRoof(Core::RuntimeScene &scene,
+                     SceneRenderer &renderer,
+                     Viewpoint eye,
+                     const MaterialRegistration &material) {
+  scene.Eye(eye);
+  const auto baseline = Draw(scene, renderer);
+  const ConvexPrism roof{.SceneFromLocal = {},
+                         .Bounds = {.Min = {{-1, -1, -1}}, .Max = {{1, 2.5f, 1}}},
+                         .Planes = {{{-1, 0, 0, 1},
+                                     {1, 0, 0, 1},
+                                     {0, 0, -1, 1},
+                                     {0, 0, 1, 1},
+                                     {0, -1, 0, 1},
+                                     {0, 1, .5f, 2.5f},
+                                     {0, 1, -.5f, 2.5f}}}};
+  const auto source = std::make_shared<const std::vector<ConvexPrism>>(1, roof);
+  const auto handle = renderer.PlaceConvexPrisms(source, material);
+  CHECK(handle, "the gable becomes resident through the normal scene resource path");
+  if (!handle) { return; }
+  const auto frame = Draw(scene, renderer);
+  CHECK(frame.Depth.size() == kPixels && frame.Normal.size() == kPixels * 4 &&
+            frame.Colour.size() == kPixels * 4,
+        "the Native GPU world returns the gable in the ordinary opaque pass");
+  if (frame.Depth.size() != kPixels || frame.Normal.size() != kPixels * 4 ||
+      frame.Colour.size() != kPixels * 4) {
+    return;
+  }
+  size_t coverageErrors = 0;
+  double depthError = 0;
+  size_t shadedSlopes = 0;
+  for (uint32_t row = 0; row < kSide; ++row) {
+    for (uint32_t column = 0; column < kSide; ++column) {
+      const size_t pixel = size_t{row} * kSide + column;
+      const double x = (2 * (column + .5) / kSide - 1) * eye.XMagM;
+      const double y = (1 - 2 * (row + .5) / kSide) * eye.YMagM;
+      const bool expected = std::abs(x) < 1 && y > -1 && y < 2.5;
+      coverageErrors += static_cast<size_t>(expected != (frame.Depth[pixel] > 0));
+      if (!expected) { continue; }
+      const double z = std::min(1.0, 2 * (2.5 - y));
+      const double expectedDepth = (kFarM - (eye.EyeM[2] - z)) / (kFarM - kNearM);
+      depthError = std::max(depthError, std::abs(expectedDepth - frame.Depth[pixel]));
+      if (y > 2 && std::abs(frame.Normal[pixel * 4 + 1] - 2 / std::sqrt(5.0)) < .002 &&
+          std::abs(frame.Normal[pixel * 4 + 2] - 1 / std::sqrt(5.0)) < .002 &&
+          frame.Colour[pixel * 4] > 0) {
+        ++shadedSlopes;
+      }
+    }
+  }
+  std::println("CONVEX roof coverage_mismatch={} reverse_depth_error={} shaded_roof_pixels={}",
+               coverageErrors,
+               depthError,
+               shadedSlopes);
+  CHECK(coverageErrors == 0 && depthError < 2e-6 && shadedSlopes == 4 * 16,
+        "the coloured gable matches an independent silhouette, depth and sloped normal");
+  CHECK(frame.Shadow != baseline.Shadow &&
+            std::ranges::any_of(frame.Shadow, [](float depth) { return depth > 0; }),
+        "the gable casts a shadow using its actual sloped planes");
+  eye.EyeM[0] += .5;
+  scene.Eye(eye);
+  const auto moved = Draw(scene, renderer);
+  CHECK(moved.Velocity.size() > kCentre * 2 &&
+            std::abs(moved.Velocity[kCentre * 2]) > kMovingMotion,
+        "camera movement reprojects the stationary analytic surface");
+  renderer.ReleasePrism(*handle);
+  const auto released = Draw(scene, renderer);
+  CHECK(released.Depth == baseline.Depth && released.Shadow == baseline.Shadow,
+        "releasing the gable removes its opaque depth and its cached shadow");
+}
+
 void CheckScene() {
   SceneRenderer renderer;
   const auto native = NativeMaterialOwner();
@@ -368,13 +438,16 @@ void CheckScene() {
   CheckMappedNormal(*scene, renderer, *handle, instances);
   CheckMipFiltering(*scene, renderer, *handle, instances);
   CheckFacadePartitioning(*scene, renderer, *handle, instances);
-  renderer.ReleasePrismGrid(*handle);
+  renderer.ReleasePrism(*handle);
   const auto released = Draw(*scene, renderer);
   CHECK(renderer.Spent(Stage::OpaqueGeometry).DeviceBytes == nativeBytes,
         "release removes prism payload from the geometry memory diagnostic");
   CHECK(released.Depth.size() > kCentre && released.Depth[kCentre] == 0 &&
             std::ranges::none_of(released.Shadow, [](float depth) { return depth > 0; }),
         "release removes colour depth and cached caster depth without ghost geometry");
+  light.Light.Intensity = kKeyLux;
+  CHECK(renderer.SetGeometryLights(std::span(&light, 1), error), "the gable has a visible key");
+  CheckConvexRoof(*scene, renderer, *eye, *slot);
 }
 }
 

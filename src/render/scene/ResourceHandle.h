@@ -29,7 +29,7 @@ struct HeightPageHandle {
   [[nodiscard]] constexpr bool operator==(const HeightPageHandle &) const noexcept = default;
 };
 
-struct PrismGridHandle {
+struct PrismHandle {
   uint32_t Slot = kNoResourceSlot;
   uint64_t Generation = 0;
 
@@ -37,7 +37,7 @@ struct PrismGridHandle {
     return Slot != kNoResourceSlot && Generation != 0;
   }
 
-  [[nodiscard]] constexpr bool operator==(const PrismGridHandle &) const noexcept = default;
+  [[nodiscard]] constexpr bool operator==(const PrismHandle &) const noexcept = default;
 };
 
 struct ResourceSlotState {

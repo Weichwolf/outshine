@@ -14,11 +14,28 @@ SurfaceDifferential prismSurfaceDifferential(vec3 localChange, mat3 current, vec
   return result;
 }
 
+void convexPrismDifferentials(vec3 point, vec4 plane, vec2 ndc,
+                              out vec3 localDx, out vec3 localDy) {
+  mat4 unproject = prismLocalFromClip;
+  vec4 w = unproject[2];
+  float incidence = dot(w, plane);
+  localDx = localDy = vec3(0.0);
+  if (incidence == 0.0) { return; }
+  vec4 h = unproject * vec4(ndc, 0.0, 1.0);
+  float divisor = (h - w * (dot(h, plane) / incidence)).w;
+  if (divisor == 0.0) { return; }
+  vec4 dx = unproject[0] - w * (dot(unproject[0], plane) / incidence);
+  vec4 dy = unproject[1] - w * (dot(unproject[1], plane) / incidence);
+  localDx = (dx.xyz - point * dx.w) * (2.0 / (divisor * prismViewport.area.z));
+  localDy = (dy.xyz - point * dy.w) * (-2.0 / (divisor * prismViewport.area.w));
+}
+
 bool readPrismSurface() {
+  PrismPatch gridPatch = prismPatches[prismPatchIndex];
+  vec2 ndc = prismScreenNdc();
   vec3 point, localNormal;
   float height;
-  if (!tracePrism(point, localNormal, height)) { return false; }
-  PrismPatch gridPatch = prismPatches[prismPatchIndex];
+  if (!tracePrism(gridPatch, ndc, point, localNormal, height)) { return false; }
   vec4 stable = gridPatch.current * vec4(point, 1.0);
   vec4 world = stable + vec4(prismView.shift.xyz, 0.0);
   vec4 clip = prismView.viewProj * world;
@@ -30,17 +47,26 @@ bool readPrismSurface() {
   lightSpace = prismView.lightFromWorld * world;
   colour = vec4(1.0);
   normal = transformedSurfaceNormal(mat3(gridPatch.current), localNormal);
-  vec3 u, v;
-  prismSurfaceAxes(localNormal, u, v);
+  vec3 u, v, localDx, localDy;
+  if (gridPatch.samples.w == 0u) {
+    prismSurfaceAxes(localNormal, u, v);
+    prismPositionDifferentials(readPrismDifferentials(), localNormal, height, ndc,
+                               prismViewport.area.zw, localDx, localDy);
+  } else {
+    vec3 n = normalize(localNormal);
+    vec3 vertical = normalize(transpose(mat3(gridPatch.current)) * vec3(0, 1, 0));
+    vec3 across = cross(vertical, n);
+    if (dot(across, across) < 0.0001) {
+      vec3 axis = abs(n.x) < 0.9 ? vec3(1, 0, 0) : vec3(0, 0, 1);
+      across = cross(axis, n);
+    }
+    u = normalize(across);
+    v = cross(n, u);
+    convexPrismDifferentials(point, vec4(localNormal, -height), ndc, localDx, localDy);
+  }
 #if SURFACE_BASE_LOCATION == 0
-  prismShadowReceiver = prismReceiverPlane(mat3(prismView.lightFromWorld),
-                                          mat3(gridPatch.current), localNormal);
+  prismShadowReceiver = prismReceiverPlane(mat3(prismView.lightFromWorld), mat3(gridPatch.current), u, v);
 #endif
-  vec3 localDx, localDy;
-  vec2 pixel = (gl_FragCoord.xy - prismViewport.area.xy) / prismViewport.area.zw;
-  vec2 ndc = vec2(pixel.x * 2.0 - 1.0, 1.0 - pixel.y * 2.0);
-  prismPositionDifferentials(readPrismDifferentials(), localNormal, height, ndc,
-                             prismViewport.area.zw, localDx, localDy);
   surfaceDx = prismSurfaceDifferential(localDx, mat3(gridPatch.current), u, v);
   surfaceDy = prismSurfaceDifferential(localDy, mat3(gridPatch.current), u, v);
   uv = vec2(dot(point, u), dot(point, v));

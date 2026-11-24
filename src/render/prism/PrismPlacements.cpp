@@ -63,4 +63,41 @@ std::expected<std::vector<GpuPrismPatch>, PrismInstanceError> PackPrismPlacement
   }
   return records;
 }
+
+std::expected<ConvexPrismUpload, PrismInstanceError>
+PackConvexPrisms(std::span<const ConvexPrism> shapes) {
+  constexpr size_t spansPerShape = 14;
+  if (shapes.size() > std::numeric_limits<uint32_t>::max() / spansPerShape) {
+    return std::unexpected(PrismInstanceError::InstanceCount);
+  }
+  const auto finite = [](float value) { return std::isfinite(value); };
+  ConvexPrismUpload upload;
+  upload.Samples.reserve(shapes.size() * spansPerShape);
+  upload.Patches.reserve(shapes.size());
+  for (const auto &shape : shapes) {
+    if (const auto valid = CheckPlacement(shape.SceneFromLocal); !valid) {
+      return std::unexpected(valid.error());
+    }
+    const auto &low = shape.Bounds.Min;
+    const auto &high = shape.Bounds.Max;
+    if (!shape.Bounds.Holds(high) || !std::ranges::all_of(low, finite) ||
+        !std::ranges::all_of(high, finite) || !std::ranges::all_of(shape.Bounds.Span(), finite)) {
+      return std::unexpected(PrismInstanceError::InvalidConvexPrism);
+    }
+    upload.Patches.push_back({.Current = shape.SceneFromLocal,
+                              .Previous = shape.SceneFromLocal,
+                              .Samples = {static_cast<uint32_t>(upload.Samples.size()), 0, 0, 1},
+                              .Shape = {low[0], low[1], low[2], 0},
+                              .Bounds = {high[1], high[0], high[2], 0}});
+    for (const auto &plane : shape.Planes) {
+      if (!std::ranges::all_of(plane, finite) ||
+          (plane[0] == 0 && plane[1] == 0 && plane[2] == 0 && plane[3] < 0)) {
+        return std::unexpected(PrismInstanceError::InvalidConvexPrism);
+      }
+      upload.Samples.push_back({.Lower = plane[0], .Upper = plane[1]});
+      upload.Samples.push_back({.Lower = plane[2], .Upper = plane[3]});
+    }
+  }
+  return upload;
+}
 }

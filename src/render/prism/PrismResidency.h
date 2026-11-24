@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_PRISM_PRISMRESIDENCY_H
 
 #include "GpuPrismPatch.h"
+#include "ConvexPrism.h"
 #include <PrismGrid.h>
 #include "PrismInstance.h"
 #include "PrismUpload.h"
@@ -38,6 +39,8 @@ public:
   [[nodiscard]] Native::Result<uint64_t> Place(std::shared_ptr<const PrismGrid> source,
                                                std::span<const PrismInstance> instances,
                                                uint32_t material);
+  [[nodiscard]] Native::Result<uint64_t> PlaceConvex(std::span<const ConvexPrism> shapes,
+                                                     uint32_t material);
   [[nodiscard]] Native::Result<void> SetInstances(uint64_t id,
                                                   std::span<const PrismInstance> instances);
   [[nodiscard]] bool Release(uint64_t id);

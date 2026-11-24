@@ -2,11 +2,9 @@ vec3 prismTangentDirection(vec3 value) {
   float scale = max(max(abs(value.x), abs(value.y)), abs(value.z));
   return scale == 0.0 ? vec3(0.0) : value / scale;
 }
-vec4 prismReceiverPlane(mat3 lightFromWorld, mat3 worldFromLocal, vec3 localNormal) {
-  vec3 first = localNormal.x != 0.0 ? worldFromLocal[1] : worldFromLocal[0];
-  vec3 second = localNormal.z != 0.0 ? worldFromLocal[1] : worldFromLocal[2];
-  first = prismTangentDirection(lightFromWorld * prismTangentDirection(first));
-  second = prismTangentDirection(lightFromWorld * prismTangentDirection(second));
+vec4 prismReceiverPlane(mat3 lightFromWorld, mat3 worldFromLocal, vec3 u, vec3 v) {
+  vec3 first = prismTangentDirection(lightFromWorld * prismTangentDirection(worldFromLocal * u));
+  vec3 second = prismTangentDirection(lightFromWorld * prismTangentDirection(worldFromLocal * v));
   vec3 normal = cross(first, second);
   if (normal.z == 0.0) { return vec4(0.0); }
   vec3 plane = vec3(-2.0 * normal.x, 2.0 * normal.y, normal.z);
