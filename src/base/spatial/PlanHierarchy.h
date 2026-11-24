@@ -2,6 +2,7 @@
 #define OUTSHINE_BASE_SPATIAL_PLANHIERARCHY_H
 
 #include "Box.h"
+#include "TileCut.h"
 #include "Vec3.h"
 
 #include <cstdint>
@@ -53,17 +54,14 @@ public:
 
   template <class Accept, class Emit> void SelectNodes(Accept &&accept, Emit &&emit) const {
     if (Nodes_.empty()) { return; }
-    std::array<uint32_t, 32> pending{};
-    size_t count = 1;
-    while (count != 0) {
-      const Node &node = Nodes_[pending[--count]];
-      if (node.Count == 1 || accept(node)) {
-        emit(node);
-      } else {
-        pending[count++] = node.Right;
-        pending[count++] = node.Left;
-      }
-    }
+    VisitTileCut(
+        uint32_t{0},
+        [&](uint32_t at) {
+          const auto &node = Nodes_[at];
+          return node.Count == 1 || accept(node) ? TileCutAction::Keep : TileCutAction::Refine;
+        },
+        [&](uint32_t at) { return std::array{Nodes_[at].Left, Nodes_[at].Right}; },
+        [&](uint32_t at) { emit(Nodes_[at]); });
   }
 
   template <class Accept, class Emit> void Select(Accept &&accept, Emit &&emit) const {
@@ -77,22 +75,22 @@ public:
       if (!std::isfinite(value)) { return false; }
     }
     if (Nodes_.empty()) { return true; }
-    std::array<uint32_t, 32> pending{};
-    size_t count = 1;
-    while (count != 0) {
-      const Node &node = Nodes_[pending[--count]];
-      if (node.Count == 1 || accept(node)) {
-        emit(node);
-        continue;
-      }
-      auto near = node.Left;
-      auto far = node.Right;
-      if (DistanceSquared(Nodes_[far].Bounds, eye) < DistanceSquared(Nodes_[near].Bounds, eye)) {
-        std::swap(near, far);
-      }
-      pending[count++] = far;
-      pending[count++] = near;
-    }
+    VisitTileCut(
+        uint32_t{0},
+        [&](uint32_t at) {
+          const auto &node = Nodes_[at];
+          return node.Count == 1 || accept(node) ? TileCutAction::Keep : TileCutAction::Refine;
+        },
+        [&](uint32_t at) {
+          auto near = Nodes_[at].Left;
+          auto far = Nodes_[at].Right;
+          if (DistanceSquared(Nodes_[far].Bounds, eye) <
+              DistanceSquared(Nodes_[near].Bounds, eye)) {
+            std::swap(near, far);
+          }
+          return std::array{near, far};
+        },
+        [&](uint32_t at) { emit(Nodes_[at]); });
     return true;
   }
 
