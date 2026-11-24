@@ -30,7 +30,7 @@ void main() {
   const uint work = clusterState.counts.y == 0u ? clusterState.counts.x : view.jobs;
   if (group >= work) { return; }
   const uvec2 selected = geometryCluster(group);
-  if (visible[selected.x] == 0u) { return; }
+  if (visible[selected.x] != kGeometryPartial) { return; }
   const GeometryRoot root = roots[selected.x];
   if (slot[hierarchy.work.z + root.cluster.w] == 0u) { return; }
   const uint at = slot[root.cluster.z + selected.y];
@@ -38,6 +38,7 @@ void main() {
   const uvec4 item = templates[root.cluster.x + selected.y];
   const uint base = args[5u * root.cluster.w + 2u] + at;
   for (uint one = gl_LocalInvocationID.x; one < item.z; one += 64u) {
-    drawIndex[base + one] = source[root.instance.y + item.y + one];
+    const uint from = root.instance.y + item.y + one;
+    drawIndex[base + one] = hierarchy.work.w != 0u ? drawIndex[from] : source[from];
   }
 }

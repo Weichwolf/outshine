@@ -331,12 +331,12 @@ Native::Result<void> GeometryResidency::Resize(Stream which, Need need, bool wri
     const auto flushed = SubmitPendingUploads();
     if (!flushed) { return UploadFailed(flushed.error()); }
   }
-  const uint32_t widened =
-      stood >= need.Bytes
-          ? stood
-          : static_cast<uint32_t>(std::max(
-                uint64_t{need.Bytes},
-                std::min(uint64_t{stood} * 2u, uint64_t{std::numeric_limits<uint32_t>::max()})));
+  uint32_t widened = std::max(stood, need.Bytes);
+  if (stood < need.Bytes && need.Growth == CapacityGrowth::Amortized) {
+    const auto doubled =
+        std::min(uint64_t{stood} * 2u, uint64_t{std::numeric_limits<uint32_t>::max()});
+    widened = std::max(widened, static_cast<uint32_t>(doubled));
+  }
   ++BufferAttempts_;
   auto fresh = Device_->CreateBuffer(
       {.Bytes = widened,

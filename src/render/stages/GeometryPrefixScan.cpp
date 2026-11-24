@@ -19,12 +19,13 @@ constexpr uint32_t kBlock = 256;
 struct alignas(16) ScanView {
   uint32_t Count = 0;
   uint32_t GridWidth = 0;
-  std::array<uint32_t, 2> Reserved{};
+  uint32_t SharedIndexBatches = 0;
+  uint32_t Reserved = 0;
 };
 
 static_assert(sizeof(ScanView) == 16 && alignof(ScanView) == 16);
 static_assert(offsetof(ScanView, Count) == 0 && offsetof(ScanView, GridWidth) == 4);
-static_assert(offsetof(ScanView, Reserved) == 8);
+static_assert(offsetof(ScanView, SharedIndexBatches) == 8);
 
 uint32_t Blocks(uint32_t count) {
   return count / kBlock + uint32_t{count % kBlock != 0};
@@ -101,7 +102,7 @@ Native::Result<size_t> GeometryPrefixScan::Prepare(uint32_t count) {
 }
 
 Native::Result<void> GeometryPrefixScan::Encode(Native::Commands &commands, Source inputs) {
-  const auto &[addresses, kept, visible, slots, args, logicalCount] = inputs;
+  const auto &[addresses, kept, visible, slots, args, logicalCount, sharedIndexBatches] = inputs;
   if (logicalCount == 0) { return {}; }
   if (Device_ == nullptr || addresses == nullptr || kept == nullptr || visible == nullptr ||
       slots == nullptr || args == nullptr) {
@@ -137,9 +138,12 @@ Native::Result<void> GeometryPrefixScan::Encode(Native::Commands &commands, Sour
   }
   const auto &first = Levels_.front();
   const auto &parent = *depth > 1 ? Levels_[1].Prefix : first.Tail;
-  const ScanView view{.Count = logicalCount, .GridWidth = width};
+  const ScanView view{
+      .Count = logicalCount, .GridWidth = width, .SharedIndexBatches = sharedIndexBatches};
   const std::array bindings{Storage(0, 0, *first.Prefix),
                             Storage(0, 1, *parent),
+                            Storage(0, 2, *addresses),
+                            Storage(0, 3, *visible),
                             Storage(1, 0, *slots),
                             Storage(1, 1, *args),
                             Uniform(view)};

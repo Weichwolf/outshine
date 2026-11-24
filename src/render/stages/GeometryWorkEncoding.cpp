@@ -102,13 +102,16 @@ Native::Result<void> GeometryCullStage::EncodeScan(const PassRecording &into) {
                                          .Message = "geometry prefix scan is not configured"});
   }
   const auto &resident = *Source_.Resident;
-  return PrefixScan_.Encode(*into.Commands,
-                            {.Addresses = resident.Buffer(S::ClusterAddresses).get(),
-                             .Kept = resident.Buffer(S::ClusterKept).get(),
-                             .Visible = resident.Buffer(S::ClusterVisible).get(),
-                             .Slots = resident.Buffer(S::ClusterSlot).get(),
-                             .Arguments = resident.Buffer(S::DrawArguments).get(),
-                             .LogicalCount = Source_.Hierarchy->View.LogicalCount});
+  const auto &view = Source_.Hierarchy->View;
+  return PrefixScan_.Encode(
+      *into.Commands,
+      {.Addresses = resident.Buffer(S::ClusterAddresses).get(),
+       .Kept = resident.Buffer(S::ClusterKept).get(),
+       .Visible = resident.Buffer(S::ClusterVisible).get(),
+       .Slots = resident.Buffer(S::ClusterSlot).get(),
+       .Arguments = resident.Buffer(S::DrawArguments).get(),
+       .LogicalCount = view.LogicalCount,
+       .SharedIndexBatches = view.SharedIndex != 0u ? Source_.BatchRows : 0u});
 }
 
 Native::Result<void> GeometryCullStage::EncodeCompact(const PassRecording &into) {
@@ -119,6 +122,8 @@ Native::Result<void> GeometryCullStage::EncodeCompact(const PassRecording &into)
         Native::Error{.Kind = Native::ErrorKind::Invalid,
                       .Message = "geometry selected compaction is not configured"});
   }
+  const auto &h = Source_.Hierarchy->View;
+  const auto source = h.SharedIndex != 0u ? S::ClusterRoots : S::Index;
   const auto buffers = Bindings(*Source_.Resident,
                                 std::array{S::ClusterRoots,
                                            S::ClusterTemplates,
@@ -126,12 +131,11 @@ Native::Result<void> GeometryCullStage::EncodeCompact(const PassRecording &into)
                                            S::ClusterSelectedState,
                                            S::ClusterSlot,
                                            S::DrawArguments,
-                                           S::Index,
+                                           source,
                                            S::ClusterVisible,
                                            S::DrawIndex},
                                 8);
   if (!buffers) { return std::unexpected(buffers.error()); }
-  const auto &h = Source_.Hierarchy->View;
   const std::array bindings{
       (*buffers)[0],
       (*buffers)[1],

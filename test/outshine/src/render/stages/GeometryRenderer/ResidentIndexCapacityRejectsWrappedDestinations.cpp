@@ -52,8 +52,10 @@ int main() {
   if (!error.empty()) { return Report(); }
   const auto &resident = draw.Resident();
   const auto before = resident.Buffer(GeometryResidency::Stream::DrawIndex)->Description().Bytes;
-  CHECK(before == uint64_t{indexCount} * sizeof(uint32_t),
-        "the positive control allocates the actual full index capacity");
+  const auto scratch = resident.DrawIndexRange();
+  const uint64_t words = scratch.Count == 0 ? indexCount : uint64_t{scratch.First} + scratch.Count;
+  CHECK((scratch.Count == 0 || scratch.Count == indexCount) && before >= words * sizeof(uint32_t),
+        "the positive control reserves the full index destination range");
   (void)draw.Residency().TakeBufferAllocationAttempts();
   (void)draw.Residency().TakeUploadAttempts();
   const std::vector<Mat4> rows(instances);

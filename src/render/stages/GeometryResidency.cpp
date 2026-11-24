@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <limits>
 #include <span>
 #include <utility>
 #include <vector>
@@ -43,8 +44,46 @@ bool GeometryResidency::ReusePieceStreamsFrom(const GeometryResidency &source) {
   FreeT_ = source.FreeT_;
   GiveVertices(source.MainVertexRange_);
   GiveIndices(source.MainIndexRange_);
+  GiveIndices(source.DrawIndexRange_);
   GiveColours(source.MainColourRange_);
   GiveTangents(source.MainTangentRange_);
+  return true;
+}
+
+Native::Result<bool> GeometryResidency::ReserveDrawIndices(uint32_t words) {
+  if (Device_ == nullptr) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "draw index storage requires a device"});
+  }
+  const auto limit = std::min<uint64_t>(Device_->Limits().MaxStorageBufferBytes,
+                                        std::numeric_limits<uint32_t>::max()) /
+                     sizeof(uint32_t);
+  const bool reuse = DrawIndexRange_.Count >= words;
+  const bool tail =
+      DrawIndexRange_.Count != 0 && DrawIndexRange_.First + DrawIndexRange_.Count == TopI_;
+  const bool hole =
+      std::ranges::any_of(FreeI_, [words](Range span) { return span.Count >= words; });
+  const auto sourceWords = tail ? DrawIndexRange_.First : TopI_;
+  const uint64_t count = reuse || hole ? TopI_ : uint64_t{sourceWords} + words;
+  if (words == 0 || count > limit) {
+    GiveIndices(std::exchange(DrawIndexRange_, {}));
+    return false;
+  }
+  const auto grown = Resize(Stream::Index,
+                            {.Usage = Native::BufferUse::Storage | Native::BufferUse::Index,
+                             .Bytes = static_cast<uint32_t>(count * sizeof(uint32_t)),
+                             .Deferred = true,
+                             .PreserveBytes = uint64_t{sourceWords} * sizeof(uint32_t),
+                             .Growth = CapacityGrowth::Exact},
+                            true);
+  if (!grown) { return std::unexpected(grown.error()); }
+  if (reuse) { return true; }
+  if (tail && !hole) {
+    TopI_ = static_cast<uint32_t>(count);
+    DrawIndexRange_.Count = words;
+  } else {
+    GiveIndices(std::exchange(DrawIndexRange_, TakeIndices(words)));
+  }
   return true;
 }
 

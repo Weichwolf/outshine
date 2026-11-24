@@ -124,7 +124,7 @@ inline constexpr std::array kComputeShaders = {
     ComputeShaderDescriptor{
         .Id = ComputeShaderId::GeometryPrefixFinish,
         .Path = "geometryPrefixFinish.comp.spv",
-        .Shape = {.ReadOnlyBuffers = 2, .ReadWriteBuffers = 2, .UniformBuffers = 1, .GroupX = 256}},
+        .Shape = {.ReadOnlyBuffers = 4, .ReadWriteBuffers = 2, .UniformBuffers = 1, .GroupX = 256}},
     ComputeShaderDescriptor{
         .Id = ComputeShaderId::RadianceFilter,
         .Path = "radianceFilter.comp.spv",
