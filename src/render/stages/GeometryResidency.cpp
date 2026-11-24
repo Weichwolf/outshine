@@ -44,7 +44,12 @@ bool GeometryResidency::ReusePieceStreamsFrom(const GeometryResidency &source) {
   FreeT_ = source.FreeT_;
   GiveVertices(source.MainVertexRange_);
   GiveIndices(source.MainIndexRange_);
-  GiveIndices(source.DrawIndexRange_);
+  if (source.DrawIndexRange_.Count != 0 &&
+      source.DrawIndexRange_.First + source.DrawIndexRange_.Count == TopI_) {
+    TopI_ = source.DrawIndexRange_.First;
+  } else {
+    GiveIndices(source.DrawIndexRange_);
+  }
   GiveColours(source.MainColourRange_);
   GiveTangents(source.MainTangentRange_);
   return true;
@@ -65,7 +70,8 @@ Native::Result<bool> GeometryResidency::ReserveDrawIndices(uint32_t words) {
       std::ranges::any_of(FreeI_, [words](Range span) { return span.Count >= words; });
   const auto sourceWords = tail ? DrawIndexRange_.First : TopI_;
   const uint64_t count = reuse || hole ? TopI_ : uint64_t{sourceWords} + words;
-  if (words == 0 || count > limit) {
+  const auto &source = Buffer(Stream::Index);
+  if (words == 0 || count > limit || (source && source.use_count() > 1)) {
     GiveIndices(std::exchange(DrawIndexRange_, {}));
     return false;
   }

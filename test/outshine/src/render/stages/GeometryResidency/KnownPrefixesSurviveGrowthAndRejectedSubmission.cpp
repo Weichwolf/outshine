@@ -51,6 +51,30 @@ void Append(GeometryResidency &resident, std::span<const uint32_t> words, uint32
   Require(resident.Cross(std::span(&crossing, 1), true));
 }
 
+void ReplaceLiveIndexSource(Refusing &device) {
+  using Stream = GeometryResidency::Stream;
+  constexpr uint32_t words = 3;
+  constexpr uint32_t bytes = words * sizeof(uint32_t);
+  GeometryResidency live;
+  Require(live.StandsOn(&device));
+  (void)live.TakeIndices(words);
+  Require(
+      live.Grow(Stream::Index, {.Usage = BufferUse::Index | BufferUse::Storage, .Bytes = bytes}));
+  CHECK(Require(live.ReserveDrawIndices(words)),
+        "the private live geometry can share draw storage");
+  Require(live.SubmitPendingUploads());
+  GeometryResidency candidate;
+  CHECK(candidate.ReusePieceStreamsFrom(live) && candidate.IndexRoom() == words,
+        "candidate inherits the source prefix without the live compacted tail");
+  const auto *index = live.Buffer(Stream::Index).get();
+  CHECK(!Require(candidate.ReserveDrawIndices(words * 2)) &&
+            candidate.Buffer(Stream::Index).get() == index &&
+            candidate.Allocations().DeviceCopyBytes == 0,
+        "candidate draw scratch never clones or writes the inherited index buffer");
+  CHECK(live.IndexRoom() == words * 2 && live.Buffer(Stream::DrawIndex).get() == index,
+        "the live renderer retains its original draw indices while the candidate is prepared");
+}
+
 void Exercise(Refusing &device) {
   GeometryResidency resident;
   Require(resident.StandsOn(&device));
@@ -115,5 +139,6 @@ int main() {
   auto actual = Require(CreateDevice({.Validation = true}));
   Refusing device(*actual);
   Exercise(device);
+  ReplaceLiveIndexSource(device);
   return outshine::Test::Report();
 }
