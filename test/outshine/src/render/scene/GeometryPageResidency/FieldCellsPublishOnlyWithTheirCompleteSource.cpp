@@ -613,6 +613,21 @@ void CheckOriginalProducts(SceneRenderer &renderer,
                              nullptr,
                              "original-right"),
         "legacy originals have stable native asset identities");
+  pages.DiscardStagedCells(kTile, kSource, uint64_t{2});
+  CHECK(pages.HasCell(kTile, 1, LevelOfDetail::Fine, kSource) &&
+            !pages.HasCell(kTile, 2, LevelOfDetail::Fine, kSource),
+        "fine demand for a second cell preserves the first staged cell");
+  CHECK(StageCellProduct(pages,
+                         frame,
+                         2,
+                         LevelOfDetail::Fine,
+                         material,
+                         GeometryPasses::MainAndShadow,
+                         error,
+                         nullptr,
+                         nullptr,
+                         "original-right"),
+        "the replaced second cell restores the complete cut");
   const std::array originalCells{GeometryPageResidency::CellSelection{.Cell = 1},
                                  GeometryPageResidency::CellSelection{.Cell = 2}};
   CHECK(pages.ActivateCells(kTile, kCells, originalCells, error), "the originals are visible");

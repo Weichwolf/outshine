@@ -16,6 +16,16 @@
 
 namespace outshine {
 namespace {
+Box CasterBounds(const TangentFrame &frame, const Box &world) {
+  Box scene;
+  if (world.Empty()) { return scene; }
+  for (unsigned corner = 0; corner < 8; ++corner) {
+    const auto local = frame.ToLocalPosition(world.Corner(corner));
+    scene.Cover(Vec3{{local.EastM, local.UpM, -local.NorthM}});
+  }
+  return scene;
+}
+
 bool OriginalSupportsView(const Render::GeometryPageResidency::DigestRecord &page,
                           uint64_t sourceKey,
                           const Generators::Osm::BuildingField &prints,
@@ -170,6 +180,9 @@ BuildingFieldStreaming::State::EvaluateCells(Context &context, Tile &tile) {
                         std::ranges::any_of(cell.Groups, [&](const Group &g) {
                           return !g.SceneBounds || Shadows->MayContain(*g.SceneBounds);
                         });
+    if (!cell.ShadowNeeded && Shadows->Regions != 0) {
+      cell.ShadowNeeded = Shadows->MayContain(CasterBounds(context.Frame, cell.Source.Bounds));
+    }
     if (cell.ShadowNeeded) { tile.ShadowCells |= uint64_t{1} << (cell.Source.Cell - 1u); }
     if (cell.Qualified) {
       candidates.push_back(&cell);

@@ -143,7 +143,7 @@ public:
 
   void Retire(uint32_t tile);
   void Retire(uint32_t tile, uint64_t sourceKey, LevelOfDetail detail);
-  void DiscardStagedCells(uint32_t tile);
+  void DiscardStagedCells(uint32_t tile, uint64_t sourceKey = 0, uint64_t replacedCells = 0);
   void RetireCell(uint32_t tile, uint32_t cell);
   [[nodiscard]] bool SelectDetail(uint32_t tile, LevelOfDetail detail, std::string &error);
   [[nodiscard]] bool

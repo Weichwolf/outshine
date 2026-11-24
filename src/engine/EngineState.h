@@ -626,6 +626,7 @@ struct Engine::State {
   [[nodiscard]] bool WorldPreparationPending() const;
   [[nodiscard]] bool StructureParentsReady(uint32_t tile) const;
   [[nodiscard]] bool StructureProductsReady(uint32_t tile) const;
+  [[nodiscard]] std::optional<uint64_t> StructureGeometryCells(uint32_t tile) const;
   [[nodiscard]] bool UpdateTriggers();
   [[nodiscard]] bool Updates(bool simulate);
   [[nodiscard]] bool Draws();

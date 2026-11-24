@@ -5,6 +5,7 @@
 #include "Tasks.h"
 #include <algorithm>
 #include <atomic>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -16,6 +17,22 @@
 #include <vector>
 
 namespace outshine {
+namespace {
+uint64_t SupportedCells(const Generators::PreparedBuildingAssets::SourceGroups &groups) {
+  uint64_t supported = 0;
+  for (const auto &cell : groups.Cells) {
+    if (cell.NativeBytes != 0) { supported |= uint64_t{1} << (cell.Cell - 1u); }
+  }
+  for (const auto &member : groups.Members) {
+    if (member.Availability ==
+        Generators::PreparedBuildingAssets::SourceMember::State::Unresolved) {
+      supported &= ~(uint64_t{1} << (member.Cell - 1u));
+    }
+  }
+  return supported;
+}
+}
+
 bool BuildingFieldStreaming::State::PrepareCellSources(
     Tile &tile, const Generators::PreparedBuildingAssets::SourceGroups &groups) {
   std::vector<std::vector<uint32_t>> members(tile.Source.CellSourceCounts.size());
@@ -24,17 +41,29 @@ bool BuildingFieldStreaming::State::PrepareCellSources(
     if (cell == 0 || cell > members.size()) { return false; }
     members[cell - 1u].push_back(static_cast<uint32_t>(at));
   }
-  tile.Cells.reserve(groups.Cells.size());
-  for (const auto &source : groups.Cells) {
-    if (source.Cell == 0 || source.Cell > members.size() ||
-        members[source.Cell - 1u].size() != tile.Source.CellSourceCounts[source.Cell - 1u]) {
+  tile.Cells.reserve(static_cast<size_t>(std::popcount(tile.Source.Cells)));
+  uint64_t remaining = tile.Source.Cells;
+  size_t described = 0;
+  while (remaining != 0) {
+    const uint32_t cell = static_cast<uint32_t>(std::countr_zero(remaining)) + 1u;
+    remaining &= remaining - 1u;
+    const auto &ordinals = members[cell - 1u];
+    if (ordinals.empty() || ordinals.size() != tile.Source.CellSourceCounts[cell - 1u]) {
       return false;
     }
-    auto coverage = SourceCoverage::FromSources(
-        tile.Source.BaseKey, groups.Members.size(), members[source.Cell - 1u]);
+    const auto source = std::ranges::find(
+        groups.Cells, cell, &Generators::PreparedBuildingAssets::SourceCell::Cell);
+    auto coverage =
+        SourceCoverage::FromSources(tile.Source.BaseKey, groups.Members.size(), ordinals);
     if (!coverage) { return false; }
-    tile.Cells.emplace_back(source, std::move(*coverage));
+    tile.Cells.emplace_back(
+        source != groups.Cells.end()
+            ? *source
+            : Generators::PreparedBuildingAssets::SourceCell{.Cell = cell, .Bounds = {}},
+        std::move(*coverage));
+    described += ordinals.size();
   }
+  if (described != groups.Members.size()) { return false; }
   std::vector<SourceCoverage::Range> ranges;
   for (const auto &cell : tile.Cells) {
     const auto source = cell.Coverage.Ranges();
@@ -53,13 +82,7 @@ bool BuildingFieldStreaming::State::PrepareCells(
     const SourceProductSelection &selection,
     const SourceProductSelection::Cut &cut) {
   if (!PrepareCellSources(tile, groups)) { return false; }
-  uint64_t unsupportedCells = 0;
-  for (const auto &member : groups.Members) {
-    if (member.Availability ==
-        Generators::PreparedBuildingAssets::SourceMember::State::Unresolved) {
-      unsupportedCells |= uint64_t{1} << (member.Cell - 1u);
-    }
-  }
+  const uint64_t supportedCells = SupportedCells(groups);
   for (const auto &product : cut.Products) {
     const auto members = selection.Members(cut, product);
     if (!members || members->empty()) { continue; }
@@ -82,7 +105,7 @@ bool BuildingFieldStreaming::State::PrepareCells(
     cell->Groups.push_back(std::move(group));
   }
   for (auto &cell : tile.Cells) {
-    if ((unsupportedCells & (uint64_t{1} << (cell.Source.Cell - 1u))) != 0) {
+    if ((supportedCells & (uint64_t{1} << (cell.Source.Cell - 1u))) == 0) {
       Reject(cell);
       continue;
     }

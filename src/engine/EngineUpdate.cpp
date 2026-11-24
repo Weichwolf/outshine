@@ -415,13 +415,10 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
       StructureBuildQueue::HeightRequirement::FineOnly,
       LevelOfDetail::Shell,
       StructureBuildQueue::BuildPurpose::StaticParents,
-      [this](uint32_t tile) { return StructureParentsReady(tile); },
-      [this](uint32_t tile) -> std::optional<uint64_t> {
-        const auto source =
-            StructureBuildQueue::QualifiedSourceKey(World.Surface().Footprints(), tile);
-        const auto *accepted = World.Surface().Footprints().InputOfTile(tile);
-        return source && accepted ? std::optional(accepted->OccupiedCells) : std::nullopt;
-      });
+      [this](uint32_t tile) {
+        return StructureParentsReady(tile) || StructureGeometryCells(tile) == 0;
+      },
+      [this](uint32_t tile) { return StructureGeometryCells(tile); });
   Cost.BakePosting.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - postingAt)
           .count());

@@ -594,9 +594,15 @@ bool GeometryPageResidency::CellsActive(uint32_t tile,
   return at == selected.size();
 }
 
-void GeometryPageResidency::DiscardStagedCells(uint32_t tile) {
-  std::erase_if(Pages_, [this, tile](const ResidentGeometryPage &held) {
+void GeometryPageResidency::DiscardStagedCells(uint32_t tile,
+                                               uint64_t sourceKey,
+                                               uint64_t replacedCells) {
+  std::erase_if(Pages_, [this, tile, sourceKey, replacedCells](const ResidentGeometryPage &held) {
     if (held.Tile != tile || held.Visible || held.Mode == Publication::Product) { return false; }
+    if (sourceKey != 0 && held.SourceKey == sourceKey &&
+        (held.OccupiedCells & replacedCells) == 0) {
+      return false;
+    }
     Releases(held);
     return true;
   });

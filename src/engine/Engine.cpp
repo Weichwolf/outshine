@@ -282,20 +282,31 @@ bool Engine::State::StructureProductsReady(uint32_t tile) const {
   const auto &footprints = World.Surface().Footprints();
   const auto *accepted = footprints.InputOfTile(tile);
   const auto sourceKey = StructureBuildQueue::QualifiedSourceKey(footprints, tile);
-  if (vectors == nullptr || accepted == nullptr || !sourceKey || !StructureParentsReady(tile)) {
-    return false;
-  }
+  if (vectors == nullptr || accepted == nullptr || !sourceKey) { return false; }
   if (accepted->OccupiedCells == 0) { return true; }
   if (World.BuildingFields &&
       World.BuildingFields->ProductsReady({.Tile = tile, .Key = *sourceKey})) {
     return true;
   }
-  return World.Pieces.HasIntrinsicTile(tile,
+  return StructureParentsReady(tile) &&
+         World.Pieces.HasIntrinsicTile(tile,
                                        {.Key = *sourceKey, .Occupied = accepted->OccupiedCells},
                                        Render::GeometryPasses::Main,
                                        false,
                                        CurrentGeographicEyeEcef(),
                                        footprints.Projection());
+}
+
+std::optional<uint64_t> Engine::State::StructureGeometryCells(uint32_t tile) const {
+  const auto &footprints = World.Surface().Footprints();
+  const auto source = StructureBuildQueue::QualifiedSourceKey(footprints, tile);
+  const auto *accepted = footprints.InputOfTile(tile);
+  if (!source || accepted == nullptr) { return std::nullopt; }
+  if (World.BuildingFields) {
+    const auto missing = World.BuildingFields->OriginalCells({.Tile = tile, .Key = *source});
+    if (missing) { return missing; }
+  }
+  return accepted->OccupiedCells;
 }
 
 bool Engine::State::StructuresReady(const ::outshine::Generators::Osm::BuildingField &footprints,

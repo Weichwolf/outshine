@@ -23,7 +23,13 @@ namespace outshine {
                          landing.SourceKey);
   }
   const uint32_t first = static_cast<uint32_t>(std::countr_zero(landing.InitialCells)) + 1u;
-  if (landing.Baked->RequestedCell == first) { pieces.DiscardStagedCells(landing.Tile); }
+  if (landing.Baked->RequestedCell == first) {
+    if (landing.Publish == StructureBuildQueue::Landing::Publication::Products) {
+      pieces.DiscardStagedCells(landing.Tile, landing.SourceKey, landing.InitialCells);
+    } else {
+      pieces.DiscardStagedCells(landing.Tile);
+    }
+  }
   if (!landing.Baked->RequestedCell ||
       !pieces.StageCell(landing.Tile,
                         *landing.Baked->RequestedCell,
