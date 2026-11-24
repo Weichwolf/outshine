@@ -33,10 +33,21 @@ double ResolvedRadius(const UrbanAreaStreaming::View &view) {
                       view.FocalPx);
 }
 
-bool IntersectsSweep(Vec3 offset, double reach, Vec3 ahead, double aheadSquared) {
-  const double nearest = std::clamp(Dot(offset, ahead) / aheadSquared, 0.0, 1.0);
-  const Vec3 remaining = offset - ahead * nearest;
-  return Dot(remaining, remaining) <= reach * reach;
+Vec3 OffsetFromSegment(Vec3 offset, Vec3 ahead, double along) {
+  return offset - ahead * std::clamp(along, 0.0, 1.0);
+}
+
+std::optional<double>
+SweepEntry(Vec3 offset, double radius, double groupRadius, Vec3 ahead, double aheadSquared) {
+  if (radius <= 0.0) { return std::nullopt; }
+  const double reach = radius + groupRadius;
+  const double along = aheadSquared > 0.0 ? Dot(offset, ahead) / aheadSquared : 0.0;
+  const Vec3 remaining = OffsetFromSegment(offset, ahead, along);
+  if (Dot(remaining, remaining) > reach * reach) { return std::nullopt; }
+  if (aheadSquared == 0.0) { return 0.0; }
+  const Vec3 perpendicular = offset - ahead * along;
+  const double inside = std::max(0.0, reach * reach - Dot(perpendicular, perpendicular));
+  return std::clamp(along - std::sqrt(inside / aheadSquared), 0.0, 1.0);
 }
 
 std::expected<std::vector<Data::TileId>, std::string>
@@ -83,16 +94,47 @@ Vec3 PathEye(const TangentFrame &frame, const Vec3 &position) {
       {.EastM = position[0], .NorthM = RenderFrame::NorthOfZ(position[2]), .UpM = position[1]});
 }
 
+LongitudeLatitude PathFocus(const Vec3 &eye) {
+  const auto point = Ground::EcefToGeoWgs84({.X = eye[0], .Y = eye[1], .Z = eye[2]});
+  return {.LongitudeDeg = point.LongitudeDeg, .LatitudeDeg = point.LatitudeDeg};
+}
+
+std::pair<Vec3, double> PathSweep(const UrbanAreaStreaming::View &view,
+                                  std::span<const Vec3> positions) {
+  const double initial = ResolvedRadius(view);
+  const double maximumSquared = initial * initial;
+  std::vector<Vec3> eyes;
+  eyes.reserve(positions.size());
+  for (const Vec3 &position : positions) {
+    const Vec3 eye = PathEye(view.Frame, position);
+    const Vec3 delta = eye - view.EyeEcef;
+    if (Dot(delta, delta) > maximumSquared) { break; }
+    eyes.push_back(eye);
+  }
+  if (eyes.empty()) { return {}; }
+  const Vec3 ahead = eyes.back() - view.EyeEcef;
+  const double aheadSquared = Dot(ahead, ahead);
+  double radius = initial;
+  auto along = view;
+  for (const Vec3 &eye : eyes) {
+    along.Focus = PathFocus(eye);
+    const Vec3 delta = eye - view.EyeEcef;
+    const double at = aheadSquared > 0.0 ? Dot(delta, ahead) / aheadSquared : 0.0;
+    radius = std::max(radius, ResolvedRadius(along) + Length(OffsetFromSegment(delta, ahead, at)));
+  }
+  return {ahead, radius};
+}
+
 std::expected<std::vector<Data::TileId>, std::string>
 SourceTilesAlongPath(const UrbanAreaStreaming::View &view, std::span<const Vec3> positions) {
   auto tiles = SourceTiles(view);
   if (!tiles) { return tiles; }
   for (const auto &position : positions) {
     const auto eye = PathEye(view.Frame, position);
-    const auto point = Ground::EcefToGeoWgs84({.X = eye[0], .Y = eye[1], .Z = eye[2]});
+    const auto point = PathFocus(eye);
     if (!std::isfinite(point.LatitudeDeg) || !std::isfinite(point.LongitudeDeg)) { break; }
     auto future = view;
-    future.Focus = {.LongitudeDeg = point.LongitudeDeg, .LatitudeDeg = point.LatitudeDeg};
+    future.Focus = point;
     const auto requested = SourceTiles(future);
     if (!requested) { break; }
     const size_t previous = tiles->size();
@@ -197,14 +239,15 @@ std::expected<bool, std::string> UrbanAreaStreaming::PollSource() {
 std::expected<std::vector<UrbanAreaStreaming::Candidate>, std::string>
 UrbanAreaStreaming::SelectGroups(const View &view,
                                  const TerrainResidency &terrain,
-                                 Vec3 ahead) const {
+                                 Vec3 ahead,
+                                 double previewRadius) const {
   const auto heights = terrain.SampleAslBoundsM();
   if (!heights) { return std::unexpected("urban demand requires published terrain bounds"); }
   const double radius = ResolvedRadius(view);
   const double aheadSquared = Dot(ahead, ahead);
-  const bool moving = aheadSquared > 0 && aheadSquared <= radius * radius;
+  const bool moving = previewRadius > 0.0;
   std::vector<Candidate> candidates;
-  std::optional<Candidate> upcoming;
+  std::vector<Candidate> upcoming;
   for (size_t source = 0; source < Areas_.size(); ++source) {
     const auto &input = Areas_[source];
     const auto &area = input.SourceDelivery.Product;
@@ -220,32 +263,32 @@ UrbanAreaStreaming::SelectGroups(const View &view,
       const Vec3 offset = bounds->CentreEcef - view.EyeEcef;
       const double distance = Length(offset) - bounds->RadiusM;
       if (input.Required && distance <= radius) {
-        candidates.push_back({.Source = source, .Group = group, .DistanceM = distance});
-      } else if (moving && (!upcoming || distance < upcoming->DistanceM) &&
-                 IntersectsSweep(offset, radius + bounds->RadiusM, ahead, aheadSquared)) {
-        upcoming =
-            Candidate{.Source = source, .Group = group, .DistanceM = distance, .Required = false};
+        candidates.push_back({.Source = source, .Group = group, .Priority = distance});
+        continue;
+      }
+      if (const auto entry =
+              SweepEntry(offset, previewRadius, bounds->RadiusM, ahead, aheadSquared)) {
+        upcoming.push_back(
+            {.Source = source, .Group = group, .Priority = *entry, .Required = false});
       }
     }
   }
-  return OrderGroupCandidates(std::move(candidates), upcoming);
-}
-
-std::expected<std::vector<UrbanAreaStreaming::Candidate>, std::string>
-UrbanAreaStreaming::OrderGroupCandidates(std::vector<Candidate> candidates,
-                                         std::optional<Candidate> upcoming) {
   if (candidates.size() > kGroupsMost) {
     return std::unexpected("resolved urban group demand " + std::to_string(candidates.size()) +
                            " exceeds residency budget " + std::to_string(kGroupsMost));
   }
-  std::ranges::sort(candidates, {}, &Candidate::DistanceM);
-  if (upcoming && candidates.size() < kGroupsMost) { candidates.push_back(*upcoming); }
+  std::ranges::sort(candidates, {}, &Candidate::Priority);
+  std::ranges::sort(upcoming, {}, &Candidate::Priority);
+  candidates.append_range(
+      std::span(upcoming).first(std::min(upcoming.size(), kGroupsMost - candidates.size())));
   return candidates;
 }
 
-std::expected<void, std::string>
-UrbanAreaStreaming::PlanGroups(const View &view, const TerrainResidency &terrain, Vec3 ahead) {
-  auto candidates = SelectGroups(view, terrain, ahead);
+std::expected<void, std::string> UrbanAreaStreaming::PlanGroups(const View &view,
+                                                                const TerrainResidency &terrain,
+                                                                Vec3 ahead,
+                                                                double previewRadius) {
+  auto candidates = SelectGroups(view, terrain, ahead, previewRadius);
   if (!candidates) { return std::unexpected(candidates.error()); }
 
   std::vector<Group> wanted;
@@ -258,6 +301,7 @@ UrbanAreaStreaming::PlanGroups(const View &view, const TerrainResidency &terrain
     });
     if (held != Groups_.end()) {
       held->Required = candidate.Required;
+      if (held->Required) { held->PlannedMotion = false; }
       if (!held->Required && held->Handle) {
         Renderer_->ReleasePrism(held->Handle);
         held->Handle = {};
@@ -285,7 +329,12 @@ UrbanAreaStreaming::PlanGroups(const View &view, const TerrainResidency &terrain
                       .Required = candidate.Required});
   }
   for (auto &group : Groups_) {
-    if (group.Slot) { Retire(group); }
+    if (!group.Slot) { continue; }
+    if (MotionSources_ && group.PlannedMotion && wanted.size() < kGroupsMost) {
+      wanted.push_back(std::move(group));
+    } else {
+      Retire(group);
+    }
   }
   Groups_ = std::move(wanted);
   Planned_ = true;
@@ -325,8 +374,7 @@ UrbanAreaStreaming::Advance(const View &view,
                             const TerrainResidency &terrain,
                             uint64_t terrainRevision,
                             std::span<const Ground::GeoBounds> children,
-                            uint64_t childrenRevision,
-                            std::optional<Vec3> knownDisplacement) {
+                            uint64_t childrenRevision) {
   if (!std::isfinite(view.FocalPx) || view.FocalPx <= 0 || !std::isfinite(view.RadiusM) ||
       view.RadiusM <= 0 || !std::isfinite(view.Focus.LatitudeDeg) ||
       std::abs(view.Focus.LatitudeDeg) > kMercatorLatMaxDeg ||
@@ -343,10 +391,13 @@ UrbanAreaStreaming::Advance(const View &view,
   auto acquired = PollSource();
   if (!acquired) { return std::unexpected(acquired.error()); }
   if (!terrain.HasPublishedSurface()) { return {}; }
-  if (!Planned_ || moved || changed || *acquired || knownDisplacement) {
-    const Vec3 ahead = knownDisplacement.value_or(
-        View_ ? (view.EyeEcef - View_->EyeEcef) * static_cast<double>(kLookaheadUpdates) : Vec3{});
-    if (auto planned = PlanGroups(view, terrain, ahead); !planned) { return planned; }
+  if (!Planned_ || moved || changed || *acquired) {
+    const Vec3 ahead =
+        View_ ? (view.EyeEcef - View_->EyeEcef) * static_cast<double>(kLookaheadUpdates) : Vec3{};
+    const double radius = ResolvedRadius(view);
+    const double stepSquared = Dot(ahead, ahead);
+    const double preview = stepSquared > 0 && stepSquared <= radius * radius ? radius : 0.0;
+    if (auto planned = PlanGroups(view, terrain, ahead, preview); !planned) { return planned; }
     if (auto bound = BindRequests(terrain, changed); !bound) { return bound; }
     View_ = view;
     TerrainRevision_ = terrainRevision;
@@ -363,15 +414,14 @@ UrbanAreaStreaming::PrepareMotionSources(std::span<const Vec3> positions,
     std::erase_if(Areas_, [](const Source &area) { return !area.Required; });
     NextSource_ = 0;
   }
+  for (auto &group : Groups_) { group.PlannedMotion = false; }
   const auto tiles = SourceTilesAlongPath(view, positions);
   if (!tiles) { return std::unexpected(tiles.error()); }
-  const size_t previous = Areas_.size();
   for (const auto tile : *tiles) {
     if (!std::ranges::contains(Areas_, tile, &Source::Owner)) {
       Areas_.push_back(NewSource(tile, false));
     }
   }
-  if (Areas_.size() == previous) { return {}; }
   using State = Generators::Osm::PreparedUrbanAreas::State;
   while (std::ranges::any_of(
       Areas_, [](const Source &area) { return area.SourceDelivery.Status != State::Ready; })) {
@@ -396,15 +446,20 @@ UrbanAreaStreaming::PrepareMotion(std::span<const Vec3> positions,
   if (!View_ || positions.size() < 2 || std::chrono::steady_clock::now() >= deadline) { return {}; }
   const View view = *View_;
   if (auto ready = PrepareMotionSources(positions, view, deadline); !ready) { return ready; }
-  const Vec3 endpoint = positions[std::min(kLookaheadUpdates, positions.size() - 1)];
-  const Vec3 ahead = PathEye(view.Frame, endpoint) - view.EyeEcef;
-  if (auto begun = Advance(view, terrain, terrainRevision, children, childrenRevision, ahead);
-      !begun) {
-    return begun;
+  const auto [ahead, preview] = PathSweep(view, positions);
+  if (auto planned = PlanGroups(view, terrain, ahead, preview); !planned) { return planned; }
+  if (auto bound = BindRequests(terrain, TerrainRevision_ != terrainRevision); !bound) {
+    return bound;
   }
-  if (Groups_.empty() || Groups_.back().Required) { return {}; }
-  const Group &group = Groups_.back();
-  while (!group.Request.empty() && group.Slot->ReadyKey() != group.Request) {
+  TerrainRevision_ = terrainRevision;
+  for (auto &group : Groups_) { group.PlannedMotion = !group.Required; }
+  if (auto advanced = AdvanceGroups(view, terrain, children, childrenRevision); !advanced) {
+    return advanced;
+  }
+  const auto pending = [](const Group &group) {
+    return !group.Required && !group.Request.empty() && group.Slot->ReadyKey() != group.Request;
+  };
+  while (std::ranges::any_of(Groups_, pending)) {
     const double remaining =
         std::chrono::duration<double>(deadline - std::chrono::steady_clock::now()).count();
     if (remaining <= 0) { break; }

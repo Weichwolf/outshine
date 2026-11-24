@@ -51,8 +51,7 @@ public:
           const TerrainResidency &terrain,
           uint64_t terrainRevision,
           std::span<const Ground::GeoBounds> children,
-          uint64_t childrenRevision,
-          std::optional<Vec3> knownDisplacement = std::nullopt);
+          uint64_t childrenRevision);
   [[nodiscard]] std::expected<void, std::string>
   PrepareMotion(std::span<const Vec3> positions,
                 const TerrainResidency &terrain,
@@ -85,18 +84,17 @@ private:
     std::vector<PrismCellRect> Exclusions;
     uint64_t ChildrenRevision = 0;
     bool Required = true;
+    bool PlannedMotion = false;
   };
 
   struct Candidate {
     size_t Source = 0, Group = 0;
-    double DistanceM = 0;
+    double Priority = 0;
     bool Required = true;
   };
 
-  [[nodiscard]] std::expected<std::vector<Candidate>, std::string>
-  SelectGroups(const View &view, const TerrainResidency &terrain, Vec3 ahead) const;
-  [[nodiscard]] static std::expected<std::vector<Candidate>, std::string>
-  OrderGroupCandidates(std::vector<Candidate> candidates, std::optional<Candidate> upcoming);
+  [[nodiscard]] std::expected<std::vector<Candidate>, std::string> SelectGroups(
+      const View &view, const TerrainResidency &terrain, Vec3 ahead, double previewRadius) const;
   [[nodiscard]] std::expected<void, std::string> PlanSources(const View &view);
   [[nodiscard]] Source NewSource(Data::TileId tile, bool required) const;
   [[nodiscard]] std::expected<void, std::string>
@@ -120,7 +118,7 @@ private:
          const std::shared_ptr<const PrismGrid> &geometry,
          std::span<const Render::PrismInstance> instances);
   [[nodiscard]] std::expected<void, std::string>
-  PlanGroups(const View &view, const TerrainResidency &terrain, Vec3 ahead);
+  PlanGroups(const View &view, const TerrainResidency &terrain, Vec3 ahead, double previewRadius);
   [[nodiscard]] std::expected<bool, std::string>
   Publish(Group &group,
           const View &view,
