@@ -18,7 +18,6 @@ public:
     const Native::Buffer *Slots = nullptr;
     const Native::Buffer *Arguments = nullptr;
     uint32_t LogicalCount = 0;
-    uint32_t SharedIndexBatches = 0;
   };
 
   [[nodiscard]] Native::Result<void> Configure(Native::Device &device);

@@ -1,14 +1,10 @@
 #version 450
-#extension GL_GOOGLE_include_directive : require
-#include "geometrySelectionFlags.glsl"
 layout(local_size_x = 256) in;
 layout(std430, set = 0, binding = 0) readonly buffer Prefix { uvec2 prefix[]; };
 layout(std430, set = 0, binding = 1) readonly buffer Parents { uvec2 parents[]; };
-layout(std430, set = 0, binding = 2) readonly buffer Addresses { uvec4 addresses[]; };
-layout(std430, set = 0, binding = 3) readonly buffer Visible { uint visible[]; };
 layout(std430, set = 1, binding = 0) buffer Slots { uint slots[]; };
 layout(std430, set = 1, binding = 1) buffer Arguments { uint args[]; };
-layout(std140, set = 2, binding = 0) uniform View { uint count; uint gridWidth; uint batchCount; } view;
+layout(std140, set = 2, binding = 0) uniform View { uint count; uint gridWidth; } view;
 void main() {
   uint block = gl_WorkGroupID.y * view.gridWidth + gl_WorkGroupID.x;
   uint lane = gl_LocalInvocationID.x;
@@ -22,16 +18,7 @@ void main() {
   if (slots[at] != next) { atomicOr(slots[view.count + item.y], 1u); }
   slots[at] = next;
   if (at + 1u == view.count || prefix[at + 1u].y != item.y) {
-    const uint arg = 5u * item.y;
-    if (args[arg] != item.x) { atomicOr(slots[view.count + item.y], 1u); }
-    args[arg] = item.x;
-    if (view.batchCount != 0u) {
-      const uvec4 address = addresses[at];
-      const bool direct = visible[address.z] == kGeometryDirect;
-      const uint first = direct ? address.x + mine - item.x :
-                                 slots[view.count + view.batchCount + item.y];
-      if (args[arg + 2u] != first) { atomicOr(slots[view.count + item.y], 1u); }
-      args[arg + 2u] = first;
-    }
+    if (args[5u * item.y] != item.x) { atomicOr(slots[view.count + item.y], 1u); }
+    args[5u * item.y] = item.x;
   }
 }

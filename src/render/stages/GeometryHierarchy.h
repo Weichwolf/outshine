@@ -13,7 +13,6 @@ inline constexpr uint32_t kGeometryChunkClusters = 64;
 inline constexpr uint32_t kGeometryRootBound = 1;
 inline constexpr uint32_t kGeometryUnboundedDeformation = 2;
 inline constexpr uint32_t kGeometryShadowOnly = 4;
-inline constexpr uint32_t kGeometryWholeRange = 8;
 
 struct alignas(16) GeometryRoot {
   std::array<float, 4> LocalSphere{};
@@ -65,7 +64,7 @@ struct alignas(16) GeometryHierarchyView {
   uint32_t GridWidth = 0;
   // Slot buffer: LogicalCount offsets, then one cache-state word per batch.
   uint32_t LogicalCount = 0;
-  uint32_t SharedIndex = 0;
+  uint32_t Reserved = 0;
 };
 
 static_assert(std::is_trivially_copyable_v<GeometryRoot>);
@@ -99,7 +98,7 @@ static_assert(offsetof(GeometryHierarchyView, ClusterCapacity) == 12);
 static_assert(offsetof(GeometryHierarchyView, WorstChunks) == 16);
 static_assert(offsetof(GeometryHierarchyView, GridWidth) == 16 + sizeof(uint32_t));
 static_assert(offsetof(GeometryHierarchyView, LogicalCount) == 16 + 2 * sizeof(uint32_t) &&
-              offsetof(GeometryHierarchyView, SharedIndex) == 16 + 3 * sizeof(uint32_t));
+              offsetof(GeometryHierarchyView, Reserved) == 16 + 3 * sizeof(uint32_t));
 
 }
 #endif

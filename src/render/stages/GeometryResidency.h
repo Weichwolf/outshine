@@ -85,7 +85,6 @@ struct GeometryResidency {
   };
 
   enum class ExistingContents { Preserve, Discard };
-  enum class CapacityGrowth { Amortized, Exact };
 
   struct Need {
     Native::UseMask<Native::BufferUse> Usage;
@@ -94,7 +93,6 @@ struct GeometryResidency {
     bool Deferred = false;
     // Without a known live prefix, preserve the complete existing allocation.
     std::optional<uint64_t> PreserveBytes = std::nullopt;
-    CapacityGrowth Growth = CapacityGrowth::Amortized;
   };
 
   struct Crossing {
@@ -161,10 +159,6 @@ struct GeometryResidency {
 
   [[nodiscard]] const Range &MainIndexRange() const { return MainIndexRange_; }
 
-  [[nodiscard]] const Range &DrawIndexRange() const noexcept { return DrawIndexRange_; }
-
-  [[nodiscard]] Native::Result<bool> ReserveDrawIndices(uint32_t words);
-
   [[nodiscard]] const Range &MainColourRange() const { return MainColourRange_; }
 
   [[nodiscard]] const Range &MainTangentRange() const noexcept { return MainTangentRange_; }
@@ -187,7 +181,6 @@ struct GeometryResidency {
   [[nodiscard]] Native::Device *Device() const { return Device_; }
 
   [[nodiscard]] const std::shared_ptr<Native::Buffer> &Buffer(Stream which) const {
-    if (which == Stream::DrawIndex && DrawIndexRange_.Count != 0) { which = Stream::Index; }
     return Buffers_[static_cast<size_t>(which)];
   }
 
@@ -318,7 +311,6 @@ private:
   uint32_t TopT_ = 0;
   Range MainVertexRange_;
   Range MainIndexRange_;
-  Range DrawIndexRange_;
   Range MainColourRange_;
   Range MainTangentRange_;
 

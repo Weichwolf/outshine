@@ -58,23 +58,6 @@ std::optional<BatchSphere> TemplateSphere(std::span<const GeometryClusterTemplat
   }
   return PackSphere(centre, radius);
 }
-
-bool WholeIndexRange(std::span<const GeometryClusterTemplate> templates,
-                     std::span<const float> spheres,
-                     uint32_t capacity) {
-  if (templates.empty()) { return false; }
-  const uint32_t first = templates.front().RelativeFirstIndex;
-  uint32_t next = first;
-  for (const auto &cluster : templates) {
-    const size_t errors = size_t{cluster.SphereIndex} * kSphereFloats + 8;
-    if (cluster.RelativeFirstIndex != next || spheres[errors] != 0.0f ||
-        spheres[errors + 1] != kDagRootErr) {
-      return false;
-    }
-    next += cluster.IndexCount;
-  }
-  return next - first == capacity;
-}
 }
 
 bool GeometryRenderer::AppendRoot(GeometryRoot root, std::string &error) {
@@ -209,30 +192,13 @@ bool GeometryRenderer::UploadTables(std::string &error) {
     return false;
   }
   Hierarchy_ = std::move(*admitted);
-  const auto sharedIndex = Bound().ReserveDrawIndices(Hierarchy_.IndexWords);
-  if (!Accepted(sharedIndex.transform([](bool) {}), error)) { return false; }
-  Hierarchy_.View.SharedIndex = *sharedIndex ? 1u : 0u;
   Args_.assign(Batches.size() * kArgWords, 0u);
-  std::vector<uint32_t> slots(Jobs_, std::numeric_limits<uint32_t>::max());
-  slots.resize(slots.size() + Batches.size(), kGeometryIndexCold);
-  uint32_t base = Bound().DrawIndexRange().First;
+  uint32_t base = 0;
   for (size_t at = 0; at < Batches.size(); ++at) {
-    auto &root = TableRoots_[at];
-    if (*sharedIndex) {
-      slots.push_back(base);
-      if ((root.Flags & (kGeometryRootBound | kGeometryUnboundedDeformation)) ==
-              kGeometryRootBound &&
-          WholeIndexRange(
-              std::span(TableTemplates_).subspan(root.TemplateFirst, root.TemplateCount),
-              TableSpheres_,
-              root.IndexCapacity)) {
-        root.Flags |= kGeometryWholeRange;
-      }
-    }
     Args_[at * kArgWords + 1] = Batches[at].Instances;
     Args_[at * kArgWords + 2] = base;
     Args_[at * kArgWords + 4] = Batches[at].ModelSlot;
-    base += root.IndexCapacity;
+    base += TableRoots_[at].IndexCapacity;
   }
   using S = GeometryResidency::Stream;
   const auto read = Native::BufferUse::Storage;
@@ -244,6 +210,8 @@ bool GeometryRenderer::UploadTables(std::string &error) {
   };
   const std::array<GeometryQueueState, 1> reset{};
   const auto addresses = BuildClusterAddresses(TableRoots_, TableTemplates_);
+  std::vector<uint32_t> slots(Jobs_, std::numeric_limits<uint32_t>::max());
+  slots.resize(slots.size() + Batches.size(), kGeometryIndexCold);
   std::array cut{
       crossing(S::ClusterSpheres, std::span<const float>(TableSpheres_)),
       crossing(S::ClusterTemplates, std::span<const GeometryClusterTemplate>(TableTemplates_)),
@@ -271,9 +239,9 @@ bool GeometryRenderer::UploadTables(std::string &error) {
       !grow(S::ClusterSelected, view.ClusterCapacity * sizeof(std::array<uint32_t, 2>), read) ||
       !grow(S::ClusterChunkState, sizeof(GeometryQueueState), indirect) ||
       !grow(S::ClusterSelectedState, sizeof(GeometryQueueState), indirect) ||
-      (!*sharedIndex && !grow(S::DrawIndex,
-                              Hierarchy_.IndexWords * sizeof(uint32_t),
-                              read | Native::BufferUse::Index)) ||
+      !grow(S::DrawIndex,
+            Hierarchy_.IndexWords * sizeof(uint32_t),
+            read | Native::BufferUse::Index) ||
       !grow(S::DrawArguments, static_cast<uint32_t>(Args_.size() * sizeof(uint32_t)), indirect)) {
     return false;
   }

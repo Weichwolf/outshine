@@ -137,24 +137,6 @@ void Exercise() {
     coloured += first[at] > 0 || first[at + 1] > 0 || first[at + 2] > 0 ? 1u : 0u;
   }
   CHECK(coloured > 0, "visible geometry produces colour independently of background alpha");
-  eye.YfovRad = 1.3;
-  const auto wider = Lens::From(eye, 64, 64);
-  CHECK(wider, "the wider frustum fully contains the visible product");
-  if (!wider) { return; }
-  renderer.SetCamera(eye, *wider);
-  if (!Draw(renderer)) { return; }
-  KeptDraws whole;
-  CHECK(renderer.ReadGeometrySelection(whole, GeometryReadback::Indices) == ReadState::Ready &&
-            whole.DrawIndex == visible.DrawIndex && whole.ClusterWork.Visited == 0 &&
-            whole.ClusterWork.Requested == 0 && whole.Arguments[7] != visible.Arguments[7],
-        "the full product draws from its source range without leaf selection or copying");
-  eye.YfovRad = 1;
-  renderer.SetCamera(eye, *lens);
-  if (!Draw(renderer)) { return; }
-  KeptDraws partial;
-  CHECK(renderer.ReadGeometrySelection(partial, GeometryReadback::Indices) == ReadState::Ready &&
-            partial.DrawIndex == visible.DrawIndex && partial.Arguments == visible.Arguments,
-        "returning to a partial view restores its compact range and the same triangles");
   rows[1][12] = 100;
   CHECK(renderer.SetPieceInstances(id, rows, error), "instance movement updates the resident view");
   if (!Draw(renderer)) { return; }

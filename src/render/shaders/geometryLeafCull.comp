@@ -37,17 +37,11 @@ void main() {
   if (group >= work) { return; }
   const uvec2 chunk = geometryChunk(group);
   const GeometryRoot root = roots[chunk.x];
-  const uint selection = fallback ? geometryRootSelection(root) :
-                         ((chunk.y & kGeometryDirectChunk) != 0u ? kGeometryDirect : kGeometryPartial);
-  if (selection == kGeometryRejected) { return; }
-  const uint ordinal = (chunk.y & ~kGeometryDirectChunk) + gl_LocalInvocationID.x;
+  if (fallback && !geometryRootVisible(root)) { return; }
+  const uint ordinal = chunk.y + gl_LocalInvocationID.x;
   if (ordinal >= root.cluster.y) { return; }
-  const uvec4 item = templates[root.cluster.x + ordinal];
-  if (selection == kGeometryDirect) {
-    kept[root.cluster.z + ordinal] = item.z;
-    return;
-  }
   atomicAdd(clusterState.counts.z, 1u);
+  const uvec4 item = templates[root.cluster.x + ordinal];
   const uint count = (root.instance.w & kGeometryUnboundedDeformation) != 0u
                      ? item.z
                      : geometryClusterCount(placements[root.instance.x].current, item.x, item.z);

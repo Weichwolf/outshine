@@ -18,9 +18,9 @@ void main() {
   if (id >= hierarchy.counts.x) { return; }
   atomicAdd(chunkState.counts.z, 1u);
   const GeometryRoot root = roots[id];
-  const uint selection = geometryRootSelection(root);
-  visible[id] = selection;
-  if (selection == kGeometryRejected || root.cluster.y == 0u) { return; }
+  const bool keep = geometryRootVisible(root);
+  visible[id] = uint(keep);
+  if (!keep || root.cluster.y == 0u) { return; }
   atomicAdd(chunkState.counts.w, 1u);
   atomicAdd(chunkState.dispatch.w, root.cluster.y);
   const uint count = geometryCeil(root.cluster.y, kGeometryChunkClusters);
@@ -31,10 +31,9 @@ void main() {
   const uint work = overflow ? hierarchy.work.x : end;
   atomicMax(chunkState.dispatch.x, min(work, hierarchy.work.y));
   atomicMax(chunkState.dispatch.y, geometryCeil(work, hierarchy.work.y));
-  const uint direct = selection == kGeometryDirect ? kGeometryDirectChunk : 0u;
   for (uint at = 0u; at < count; ++at) {
     if (first < hierarchy.counts.z && at < hierarchy.counts.z - first) {
-      chunks[first + at] = uvec2(id, (at * kGeometryChunkClusters) | direct);
+      chunks[first + at] = uvec2(id, at * kGeometryChunkClusters);
     }
   }
 }
