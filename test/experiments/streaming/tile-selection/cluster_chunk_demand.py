@@ -107,8 +107,19 @@ def count_work(snapshot, sizes):
     ordinal = np.arange(len(owners)) - roots[owners, 6]
     assert (ordinal >= 0).all() and (ordinal < counts[owners]).all()
     leaf_ids = roots[owners, 4] + ordinal
-    leaf_spheres = spheres[templates[leaf_ids, 0]]
+    leaf_templates = templates[leaf_ids]
+    leaf_spheres = spheres[leaf_templates[:, 0]]
     terminal = (leaf_spheres[:, 8] == 0) & (leaf_spheres[:, 9] == np.float32(3.0e38))
+    first_index, index_count = leaf_templates[:, 1:3].astype(np.int64).T
+    discontinuity = np.r_[
+        False,
+        (ordinal[1:] != 0) & (first_index[1:] != first_index[:-1] + index_count[:-1]),
+    ]
+    contiguous = np.bincount(owners, weights=discontinuity, minlength=len(roots)) == 0
+    index_words = np.bincount(owners, weights=index_count, minlength=len(roots)).astype(
+        np.int64
+    )
+    assert (index_words == roots[:, 10]).all()
     root_position, root_radius = affine_bounds(
         model, roots[:, :4].copy().view(np.float32)
     )
@@ -122,6 +133,8 @@ def count_work(snapshot, sizes):
     main = (roots[:, 11] & 4) == 0
     measurements = []
     complete_roots = []
+    direct_words = []
+    indirect_words = []
     final_root_mask = None
     for eye, normals, offset in view_planes(report, meta):
         shift = -eye
@@ -163,7 +176,10 @@ def count_work(snapshot, sizes):
         all_visible = np.bincount(
             owners, weights=terminal & leaf_visible, minlength=len(roots)
         )
-        complete_roots.append(int(counts[inside & (all_visible == counts)].sum()))
+        accepted = inside & (all_visible == counts)
+        complete_roots.append(int(counts[accepted].sum()))
+        direct_words.append(int(index_words[accepted & contiguous].sum()))
+        indirect_words.append(int(index_count[root_kept[owners] & leaf_visible].sum()))
         new = {}
         for size, (groups, members, lo, hi) in chunks.items():
             vertices = hi @ np.maximum(normals.T, 0) + lo @ np.minimum(normals.T, 0)
@@ -187,6 +203,8 @@ def count_work(snapshot, sizes):
         "frames": len(measurements),
         "root_cull_leaf_tests": sum(accepted for accepted, _ in measurements),
         "terminal_leaves_accepted_by_entire_root": sum(complete_roots),
+        "source_index_words_from_contiguous_accepted_roots": sum(direct_words),
+        "index_words_after_leaf_frustum": sum(indirect_words),
         "final_root_mask_mismatches": int(
             np.count_nonzero(final_root_mask != (read("visible", 1).ravel() != 0))
         ),
