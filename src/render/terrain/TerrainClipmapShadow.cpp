@@ -18,6 +18,17 @@ static_assert(offsetof(ClipmapShadowView, View) == 0 &&
               offsetof(ClipmapShadowView, Light) == 2 * sizeof(Mat4f) &&
               offsetof(ClipmapShadowView, Shift) == 3 * sizeof(Mat4f) &&
               offsetof(ClipmapShadowView, PreviousShift) == 3 * sizeof(Mat4f) + sizeof(Vec4f));
+
+Mat4f RebaseProjection(Mat4f projection, const Vec3 &offset) {
+  for (size_t row = 0; row < 4; ++row) {
+    double translated = projection.At(row, 3);
+    for (size_t axis = 0; axis < 3; ++axis) {
+      translated += projection.At(row, axis) * offset[axis];
+    }
+    projection.At(row, 3) = static_cast<float>(translated);
+  }
+  return projection;
+}
 }
 
 Native::Result<void> TerrainRenderer::PrepareClipmaps(const FrameContext &ctx,
@@ -52,25 +63,21 @@ Native::Result<void> TerrainRenderer::PrepareClipmaps(const FrameContext &ctx,
 }
 
 Native::Result<void> TerrainRenderer::CastClipmaps(const PassRecording &into,
-                                                   const Mat4f &clipFromWorld,
+                                                   ShadowProjections projections,
                                                    const Vec4f &shift) const {
-  ClipmapShadowView view;
   const Vec3 &mainShift = Clipmaps_->Shift();
-  for (size_t row = 0; row < 4; ++row) {
-    for (size_t col = 0; col < 3; ++col) { view.View.At(row, col) = clipFromWorld.At(row, col); }
-    double translated = clipFromWorld.At(row, 3);
-    for (size_t axis = 0; axis < 3; ++axis) {
-      translated += clipFromWorld.At(row, axis) * (shift[axis] - mainShift[axis]);
-    }
-    view.View.At(row, 3) = static_cast<float>(translated);
-  }
+  Vec3 offset;
+  ClipmapShadowView view{};
   for (size_t axis = 0; axis < 3; ++axis) {
+    offset[axis] = shift[axis] - mainShift[axis];
     view.Shift[axis] = static_cast<float>(mainShift[axis]);
   }
+  view.View = RebaseProjection(projections.Raster, offset);
   const std::array bindings{Native::Binding{
       .Set = 1, .Slot = 0, .Value = Native::Uniform{.Bytes = std::as_bytes(std::span(&view, 1))}}};
   ClipmapDrawList selection;
-  const auto selected = Pipelines_->Clipmaps().Select(Clipmaps_->Fields(), view.View, selection);
+  const auto selected = Pipelines_->Clipmaps().Select(
+      Clipmaps_->Fields(), RebaseProjection(projections.Patch, offset), selection);
   if (!selected) { return selected; }
   return Pipelines_->Clipmaps().Encode(
       into, Clipmaps_->Fields(), bindings, ClipmapPass::Depth, &selection);

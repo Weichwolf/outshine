@@ -104,7 +104,9 @@ Native::Result<void> TerrainRenderer::Cast(const PassRecording &into,
                                            std::span<const Native::Binding> bindings,
                                            const Mat4f &clipFromWorld) const {
   if (!DrawEnabled_) { return {}; }
-  if (Path_ == Path::Clipmap) { return CastClipmaps(into, clipFromWorld, shift); }
+  if (Path_ == Path::Clipmap) {
+    return CastClipmaps(into, {.Raster = clipFromWorld, .Patch = projection}, shift);
+  }
   const SidePlanes planes = SidePlanesOf(projection);
   const auto total = static_cast<uint32_t>(Resident_->Held_.size());
   uint32_t at = 0;
