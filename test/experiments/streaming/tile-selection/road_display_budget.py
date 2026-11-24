@@ -105,7 +105,7 @@ def manifests(database, location):
             yield key, content
 
 
-def measure(baseline, route, location, axes):
+def measure(baseline, route, location, axes, flight_cut=None):
     motion = route["motion"]
     start = np.asarray(motion["start"]["position_m"])
     finish = np.asarray(motion["finish"]["position_m"])
@@ -142,6 +142,11 @@ def measure(baseline, route, location, axes):
         assert np.all(layout > 0) and np.all(
             displacement * error / layout <= 1.0000000001
         )
+    if flight_cut is not None:
+        with flight_cut.open("w") as output:
+            for (key, *_), rank in zip(baseline, selected, strict=True):
+                if rank:
+                    print(key.decode("ascii"), errors[rank - 1], file=output)
     return {
         "pages_by_error_m": {
             str(level): int((selected == i).sum())
@@ -164,7 +169,15 @@ def main():
     parser.add_argument("scenario", type=Path)
     parser.add_argument("still", type=Path)
     parser.add_argument("flight", type=Path)
+    parser.add_argument("--manifest", help="select a particular matching manifest")
+    parser.add_argument(
+        "--flight-cut",
+        type=Path,
+        help="write selected keys and errors for the native probe",
+    )
     args = parser.parse_args()
+    if args.flight_cut and not args.manifest:
+        parser.error("--flight-cut requires --manifest")
     db, scenario, still, flight = args.database, args.scenario, args.still, args.flight
     world = ET.parse(scenario).getroot().find("world")
     anchor = tuple(float(world.attrib[n]) for n in ("lat", "lon"))
@@ -183,7 +196,8 @@ def main():
     matches = [
         (key, pages)
         for key, content in manifests(db, location)
-        if (pages := read_manifest(content, anchor, count)) is not None
+        if (not args.manifest or key == args.manifest)
+        and (pages := read_manifest(content, anchor, count)) is not None
         and sum(row[2] for row in pages) == native_bytes
     ]
     assert matches, "no compatible road manifest at recorded world anchor"
@@ -199,7 +213,9 @@ def main():
                     "manifest": key,
                     "pages": count,
                     "stationary": measure(baseline, still, location, axes),
-                    "flight": measure(baseline, flight, location, axes),
+                    "flight": measure(
+                        baseline, flight, location, axes, args.flight_cut
+                    ),
                 }
             )
         )
