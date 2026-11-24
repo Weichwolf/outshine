@@ -53,6 +53,11 @@ bool readPrismSurface() {
   normal = transformedSurfaceNormal(mat3(gridPatch.current), localNormal);
   vec3 u, v, localDx, localDy;
   if (gridPatch.samples.w == 0u) {
+    if (localNormal.y > 0.0 && gridPatch.topCoating != 0u) {
+      vec4 tint = unpackUnorm4x8(gridPatch.topCoating);
+      colour.rgb = tint.rgb;
+      prismRoughnessOverride = tint.a;
+    }
     prismSurfaceAxes(localNormal, u, v);
     prismPositionDifferentials(readPrismDifferentials(), localNormal, height, ndc,
                                prismViewport.area.zw, localDx, localDy);

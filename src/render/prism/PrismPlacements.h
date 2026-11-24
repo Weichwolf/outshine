@@ -17,6 +17,7 @@ enum class PrismInstanceError : uint8_t {
   NonfinitePlacement,
   NonAffinePlacement,
   SingularPlacement,
+  InvalidCoating,
   InstanceCount,
   InvalidConvexPrism
 };

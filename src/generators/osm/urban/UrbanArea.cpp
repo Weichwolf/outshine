@@ -22,7 +22,7 @@ constexpr unsigned kShiftFirst = 30, kShiftSecond = 27, kShiftFinal = 31;
 constexpr uint64_t kPercentageScale = 100;
 constexpr uint64_t kVacancyPercent = 15;
 constexpr unsigned kUnitIntervalShift = 11;
-constexpr std::array kHeightQuantiles{.62, .90, .98};
+constexpr std::array kHeightQuantiles{.62, UrbanAreaRecipe::LowRiseFraction, .98};
 
 uint64_t CellHash(std::array<int64_t, 2> cell, NoiseStream stream) {
   uint64_t bits = static_cast<uint64_t>(cell[0]) * kEastMultiplier;

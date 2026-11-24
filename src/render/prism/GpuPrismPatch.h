@@ -16,7 +16,8 @@ struct alignas(16) GpuPrismPatch {
   Mat4f Previous;
   std::array<uint32_t, 4> Samples{};
   std::array<float, 4> Shape{};
-  std::array<float, 4> Bounds{};
+  std::array<float, 3> Bounds{};
+  uint32_t TopCoating = 0;
 
   [[nodiscard]] bool operator==(const GpuPrismPatch &) const = default;
 
@@ -35,6 +36,8 @@ static_assert(offsetof(GpuPrismPatch, Previous) == 64);
 static_assert(offsetof(GpuPrismPatch, Samples) == 128);
 static_assert(offsetof(GpuPrismPatch, Shape) == 128 + 16);
 static_assert(offsetof(GpuPrismPatch, Bounds) == 128 + 2 * 16);
+static_assert(offsetof(GpuPrismPatch, TopCoating) ==
+              offsetof(GpuPrismPatch, Bounds) + sizeof(GpuPrismPatch::Bounds));
 
 struct alignas(16) PrismDepthView {
   Mat4f ClipFromWorld;

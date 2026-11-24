@@ -8,6 +8,12 @@
 #include "facadeProfiles.glsl"
 #include "facadeMasonry.glsl"
 
+#define ROOF_FINISH(Name, Red, Green, Blue, Roughness) const vec4 Name = vec4(Red, Green, Blue, Roughness);
+#define ROOF_VARIANTS(A, B, C, D, E, F, G, H)
+#include "RoofFinishes.inc"
+#undef ROOF_VARIANTS
+#undef ROOF_FINISH
+
 void applyFacadeGlass(float coverage, inout vec3 albedo, inout float roughness) {
   FacadeGlazing glass = facadeGlazing(coverage, albedo, roughness);
   albedo = glass.albedo;
@@ -63,23 +69,17 @@ void applyFacade(int code, vec2 coordinates, vec3 paint, vec3 localM, vec3 metri
     if (trim < 0.5) { albedo *= paint; return; }
     if (trim > 0.5 && trim < 2.5) {
       if (trim > 1.5) {
-        albedo *= vec3(0.50, 1.05, 1.45);
-        roughness = max(roughness, 0.90);
+        albedo *= kFlatRoofFinish.rgb;
+        roughness = max(roughness, kFlatRoofFinish.a);
       } else {
         float variant = mod(ident, 8.0);
-        vec3 tint = vec3(1.0);
-        if (variant < 2.0) {
-          tint = vec3(0.20, 0.43, 0.71);
-          roughness = max(roughness, 0.78);
-        } else if (variant < 4.0) {
-          tint = vec3(0.60, 0.65, 0.75);
-          roughness = max(roughness, 0.84);
-        } else if (variant > 5.5 && variant < 6.5) {
-          tint = vec3(0.85, 1.10, 1.10);
-        } else if (variant > 6.5) {
-          tint = vec3(0.65, 0.90, 1.12);
-        }
-        albedo *= tint;
+        vec4 finish = kTileRoofFinish;
+        if (variant < 2.0) { finish = kSlateRoofFinish; }
+        else if (variant < 4.0) { finish = kGreyRoofFinish; }
+        else if (variant > 5.5 && variant < 6.5) { finish = kLightTileRoofFinish; }
+        else if (variant > 6.5) { finish = kCoolTileRoofFinish; }
+        albedo *= finish.rgb;
+        roughness = max(roughness, finish.a);
         applyRoofCourses(coordinates, localM, n, albedo, roughness, derivativeX, derivativeY, heightChange);
       }
       return;

@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <expected>
 #include <limits>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -24,6 +25,20 @@ std::expected<void, PrismInstanceError> CheckPlacement(const Mat4f &matrix) noex
     return std::unexpected(PrismInstanceError::SingularPlacement);
   }
   return {};
+}
+
+std::expected<uint32_t, PrismInstanceError> PackCoating(const std::optional<Vec4f> &coating) {
+  if (!coating) { return 0u; }
+  if (!std::ranges::all_of(*coating, [](float value) { return value >= 0.0f && value <= 1.0f; })) {
+    return std::unexpected(PrismInstanceError::InvalidCoating);
+  }
+  constexpr auto bitsPerChannel = static_cast<unsigned>(std::numeric_limits<uint8_t>::digits);
+  constexpr auto maxChannel = static_cast<float>(std::numeric_limits<uint8_t>::max());
+  const auto byte = [&](size_t channel) {
+    return static_cast<uint32_t>(std::lround((*coating)[channel] * maxChannel));
+  };
+  return byte(0) | (byte(1) << bitsPerChannel) | (byte(2) << (2u * bitsPerChannel)) |
+         (std::max(1u, byte(3)) << (3u * bitsPerChannel));
 }
 }
 
@@ -54,12 +69,15 @@ std::expected<std::vector<GpuPrismPatch>, PrismInstanceError> PackPrismPlacement
       return std::unexpected(PrismInstanceError::SampleRange);
     }
     if (bounds.Occupied == 0) { continue; }
+    const auto coat = PackCoating(instance.TopCoating);
+    if (!coat) { return std::unexpected(coat.error()); }
     records.push_back(
         {.Current = instance.Current,
          .Previous = instance.Previous,
          .Samples = {static_cast<uint32_t>(patch.FirstSample), patch.Columns, patch.Rows, 0},
          .Shape = {patch.PitchX, patch.PitchZ, patch.FillFraction, bounds.Lower},
-         .Bounds = {bounds.Upper, bounds.Width, bounds.Depth, 0}});
+         .Bounds = {bounds.Upper, bounds.Width, bounds.Depth},
+         .TopCoating = *coat});
   }
   return records;
 }
@@ -91,7 +109,7 @@ PackConvexPrisms(std::span<const ConvexPrism> shapes) {
          .Previous = shape.SceneFromLocal,
          .Samples = {static_cast<uint32_t>(upload.Samples.size()), shape.SecondaryFaces, 0, 1},
          .Shape = {low[0], low[1], low[2], 0},
-         .Bounds = {high[1], high[0], high[2], 0}});
+         .Bounds = {high[1], high[0], high[2]}});
     for (const auto &plane : shape.Planes) {
       if (!std::ranges::all_of(plane, finite) ||
           (plane[0] == 0 && plane[1] == 0 && plane[2] == 0 && plane[3] < 0)) {

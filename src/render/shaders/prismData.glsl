@@ -5,7 +5,8 @@ struct PrismPatch {
   mat4 previous;
   uvec4 samples;
   vec4 shape;
-  vec4 bounds;
+  vec3 bounds;
+  uint topCoating;
 };
 #if PRISM_VERTEX
 layout(std430, set = 0, binding = 0) readonly buffer PrismPatches {

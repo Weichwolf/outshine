@@ -121,14 +121,18 @@ UrbanAreaStreaming::Publish(Group &group,
   } else {
     std::vector<Render::PrismInstance> instances;
     instances.reserve(views->Placements.size());
+    const auto roof = Generators::BuildingRoofCoating(
+        static_cast<float>(Generators::Osm::UrbanAreaRecipe::LowRiseFraction));
     for (size_t index = 0; index < views->Placements.size(); ++index) {
       const auto placement = views->Placements[index];
       const auto matrix = RelativePlacement(product.Placements[placement.Patch].EcefFromLocal,
                                             view.Frame,
                                             product.Geometry.Patches[placement.Patch],
                                             placement);
-      instances.push_back(
-          {.Patch = static_cast<uint32_t>(index), .Current = matrix, .Previous = matrix});
+      instances.push_back({.Patch = static_cast<uint32_t>(index),
+                           .Current = matrix,
+                           .Previous = matrix,
+                           .TopCoating = roof});
     }
     const auto uploaded = Upload(group, geometry, instances);
     if (!uploaded || !*uploaded) { return uploaded; }
