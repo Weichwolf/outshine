@@ -4,6 +4,7 @@
 #include "AssetPipeline.h"
 #include "BuildingFieldRequest.h"
 #include "BuildingSourceDemand.h"
+#include "BuildingRoofTile.h"
 #include "PreparedBuildingAssets.h"
 #include "GeometryPageResidency.h"
 #include "Geometry.h"
@@ -62,6 +63,14 @@ struct BuildingFieldStreaming::State {
   };
 
   struct Tile {
+    struct RoofProduct {
+      BuildingRoofTile::Support Projected;
+      std::string Key;
+      SourceCoverage Coverage;
+      uint64_t Cells;
+      size_t Count;
+    };
+
     uint32_t Index = 0;
     uint64_t SourceKey = 0;
     BuildingSourceDemand::Source Source;
@@ -76,6 +85,10 @@ struct BuildingFieldStreaming::State {
     uint64_t ShadowCells = 0, ResidentOriginals = 0;
     uint64_t PublishedShadowCells = 0;
     bool Complete = false;
+    std::optional<BuildingRoofTile> RoofUpload = std::nullopt;
+    std::optional<RoofProduct> ResidentRoof = std::nullopt;
+    bool RoofActive = false;
+    bool RoofQualified = false;
   };
 
   struct OriginalProduct {
@@ -89,6 +102,7 @@ struct BuildingFieldStreaming::State {
     std::optional<Generators::PreparedBuildingAssets::SourceGroups> Groups;
     std::optional<SourceProductSelection> Selection;
     std::optional<SourceProductSelection::Cut> Cut;
+    std::optional<BuildingRoofTile> Roof;
   };
 
   struct ProductCut {
@@ -96,6 +110,7 @@ struct BuildingFieldStreaming::State {
     std::vector<std::string_view> Shadow;
     uint64_t ActiveCells = 0;
     size_t ActiveGroups = 0;
+    bool RoofActive = false;
     std::vector<const SourceCoverage *> MainSources, ShadowSources;
   };
 
@@ -128,6 +143,7 @@ struct BuildingFieldStreaming::State {
   LoadCellFields(Context &context, Tile &tile, Cell &cell);
   void PollCell(Context &context, Tile &tile, Cell &cell);
   void PollFields(Context &context);
+  static void PollRoof(Context &context, Tile &tile);
   [[nodiscard]] bool Select(Context &context, std::string &error);
   [[nodiscard]] bool SelectTile(Context &context, Tile &tile, std::string &error);
   [[nodiscard]] std::vector<const Cell *> EvaluateCells(Context &context, Tile &tile);
@@ -137,7 +153,10 @@ struct BuildingFieldStreaming::State {
   SelectReplacements(const SourceCoverage &domain,
                      std::span<const OriginalProduct> originals,
                      std::span<const Cell *const> candidates,
-                     uint64_t shadowCells);
+                     uint64_t shadowCells,
+                     const Tile::RoofProduct *roof);
+  [[nodiscard]] static const Tile::RoofProduct *EligibleRoof(
+      const Context &context, const Tile &tile, std::span<const OriginalProduct> originals);
   [[nodiscard]] static std::expected<SourceCoverage, std::string> OriginalCoverage(const Tile &tile,
                                                                                    uint64_t cells);
   [[nodiscard]] static std::expected<bool, std::string>

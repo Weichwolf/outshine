@@ -104,6 +104,7 @@ std::optional<BuildingRoofProxy> BuildingRoofProxy::Of(const BuildingSurface &su
   }
   record.Planes[4] = PlaneIn(axes, centre, {{0, 0, -1}}, -shape.SoleM);
   record.Planes[6] = {0, 0, 0, 1};
+  record.WallTint = surface.ColourFactor({.Normal = {}, .Part = 0, .Face = 2});
   WriteRoof(shape, axes, centre, record);
   if (!record.Valid()) { return std::nullopt; }
   return record;
@@ -126,6 +127,7 @@ bool BuildingRoofProxy::Valid() const noexcept {
   return Bounds.Holds(Bounds.Max) &&
          std::ranges::all_of(Bounds.Min, [](float x) { return std::isfinite(x); }) &&
          std::ranges::all_of(Bounds.Max, [](float x) { return std::isfinite(x); }) &&
+         std::ranges::all_of(WallTint, [](float x) { return std::isfinite(x) && x >= 0; }) &&
          std::ranges::all_of(Planes, [](const Plane &plane) {
            return std::ranges::all_of(plane, [](float x) { return std::isfinite(x); });
          });

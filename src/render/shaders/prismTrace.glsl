@@ -28,7 +28,7 @@ bool prismInterval(vec3 origin, vec3 inverseDirection, vec3 low, vec3 high,
 }
 
 bool traceConvexPrism(uint offset, vec3 origin, vec3 direction,
-                      out vec3 point, out vec3 normal, out float height) {
+                      out vec3 point, out vec3 normal, out float height, out uint surface) {
   vec4 planes[7];
   float offsets[7];
   for (uint i = 0u; i < 7u; ++i) {
@@ -37,7 +37,6 @@ bool traceConvexPrism(uint offset, vec3 origin, vec3 direction,
     offsets[i] = planes[i].w;
     planes[i].w -= dot(origin, planes[i].xyz);
   }
-  uint surface;
   float depth = convexProxyHit(direction, planes, surface);
   if (!(depth > 0.0)) { return false; }
   point = origin + direction * depth;
@@ -46,7 +45,9 @@ bool traceConvexPrism(uint offset, vec3 origin, vec3 direction,
   return true;
 }
 
-bool tracePrism(PrismPatch gridPatch, vec2 ndc, out vec3 point, out vec3 normal, out float height) {
+bool tracePrism(PrismPatch gridPatch, vec2 ndc, out vec3 point, out vec3 normal,
+                out float height, out uint surface) {
+  surface = 0u;
   vec4 start = prismLocalFromClip * vec4(ndc, 1.0, 1.0);
   vec4 finish = prismLocalFromClip * vec4(ndc, 0.0, 1.0);
   vec3 origin = start.xyz / start.w;
@@ -61,7 +62,7 @@ bool tracePrism(PrismPatch gridPatch, vec2 ndc, out vec3 point, out vec3 normal,
   }
   vec3 direction = normalize(ray);
   if (gridPatch.samples.w != 0u) {
-    return traceConvexPrism(gridPatch.samples.x, origin, direction, point, normal, height);
+    return traceConvexPrism(gridPatch.samples.x, origin, direction, point, normal, height, surface);
   }
   vec3 inverseDirection = 1.0 / direction;
   float begin, end;

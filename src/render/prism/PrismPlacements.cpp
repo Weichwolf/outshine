@@ -66,7 +66,7 @@ std::expected<std::vector<GpuPrismPatch>, PrismInstanceError> PackPrismPlacement
 
 std::expected<ConvexPrismUpload, PrismInstanceError>
 PackConvexPrisms(std::span<const ConvexPrism> shapes) {
-  constexpr size_t spansPerShape = 14;
+  constexpr size_t spansPerShape = 18;
   if (shapes.size() > std::numeric_limits<uint32_t>::max() / spansPerShape) {
     return std::unexpected(PrismInstanceError::InstanceCount);
   }
@@ -81,14 +81,17 @@ PackConvexPrisms(std::span<const ConvexPrism> shapes) {
     const auto &low = shape.Bounds.Min;
     const auto &high = shape.Bounds.Max;
     if (!shape.Bounds.Holds(high) || !std::ranges::all_of(low, finite) ||
-        !std::ranges::all_of(high, finite) || !std::ranges::all_of(shape.Bounds.Span(), finite)) {
+        !std::ranges::all_of(high, finite) || !std::ranges::all_of(shape.Bounds.Span(), finite) ||
+        !std::ranges::all_of(shape.Primary, finite) ||
+        !std::ranges::all_of(shape.Secondary, finite)) {
       return std::unexpected(PrismInstanceError::InvalidConvexPrism);
     }
-    upload.Patches.push_back({.Current = shape.SceneFromLocal,
-                              .Previous = shape.SceneFromLocal,
-                              .Samples = {static_cast<uint32_t>(upload.Samples.size()), 0, 0, 1},
-                              .Shape = {low[0], low[1], low[2], 0},
-                              .Bounds = {high[1], high[0], high[2], 0}});
+    upload.Patches.push_back(
+        {.Current = shape.SceneFromLocal,
+         .Previous = shape.SceneFromLocal,
+         .Samples = {static_cast<uint32_t>(upload.Samples.size()), shape.SecondaryFaces, 0, 1},
+         .Shape = {low[0], low[1], low[2], 0},
+         .Bounds = {high[1], high[0], high[2], 0}});
     for (const auto &plane : shape.Planes) {
       if (!std::ranges::all_of(plane, finite) ||
           (plane[0] == 0 && plane[1] == 0 && plane[2] == 0 && plane[3] < 0)) {
@@ -96,6 +99,10 @@ PackConvexPrisms(std::span<const ConvexPrism> shapes) {
       }
       upload.Samples.push_back({.Lower = plane[0], .Upper = plane[1]});
       upload.Samples.push_back({.Lower = plane[2], .Upper = plane[3]});
+    }
+    for (const auto &tint : {shape.Primary, shape.Secondary}) {
+      upload.Samples.push_back({.Lower = tint[0], .Upper = tint[1]});
+      upload.Samples.push_back({.Lower = tint[2], .Upper = tint[3]});
     }
   }
   return upload;

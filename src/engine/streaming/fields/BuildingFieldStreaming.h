@@ -43,6 +43,7 @@ public:
     size_t SelectedProducts = 0;
     size_t FieldOnlyCells = 0;
     size_t AvoidedRasterRequests = 0;
+    size_t ReadyRoofTiles = 0, ActiveRoofTiles = 0, ActiveRoofVolumes = 0;
   };
 
   BuildingFieldStreaming();

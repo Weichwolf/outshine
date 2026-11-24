@@ -186,7 +186,7 @@ BuildingGeometrySource::Resolve(AssetCache &cache,
   if (stop.stop_requested()) { return std::unexpected("building group generation cancelled"); }
   const auto stored =
       GeometryAsset::Publish(cache, key, recipe.BaseKey, *product, budget.EncodedBytesMost);
-  if (!stored) {
+  if (!stored && (stored.error() != AssetCacheError::Busy || !budget.KeepWhenCacheBusy)) {
     switch (stored.error()) {
       case AssetCacheError::CapacityExceeded:
         return std::unexpected("native building group exceeds its encoded byte allowance");

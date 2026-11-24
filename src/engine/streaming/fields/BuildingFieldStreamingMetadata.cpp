@@ -3,6 +3,8 @@
 #include "StructureBuildQueue.h"
 #include "PageIndexAsset.h"
 #include "Tasks.h"
+#include "Vec2.h"
+#include "SceneRenderer.h"
 #include <algorithm>
 #include <atomic>
 #include <bit>
@@ -135,6 +137,8 @@ void BuildingFieldStreaming::State::PollMetadata() {
         !PrepareCells(*ReadingTile, *Reading->Groups, *Reading->Selection, *Reading->Cut)) {
       ReadingTile->Cells.clear();
       ReadingTile->Coverage.reset();
+    } else {
+      ReadingTile->RoofUpload = std::move(Reading->Roof);
     }
     Tiles.push_back(std::move(*ReadingTile));
   }
@@ -171,38 +175,47 @@ void BuildingFieldStreaming::State::StartMetadata(Context &context) {
   if (!bytes) { return; }
   auto result = std::make_shared<Metadata>();
   const auto assets = context.Surface.BuildingAssets();
+  const auto cache = context.Surface.AssetStore();
   const auto key = tile.Source.BaseKey;
+  const auto bounds = tile.Source.Bounds;
   const auto cells = tile.Source.Cells;
   const auto eye = WorldCamera(context).EyeM;
   const auto projection = context.Surface.Footprints().Projection();
-  if (!context.Workers.PostDetached([assets, key, cells, result, bytes, eye, projection] {
-        auto groups =
-            assets->DescribeSourceGroups(key, {.Occupied = cells, .IndexBytesMost = *bytes});
-        if (groups && *groups) {
-          std::vector<SourceProductSelection::Source> traits;
-          traits.reserve((**groups).Members.size());
-          for (const auto &member : (**groups).Members) {
-            traits.push_back(
-                {.Cohort = member.Cell,
-                 .FieldSupported = member.Availability ==
-                                   Generators::PreparedBuildingAssets::SourceMember::State::Surface,
-                 .Faces = member.Faces,
-                 .ShellErrorM = member.ShellErrorM});
-          }
-          const auto &index = (**groups).Index;
-          auto selected = SourceProductSelection::Of(
-              std::shared_ptr<const PlanHierarchy>(index, &index->Hierarchy), traits, key);
-          if (selected) {
-            auto cut = selected->Select(eye, projection);
-            if (cut) {
-              result->Cut = std::move(*cut);
-              result->Selection = std::move(*selected);
-              result->Groups = std::move(**groups);
+  const Vec2 viewport{{context.Renderer.PictureW(), context.Renderer.PictureH()}};
+  if (!context.Workers.PostDetached(
+          [assets, cache, key, cells, bounds, result, bytes, eye, viewport, projection] {
+            auto groups =
+                assets->DescribeSourceGroups(key, {.Occupied = cells, .IndexBytesMost = *bytes});
+            if (groups && *groups) {
+              if (cache) {
+                result->Roof = BuildingRoofTile::Load(
+                    *cache, *assets, key, bounds, **groups, eye, viewport, projection);
+              }
+              std::vector<SourceProductSelection::Source> traits;
+              traits.reserve((**groups).Members.size());
+              for (const auto &member : (**groups).Members) {
+                traits.push_back(
+                    {.Cohort = member.Cell,
+                     .FieldSupported =
+                         member.Availability ==
+                         Generators::PreparedBuildingAssets::SourceMember::State::Surface,
+                     .Faces = member.Faces,
+                     .ShellErrorM = member.ShellErrorM});
+              }
+              const auto &index = (**groups).Index;
+              auto selected = SourceProductSelection::Of(
+                  std::shared_ptr<const PlanHierarchy>(index, &index->Hierarchy), traits, key);
+              if (selected) {
+                auto cut = selected->Select(eye, projection);
+                if (cut) {
+                  result->Cut = std::move(*cut);
+                  result->Selection = std::move(*selected);
+                  result->Groups = std::move(**groups);
+                }
+              }
             }
-          }
-        }
-        result->Done.store(true, std::memory_order_release);
-      })) {
+            result->Done.store(true, std::memory_order_release);
+          })) {
     return;
   }
   Reading = std::move(result);

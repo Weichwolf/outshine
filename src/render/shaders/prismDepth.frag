@@ -7,7 +7,8 @@ void main() {
   vec3 point, normal;
   float height;
   PrismPatch shape = prismPatches[prismPatchIndex];
-  if (!tracePrism(shape, prismScreenNdc(), point, normal, height)) { discard; }
+  uint surface;
+  if (!tracePrism(shape, prismScreenNdc(), point, normal, height, surface)) { discard; }
   vec4 world = shape.current * vec4(point, 1.0);
   world.xyz += prismView.shift.xyz;
   vec4 clip = prismView.lightFromWorld * world;

@@ -116,6 +116,7 @@ void BuildingFieldStreaming::State::PollCell(Context &context, Tile &tile, Cell 
 
 void BuildingFieldStreaming::State::PollFields(Context &context) {
   for (auto &tile : Tiles) {
+    if (tile.RoofUpload) { PollRoof(context, tile); }
     for (auto &cell : tile.Cells) { PollCell(context, tile, cell); }
   }
 }

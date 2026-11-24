@@ -30,12 +30,15 @@ void convexPrismDifferentials(vec3 point, vec4 plane, vec2 ndc,
   localDy = (dy.xyz - point * dy.w) * (-2.0 / (divisor * prismViewport.area.w));
 }
 
+float prismRoughnessOverride;
+
 bool readPrismSurface() {
   PrismPatch gridPatch = prismPatches[prismPatchIndex];
   vec2 ndc = prismScreenNdc();
   vec3 point, localNormal;
   float height;
-  if (!tracePrism(gridPatch, ndc, point, localNormal, height)) { return false; }
+  uint surface;
+  if (!tracePrism(gridPatch, ndc, point, localNormal, height, surface)) { return false; }
   vec4 stable = gridPatch.current * vec4(point, 1.0);
   vec4 world = stable + vec4(prismView.shift.xyz, 0.0);
   vec4 clip = prismView.viewProj * world;
@@ -46,6 +49,7 @@ bool readPrismSurface() {
   groundWorldM = vec3(stable.x, stable.y, -stable.z);
   lightSpace = prismView.lightFromWorld * world;
   colour = vec4(1.0);
+  prismRoughnessOverride = -1.0;
   normal = transformedSurfaceNormal(mat3(gridPatch.current), localNormal);
   vec3 u, v, localDx, localDy;
   if (gridPatch.samples.w == 0u) {
@@ -53,6 +57,10 @@ bool readPrismSurface() {
     prismPositionDifferentials(readPrismDifferentials(), localNormal, height, ndc,
                                prismViewport.area.zw, localDx, localDy);
   } else {
+    uint coating = gridPatch.samples.x + 14u + (((gridPatch.samples.y >> surface) & 1u) << 1u);
+    vec4 tint = vec4(prismSamples[coating], prismSamples[coating + 1u]);
+    colour.rgb = tint.rgb;
+    prismRoughnessOverride = tint.a;
     vec3 n = normalize(localNormal);
     vec3 vertical = normalize(transpose(mat3(gridPatch.current)) * vec3(0, 1, 0));
     vec3 across = cross(vertical, n);

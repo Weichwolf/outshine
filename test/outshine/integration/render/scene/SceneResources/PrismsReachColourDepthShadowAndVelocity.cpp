@@ -312,7 +312,7 @@ void CheckRoofDepth(const Viewpoint &eye, const Image &frame, const Image &refer
       depthError = std::max(depthError, std::abs(expectedDepth - frame.Depth[pixel]));
       if (y > 2 && std::abs(frame.Normal[pixel * 4 + 1] - 2 / std::sqrt(5.0)) < .002 &&
           std::abs(frame.Normal[pixel * 4 + 2] - 1 / std::sqrt(5.0)) < .002 &&
-          frame.Colour[pixel * 4] > 0) {
+          frame.Colour[pixel * 4 + 1] > frame.Colour[pixel * 4]) {
         ++shadedSlopes;
       }
     }
@@ -324,6 +324,8 @@ void CheckRoofDepth(const Viewpoint &eye, const Image &frame, const Image &refer
   CHECK(coverageErrors == 0 && depthError < 2e-6 && shadedSlopes == 4 * 16 &&
             retainedMeshPixels > 0,
         "the coloured gable matches an independent silhouette, depth and sloped normal");
+  CHECK(frame.Colour[kCentre * 4] > frame.Colour[kCentre * 4 + 1],
+        "the original wall paint remains distinct from the tinted roof planes");
 }
 
 void CheckConvexRoof(Core::RuntimeScene &scene,
@@ -340,7 +342,9 @@ void CheckConvexRoof(Core::RuntimeScene &scene,
                                      {0, 0, 1, 1},
                                      {0, -1, 0, 1},
                                      {0, 1, .5f, 2.5f},
-                                     {0, 1, -.5f, 2.5f}}}};
+                                     {0, 1, -.5f, 2.5f}}},
+                         .SecondaryFaces = (1u << 5u) | (1u << 6u),
+                         .Secondary = {{.125f, 1, 1, .6f}}};
   GeometryPageResidency pages;
   pages.BindRenderer(&renderer);
   constexpr uint32_t tile = 17;

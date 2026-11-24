@@ -19,22 +19,22 @@
 
 namespace outshine::Generators {
 namespace {
-constexpr uint64_t kIndexFormat = 0x31584449464f4f52ULL;
-constexpr uint64_t kBlockFormat = 0x314b4c42464f4f52ULL;
+constexpr uint64_t kIndexFormat = 0x32584449464f4f52ULL;
+constexpr uint64_t kBlockFormat = 0x324b4c42464f4f52ULL;
 constexpr std::string_view kIndexKind = "building-roof-index";
 constexpr std::string_view kBlockKind = "building-roof-block";
-constexpr size_t kRowBytes = sizeof(uint32_t) + (6 + 28) * sizeof(float);
+constexpr size_t kRowBytes = sizeof(uint32_t) + (6 + 28 + 3) * sizeof(float);
 constexpr size_t kBlockPrefix = sizeof(uint64_t) + sizeof(uint32_t);
 constexpr size_t kIndexPrefix = sizeof(uint64_t) + 3 * sizeof(double) + 2 * sizeof(uint32_t);
 constexpr size_t kChunkBytes = sizeof(uint32_t) + sizeof(double);
 constexpr size_t kIndexBytesMost = 4u << 20;
 
 std::string IndexKey(std::string_view baseKey) {
-  return Sha256Hex("building-roof-index-1/" + std::string(baseKey));
+  return Sha256Hex("building-roof-index-2/" + std::string(baseKey));
 }
 
 std::string BlockKey(const std::string &index, size_t block) {
-  return Sha256Hex("building-roof-block-1/" + index + "/" + std::to_string(block));
+  return Sha256Hex("building-roof-block-2/" + index + "/" + std::to_string(block));
 }
 
 template <class Archive, class T> bool Fields(Archive &io, T &row) {
@@ -46,6 +46,9 @@ template <class Archive, class T> bool Fields(Archive &io, T &row) {
     for (auto &coefficient : plane) {
       if (!io.Number(coefficient)) { return false; }
     }
+  }
+  for (auto &value : row.WallTint) {
+    if (!io.Number(value)) { return false; }
   }
   return true;
 }

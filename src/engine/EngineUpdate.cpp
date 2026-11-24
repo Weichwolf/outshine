@@ -484,6 +484,13 @@ bool Engine::State::AdvanceBuildingFields() {
   Published.RecordMetric("building fields: raster requests avoided before IO",
                          static_cast<double>(counts.AvoidedRasterRequests),
                          "requests");
+  Published.RecordMetric(
+      "building roof volumes: resident tiles", static_cast<double>(counts.ReadyRoofTiles), "tiles");
+  Published.RecordMetric(
+      "building roof volumes: active tiles", static_cast<double>(counts.ActiveRoofTiles), "tiles");
+  Published.RecordMetric("building roof volumes: active shapes",
+                         static_cast<double>(counts.ActiveRoofVolumes),
+                         "shapes");
   return true;
 }
 

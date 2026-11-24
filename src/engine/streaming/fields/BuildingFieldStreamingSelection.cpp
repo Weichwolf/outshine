@@ -1,6 +1,8 @@
 #include "BuildingFieldStreamingState.h"
 #include "SurfacePreparation.h"
 #include "StructureBuildQueue.h"
+#include "SceneRenderer.h"
+#include "Vec2.h"
 #include <algorithm>
 #include <bit>
 #include <cstddef>
@@ -118,7 +120,8 @@ std::optional<BuildingFieldStreaming::State::ProductCut>
 BuildingFieldStreaming::State::SelectReplacements(const SourceCoverage &domain,
                                                   std::span<const OriginalProduct> originals,
                                                   std::span<const Cell *const> candidates,
-                                                  uint64_t shadowCells) {
+                                                  uint64_t shadowCells,
+                                                  const Tile::RoofProduct *roof) {
   ProductCut result;
   for (const auto &original : originals) {
     if ((original.Legacy.Mask() & shadowCells) != 0) {
@@ -126,25 +129,25 @@ BuildingFieldStreaming::State::SelectReplacements(const SourceCoverage &domain,
       result.ShadowSources.push_back(original.Coverage);
     }
   }
-  if (candidates.empty()) {
-    for (const auto &original : originals) {
-      result.Main.push_back(original.Key);
-      result.MainSources.push_back(original.Coverage);
-    }
-  } else {
-    std::vector<const SourceCoverage *> fallback;
-    std::vector<const SourceCoverage *> ready;
-    fallback.reserve(originals.size());
-    ready.reserve(candidates.size());
-    for (const auto &original : originals) { fallback.push_back(original.Coverage); }
-    for (const auto *cell : candidates) { ready.push_back(&cell->Coverage); }
-    const auto cut = SourceCoverage::Prefer(domain, fallback, ready);
-    if (!cut) { return std::nullopt; }
-    for (const size_t at : cut->Retained) {
-      result.Main.push_back(originals[at].Key);
-      result.MainSources.push_back(originals[at].Coverage);
-    }
-    for (const size_t at : cut->Preferred) {
+  std::vector<const SourceCoverage *> fallback;
+  std::vector<const SourceCoverage *> ready;
+  fallback.reserve(originals.size());
+  ready.reserve(candidates.size() + (roof != nullptr ? 1u : 0u));
+  for (const auto &original : originals) { fallback.push_back(original.Coverage); }
+  for (const auto *cell : candidates) { ready.push_back(&cell->Coverage); }
+  if (roof != nullptr) { ready.push_back(&roof->Coverage); }
+  const auto cut = SourceCoverage::Prefer(domain, fallback, ready);
+  if (!cut) { return std::nullopt; }
+  for (const size_t at : cut->Retained) {
+    result.Main.push_back(originals[at].Key);
+    result.MainSources.push_back(originals[at].Coverage);
+  }
+  for (const size_t at : cut->Preferred) {
+    if (at == candidates.size() && roof != nullptr) {
+      result.Main.push_back(roof->Key);
+      result.MainSources.push_back(&roof->Coverage);
+      result.RoofActive = true;
+    } else {
       const auto *cell = candidates[at];
       result.Main.push_back(cell->AssetKey);
       result.MainSources.push_back(&cell->Coverage);
@@ -155,6 +158,20 @@ BuildingFieldStreaming::State::SelectReplacements(const SourceCoverage &domain,
   std::ranges::sort(result.Main);
   std::ranges::sort(result.Shadow);
   return result;
+}
+
+const BuildingFieldStreaming::State::Tile::RoofProduct *BuildingFieldStreaming::State::EligibleRoof(
+    const Context &context, const Tile &tile, std::span<const OriginalProduct> originals) {
+  if (!tile.ResidentRoof || std::ranges::any_of(originals, [](const auto &original) {
+        return original.Legacy.Cell == 0;
+      })) {
+    return nullptr;
+  }
+  const Vec2 viewport{{context.Renderer.PictureW(), context.Renderer.PictureH()}};
+  return tile.ResidentRoof->Projected.Allows(
+             WorldCamera(context).EyeM, viewport, context.Surface.Footprints().Projection())
+             ? &*tile.ResidentRoof
+             : nullptr;
 }
 
 bool BuildingFieldStreaming::State::Select(Context &context, std::string &error) {
@@ -222,9 +239,16 @@ bool BuildingFieldStreaming::State::SelectTile(Context &context, Tile &tile, std
     tile.OriginalProducts.clear();
     tile.Active = 0;
     tile.ActiveGroups = 0;
+    tile.RoofActive = tile.RoofQualified = false;
     return true;
   }
-  const auto candidates = EvaluateCells(context, tile);
+  auto candidates = EvaluateCells(context, tile);
+  const auto *roof = EligibleRoof(context, tile, *originals);
+  if (roof != nullptr) {
+    std::erase_if(candidates, [roof](const Cell *cell) {
+      return (roof->Cells & (uint64_t{1} << (cell->Source.Cell - 1u))) != 0;
+    });
+  }
   std::vector<std::string_view> shadowKeys;
   for (const auto &original : *originals) { shadowKeys.push_back(original.Key); }
   std::ranges::sort(shadowKeys);
@@ -237,6 +261,7 @@ bool BuildingFieldStreaming::State::SelectTile(Context &context, Tile &tile, std
                                return std::string_view(cell->AssetKey);
                              });
   if (!tile.MainProducts.empty() && tile.ShadowCells == tile.PublishedShadowCells &&
+      tile.RoofQualified == (roof != nullptr) &&
       std::ranges::equal(shadowKeys, tile.OriginalProducts) &&
       std::ranges::equal(candidateKeys, tile.CandidateProducts)) {
     tile.Complete = true;
@@ -246,7 +271,8 @@ bool BuildingFieldStreaming::State::SelectTile(Context &context, Tile &tile, std
     return true;
   }
   tile.Originals = std::move(legacy);
-  const auto selected = SelectReplacements(expected, *originals, candidates, tile.ShadowCells);
+  const auto selected =
+      SelectReplacements(expected, *originals, candidates, tile.ShadowCells, roof);
   const auto shadowExpected = OriginalCoverage(tile, tile.ShadowCells);
   if (!selected || !shadowExpected || !SourceCoverage::Partition(expected, selected->MainSources) ||
       !SourceCoverage::Partition(*shadowExpected, selected->ShadowSources)) {
@@ -275,6 +301,8 @@ bool BuildingFieldStreaming::State::SelectTile(Context &context, Tile &tile, std
   tile.Complete = true;
   tile.Active = active;
   tile.ActiveGroups = selected->ActiveGroups;
+  tile.RoofActive = selected->RoofActive;
+  tile.RoofQualified = roof != nullptr;
   return true;
 }
 }
