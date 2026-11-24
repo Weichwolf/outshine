@@ -174,7 +174,13 @@ public:
                                                         std::span<const PrismInstance> instances,
                                                         uint32_t material);
   [[nodiscard]] Native::Result<uint64_t> PlaceConvexPrisms(std::span<const ConvexPrism> shapes,
-                                                           uint32_t material);
+                                                           uint32_t material,
+                                                           std::optional<GeometryPasses> passes);
+
+  void SetPrismPasses(uint64_t id, std::optional<GeometryPasses> passes) noexcept {
+    Prisms_->SetPasses(id, passes);
+  }
+
   [[nodiscard]] Native::Result<void>
   SetPrismGridInstances(uint64_t id, std::span<const PrismInstance> instances);
   void ReleasePrism(uint64_t id);

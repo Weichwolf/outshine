@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "Digest.h"
+#include "ConvexPrism.h"
 #include "SceneRenderer.h"
 #include "RenderGeometryView.h"
 
@@ -76,6 +77,19 @@ void AppendPieceRows(std::vector<SceneRenderer::PieceRows> &rows,
   for (const auto &part : parts) {
     if (part.Handle) { rows.push_back({.Piece = part.Handle, .Rows = instances}); }
   }
+}
+
+Native::Result<PrismHandle>
+UploadPrisms(SceneRenderer &renderer, const GeometryPagePrismView &part, const Mat4 &row) {
+  auto shapes = std::make_shared<std::vector<ConvexPrism>>(part.Shapes.begin(), part.Shapes.end());
+  for (auto &shape : *shapes) {
+    Mat4 local;
+    std::ranges::copy(shape.SceneFromLocal, local.begin());
+    const auto scene = row * local;
+    std::ranges::transform(
+        scene, shape.SceneFromLocal.begin(), [](double x) { return static_cast<float>(x); });
+  }
+  return renderer.PlaceConvexPrisms(std::move(shapes), part.Material, std::nullopt);
 }
 
 }
@@ -194,6 +208,9 @@ Native::Result<void> GeometryPageResidency::StageProduct(uint32_t tile,
     return InvalidPage(
         "staged geometry product needs a renderer, key, revision and exact source coverage");
   }
+  if (baked.Prism && (baked.Prism->Shapes.empty() || !ValidGeometryPasses(baked.Prism->Passes))) {
+    return InvalidPage("staged geometry product needs a valid prism batch");
+  }
   if (std::ranges::any_of(Pages_, [&](const ResidentGeometryPage &held) {
         return held.Tile == tile && held.SourceKey == sourceKey && held.AssetKey == baked.AssetKey;
       })) {
@@ -241,8 +258,9 @@ Native::Result<void> GeometryPageResidency::Store(uint32_t tile,
                              .DrawOrderGroup = baked.DrawOrderGroup,
                              .Row = row,
                              .Visible = visible,
-                             .Parts = {}};
-  auto uploaded = UploadParts(stood, baked);
+                             .Parts = {},
+                             .Prisms = {}};
+  auto uploaded = UploadGeometry(stood, baked);
   if (!uploaded) {
     Releases(stood);
     return uploaded;
@@ -289,8 +307,8 @@ Native::Result<void> GeometryPageResidency::Store(uint32_t tile,
   return {};
 }
 
-Native::Result<void> GeometryPageResidency::UploadParts(ResidentGeometryPage &stood,
-                                                        const GeometryPageView &baked) {
+Native::Result<void> GeometryPageResidency::UploadGeometry(ResidentGeometryPage &stood,
+                                                           const GeometryPageView &baked) {
   stood.Parts.reserve(baked.Parts.size());
   for (size_t at = 0; at < baked.Parts.size(); ++at) {
     const auto &part = baked.Parts[at];
@@ -307,6 +325,18 @@ Native::Result<void> GeometryPageResidency::UploadParts(ResidentGeometryPage &st
       return std::unexpected(std::move(uploaded.error()));
     }
     if (*uploaded) { stood.Parts.push_back({.Handle = *uploaded, .Passes = part.Passes}); }
+  }
+  if (baked.Prism) {
+    const auto &part = *baked.Prism;
+    auto uploaded = UploadPrisms(*Renderer_, part, stood.Row);
+    if (!uploaded) {
+      if (uploaded.error().Kind != Native::ErrorKind::Busy) {
+        ++Refused_;
+        Why_ = uploaded.error().Message;
+      }
+      return std::unexpected(std::move(uploaded.error()));
+    }
+    stood.Prisms.push_back({.Handle = *uploaded, .Passes = part.Passes});
   }
   return {};
 }
@@ -370,8 +400,8 @@ bool GeometryPageResidency::ValidateStore(TileCell address,
                                           std::string &error) const {
   const bool staged = publication != Publication::Immediate;
   if (publication == Publication::Product) { return true; }
-  if (Renderer_ == nullptr || address.Cell > kGeometryPageCellsMost) {
-    error = "tile geometry requires a live world and a valid cell";
+  if (Renderer_ == nullptr || address.Cell > kGeometryPageCellsMost || baked.Prism) {
+    error = "legacy tile geometry requires a live world, a valid cell and mesh parts";
     return false;
   }
   if ((baked.RequestedDetail || baked.RequestedCell) && sourceKey == 0) {
@@ -648,6 +678,7 @@ void GeometryPageResidency::RetireDetail(uint32_t tile,
 void GeometryPageResidency::Releases(const ResidentGeometryPage &stood) {
   if (Renderer_ == nullptr) { return; }
   for (const auto &part : stood.Parts) { Renderer_->ReleasePiece(part.Handle); }
+  for (const auto &part : stood.Prisms) { Renderer_->ReleasePrism(part.Handle); }
 }
 
 bool GeometryPageResidency::SelectDetail(uint32_t tile, LevelOfDetail detail, std::string &error) {
@@ -708,6 +739,12 @@ bool GeometryPageResidency::ValidateSources(std::string &error) const {
     return false;
   }
   for (const ResidentGeometryPage &stood : Pages_) {
+    for (const auto &part : stood.Prisms) {
+      if (Renderer_->HasPrism(part.Handle)) { continue; }
+      error = "geometry tile " + std::to_string(stood.Tile) + " cell " +
+              std::to_string(stood.Cell) + " holds a missing prism source";
+      return false;
+    }
     for (const auto &part : stood.Parts) {
       const PieceHandle piece = part.Handle;
       if (!piece || Renderer_->HasPieceSource(piece)) { continue; }

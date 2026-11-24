@@ -4,6 +4,7 @@
 #include "GeometryErrorBound.h"
 #include "SourceCoverage.h"
 #include "GeometryPasses.h"
+#include "MaterialRegistration.h"
 #include "LevelOfDetail.h"
 #include "ViewReuseDomain.h"
 #include <cstdint>
@@ -13,6 +14,15 @@
 #include <string_view>
 
 namespace outshine::Render {
+struct ConvexPrism;
+
+struct GeometryPagePrismView {
+  // Placements are relative to the page, like mesh vertices.
+  std::span<const ConvexPrism> Shapes;
+  MaterialRegistration Material;
+  GeometryPasses Passes = GeometryPasses::MainAndShadow;
+};
+
 struct GeometryPagePartView {
   std::span<const float> Tangents;
   std::span<const StoredVertex> Verts;
@@ -38,6 +48,7 @@ struct GeometryPageView {
   std::optional<SourceCoverage> Coverage = std::nullopt;
   std::shared_ptr<const Mat4> Placement = nullptr;
   std::optional<uint64_t> DrawOrderGroup = std::nullopt;
+  std::optional<GeometryPagePrismView> Prism = std::nullopt;
 };
 }
 #endif

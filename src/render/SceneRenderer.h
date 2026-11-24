@@ -400,10 +400,16 @@ public:
 
   [[nodiscard]] Native::Result<PrismHandle>
   PlaceConvexPrisms(std::shared_ptr<const std::vector<ConvexPrism>> source,
-                    const MaterialRegistration &material) {
+                    const MaterialRegistration &material,
+                    std::optional<GeometryPasses> passes = GeometryPasses::MainAndShadow) {
     auto &content = ActiveContent();
     return content.Scene().Resources().PlaceConvexPrisms(
-        content.Geometry(), std::move(source), material);
+        content.Geometry(), std::move(source), material, passes);
+  }
+
+  void SetPrismPasses(PrismHandle which, std::optional<GeometryPasses> passes) noexcept {
+    auto &content = ActiveContent();
+    content.Scene().Resources().SetPrismPasses(content.Geometry(), which, passes);
   }
 
   [[nodiscard]] Native::Result<void> ReplacePrismGrid(PrismHandle which,

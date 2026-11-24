@@ -45,7 +45,7 @@ std::optional<Boxf> BoundsOf(const GpuPrismPatch &record) noexcept {
 }
 }
 
-void PrismResidency::RecordShadowChanges(const PrismProduct &product,
+void PrismResidency::RecordShadowChanges(std::span<const GpuPrismPatch> previous,
                                          std::span<const GpuPrismPatch> records) noexcept {
   Boxf before;
   Boxf after;
@@ -59,16 +59,16 @@ void PrismResidency::RecordShadowChanges(const PrismProduct &product,
       known = false;
     }
   };
-  const size_t common = std::min(product.Records.size(), records.size());
+  const size_t common = std::min(previous.size(), records.size());
   for (size_t at = 0; at < common; ++at) {
-    if (SameDepth(product.Records[at], records[at])) { continue; }
+    if (SameDepth(previous[at], records[at])) { continue; }
     changed = true;
-    include(before, product.Records[at]);
+    include(before, previous[at]);
     include(after, records[at]);
   }
-  for (size_t at = common; at < product.Records.size(); ++at) {
+  for (size_t at = common; at < previous.size(); ++at) {
     changed = true;
-    include(before, product.Records[at]);
+    include(before, previous[at]);
   }
   for (size_t at = common; at < records.size(); ++at) {
     changed = true;

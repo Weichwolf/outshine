@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <span>
 #include <utility>
 
@@ -45,11 +46,12 @@ Native::Result<uint64_t> GeometryRenderer::PlacePrismGrid(std::shared_ptr<const 
 }
 
 Native::Result<uint64_t> GeometryRenderer::PlaceConvexPrisms(std::span<const ConvexPrism> shapes,
-                                                             uint32_t material) {
+                                                             uint32_t material,
+                                                             std::optional<GeometryPasses> passes) {
   if (const auto valid = ValidatePrismMaterial(material); !valid) {
     return std::unexpected(valid.error());
   }
-  return Prisms_->PlaceConvex(shapes, material);
+  return Prisms_->PlaceConvex(shapes, material, passes);
 }
 
 Native::Result<void>
@@ -65,7 +67,7 @@ Native::Result<void> GeometryRenderer::EncodePrisms(const PassRecording &into,
                                                     const FrameUniforms &uniforms) {
   if (IsTransmission() || Binding().Behind != nullptr) { return {}; }
   for (const auto &product : Prisms_->Products()) {
-    if (product.Records.empty()) { continue; }
+    if (!product.Draws(GeometryPasses::Main) || product.Records.empty()) { continue; }
     if (into.Commands == nullptr || Binding().Prisms.Colour() == nullptr ||
         product.Material >= RegisteredSlotOf_.size() ||
         RegisteredSlotOf_[product.Material] >= Slots.size()) {

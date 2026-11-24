@@ -108,7 +108,11 @@ public:
   [[nodiscard]] Native::Result<PrismHandle>
   PlaceConvexPrisms(GeometryRenderer &geometry,
                     std::shared_ptr<const std::vector<ConvexPrism>> source,
-                    const MaterialRegistration &material);
+                    const MaterialRegistration &material,
+                    std::optional<GeometryPasses> passes);
+  void SetPrismPasses(GeometryRenderer &geometry,
+                      PrismHandle which,
+                      std::optional<GeometryPasses> passes) noexcept;
   [[nodiscard]] Native::Result<void> ReplacePrismGrid(GeometryRenderer &geometry,
                                                       PrismHandle which,
                                                       std::shared_ptr<const PrismGrid> source,
@@ -205,6 +209,7 @@ private:
     MaterialRegistration Material;
     uint64_t Resident = 0;
     std::shared_ptr<const std::vector<ConvexPrism>> Convex;
+    std::optional<GeometryPasses> Passes = GeometryPasses::MainAndShadow;
   };
 
   [[nodiscard]] static Native::Result<void> RestorePrism(GeometryRenderer &geometry,

@@ -6,6 +6,7 @@
 #include <expected>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
@@ -32,7 +33,8 @@ Native::Result<PrismHandle> SceneResources::PlacePrismGrid(GeometryRenderer &geo
 Native::Result<PrismHandle>
 SceneResources::PlaceConvexPrisms(GeometryRenderer &geometry,
                                   std::shared_ptr<const std::vector<ConvexPrism>> source,
-                                  const MaterialRegistration &material) {
+                                  const MaterialRegistration &material,
+                                  std::optional<GeometryPasses> passes) {
   if (!source) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "convex prism source is missing"});
@@ -42,7 +44,8 @@ SceneResources::PlaceConvexPrisms(GeometryRenderer &geometry,
                         .Source = {},
                         .Instances = {},
                         .Material = material,
-                        .Convex = std::move(source)});
+                        .Convex = std::move(source),
+                        .Passes = passes});
 }
 
 Native::Result<PrismHandle> SceneResources::RegisterPrism(GeometryRenderer &geometry,
@@ -72,7 +75,7 @@ Native::Result<PrismHandle> SceneResources::RegisterPrism(GeometryRenderer &geom
 
 Native::Result<void> SceneResources::RestorePrism(GeometryRenderer &geometry, PrismSource &held) {
   auto placed = held.Convex
-                    ? geometry.PlaceConvexPrisms(*held.Convex, held.Material.First)
+                    ? geometry.PlaceConvexPrisms(*held.Convex, held.Material.First, held.Passes)
                     : geometry.PlacePrismGrid(held.Source, held.Instances, held.Material.First);
   if (!placed) { return std::unexpected(std::move(placed.error())); }
   held.Resident = *placed;
@@ -122,6 +125,16 @@ Native::Result<void> SceneResources::SetPrismGridInstances(
   if (!updated) { return updated; }
   held.Instances.assign(instances.begin(), instances.end());
   return {};
+}
+
+void SceneResources::SetPrismPasses(GeometryRenderer &geometry,
+                                    PrismHandle which,
+                                    std::optional<GeometryPasses> passes) noexcept {
+  if (!HasPrism(which)) { return; }
+  auto &held = PrismSources_[which.Slot];
+  if (!held.Convex || held.Passes == passes) { return; }
+  held.Passes = passes;
+  if (held.Resident != 0) { geometry.SetPrismPasses(held.Resident, passes); }
 }
 
 void SceneResources::ReleasePrism(GeometryRenderer &geometry, PrismHandle which) {

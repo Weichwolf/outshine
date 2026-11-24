@@ -17,7 +17,7 @@ bool GeometryPageResidency::ConsolidateProducts(uint32_t tile,
                                                 std::span<const std::string_view> keys,
                                                 std::string &error) {
   if (Renderer_ == nullptr || sourceKey == 0 || product.AssetKey.empty() || !product.Coverage ||
-      !product.Parts.empty() || keys.empty() ||
+      !product.Parts.empty() || product.Prism || keys.empty() ||
       std::ranges::adjacent_find(keys, [](auto a, auto b) { return a >= b; }) != keys.end()) {
     error = "geometry consolidation needs ordered distinct products and exact source coverage";
     return false;
@@ -27,6 +27,7 @@ bool GeometryPageResidency::ConsolidateProducts(uint32_t tile,
   targets.reserve(keys.size());
   coverage.reserve(keys.size());
   size_t parts = 0;
+  size_t prisms = 0;
   const auto first = std::ranges::lower_bound(Pages_, tile, {}, &ResidentGeometryPage::Tile);
   for (auto at = first; at != Pages_.end() && at->Tile == tile; ++at) {
     if (at->SourceKey != sourceKey) { continue; }
@@ -39,13 +40,15 @@ bool GeometryPageResidency::ConsolidateProducts(uint32_t tile,
         at->Cell != product.RequestedCell.value_or(0) || at->Detail != product.RequestedDetail ||
         at->OccupiedCells != product.OccupiedCells ||
         (!targets.empty() && at->Row != targets.front()->Row) ||
-        at->Parts.size() > std::numeric_limits<size_t>::max() - parts) {
+        at->Parts.size() > std::numeric_limits<size_t>::max() - parts ||
+        at->Prisms.size() > std::numeric_limits<size_t>::max() - prisms) {
       error = "geometry products have incompatible residency or coordinate frames";
       return false;
     }
     targets.push_back(&*at);
     coverage.push_back(&*at->Coverage);
     parts += at->Parts.size();
+    prisms += at->Prisms.size();
   }
   if (targets.size() != keys.size() || !SourceCoverage::Partition(*product.Coverage, coverage)) {
     error = "geometry products do not partition the consolidated source";
@@ -64,11 +67,15 @@ bool GeometryPageResidency::ConsolidateProducts(uint32_t tile,
                                 .Coverage = product.Coverage,
                                 .Row = targets.front()->Row,
                                 .Visible = false,
-                                .Parts = {}};
+                                .Parts = {},
+                                .Prisms = {}};
   combined.Parts.reserve(parts);
+  combined.Prisms.reserve(prisms);
   for (auto *page : targets) {
     std::ranges::move(page->Parts, std::back_inserter(combined.Parts));
     page->Parts.clear();
+    std::ranges::move(page->Prisms, std::back_inserter(combined.Prisms));
+    page->Prisms.clear();
   }
   std::erase_if(Pages_, [&](const ResidentGeometryPage &page) {
     return page.Tile == tile && page.SourceKey == sourceKey &&

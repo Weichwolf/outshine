@@ -44,7 +44,7 @@ Native::Result<void> EncodePrismDepth(const PrismResidency &residency,
   const std::array viewport{area.X, area.Y, area.Width, area.Height};
   const auto viewportBytes = std::as_bytes(std::span(viewport));
   for (const auto &product : residency.Products()) {
-    if (product.Records.empty()) { continue; }
+    if (!product.Draws(GeometryPasses::Shadow) || product.Records.empty()) { continue; }
     const auto viewBytes = std::as_bytes(std::span(&view, 1));
     const std::array bindings{
         Storage(0, 0, *product.Buffers[1]),

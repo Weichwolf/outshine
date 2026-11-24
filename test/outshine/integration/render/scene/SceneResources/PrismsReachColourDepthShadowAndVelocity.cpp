@@ -1,5 +1,6 @@
 #include "SceneLighting.h"
 #include "Check.h"
+#include "GeometryPageResidency.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include <SDL3/SDL.h>
@@ -281,41 +282,28 @@ void CheckNativeMaterialRemap(Core::RuntimeScene &scene,
         "a retained prism still draws its own red PBR material after physical slots move");
 }
 
-void CheckConvexRoof(Core::RuntimeScene &scene,
-                     SceneRenderer &renderer,
-                     Viewpoint eye,
-                     const MaterialRegistration &material) {
-  scene.Eye(eye);
-  const auto baseline = Draw(scene, renderer);
-  const ConvexPrism roof{.SceneFromLocal = {},
-                         .Bounds = {.Min = {{-1, -1, -1}}, .Max = {{1, 2.5f, 1}}},
-                         .Planes = {{{-1, 0, 0, 1},
-                                     {1, 0, 0, 1},
-                                     {0, 0, -1, 1},
-                                     {0, 0, 1, 1},
-                                     {0, -1, 0, 1},
-                                     {0, 1, .5f, 2.5f},
-                                     {0, 1, -.5f, 2.5f}}}};
-  const auto source = std::make_shared<const std::vector<ConvexPrism>>(1, roof);
-  const auto handle = renderer.PlaceConvexPrisms(source, material);
-  CHECK(handle, "the gable becomes resident through the normal scene resource path");
-  if (!handle) { return; }
-  const auto frame = Draw(scene, renderer);
+void CheckRoofDepth(const Viewpoint &eye, const Image &frame, const Image &reference) {
   CHECK(frame.Depth.size() == kPixels && frame.Normal.size() == kPixels * 4 &&
-            frame.Colour.size() == kPixels * 4,
+            frame.Colour.size() == kPixels * 4 && reference.Depth.size() == kPixels,
         "the Native GPU world returns the gable in the ordinary opaque pass");
   if (frame.Depth.size() != kPixels || frame.Normal.size() != kPixels * 4 ||
-      frame.Colour.size() != kPixels * 4) {
+      frame.Colour.size() != kPixels * 4 || reference.Depth.size() != kPixels) {
     return;
   }
   size_t coverageErrors = 0;
   double depthError = 0;
   size_t shadedSlopes = 0;
+  size_t retainedMeshPixels = 0;
   for (uint32_t row = 0; row < kSide; ++row) {
     for (uint32_t column = 0; column < kSide; ++column) {
       const size_t pixel = size_t{row} * kSide + column;
       const double x = (2 * (column + .5) / kSide - 1) * eye.XMagM;
       const double y = (1 - 2 * (row + .5) / kSide) * eye.YMagM;
+      if (x > 2) {
+        CHECK(frame.Depth[pixel] == reference.Depth[pixel], "the unsupported mesh keeps its depth");
+        retainedMeshPixels += static_cast<size_t>(frame.Depth[pixel] > 0);
+        continue;
+      }
       const bool expected = std::abs(x) < 1 && y > -1 && y < 2.5;
       coverageErrors += static_cast<size_t>(expected != (frame.Depth[pixel] > 0));
       if (!expected) { continue; }
@@ -333,8 +321,95 @@ void CheckConvexRoof(Core::RuntimeScene &scene,
                coverageErrors,
                depthError,
                shadedSlopes);
-  CHECK(coverageErrors == 0 && depthError < 2e-6 && shadedSlopes == 4 * 16,
+  CHECK(coverageErrors == 0 && depthError < 2e-6 && shadedSlopes == 4 * 16 &&
+            retainedMeshPixels > 0,
         "the coloured gable matches an independent silhouette, depth and sloped normal");
+}
+
+void CheckConvexRoof(Core::RuntimeScene &scene,
+                     SceneRenderer &renderer,
+                     Viewpoint eye,
+                     const MaterialRegistration &material) {
+  scene.Eye(eye);
+  const auto baseline = Draw(scene, renderer);
+  const ConvexPrism roof{.SceneFromLocal = {},
+                         .Bounds = {.Min = {{-1, -1, -1}}, .Max = {{1, 2.5f, 1}}},
+                         .Planes = {{{-1, 0, 0, 1},
+                                     {1, 0, 0, 1},
+                                     {0, 0, -1, 1},
+                                     {0, 0, 1, 1},
+                                     {0, -1, 0, 1},
+                                     {0, 1, .5f, 2.5f},
+                                     {0, 1, -.5f, 2.5f}}}};
+  GeometryPageResidency pages;
+  pages.BindRenderer(&renderer);
+  constexpr uint32_t tile = 17;
+  constexpr uint64_t revision = 3;
+  constexpr std::array<uint32_t, 2> ordinals{0, 1};
+  const auto coverage = SourceCoverage::FromSources("test-tile", 2, ordinals);
+  CHECK(coverage, "the tile has an immutable source address");
+  if (!coverage) { return; }
+  std::string error;
+  const auto placement = std::make_shared<const Mat4>();
+  constexpr std::array<uint32_t, 3> triangles{0, 1, 2};
+  const std::array points{StoredVertex::Of({{-1, -1, 0}}, {}, {{0, 0, 1}}),
+                          StoredVertex::Of({{1, -1, 0}}, {}, {{0, 0, 1}}),
+                          StoredVertex::Of({{0, 1, 0}}, {}, {{0, 0, 1}})};
+  const std::array remainder{StoredVertex::Of({{2.6f, -2, 0}}, {}, {{0, 0, 1}}),
+                             StoredVertex::Of({{3.4f, -2, 0}}, {}, {{0, 0, 1}}),
+                             StoredVertex::Of({{3, -1, 0}}, {}, {{0, 0, 1}})};
+  const auto surface = PieceSurface::Registered(material);
+  const GeometryPagePartView original{.Tangents = {},
+                                      .Verts = points,
+                                      .Indices = triangles,
+                                      .Clusters = {},
+                                      .Colours = {},
+                                      .Uv1 = {},
+                                      .Surface = surface};
+  auto remaining = original;
+  remaining.Verts = remainder;
+  const std::array mesh{original, remaining};
+  const std::array<std::string_view, 1> parent{"parent"};
+  const std::array<std::string_view, 1> child{"roof"};
+  auto page = GeometryPageView{.Parts = mesh,
+                               .Digest = 1,
+                               .AssetKey = parent.front(),
+                               .SelectedView = std::nullopt,
+                               .RequestedDetail = LevelOfDetail::Fine,
+                               .RequestedCell = 1,
+                               .OccupiedCells = 1,
+                               .Coverage = *coverage,
+                               .Placement = placement};
+  CHECK(pages.StageProduct(tile, page, {}, revision) &&
+            pages.ActivateProducts(tile, revision, *coverage, parent, parent, error),
+        "the original mesh covers the complete tile");
+  const auto parentFrame = Draw(scene, renderer);
+  CHECK(parentFrame.Depth != baseline.Depth, "the original mesh is visible");
+  CHECK(!pages.ActivateProducts(tile, revision, *coverage, child, parent, error),
+        "a missing analytic batch cannot displace the resident mesh");
+  page.Parts = std::span(mesh).last<1>();
+  page.Digest = 2;
+  page.AssetKey = child.front();
+  page.Prism = GeometryPagePrismView{.Shapes = std::span(&roof, 1), .Material = {}};
+  CHECK(!pages.StageProduct(tile, page, {}, revision),
+        "a late invalid prism refuses the entire product after uploading the mesh");
+  const auto refused = Draw(scene, renderer);
+  CHECK(refused.Depth == parentFrame.Depth && refused.Shadow == parentFrame.Shadow,
+        "the failed mixed upload leaves the original tile published");
+  page.Prism->Material = material;
+  CHECK(pages.StageProduct(tile, page, {}, revision), "the replacement batch uploads while hidden");
+  const auto hidden = Draw(scene, renderer);
+  CHECK(hidden.Depth == parentFrame.Depth && hidden.Shadow == parentFrame.Shadow,
+        "staging leaves both passes of the complete resident mesh intact");
+  CHECK(pages.ActivateProducts(tile, revision, *coverage, child, parent, error),
+        "the complete replacement takes over the main pass only");
+  const auto mainOnly = Draw(scene, renderer);
+  CHECK(mainOnly.Depth != parentFrame.Depth && mainOnly.Shadow == parentFrame.Shadow,
+        "the same cut retains the original sun caster while replacing the visible geometry");
+  CHECK(pages.ActivateProducts(tile, revision, *coverage, child, child, error),
+        "the analytic batch can also replace the original caster");
+  const auto frame = Draw(scene, renderer);
+  CheckRoofDepth(eye, frame, parentFrame);
   CHECK(frame.Shadow != baseline.Shadow &&
             std::ranges::any_of(frame.Shadow, [](float depth) { return depth > 0; }),
         "the gable casts a shadow using its actual sloped planes");
@@ -344,7 +419,7 @@ void CheckConvexRoof(Core::RuntimeScene &scene,
   CHECK(moved.Velocity.size() > kCentre * 2 &&
             std::abs(moved.Velocity[kCentre * 2]) > kMovingMotion,
         "camera movement reprojects the stationary analytic surface");
-  renderer.ReleasePrism(*handle);
+  pages.Retire(tile);
   const auto released = Draw(scene, renderer);
   CHECK(released.Depth == baseline.Depth && released.Shadow == baseline.Shadow,
         "releasing the gable removes its opaque depth and its cached shadow");

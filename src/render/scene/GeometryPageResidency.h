@@ -215,7 +215,8 @@ public:
   [[nodiscard]] size_t HeapBytes() const noexcept {
     size_t bytes = Pages_.capacity() * sizeof(ResidentGeometryPage) + Why_.capacity();
     for (const auto &page : Pages_) {
-      bytes += page.Parts.capacity() * sizeof(ResidentPart) + page.AssetKey.capacity() + 1;
+      bytes += page.Parts.capacity() * sizeof(ResidentPart) +
+               page.Prisms.capacity() * sizeof(ResidentPrism) + page.AssetKey.capacity() + 1;
       if (page.Coverage) { bytes += page.Coverage->CapacityBytes(); }
     }
     return bytes;
@@ -233,6 +234,11 @@ private:
 
   struct ResidentPart {
     PieceHandle Handle;
+    GeometryPasses Passes;
+  };
+
+  struct ResidentPrism {
+    PrismHandle Handle;
     GeometryPasses Passes;
   };
 
@@ -255,6 +261,7 @@ private:
     bool Visible = true;
     std::vector<ResidentPart> Parts;
     GeometryPasses Passes = GeometryPasses::MainAndShadow;
+    std::vector<ResidentPrism> Prisms;
   };
 
   [[nodiscard]] std::span<const ResidentGeometryPage> PagesForTile(uint32_t tile) const noexcept;
@@ -333,8 +340,8 @@ private:
                                            const Vec3 &anchorEcef,
                                            uint64_t sourceKey,
                                            Publication publication);
-  [[nodiscard]] Native::Result<void> UploadParts(ResidentGeometryPage &stood,
-                                                 const GeometryPageView &baked);
+  [[nodiscard]] Native::Result<void> UploadGeometry(ResidentGeometryPage &stood,
+                                                    const GeometryPageView &baked);
   [[nodiscard]] bool ShouldShow(uint32_t tile,
                                 uint32_t cell,
                                 std::optional<LevelOfDetail> detail,

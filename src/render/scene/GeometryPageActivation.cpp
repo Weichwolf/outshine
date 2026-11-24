@@ -36,6 +36,28 @@ void AppendSelectionRows(std::vector<SceneRenderer::PieceRows> &rows,
   }
 }
 
+struct PrismSelection {
+  PrismHandle Handle;
+  std::optional<GeometryPasses> Passes;
+};
+
+bool AppendPrismSelection(const SceneRenderer &renderer,
+                          const auto &page,
+                          std::optional<GeometryPasses> pass,
+                          std::vector<PrismSelection> &prisms,
+                          std::string &error) {
+  for (const auto &part : page.Prisms) {
+    if (!renderer.HasPrism(part.Handle)) {
+      error = "geometry product selection names a missing prism source";
+      return false;
+    }
+    const auto before = page.Visible ? Intersection(part.Passes, page.Passes) : std::nullopt;
+    const auto after = pass ? Intersection(part.Passes, *pass) : std::nullopt;
+    if (before != after) { prisms.push_back({.Handle = part.Handle, .Passes = after}); }
+  }
+  return true;
+}
+
 }
 
 bool GeometryPageResidency::IndependentPasses(uint32_t tile) const noexcept {
@@ -184,13 +206,18 @@ bool GeometryPageResidency::PublishSelection(uint32_t tile,
   for (auto at = first; at != last; ++at) { parts += at->Parts.size(); }
   std::vector<SceneRenderer::PieceRows> rows;
   rows.reserve(parts);
+
+  std::vector<PrismSelection> prisms;
   auto selected = targets.begin();
   for (auto at = first; at != last; ++at) {
     const bool chosen = selected != targets.end() && selected->Page == &*at;
-    AppendSelectionRows(rows, *at, chosen ? std::optional{selected->Passes} : std::nullopt);
+    const auto pass = chosen ? std::optional{selected->Passes} : std::nullopt;
+    AppendSelectionRows(rows, *at, pass);
+    if (!AppendPrismSelection(*Renderer_, *at, pass, prisms, error)) { return false; }
     if (chosen) { ++selected; }
   }
   if (!Renderer_->SetPieceInstances(rows, error)) { return false; }
+  for (const auto &part : prisms) { Renderer_->SetPrismPasses(part.Handle, part.Passes); }
   for (auto at = first; at != last; ++at) {
     at->Visible = false;
     at->Passes = GeometryPasses::MainAndShadow;
