@@ -14,7 +14,7 @@ from time import perf_counter
 
 import numpy as np
 from PIL import Image, ImageDraw
-from tile_selection import camera_path, local_frame
+from tile_selection import camera_path, distance_from_segment, local_frame
 
 
 def content(db, key):
@@ -179,6 +179,20 @@ def motion_allowance(route, centre, axes, half, focal, dimensions, error_px):
     return min(1.0, residual / (4 * half))
 
 
+def isotropic_allowance(route, centre, axes, half, focal, dimensions):
+    extent = np.abs(axes) @ (half * np.asarray([1.0, 1.0, 2.0]))
+    box = np.asarray([[centre - extent, centre + extent]])
+    distance = distance_from_segment(box, *route)[0]
+    tx, ty = ((px + 1) / (2 * focal) for px in dimensions)
+    depth_scale = math.hypot(1, tx, ty)
+    displacement = focal * math.hypot(math.sqrt(2), tx + ty)
+    world_error = distance / (displacement * depth_scale + depth_scale + 1)
+    if not world_error > 0:
+        return 0.0
+    _, exponent = math.frexp(world_error)
+    return min(1.0, math.ldexp(1.0, exponent - 1) / (4 * half))
+
+
 def mip(depth, covered, block):
     shape = (len(depth) // block, block, len(depth) // block, block)
     keep = covered.reshape(shape)
@@ -201,10 +215,12 @@ def preview_masks(sample, path):
     )
 
 
-def measure(capture, route, focal, dimensions, image_path=None):
+def measure(capture, route, focal, dimensions, image_path=None, isotropic=False):
     key, centre, axes, half, depth, covered = capture
     flat = np.full_like(depth, 0.5)
     allowance = motion_allowance(route, centre, axes, half, focal, dimensions, 1)
+    if isotropic:
+        allowance = isotropic_allowance(route, centre, axes, half, focal, dimensions)
     relief, count = patches(depth, covered, allowance)
     _, strict = patches(depth, covered, 1 / (16 * len(depth)))
     mip_variants = {}
@@ -262,6 +278,7 @@ def main():
     parser.add_argument("benchmark", type=Path)
     parser.add_argument("--image", type=Path)
     parser.add_argument("--count", type=int, default=16)
+    parser.add_argument("--isotropic", action="store_true")
     args = parser.parse_args()
     if not 0 < args.count <= 128:
         parser.error("expected 1–128 samples")
@@ -278,7 +295,12 @@ def main():
         if capture[-1].any():
             results.append(
                 measure(
-                    capture, route, focal, size, args.image if not results else None
+                    capture,
+                    route,
+                    focal,
+                    size,
+                    args.image if not results else None,
+                    args.isotropic,
                 )
             )
     if not results:
