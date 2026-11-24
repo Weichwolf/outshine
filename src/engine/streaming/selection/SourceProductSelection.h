@@ -90,6 +90,12 @@ public:
                                                   const ViewPath &path,
                                                   const Vec2 &viewportPx,
                                                   ProjectedErrorBudget projection);
+  // Maximum diameter of a source clipped to the viewport over the swept path.
+  [[nodiscard]] static double ProjectedSupportLimitM(const Box &bounds,
+                                                     const ViewPath &path,
+                                                     const Vec2 &viewportPx,
+                                                     double focalPx,
+                                                     double supportPx);
 
 private:
   struct Node {

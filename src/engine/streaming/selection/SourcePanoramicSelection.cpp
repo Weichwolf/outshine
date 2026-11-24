@@ -133,6 +133,13 @@ bool ValidPanoramicProjection(const Vec2 &viewport, ProjectedErrorBudget project
          viewport[1] > 0 && std::isfinite(projection.FocalPx) && projection.FocalPx > 0 &&
          std::isfinite(projection.AllowedErrorPx) && projection.AllowedErrorPx >= 0;
 }
+
+bool ValidPath(const Box &bounds, const ViewPath &path) {
+  const auto finite = [](double value) { return std::isfinite(value); };
+  return std::ranges::all_of(path.Start, finite) && std::ranges::all_of(path.End, finite) &&
+         finite(path.RadiusM) && path.RadiusM >= 0 && std::ranges::all_of(bounds.Min, finite) &&
+         std::ranges::all_of(bounds.Max, finite) && bounds.Holds(bounds.Max);
+}
 }
 
 double SourceProductSelection::GeometryErrorLimitM(const Box &bounds,
@@ -154,16 +161,31 @@ double SourceProductSelection::GeometryErrorLimitM(const Box &bounds,
                                                    const ViewPath &path,
                                                    const Vec2 &viewportPx,
                                                    ProjectedErrorBudget projection) {
-  const auto finite = [](double value) { return std::isfinite(value); };
-  if (!ValidPanoramicProjection(viewportPx, projection) ||
-      !std::ranges::all_of(path.Start, finite) || !std::ranges::all_of(path.End, finite) ||
-      !finite(path.RadiusM) || path.RadiusM < 0 || !std::ranges::all_of(bounds.Min, finite) ||
-      !std::ranges::all_of(bounds.Max, finite) || !bounds.Holds(bounds.Max)) {
-    return 0;
-  }
+  if (!ValidPanoramicProjection(viewportPx, projection) || !ValidPath(bounds, path)) { return 0; }
   const double distance = PathDistanceBelow(bounds, path);
   return Envelope(viewportPx, projection.FocalPx)
       .Limit(std::nextafter(distance - path.RadiusM, 0.0), projection.AllowedErrorPx);
+}
+
+double SourceProductSelection::ProjectedSupportLimitM(const Box &bounds,
+                                                      const ViewPath &path,
+                                                      const Vec2 &viewportPx,
+                                                      double focalPx,
+                                                      double supportPx) {
+  if (!ValidPanoramicProjection(viewportPx, {.FocalPx = focalPx, .AllowedErrorPx = supportPx}) ||
+      !ValidPath(bounds, path)) {
+    return 0;
+  }
+  const double distance = std::nextafter(PathDistanceBelow(bounds, path) - path.RadiusM, 0.0);
+  if (distance <= 0 || !std::isfinite(distance)) { return 0; }
+  const auto upper = [](double value) {
+    return std::nextafter(value, std::numeric_limits<double>::infinity());
+  };
+  const double tx = upper(upper(viewportPx[0] * 0.5) / focalPx);
+  const double ty = upper(upper(viewportPx[1] * 0.5) / focalPx);
+  const double denominator = upper(focalPx * upper(upper(1.0 + upper(tx * tx)) + upper(ty * ty)));
+  const double limit = std::nextafter(std::nextafter(supportPx / denominator, 0.0) * distance, 0.0);
+  return std::isfinite(limit) ? limit : 0.0;
 }
 
 std::expected<SourceProductSelection::Cut, SourceProductSelectionError>
