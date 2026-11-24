@@ -1,8 +1,11 @@
 #include "GeometryCullStage.h"
 #include "GeometryHierarchy.h"
+#include "BatchVisibility.h"
+#include "DrawList.h"
 #include "RenderCatalogue.h"
 #include "PipelineFactory.h"
 #include "Units.h"
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cmath>
@@ -161,6 +164,19 @@ Native::Result<void> GeometryCullStage::EncodeRoots(const FrameContext &ctx,
   if (!reset) { return reset; }
   Standing(ctx, projection);
   const auto &hierarchy = *Source_.Hierarchy;
+  Direct_ = {};
+  if (!OccludeThisFrame_ && Source_.Batches.size() == hierarchy.View.RootCount) {
+    const BatchFrustum frustum(projection.Clip, ctx.PreViewTranslation, Source_.AnchorM);
+    const size_t end = std::min(Source_.Batches.size(), DirectIndexSelection::kRootsMost);
+    for (size_t at = 0; at < end; ++at) {
+      const auto &batch = Source_.Batches[at];
+      if (batch.CompleteIndexRange && batch.Passes != GeometryPasses::Shadow &&
+          (batch.Kind == SurfaceKind::Opaque || batch.Kind == SurfaceKind::Masked) &&
+          frustum.Contains(batch.WorldSphere)) {
+        Direct_.Include(at);
+      }
+    }
+  }
   const std::array bindings{
       Storage(0, 0, *read[0]),
       Storage(0, 1, *read[1]),
@@ -171,7 +187,9 @@ Native::Result<void> GeometryCullStage::EncodeRoots(const FrameContext &ctx,
           .Set = 2, .Slot = 0, .Value = Native::Uniform{std::as_bytes(std::span(&View_, 1))}},
       Native::Binding{.Set = 2,
                       .Slot = 1,
-                      .Value = Native::Uniform{std::as_bytes(std::span(&hierarchy.View, 1))}}};
+                      .Value = Native::Uniform{std::as_bytes(std::span(&hierarchy.View, 1))}},
+      Native::Binding{
+          .Set = 2, .Slot = 2, .Value = Native::Uniform{std::as_bytes(std::span(Direct_.Words))}}};
   const auto encoded = into.Commands->Dispatch(*Root_, bindings, hierarchy.RootGroups);
   if (!encoded) { return encoded; }
   LastProjection_ = projection;

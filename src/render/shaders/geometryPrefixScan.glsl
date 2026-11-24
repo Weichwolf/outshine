@@ -23,7 +23,7 @@ void main() {
   if (at < view.count && (at == 0u || inputs[at - 1u].w != item.y)) {
     slots[view.count + item.y] = 0u;
   }
-  uint mine = at < view.count && visible[item.x] != 0u ? kept[at] : 0u;
+  uint mine = at < view.count && visible[item.x] == 1u ? kept[at] : 0u;
 #else
   uvec2 item = at < view.count ? inputs[at] : uvec2(0u, 0xffffffffu);
   uint mine = item.x;

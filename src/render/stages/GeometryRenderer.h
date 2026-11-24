@@ -29,6 +29,7 @@
 #include "PrismPipelines.h"
 #include "GeometryResidency.h"
 #include "GeometryHierarchyAdmission.h"
+#include "DirectIndexSelection.h"
 #include "GpuPlacement.h"
 #include "MaterialPacking.h"
 #include "SceneLighting.h"
@@ -213,6 +214,10 @@ public:
   [[nodiscard]] uint32_t MainMeshRows() const { return MainMeshRows_; }
 
   [[nodiscard]] uint32_t ClusterJobs() const { return Jobs_; }
+
+  [[nodiscard]] std::span<const GeometryClusterTemplate> ClusterTemplates() const noexcept {
+    return TableTemplates_;
+  }
 
   [[nodiscard]] const GeometryHierarchyAdmission &Hierarchy() const noexcept { return Hierarchy_; }
 
@@ -403,7 +408,8 @@ private:
                                                     size_t first,
                                                     bool culled,
                                                     size_t end,
-                                                    const DrawResources &resources);
+                                                    const DrawResources &resources,
+                                                    const DirectIndexSelection *direct);
 
 public:
   [[nodiscard]] bool SetLights(std::span<const SceneLight> lights, std::string &error);
@@ -433,7 +439,9 @@ public:
     GroundPalette_ = from.Palette;
   }
 
-  [[nodiscard]] Native::Result<void> Encode(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> Encode(const FrameContext &ctx,
+                                            const PassRecording &into,
+                                            const DirectIndexSelection *direct = nullptr);
   [[nodiscard]] Native::Result<void> EncodeGround(const FrameContext &ctx,
                                                   const PassRecording &into);
 
@@ -566,6 +574,7 @@ private:
   size_t NativeMaterialSlots_ = 0;
   uint64_t MaterialRevision_ = 0;
   std::vector<DrawBatch> Batches;
+  std::vector<std::optional<Native::IndexRange>> SourceRanges_;
 
   std::vector<VertexLayout> BatchLayout;
 

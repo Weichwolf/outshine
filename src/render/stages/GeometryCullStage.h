@@ -9,14 +9,17 @@
 #include "GeometryResidency.h"
 #include "GeometryPrefixScan.h"
 #include "GeometryHierarchyAdmission.h"
+#include "DirectIndexSelection.h"
 #include "Vec4.h"
 #include "Vec2.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <span>
 
 namespace outshine::Render {
+struct DrawBatch;
 
 class GeometryCullStage {
 public:
@@ -28,6 +31,7 @@ public:
     const GeometryHierarchyAdmission *Hierarchy = nullptr;
     uint64_t Generation = 0;
     uint64_t GroundGeneration = 0;
+    std::span<const DrawBatch> Batches;
   };
 
   struct SelectionProjection {
@@ -58,6 +62,7 @@ public:
   void Invalidate() noexcept {
     Cache_.Invalidate();
     DepthForSelection_ = false;
+    Direct_ = {};
   }
 
   void DepthSubmitted(bool pyramidWritten) noexcept {
@@ -76,6 +81,8 @@ public:
   [[nodiscard]] bool EncodedOcclusion() const noexcept { return Swept_ != 0 && OccludeThisFrame_; }
 
   [[nodiscard]] bool HasAcceptedSelection() const noexcept { return Cache_.Submitted(); }
+
+  [[nodiscard]] const DirectIndexSelection &DirectRanges() const noexcept { return Direct_; }
 
   void Projects(float heightPx) {
     if (HeightPx_ != heightPx) { Invalidate(); }
@@ -118,6 +125,7 @@ private:
   bool OccludeThisFrame_ = false;
   bool Refined_ = false;
   bool DepthForSelection_ = false;
+  DirectIndexSelection Direct_;
   SelectionProjection LastProjection_{};
   Vec3 LastPreViewTranslation_{};
   uint64_t LastGeometryGeneration_ = 0;

@@ -49,9 +49,10 @@ bool ReadSelectionQueues(Native::Device *device,
 
 bool MaskRejectedRoots(Native::Device *device,
                        const GeometryResidency &resident,
-                       std::span<const DrawBatch> batches,
+                       const GeometryRenderer &geometry,
                        std::span<uint32_t> into) {
   Readback roots;
+  const auto &batches = geometry.Drawn();
   const auto *visible = resident.Buffer(GeometryResidency::Stream::ClusterVisible).get();
   const auto bytes = static_cast<uint32_t>(batches.size() * sizeof(uint32_t));
   if (visible == nullptr || roots.FromBuffer(device, visible, bytes) != ReadState::Ready) {
@@ -61,10 +62,60 @@ bool MaskRejectedRoots(Native::Device *device,
   size_t logical = 0;
   for (size_t at = 0; at < batches.size(); ++at) {
     if (batches[at].JobCount > into.size() - logical) { return false; }
-    if (status[at] == 0) { std::ranges::fill(into.subspan(logical, batches[at].JobCount), 0u); }
+    const auto &batch = batches[at];
+    const auto values = into.subspan(logical, batch.JobCount);
+    if (status[at] == 0) { std::ranges::fill(values, 0u); }
+    if (status[at] == 2) {
+      const auto templates = geometry.ClusterTemplates();
+      if (batch.FirstJob > templates.size() || batch.JobCount > templates.size() - batch.FirstJob) {
+        return false;
+      }
+      for (size_t job = 0; job < values.size(); ++job) {
+        values[job] = templates[batch.FirstJob + job].IndexCount;
+      }
+    }
     logical += batches[at].JobCount;
   }
   return logical == into.size();
+}
+
+bool ReadSelectedIndices(Native::Device *device,
+                         const GeometryResidency &resident,
+                         const DirectIndexSelection &direct,
+                         KeptDraws &into) {
+  const size_t rows = into.Arguments.size() / 5;
+  std::array<uint64_t, 2> ends{};
+  for (size_t at = 0; at < rows; ++at) {
+    const uint64_t count = into.Arguments[at * 5];
+    if (count == 0) { continue; }
+    auto &end = ends[static_cast<size_t>(direct.Includes(at))];
+    end = std::max(end, into.Arguments[at * 5 + 2] + count);
+  }
+  using Stream = GeometryResidency::Stream;
+  const std::array buffers{resident.Buffer(Stream::DrawIndex).get(),
+                           resident.Buffer(Stream::Index).get()};
+  std::array<Readback, 2> drawn;
+  for (size_t at = 0; at < buffers.size(); ++at) {
+    const uint64_t bytes = ends[at] * sizeof(uint32_t);
+    if (bytes == 0) { continue; }
+    const auto *buffer = buffers[at];
+    if (buffer == nullptr || bytes > buffer->Description().Bytes ||
+        bytes > std::numeric_limits<uint32_t>::max() ||
+        drawn[at].FromBuffer(device, buffer, static_cast<uint32_t>(bytes)) != ReadState::Ready) {
+      return false;
+    }
+    into.ReadbackBytes += bytes;
+  }
+  into.DrawIndex.reserve(into.Indices);
+  for (size_t at = 0; at < rows; ++at) {
+    const auto count = into.Arguments[at * 5];
+    if (count == 0) { continue; }
+    const auto first = into.Arguments[at * 5 + 2];
+    const auto &input = drawn[static_cast<size_t>(direct.Includes(at))];
+    const auto *words = reinterpret_cast<const uint32_t *>(input.Rows());
+    into.DrawIndex.insert(into.DrawIndex.end(), words + first, words + first + count);
+  }
+  return true;
 }
 
 float HalfToFloat(uint16_t bits) {
@@ -212,7 +263,9 @@ ReadState SceneRenderer::ReadShadowAtlas(std::vector<float> &depth) {
 
 ReadState SceneRenderer::ReadGeometrySelection(KeptDraws &into, GeometryReadback detail) {
   into = {};
-  const GeometryResidency &resident = ActiveContent().Geometry().Resident();
+  const auto &geometry = ActiveContent().Geometry();
+  const auto &direct = ActiveFrame().Cull.DirectRanges();
+  const GeometryResidency &resident = geometry.Resident();
   const Native::Buffer *const args =
       resident.Buffer(GeometryResidency::Stream::DrawArguments).get();
   const uint32_t rows = ActiveContent().Geometry().ClusterBatchRows();
@@ -236,8 +289,16 @@ ReadState SceneRenderer::ReadGeometrySelection(KeptDraws &into, GeometryReadback
     into.Arguments.assign(held, held + static_cast<size_t>(rows) * 5u);
   }
   for (uint32_t at = 0; at < rows; ++at) {
-    into.Indices += held[static_cast<size_t>(at) * 5];
-    into.Batches += held[static_cast<size_t>(at) * 5] > 0u ? 1u : 0u;
+    const size_t offset = size_t{at} * 5;
+    const auto &batch = geometry.Drawn()[at];
+    const bool original = direct.Includes(at);
+    const auto count = original ? batch.IndexCount : held[offset];
+    into.Indices += count;
+    into.Batches += count > 0u ? 1u : 0u;
+    if (original && detail == GeometryReadback::Indices) {
+      into.Arguments[offset] = count;
+      into.Arguments[offset + 2] = batch.FirstIndex;
+    }
   }
   if (detail == GeometryReadback::Counters) { return ReadState::Ready; }
   const uint32_t jobs = ActiveContent().Geometry().ClusterJobs();
@@ -252,39 +313,15 @@ ReadState SceneRenderer::ReadGeometrySelection(KeptDraws &into, GeometryReadback
     const auto *const values = reinterpret_cast<const uint32_t *>(visibility.Rows());
     into.Visibility.assign(values, values + jobs);
     into.ReadbackBytes += keptBytes;
-    if (!MaskRejectedRoots(
-            Device_.get(), resident, ActiveContent().Geometry().Drawn(), into.Visibility)) {
+    if (!MaskRejectedRoots(Device_.get(), resident, geometry, into.Visibility)) {
       into = {};
       return ReadState::Failed;
     }
     into.ReadbackBytes += rows * sizeof(uint32_t);
   }
-  const Native::Buffer *const index = resident.Buffer(GeometryResidency::Stream::DrawIndex).get();
-  if (index == nullptr || into.Indices == 0) { return ReadState::Ready; }
-  Readback drawn;
-  uint64_t end = 0;
-  for (size_t at = 0; at < rows; ++at) {
-    const auto first = into.Arguments[at * 5 + 2];
-    const auto count = into.Arguments[at * 5];
-    if (count != 0) { end = std::max(end, uint64_t{first} + count); }
-  }
-  const uint64_t indexBytes = end * sizeof(uint32_t);
-  if (indexBytes > index->Description().Bytes ||
-      indexBytes > std::numeric_limits<uint32_t>::max() ||
-      drawn.FromBuffer(Device_.get(), index, static_cast<uint32_t>(indexBytes)) !=
-          ReadState::Ready) {
+  if (!ReadSelectedIndices(Device_.get(), resident, direct, into)) {
     into = {};
     return ReadState::Failed;
-  }
-  const auto *indices = reinterpret_cast<const uint32_t *>(drawn.Rows());
-  into.ReadbackBytes += indexBytes;
-  into.DrawIndex.reserve(into.Indices);
-  for (size_t at = 0; at < rows; ++at) {
-    const auto first = into.Arguments[at * 5 + 2];
-    const auto count = into.Arguments[at * 5];
-    if (count != 0) {
-      into.DrawIndex.insert(into.DrawIndex.end(), indices + first, indices + first + count);
-    }
   }
   return ReadState::Ready;
 }

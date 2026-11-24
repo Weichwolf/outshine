@@ -9,6 +9,7 @@ layout(std430, set = 0, binding = 0) readonly buffer Buffer_roots { GeometryRoot
 layout(std430, set = 1, binding = 0) buffer Buffer_chunks { uvec2 chunks[]; };
 layout(std430, set = 1, binding = 1) buffer Buffer_chunkState { GeometryQueueState chunkState; };
 layout(std430, set = 1, binding = 2) buffer Buffer_visible { uint visible[]; };
+layout(std140, set = 2, binding = 2) uniform DirectIndexRows { uvec4 words[128]; } directRows;
 
 #include "cullAffine.glsl"
 #include "geometryRootSelection.glsl"
@@ -18,6 +19,13 @@ void main() {
   if (id >= hierarchy.counts.x) { return; }
   atomicAdd(chunkState.counts.z, 1u);
   const GeometryRoot root = roots[id];
+  const bool direct = id < 16384u &&
+      (directRows.words[id >> 7u][(id >> 5u) & 3u] & (1u << (id & 31u))) != 0u;
+  if (direct) {
+    visible[id] = 2u;
+    atomicAdd(chunkState.counts.w, 1u);
+    return;
+  }
   const bool keep = geometryRootVisible(root);
   visible[id] = uint(keep);
   if (!keep || root.cluster.y == 0u) { return; }

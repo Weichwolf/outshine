@@ -111,7 +111,8 @@ GeometryCullStage::Source CullSource(const GeometryRenderer &draw) {
           .BatchRows = draw.ClusterBatchRows(),
           .Hierarchy = &draw.Hierarchy(),
           .Generation = draw.Generation(),
-          .GroundGeneration = draw.Ground().Generation()};
+          .GroundGeneration = draw.Ground().Generation(),
+          .Batches = draw.Drawn()};
 }
 
 }
@@ -1049,7 +1050,8 @@ SceneRenderer::EncodeStage(Stage stage, const FrameContext &ctx, const PassRecor
 
 Native::Result<void> SceneRenderer::EncodeGeometry(const FrameContext &ctx,
                                                    const PassRecording &into) {
-  return ActiveContent().Geometry().Encode(ctx, Picture(true, into));
+  return ActiveContent().Geometry().Encode(
+      ctx, Picture(true, into), &ActiveFrame().Cull.DirectRanges());
 }
 
 Native::Result<void> SceneRenderer::EncodeGlass(const FrameContext &ctx,

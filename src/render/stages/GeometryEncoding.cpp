@@ -1,4 +1,5 @@
 #include "GeometryRenderer.h"
+#include <optional>
 #include "BatchVisibility.h"
 #include "SurfaceBindings.h"
 #include <algorithm>
@@ -155,11 +156,21 @@ size_t GeometryRenderer::IndirectRunEnd(size_t first, const BatchFrustum &visibl
   return end;
 }
 
+namespace {
+Native::IndexRange WholeRange(const DrawBatch &batch) {
+  return {.First = batch.FirstIndex,
+          .Count = batch.IndexCount,
+          .Instances = batch.Instances,
+          .FirstInstance = batch.ModelSlot};
+}
+}
+
 Native::Result<void> GeometryRenderer::DrawBatchRange(const PassRecording &into,
                                                       size_t first,
                                                       bool culled,
                                                       size_t end,
-                                                      const DrawResources &resources) {
+                                                      const DrawResources &resources,
+                                                      const DirectIndexSelection *direct) {
   const auto &batch = Batches[first];
   const auto &surface = Slots[batch.MaterialSlot];
   const auto pipeline =
@@ -178,29 +189,46 @@ Native::Result<void> GeometryRenderer::DrawBatchRange(const PassRecording &into,
       .Clip = into.Clip};
   const Native::IndexBuffer indices{.Data = index.get(),
                                     .Range = {.Bytes = index->Description().Bytes}};
+  const auto rows = std::span(Batches).subspan(first, end - first);
+  const bool mixed = culled && direct != nullptr && direct->Any &&
+                     std::ranges::any_of(rows, [&](const DrawBatch &draw) {
+                       return direct->Includes(static_cast<size_t>(&draw - Batches.data()));
+                     });
   Native::Result<void> recorded;
   if (culled) {
-    recorded = into.Commands->DrawIndexedIndirect(
-        {.State = state,
-         .Indices = indices,
-         .Range = {.Data = Bound().Buffer(GeometryResidency::Stream::DrawArguments).get(),
-                   .Offset = first * Native::kIndexedIndirectBytes,
-                   .Count = static_cast<uint32_t>(end - first)}});
+    const Native::IndirectRange arguments{
+        .Data = Bound().Buffer(GeometryResidency::Stream::DrawArguments).get(),
+        .Offset = first * Native::kIndexedIndirectBytes,
+        .Count = static_cast<uint32_t>(rows.size())};
+    if (mixed) {
+      SourceRanges_.resize(rows.size());
+      for (size_t at = 0; at < rows.size(); ++at) {
+        SourceRanges_[at] =
+            direct->Includes(first + at) ? std::optional(WholeRange(rows[at])) : std::nullopt;
+      }
+      const auto &source = Bound().Buffer(GeometryResidency::Stream::Index);
+      recorded = into.Commands->DrawIndexedSequence(
+          {.State = state,
+           .SourceIndices = {.Data = source.get(), .Range = {.Bytes = source->Description().Bytes}},
+           .CompactedIndices = indices,
+           .Arguments = arguments,
+           .SourceRanges = SourceRanges_});
+    } else {
+      recorded = into.Commands->DrawIndexedIndirect(
+          {.State = state, .Indices = indices, .Range = arguments});
+    }
   } else {
-    recorded = into.Commands->DrawIndexed({.State = state,
-                                           .Indices = indices,
-                                           .Range = {.First = batch.FirstIndex,
-                                                     .Count = batch.IndexCount,
-                                                     .Instances = batch.Instances,
-                                                     .FirstInstance = batch.ModelSlot}});
+    recorded = into.Commands->DrawIndexed(
+        {.State = state, .Indices = indices, .Range = WholeRange(batch)});
   }
   if (recorded) {
     ++EncodedWork_.DrawRequests;
-    if (culled) { EncodedWork_.IndirectRecords += static_cast<uint32_t>(end - first); }
-    for (const auto &draw : std::span(Batches).subspan(first, end - first)) {
-      if (draw.Passes == GeometryPasses::Shadow) { continue; }
+    for (size_t at = 0; at < rows.size(); ++at) {
+      const auto &draw = rows[at];
+      const bool indirect = culled && (!mixed || !SourceRanges_[at]);
+      EncodedWork_.IndirectRecords += static_cast<uint32_t>(indirect);
       const auto triangles = uint64_t{draw.IndexCount / 3u} * draw.Instances;
-      (culled ? EncodedWork_.IndirectInputTriangles : EncodedWork_.DirectTriangles) += triangles;
+      (indirect ? EncodedWork_.IndirectInputTriangles : EncodedWork_.DirectTriangles) += triangles;
       EncodedWork_.SurfaceSlotLimit =
           std::max(EncodedWork_.SurfaceSlotLimit, draw.MaterialSlot + 1u);
       EncodedWork_.PlacementSlotLimit =
@@ -210,7 +238,9 @@ Native::Result<void> GeometryRenderer::DrawBatchRange(const PassRecording &into,
   return recorded;
 }
 
-Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx, const PassRecording &into) {
+Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx,
+                                              const PassRecording &into,
+                                              const DirectIndexSelection *direct) {
   const BatchFrustum visible(ctx, Anchor);
   EncodedWork_ = {};
   const bool drawsBatches = !Batches.empty() && Bound().Buffer(GeometryResidency::Stream::Vertex) &&
@@ -252,7 +282,7 @@ Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx, const Pas
     }
     const bool culled = cut && batch.JobCount > 0;
     const size_t end = culled ? IndirectRunEnd(at, visible) : at + 1;
-    const auto recorded = DrawBatchRange(into, at, culled, end, resources);
+    const auto recorded = DrawBatchRange(into, at, culled, end, resources, direct);
     if (!recorded) { return recorded; }
     at = end - 1;
   }
