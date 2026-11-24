@@ -116,14 +116,13 @@ double PathDistanceBelow(const Box &bounds, const ViewPath &path) {
   std::array<Interval, 3> components{};
   Interval start{};
   Interval finish{};
+  const auto exact = [](double value) { return Interval{.Lower = value, .Upper = value}; };
   for (size_t axis = 0; axis < 3; ++axis) {
     const double support = normal[axis] < 0 ? bounds.Min[axis] : bounds.Max[axis];
-    const Interval plane{support, support};
-    components[axis] = {normal[axis], normal[axis]};
-    start = Add(start,
-                Multiply(components[axis], Subtract({path.Start[axis], path.Start[axis]}, plane)));
-    finish =
-        Add(finish, Multiply(components[axis], Subtract({path.End[axis], path.End[axis]}, plane)));
+    const Interval plane = exact(support);
+    components[axis] = exact(normal[axis]);
+    start = Add(start, Multiply(components[axis], Subtract(exact(path.Start[axis]), plane)));
+    finish = Add(finish, Multiply(components[axis], Subtract(exact(path.End[axis]), plane)));
   }
   const double separation = std::min(start.Lower, finish.Lower);
   return separation > 0 ? std::nextafter(separation / UpperNorm(components), 0.0) : 0;

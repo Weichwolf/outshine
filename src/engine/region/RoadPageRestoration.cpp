@@ -161,7 +161,7 @@ RoadPageRestoration::PreferredDisplay(const Generators::RoadPageReference &refer
       view.PathEnd
           ? SourceProductSelection::GeometryErrorLimitM(
                 reference.Bounds,
-                ViewPath{view.Eye, *view.PathEnd, view.TranslationM},
+                ViewPath{.Start = view.Eye, .End = *view.PathEnd, .RadiusM = view.TranslationM},
                 view.ViewportPx,
                 view.Projection)
           : SourceProductSelection::GeometryErrorLimitM(
