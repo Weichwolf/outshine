@@ -133,9 +133,11 @@ struct BuildingFieldStreaming::State {
   [[nodiscard]] std::vector<const Cell *> EvaluateCells(Context &context, Tile &tile);
   [[nodiscard]] static std::expected<std::vector<OriginalProduct>, std::string>
   BindOriginals(Context &context, const Tile &tile, uint64_t sourceKey);
-  [[nodiscard]] static ProductCut SelectReplacements(std::span<const OriginalProduct> originals,
-                                                     std::span<const Cell *const> candidates,
-                                                     uint64_t shadowCells);
+  [[nodiscard]] static std::optional<ProductCut>
+  SelectReplacements(const SourceCoverage &domain,
+                     std::span<const OriginalProduct> originals,
+                     std::span<const Cell *const> candidates,
+                     uint64_t shadowCells);
   [[nodiscard]] static std::expected<SourceCoverage, std::string> OriginalCoverage(const Tile &tile,
                                                                                    uint64_t cells);
   [[nodiscard]] static std::expected<bool, std::string>

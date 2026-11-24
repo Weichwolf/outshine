@@ -18,12 +18,22 @@ public:
     bool operator==(const Range &other) const = default;
   };
 
+  struct Cut {
+    std::vector<size_t> Retained, Preferred;
+  };
+
   [[nodiscard]] static std::expected<SourceCoverage, SourceCoverageError>
   FromRanges(std::string revision, uint64_t sourceCount, std::span<const Range> ranges);
   [[nodiscard]] static std::expected<SourceCoverage, SourceCoverageError>
   FromSources(std::string revision, uint64_t sourceCount, std::span<const uint32_t> sources);
   [[nodiscard]] static std::expected<void, SourceCoverageError>
   Partition(const SourceCoverage &expected, std::span<const SourceCoverage *const> products);
+  // The two input cuts must be disjoint within each tier. Prefer ready products
+  // only where the swap preserves every source already covered by the fallback.
+  [[nodiscard]] static std::expected<Cut, SourceCoverageError>
+  Prefer(const SourceCoverage &domain,
+         std::span<const SourceCoverage *const> fallback,
+         std::span<const SourceCoverage *const> ready);
 
   [[nodiscard]] std::string_view Revision() const noexcept { return Revision_; }
 

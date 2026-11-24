@@ -114,8 +114,9 @@ BuildingFieldStreaming::State::BindOriginals(Context &context,
   return result;
 }
 
-BuildingFieldStreaming::State::ProductCut
-BuildingFieldStreaming::State::SelectReplacements(std::span<const OriginalProduct> originals,
+std::optional<BuildingFieldStreaming::State::ProductCut>
+BuildingFieldStreaming::State::SelectReplacements(const SourceCoverage &domain,
+                                                  std::span<const OriginalProduct> originals,
                                                   std::span<const Cell *const> candidates,
                                                   uint64_t shadowCells) {
   ProductCut result;
@@ -124,35 +125,32 @@ BuildingFieldStreaming::State::SelectReplacements(std::span<const OriginalProduc
       result.Shadow.push_back(original.Key);
       result.ShadowSources.push_back(original.Coverage);
     }
-    std::vector<const Cell *> children;
-    std::vector<const SourceCoverage *> sources;
-    for (const auto *cell : candidates) {
-      if (!original.Coverage->Contains(cell->Coverage)) { continue; }
-      children.push_back(cell);
-      sources.push_back(&cell->Coverage);
-    }
-    if (!SourceCoverage::Partition(*original.Coverage, sources)) {
+  }
+  if (candidates.empty()) {
+    for (const auto &original : originals) {
       result.Main.push_back(original.Key);
       result.MainSources.push_back(original.Coverage);
-      continue;
     }
-    for (const auto *cell : children) {
+  } else {
+    std::vector<const SourceCoverage *> fallback;
+    std::vector<const SourceCoverage *> ready;
+    fallback.reserve(originals.size());
+    ready.reserve(candidates.size());
+    for (const auto &original : originals) { fallback.push_back(original.Coverage); }
+    for (const auto *cell : candidates) { ready.push_back(&cell->Coverage); }
+    const auto cut = SourceCoverage::Prefer(domain, fallback, ready);
+    if (!cut) { return std::nullopt; }
+    for (const size_t at : cut->Retained) {
+      result.Main.push_back(originals[at].Key);
+      result.MainSources.push_back(originals[at].Coverage);
+    }
+    for (const size_t at : cut->Preferred) {
+      const auto *cell = candidates[at];
       result.Main.push_back(cell->AssetKey);
       result.MainSources.push_back(&cell->Coverage);
       result.ActiveCells |= uint64_t{1} << (cell->Source.Cell - 1u);
       result.ActiveGroups += cell->Groups.size();
     }
-  }
-  for (const auto *cell : candidates) {
-    if (std::ranges::any_of(originals, [&](const auto &original) {
-          return original.Coverage->Contains(cell->Coverage);
-        })) {
-      continue;
-    }
-    result.Main.push_back(cell->AssetKey);
-    result.MainSources.push_back(&cell->Coverage);
-    result.ActiveCells |= uint64_t{1} << (cell->Source.Cell - 1u);
-    result.ActiveGroups += cell->Groups.size();
   }
   std::ranges::sort(result.Main);
   std::ranges::sort(result.Shadow);
@@ -248,16 +246,16 @@ bool BuildingFieldStreaming::State::SelectTile(Context &context, Tile &tile, std
     return true;
   }
   tile.Originals = std::move(legacy);
-  const auto selected = SelectReplacements(*originals, candidates, tile.ShadowCells);
+  const auto selected = SelectReplacements(expected, *originals, candidates, tile.ShadowCells);
   const auto shadowExpected = OriginalCoverage(tile, tile.ShadowCells);
-  if (!shadowExpected || !SourceCoverage::Partition(expected, selected.MainSources) ||
-      !SourceCoverage::Partition(*shadowExpected, selected.ShadowSources)) {
+  if (!selected || !shadowExpected || !SourceCoverage::Partition(expected, selected->MainSources) ||
+      !SourceCoverage::Partition(*shadowExpected, selected->ShadowSources)) {
     return true;
   }
-  const auto &main = selected.Main;
-  const auto &shadow = selected.Shadow;
-  const auto active = selected.ActiveCells;
-  Statistics.ActiveGroups += selected.ActiveGroups;
+  const auto &main = selected->Main;
+  const auto &shadow = selected->Shadow;
+  const auto active = selected->ActiveCells;
+  Statistics.ActiveGroups += selected->ActiveGroups;
   Statistics.SelectedProducts += main.size();
   Statistics.Active += static_cast<size_t>(std::popcount(active));
   if ((!std::ranges::equal(main, tile.MainProducts) ||
@@ -276,7 +274,7 @@ bool BuildingFieldStreaming::State::SelectTile(Context &context, Tile &tile, std
   tile.PublishedShadowCells = tile.ShadowCells;
   tile.Complete = true;
   tile.Active = active;
-  tile.ActiveGroups = selected.ActiveGroups;
+  tile.ActiveGroups = selected->ActiveGroups;
   return true;
 }
 }
