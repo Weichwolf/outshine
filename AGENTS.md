@@ -117,6 +117,8 @@ in der Backend-Ausführung.
 - Zwölf wechselnde Places sind das Beurteilungswerkzeug; je Place liegt nur die neueste
   PNG unter `build/shots/places/`. Bilder tatsächlich öffnen, vorher/nachher und gegen
   datierte [Webcam-Aufnahmen](https://www.foto-webcam.eu/) vergleichen.
+  Auffällige Stellen im Originalmaßstab prüfen und konkrete Bildfehler im Issue
+  festhalten. Auch bei identischem Bild gelten sichtbare Fehler als offen.
 - `make bench` (#1956) misst Still, Drehung und Flug je Place: CPU/GPU p50/p99, Draws,
   Dreiecke, Speicher, Pass-Zeiten. Diese Tabelle ist die einzige Leistungswahrheit.
 - Zahlen gelten nur für das Gerät und Profil, auf dem sie gemessen wurden; RTX-Werte
