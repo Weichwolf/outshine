@@ -34,7 +34,9 @@ RoadPageQueue::~RoadPageQueue() {
   }
 }
 
-bool RoadPageQueue::RequestCached(const std::string &key, Manifest dependency) {
+bool RoadPageQueue::RequestCached(const std::string &key,
+                                  Manifest dependency,
+                                  std::optional<DisplayPage> display) {
   const auto admission = RequestState(key, Kind::Payload);
   if (admission != Admission::Available) { return admission == Admission::Pending; }
   return Enqueue(key,
@@ -42,7 +44,20 @@ bool RoadPageQueue::RequestCached(const std::string &key, Manifest dependency) {
                  [pages = Pages_,
                   failedPage = key,
                   manifest = std::move(dependency.Key),
+                  preferred = std::move(display),
                   bytesMost = Limits_.PageBytesMost](const std::stop_token &) -> LoadResult {
+                   if (preferred && preferred->BytesMost != 0) {
+                     const auto limit = std::min(preferred->BytesMost, bytesMost);
+                     const auto record = pages->Inspect(preferred->Address, limit);
+                     if (record && *record) {
+                       auto coarse = pages->LoadKey((**record).Key, limit);
+                       if (coarse && *coarse && (**coarse).Page->Address == preferred->Address &&
+                           (**coarse).NativeBytes == (**record).ByteCount &&
+                           (**coarse).Record.Bounds == (**record).Bounds) {
+                         return std::optional<Product>(std::move(**coarse));
+                       }
+                     }
+                   }
                    auto loaded = pages->LoadKey(failedPage, bytesMost);
                    if (loaded && !*loaded && !manifest.empty()) {
                      const auto invalidated =

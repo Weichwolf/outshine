@@ -3,6 +3,9 @@
 
 #include "RoadPageQueue.h"
 #include "RoadPageManifest.h"
+#include "ProjectedErrorBudget.h"
+#include "Vec2.h"
+#include "Vec3.h"
 #include <cstddef>
 #include <chrono>
 #include <cstdint>
@@ -28,6 +31,13 @@ public:
   static constexpr Limits DefaultLimits{.PendingMost = 4,
                                         .NativeBytesMost = size_t{8} * 1024u * 1024u};
 
+  struct DisplayView {
+    Vec3 Eye;
+    Vec2 ViewportPx;
+    ProjectedErrorBudget Projection;
+    double TranslationM = 0;
+  };
+
   [[nodiscard]] static std::expected<std::unique_ptr<RoadPageRestoration>, std::string>
   Begin(Tasks &pool,
         std::shared_ptr<Generators::PreparedRoadPages> pages,
@@ -36,7 +46,8 @@ public:
         std::string manifestKey = {},
         std::optional<Vec3> eye = std::nullopt,
         Limits limits = DefaultLimits,
-        std::shared_ptr<AssetPipeline> publications = {});
+        std::shared_ptr<AssetPipeline> publications = {},
+        std::optional<DisplayView> display = std::nullopt);
   using Consumer =
       std::function<std::expected<bool, std::string>(const Generators::RoadPageAsset &,
                                                      const Generators::RoadPageReference &,
@@ -51,6 +62,8 @@ public:
 
   [[nodiscard]] size_t RecoveredPages() const noexcept { return RecoveredPages_; }
 
+  [[nodiscard]] size_t DisplayPages() const noexcept { return DisplayPages_; }
+
   [[nodiscard]] const RoadMeshingStats &Meshing() const noexcept { return Meshing_; }
 
 private:
@@ -61,6 +74,7 @@ private:
     Stage Step = Stage::Read;
     std::optional<RoadPageQueue::Result> Result;
     RoadPageQueue::RecipeProducer Producer;
+    std::optional<Generators::RoadPageReference> Display;
   };
 
   RoadPageRestoration(Tasks &pool,
@@ -69,9 +83,14 @@ private:
                       Limits limits,
                       std::shared_ptr<AssetPipeline> publications);
   [[nodiscard]] bool OrderPages(const Vec3 &eye);
+  [[nodiscard]] const Generators::RoadPageReference &ActiveReference(const Pending &pending) const;
+  [[nodiscard]] std::optional<RoadPageQueue::DisplayPage>
+  PreferredDisplay(const Generators::RoadPageReference &reference) const;
   [[nodiscard]] std::expected<void, std::string> Prefetch();
   [[nodiscard]] std::expected<void, std::string> CollectReady();
   [[nodiscard]] std::expected<void, std::string> Collect();
+  [[nodiscard]] std::expected<void, std::string> CollectRead(Pending &pending,
+                                                             RoadPageQueue::Result &result);
   [[nodiscard]] bool CanRepair(const Generators::RoadPageReference &reference) const noexcept;
   [[nodiscard]] std::expected<void, std::string>
   Repair(Pending &pending, const Generators::RoadPageReference &reference);
@@ -85,6 +104,7 @@ private:
   std::shared_ptr<const Generators::RoadPageManifest> Manifest_;
   std::vector<uint32_t> Selected_;
   std::deque<Pending> Window_;
+  std::optional<DisplayView> Display_;
   Limits Limits_;
   RoadMeshingStats Meshing_;
   std::unique_ptr<Generators::RoadPageAsset> Loaded_;
@@ -93,6 +113,7 @@ private:
   size_t WindowBytes_ = 0;
   size_t NativeBytes_ = 0;
   size_t RecoveredPages_ = 0;
+  size_t DisplayPages_ = 0;
   std::string ManifestKey_;
   bool Missing_ = false;
 };
