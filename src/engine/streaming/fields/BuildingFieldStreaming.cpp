@@ -107,37 +107,43 @@ void BuildingFieldStreaming::State::Discover(Context &context) {
 }
 
 namespace {
-std::optional<BuildingFieldRequest::Demand>
-DemandFor(const BuildingFieldStreaming::Context &context,
-          const BuildingSourceDemand::Source &source,
-          const Box &bounds,
-          const Render::CameraBasis &camera) {
+std::optional<uint32_t>
+FieldPixels(const Box &bounds, const Vec3 &eye, ProjectedErrorBudget projection) {
+  if (bounds.Empty() || !std::isfinite(projection.FocalPx) || projection.FocalPx < 0 ||
+      !std::isfinite(projection.AllowedErrorPx) || projection.AllowedErrorPx <= 0) {
+    return std::nullopt;
+  }
   const double radius = Length(bounds.Span());
-  const double distance = Length(camera.EyeM - bounds.Middle()) - radius;
-  const auto projection = context.Surface.Footprints().Projection();
-  if (distance <= 0 || projection.AllowedErrorPx <= 0 ||
+  const double distance = Length(eye - bounds.Middle()) - radius;
+  if (distance <= 0 ||
       projection.FocalPx * radius * radius / (distance * distance) > projection.AllowedErrorPx) {
     return std::nullopt;
   }
   const double diameter = 2 * projection.FocalPx * radius / distance;
   const double required = std::ceil(diameter * 2) + 2;
   if (!std::isfinite(required) || required > 4096) { return std::nullopt; }
-  const uint32_t pixels = std::bit_ceil(std::max(uint32_t{4}, static_cast<uint32_t>(required)));
+  return std::bit_ceil(std::max(uint32_t{4}, static_cast<uint32_t>(required)));
+}
+
+std::optional<BuildingFieldRequest::Demand> DemandFor(const BuildingSourceDemand::Source &source,
+                                                      const Box &bounds,
+                                                      const Render::CameraBasis &camera,
+                                                      const Render::Lens &lens,
+                                                      ProjectedErrorBudget projection) {
+  const auto pixels = FieldPixels(bounds, camera.EyeM, projection);
+  if (!pixels) { return std::nullopt; }
   const auto geo = Ground::EcefToGeoWgs84(
       {.X = source.AnchorEcef[0], .Y = source.AnchorEcef[1], .Z = source.AnchorEcef[2]});
   const auto axes = EnuAxesEcef({.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg});
   const Vec3 delta = camera.EyeM - bounds.Middle();
   Vec3 direction{{Dot(delta, axes.East), Dot(delta, axes.Up), -Dot(delta, axes.North)}};
   if (!Normalise(direction)) { return std::nullopt; }
-  const auto lens =
-      Render::Lens::From(context.Camera, context.Renderer.PictureW(), context.Renderer.PictureH());
-  if (!lens) { return std::nullopt; }
   return BuildingFieldRequest::Demand{.Directions = {direction},
-                                      .Pixels = pixels,
+                                      .Pixels = *pixels,
                                       .View = {0},
                                       .GeometricView = BuildingFieldRequest::Pose{
                                           .Camera = camera,
-                                          .Optics = *lens,
+                                          .Optics = lens,
                                           .GeometryErrorMostPx = projection.AllowedErrorPx,
                                           .Space = BuildingFieldRequest::CoordinateSpace::World,
                                           .Domain = BuildingFieldRequest::ViewDomain::Panoramic}};
@@ -173,7 +179,9 @@ std::optional<BuildingFieldRequest::Budget> BudgetFor(
 bool BuildingFieldStreaming::State::RequestGroup(Context &context,
                                                  Tile &tile,
                                                  Cell &cell,
-                                                 Group &group) {
+                                                 Group &group,
+                                                 const Render::CameraBasis &camera,
+                                                 const Render::Lens &lens) {
   if (cell.Where == Phase::Prepared && group.Where == Phase::Prepared) {
     assert(group.Request.has_value());
     group.Where = Phase::Pending;
@@ -181,7 +189,8 @@ bool BuildingFieldStreaming::State::RequestGroup(Context &context,
     return true;
   }
   if (group.Where != Phase::Waiting) { return false; }
-  auto demand = DemandFor(context, tile.Source, group.Bounds, WorldCamera(context));
+  auto demand =
+      DemandFor(tile.Source, group.Bounds, camera, lens, context.Surface.Footprints().Projection());
   if (!demand) {
     if (cell.Groups.size() == 1) { return false; }
     RecordAbortedPreflight(cell);
@@ -231,6 +240,30 @@ bool BuildingFieldStreaming::State::RequestGroup(Context &context,
   return true;
 }
 
+bool BuildingFieldStreaming::State::RequestCell(Context &context,
+                                                Tile &tile,
+                                                Cell &cell,
+                                                const Render::CameraBasis &camera,
+                                                const Render::Lens &lens) {
+  if (cell.Where == Phase::Rejected || cell.Where == Phase::Ready) { return false; }
+  if (cell.Where == Phase::Waiting && !cell.Alternatives.empty()) {
+    const auto projection = context.Surface.Footprints().Projection();
+    const auto fits = [&](const Group &group) {
+      return FieldPixels(group.Bounds, camera.EyeM, projection).has_value();
+    };
+    if (!fits(cell.Groups.front())) {
+      if (!std::ranges::all_of(cell.Alternatives, fits)) { return false; }
+      cell.Groups = std::move(cell.Alternatives);
+      cell.Alternatives.clear();
+    }
+  }
+  for (auto &group : cell.Groups) {
+    if (RequestGroup(context, tile, cell, group, camera, lens)) { return true; }
+    if (cell.Where == Phase::Rejected) { break; }
+  }
+  return false;
+}
+
 void BuildingFieldStreaming::State::RequestOne(Context &context) {
   for (const auto &tile : Tiles) {
     if (std::ranges::any_of(tile.Cells, [](const Cell &cell) {
@@ -240,16 +273,19 @@ void BuildingFieldStreaming::State::RequestOne(Context &context) {
       return;
     }
   }
+  const auto lens =
+      Render::Lens::From(context.Camera, context.Renderer.PictureW(), context.Renderer.PictureH());
+  if (!lens) {
+    SourceRead.reset();
+    return;
+  }
+  const auto camera = WorldCamera(context);
   for (auto &tile : Tiles) {
     const auto source =
         StructureBuildQueue::QualifiedSourceKey(context.Surface.Footprints(), tile.Index);
     if (source != tile.SourceKey) { continue; }
     for (auto &cell : tile.Cells) {
-      if (cell.Where == Phase::Rejected || cell.Where == Phase::Ready) { continue; }
-      for (auto &group : cell.Groups) {
-        if (RequestGroup(context, tile, cell, group)) { return; }
-        if (cell.Where == Phase::Rejected) { break; }
-      }
+      if (RequestCell(context, tile, cell, camera, *lens)) { return; }
     }
   }
   SourceRead.reset();

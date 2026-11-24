@@ -21,6 +21,10 @@
 #include <vector>
 #include <utility>
 
+namespace outshine::Render {
+struct Lens;
+}
+
 namespace outshine {
 struct BuildingFieldStreaming::State {
   enum class Phase { Waiting, Pending, Prepared, Ready, Rejected };
@@ -121,7 +125,17 @@ struct BuildingFieldStreaming::State {
                const SourceProductSelection::Cut &cut);
   void StartMetadata(Context &context);
   void RequestOne(Context &context);
-  bool RequestGroup(Context &context, Tile &tile, Cell &cell, Group &group);
+  bool RequestCell(Context &context,
+                   Tile &tile,
+                   Cell &cell,
+                   const Render::CameraBasis &camera,
+                   const Render::Lens &lens);
+  bool RequestGroup(Context &context,
+                    Tile &tile,
+                    Cell &cell,
+                    Group &group,
+                    const Render::CameraBasis &camera,
+                    const Render::Lens &lens);
   [[nodiscard]] static std::expected<void, std::string> PrepareCellMetadata(Cell &cell);
   void RecordAbortedPreflight(const Cell &cell);
   [[nodiscard]] static std::expected<void, std::string>
