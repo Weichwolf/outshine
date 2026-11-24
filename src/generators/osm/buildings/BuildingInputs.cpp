@@ -3,7 +3,10 @@
 #include "Log.h"
 #include "OsmLayer.h"
 #include "StructureSourceKey.h"
+#include "spatial/GeosPolygon.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -11,6 +14,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace outshine::Generators::Osm {
 namespace {
@@ -48,6 +52,172 @@ StructureHeights HeightsOf(const BuildingProperties &building,
           .MinimumM =
               building.Height ? building.Height->MinimumM : vectors.Num(feature, "min_height", 0.0),
           .Origin = building.Height ? std::optional(building.Height->TopOrigin) : std::nullopt};
+}
+
+struct PolygonContext {
+  GEOSContextHandle_t Handle = GEOS_init_r();
+
+  ~PolygonContext() { GEOS_finish_r(Handle); }
+};
+
+Spatial::GeosGeometry Footprint(GEOSContextHandle_t context,
+                                const OsmField &vectors,
+                                std::span<const GeographicRing> rings) {
+  std::vector<PolygonRing> polygon;
+  for (const auto &ring : rings) {
+    if (!polygon.empty() && ring.Exterior) { break; }
+    if (ring.Count < 3 || ring.Count > kMostRingPoints) { return {nullptr, {context}}; }
+    auto &part = polygon.emplace_back();
+    part.reserve(ring.Count);
+    const auto points = vectors.Points().subspan(size_t{ring.First} * 2u, size_t{ring.Count} * 2u);
+    for (size_t at = 0; at < points.size(); at += 2) {
+      part.push_back({points[at + 1], points[at]});
+    }
+  }
+  auto shape = Spatial::MakeGeosPolygon(context, polygon);
+  if (shape && GEOSisValid_r(context, shape.get()) != 1) { shape.reset(); }
+  return shape;
+}
+
+Ground::GeoBounds RingBounds(const OsmField &vectors, const GeographicRing &ring) {
+  const auto points = vectors.Points().subspan(size_t{ring.First} * 2u, size_t{ring.Count} * 2u);
+  Ground::GeoBounds bounds{.MinLonDeg = points[1],
+                           .MinLatDeg = points[0],
+                           .MaxLonDeg = points[1],
+                           .MaxLatDeg = points[0]};
+  for (size_t at = 2; at < points.size(); at += 2) {
+    bounds.MinLatDeg = std::min(bounds.MinLatDeg, points[at]);
+    bounds.MaxLatDeg = std::max(bounds.MaxLatDeg, points[at]);
+    bounds.MinLonDeg = std::min(bounds.MinLonDeg, points[at + 1]);
+    bounds.MaxLonDeg = std::max(bounds.MaxLonDeg, points[at + 1]);
+  }
+  return bounds;
+}
+
+bool Overlaps(
+    const Ground::GeoBounds &bounds, double south, double west, double north, double east) {
+  return south <= bounds.MaxLatDeg && north >= bounds.MinLatDeg && west <= bounds.MaxLonDeg &&
+         east >= bounds.MinLonDeg;
+}
+
+struct SupportParts {
+  GEOSContextHandle_t Context;
+  const GEOSGeometry *Outline;
+  Ground::GeoBounds Bounds;
+  double SoleM;
+  std::vector<Spatial::GeosGeometry> Lowest;
+  std::vector<Spatial::GeosGeometry> Grounded;
+
+  void Include(Spatial::GeosGeometry shape, double minimumM) {
+    if (!shape || GEOSIntersects_r(Context, Outline, shape.get()) != 1) { return; }
+    if (minimumM <= 0.0) {
+      Grounded.push_back(std::move(shape));
+    } else if (GEOSCovers_r(Context, Outline, shape.get()) == 1) {
+      if (minimumM < SoleM) { Lowest.clear(); }
+      SoleM = minimumM;
+      Lowest.push_back(std::move(shape));
+    }
+  }
+
+  [[nodiscard]] std::optional<double> SupportHeight() const {
+    if (Lowest.empty()) { return std::nullopt; }
+    for (const auto &base : Grounded) {
+      for (const auto &part : Lowest) {
+        if (GEOSIntersects_r(Context, part.get(), base.get()) != 0) { return std::nullopt; }
+      }
+    }
+    return SoleM;
+  }
+};
+
+void IncludeFeature(SupportParts &support,
+                    const OsmField &vectors,
+                    const OsmField::Feature &feature) {
+  if (feature.Type != kPolygonFeature ||
+      !Overlaps(support.Bounds, feature.MinLat, feature.MinLon, feature.MaxLat, feature.MaxLon)) {
+    return;
+  }
+  const double minimumM = vectors.Num(feature, "min_height", 0.0);
+  const double topM = vectors.Num(feature, "height", 0.0);
+  if (!std::isfinite(minimumM) || !std::isfinite(topM) || minimumM > support.SoleM || topM <= 0.0 ||
+      topM <= minimumM || HiddenBuildingOutline(vectors, feature)) {
+    return;
+  }
+  const auto parts = vectors.Rings().subspan(feature.FirstRing, feature.RingCount);
+  for (size_t part = 0; part < parts.size(); ++part) {
+    const auto &ring = parts[part];
+    if (!ring.Exterior || ring.Count < 3 || ring.Count > kMostRingPoints) { continue; }
+    const auto other = RingBounds(vectors, ring);
+    if (Overlaps(
+            support.Bounds, other.MinLatDeg, other.MinLonDeg, other.MaxLatDeg, other.MaxLonDeg)) {
+      support.Include(Footprint(support.Context, vectors, parts.subspan(part)), minimumM);
+    }
+  }
+}
+
+std::optional<double> OutlineSupportHeight(const OsmField &vectors,
+                                           const OsmField::Feature &outline,
+                                           std::span<const GeographicRing> rings,
+                                           double outlineTopM) {
+  const PolygonContext context;
+  if (context.Handle == nullptr) { return std::nullopt; }
+  const auto shell = Footprint(context.Handle, vectors, rings);
+  if (!shell) { return std::nullopt; }
+  SupportParts support{.Context = context.Handle,
+                       .Outline = shell.get(),
+                       .Bounds = RingBounds(vectors, rings.front()),
+                       .SoleM = outlineTopM,
+                       .Lowest = {},
+                       .Grounded = {}};
+  for (const auto &feature : vectors.OfTile(static_cast<int>(outline.Tile))) {
+    if (feature.Layer == outline.Layer) { IncludeFeature(support, vectors, feature); }
+  }
+  return support.SupportHeight();
+}
+
+void AppendBuildingRings(const OsmField &vectors,
+                         const OsmField::Feature &feature,
+                         const BuildingProperties &building,
+                         const Ground::GeoBounds &tileBounds,
+                         RawTile &raw) {
+  const auto heights = HeightsOf(building, vectors, feature);
+  if (building.Hidden &&
+      (heights.MinimumM != 0.0 || heights.TopM <= 0.0 || !std::isfinite(heights.TopM) ||
+       !building.Height || building.Height->ConflictingLevels ||
+       vectors.Num(feature, "height", 0.0) <= 0.0)) {
+    return;
+  }
+  const int pitched = building.Hidden ? 0 : PitchedOf(vectors.Str(feature, "roof:shape"));
+  const auto points = vectors.Points();
+  const auto rings = vectors.Rings().subspan(feature.FirstRing, feature.RingCount);
+  for (uint32_t index = 0; index < rings.size(); ++index) {
+    const auto &ring = rings[index];
+    if (!ring.Exterior || ring.Count < 3 || ring.Count > kMostRingPoints) { continue; }
+    const auto ringPoints = points.subspan(size_t{ring.First} * 2u, size_t{ring.Count} * 2u);
+    const auto cell = Generators::StructureCellOf(tileBounds, ringPoints);
+    if (raw.RequestedCell && (!cell || cell->Index != *raw.RequestedCell)) { continue; }
+    const auto topM =
+        building.Hidden ? OutlineSupportHeight(vectors, feature, rings.subspan(index), heights.TopM)
+                        : std::optional(heights.TopM);
+    if (!topM) { continue; }
+    const auto local = static_cast<uint32_t>(raw.LatLon.size() / 2);
+    raw.LatLon.insert(raw.LatLon.end(), ringPoints.begin(), ringPoints.end());
+    const auto firstHole = static_cast<uint32_t>(raw.Holes.size());
+    AppendInnerRings(rings.subspan(index + 1), points, raw);
+    raw.Structures.push_back({.LocalFirst = local,
+                              .PointCount = ring.Count,
+                              .SourceFirst = ring.First,
+                              .FirstHole = firstHole,
+                              .HoleCount = static_cast<uint32_t>(raw.Holes.size()) - firstHole,
+                              .SourceFirstHole = feature.FirstRing + index + 1,
+                              .Cell = cell.value_or(Generators::StructureCell{}),
+                              .HeightM = *topM,
+                              .MinimumHeightM = heights.MinimumM,
+                              .Pitched = pitched,
+                              .WallColour = building.WallColour,
+                              .Facade = building.Facade,
+                              .HeightOrigin = heights.Origin});
+  }
 }
 
 }
@@ -94,46 +264,13 @@ void PrepareBuildingInputs(const OsmField &vectors,
     const OsmField::Feature &f = feats[at];
     if (f.Type != kPolygonFeature || std::cmp_not_equal(f.Layer, layer)) { continue; }
     const auto building = ReadBuildingProperties(vectors, f);
-    if (building.Hidden) { continue; }
     if (building.WallColourRejected) {
       Log::Error(LogTag::World,
                  "building_colour_rejected",
                  {{"featureIndex", static_cast<int>(at)},
                   {"colour", std::string(vectors.Str(f, "building:colour"))}});
     }
-    const auto heights = HeightsOf(building, vectors, f);
-    const int pitched = PitchedOf(vectors.Str(f, "roof:shape"));
-    for (uint32_t r = 0; r < f.RingCount; ++r) {
-      const OsmField::Ring &ring = vectors.Rings()[f.FirstRing + r];
-      if (!ring.Exterior || ring.Count < 3 || ring.Count > kMostRingPoints) { continue; }
-      const size_t ringFirst = static_cast<size_t>(ring.First) * 2u;
-      const size_t ringLength = static_cast<size_t>(ring.Count) * 2u;
-      const std::span<const double> ringPoints(points.data() + ringFirst, ringLength);
-      const auto assignedCell = Generators::StructureCellOf(tileBounds, ringPoints);
-      if (raw.RequestedCell && (!assignedCell || assignedCell->Index != *raw.RequestedCell)) {
-        continue;
-      }
-      const auto local = static_cast<uint32_t>(raw.LatLon.size() / 2);
-      raw.LatLon.insert(raw.LatLon.end(),
-                        points.begin() + static_cast<long>(ring.First) * 2,
-                        points.begin() + static_cast<long>(ring.First + ring.Count) * 2);
-      const auto firstHole = static_cast<uint32_t>(raw.Holes.size());
-      AppendInnerRings(
-          vectors.Rings().subspan(f.FirstRing + r + 1, f.RingCount - r - 1), points, raw);
-      raw.Structures.push_back({.LocalFirst = local,
-                                .PointCount = ring.Count,
-                                .SourceFirst = ring.First,
-                                .FirstHole = firstHole,
-                                .HoleCount = static_cast<uint32_t>(raw.Holes.size()) - firstHole,
-                                .SourceFirstHole = f.FirstRing + r + 1,
-                                .Cell = assignedCell.value_or(Generators::StructureCell{}),
-                                .HeightM = heights.TopM,
-                                .MinimumHeightM = heights.MinimumM,
-                                .Pitched = pitched,
-                                .WallColour = building.WallColour,
-                                .Facade = building.Facade,
-                                .HeightOrigin = heights.Origin});
-    }
+    AppendBuildingRings(vectors, f, building, tileBounds, raw);
   }
 }
 
