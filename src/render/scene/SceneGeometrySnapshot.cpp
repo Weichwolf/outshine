@@ -1,4 +1,5 @@
 #include "GeometrySnapshot.h"
+#include "GpuPlacement.h"
 #include "SceneRenderer.h"
 #include <algorithm>
 #include <cstddef>
@@ -34,6 +35,30 @@ bool Read(Native::Device *device,
   bytesRead += bytes;
   return true;
 }
+
+bool ReadBounds(Native::Device *device,
+                const GeometryResidency &resident,
+                GeometrySnapshot &snapshot) {
+  if (snapshot.Templates.empty()) { return true; }
+  using S = GeometryResidency::Stream;
+  size_t spheres = 0;
+  size_t placements = 0;
+  for (const auto &cluster : snapshot.Templates) {
+    spheres = std::max(spheres, size_t{cluster.SphereIndex} + 1);
+  }
+  for (const auto &root : snapshot.Roots) {
+    placements = std::max(placements, size_t{root.ModelSlot} + 1);
+  }
+  std::vector<GpuPlacement> rows;
+  if (!Read(
+          device, resident, S::ClusterSpheres, spheres, snapshot.Spheres, snapshot.ReadbackBytes) ||
+      !Read(device, resident, S::Placements, placements, rows, snapshot.ReadbackBytes)) {
+    return false;
+  }
+  snapshot.Placements.reserve(rows.size());
+  for (const auto &row : rows) { snapshot.Placements.push_back(row.Current); }
+  return true;
+}
 }
 
 ReadState SceneRenderer::ReadGeometrySnapshot(GeometrySnapshot &into) {
@@ -44,13 +69,19 @@ ReadState SceneRenderer::ReadGeometrySnapshot(GeometrySnapshot &into) {
   const auto &view = draw.Hierarchy().View;
   GeometrySnapshot snapshot;
   snapshot.Generation = draw.Generation();
+  const auto &camera = LastSubmittedCamera_.Basis;
+  snapshot.EyeFromAnchorM = camera.EyeM - draw.AnchorM();
+  snapshot.CameraAxes = {camera.Right, camera.Up, camera.Forward * -1.0};
+  const auto lens = Through();
+  snapshot.ViewportPx = {lens.WidePx, lens.HighPx};
   snapshot.SelectionReady = ActiveFrame().Cull.HasAcceptedSelection();
   const auto read = [&](auto stream, size_t count, auto &values) {
     return Read(Device_.get(), resident, stream, count, values, snapshot.ReadbackBytes);
   };
   using S = GeometryResidency::Stream;
   if (!read(S::ClusterRoots, view.RootCount, snapshot.Roots) ||
-      !read(S::ClusterTemplates, view.TemplateCount, snapshot.Templates)) {
+      !read(S::ClusterTemplates, view.TemplateCount, snapshot.Templates) ||
+      !ReadBounds(Device_.get(), resident, snapshot)) {
     return ReadState::Failed;
   }
   uint64_t end = 0;

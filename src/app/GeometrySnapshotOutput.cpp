@@ -41,6 +41,10 @@ std::expected<void, std::string> WriteGeometrySnapshot(Renderer &renderer,
       {"generation", snapshot.Generation},
       {"readback_bytes", snapshot.ReadbackBytes},
       {"selection_ready", snapshot.SelectionReady},
+      {"eye_from_anchor_m", snapshot.EyeFromAnchorM.Axis},
+      {"camera_axes",
+       {snapshot.CameraAxes[0].Axis, snapshot.CameraAxes[1].Axis, snapshot.CameraAxes[2].Axis}},
+      {"viewport_px", snapshot.ViewportPx},
       {"byte_order", std::endian::native == std::endian::little ? "little" : "big"},
       {"measurement_excludes_snapshot", true}};
   const auto save = [&](std::string_view name, const auto &values, uint32_t columns) {
@@ -52,7 +56,8 @@ std::expected<void, std::string> WriteGeometrySnapshot(Renderer &renderer,
     return Write(root / (std::string(name) + ".bin"), bytes);
   };
   if (!save("roots", snapshot.Roots, 12) || !save("templates", snapshot.Templates, 4) ||
-      !save("batches", snapshot.Batches, 12) ||
+      !save("cluster_spheres", snapshot.Spheres, 12) ||
+      !save("placements", snapshot.Placements, 16) || !save("batches", snapshot.Batches, 12) ||
       !save("source_indices", snapshot.SourceIndices, 1) || !save("kept", snapshot.Kept, 1) ||
       !save("visible", snapshot.Visible, 1) || !save("arguments", snapshot.Arguments, 1) ||
       !Write(root / "benchmark.json", std::as_bytes(std::span(report)))) {
