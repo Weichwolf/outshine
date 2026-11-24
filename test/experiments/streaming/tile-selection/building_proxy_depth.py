@@ -104,7 +104,7 @@ def raster_work(vertices, eye, basis, focal, viewport):
         basis,
     )
     return (
-        vertices[guard],
+        np.flatnonzero(guard),
         ordinal,
         direction,
         lines * width + columns,
@@ -161,7 +161,8 @@ def triangle_depth(vertices, origin, ordinal, direction):
 
 def compare_view(vertices, eye, basis, focal, viewport):
     work = raster_work(vertices, eye, basis, focal, viewport)
-    front, ordinal, rays, pixels, cards = work
+    visible, ordinal, rays, pixels, cards = work
+    front = vertices[visible]
     started = perf_counter()
     actual = plane_depth(front, eye, ordinal, rays)
     planes_ms = (perf_counter() - started) * 1000
