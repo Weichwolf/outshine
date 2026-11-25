@@ -522,7 +522,10 @@ void Corridors::RaiseDeckOver(const Path::Network::Crossing &one,
   if (!UsesWay(on, a) && !UsesWay(on, b)) { return; }
   const ::outshine::Generators::Osm::StreetField::Way &first = ways.Ways()[a];
   const ::outshine::Generators::Osm::StreetField::Way &second = ways.Ways()[b];
-  if (first.PointCount < 2 || second.PointCount < 2 || first.Bridge == second.Bridge) { return; }
+  if (first.PointCount < 2 || second.PointCount < 2 || first.Bridge == second.Bridge ||
+      first.HasFloorOrderingWith(second)) {
+    return;
+  }
   const LongitudeLatitude at{.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg};
   if (PlannedNodeAt(on, first, at) == PlannedNodeAt(on, second, at)) { return; }
   const size_t spans = first.Bridge ? a : b;

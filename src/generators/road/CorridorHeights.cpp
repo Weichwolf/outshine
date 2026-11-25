@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <expected>
 #include <limits>
+#include <optional>
 #include <ratio>
 #include <span>
 #include <string_view>
@@ -97,14 +98,26 @@ std::unordered_map<uint64_t, Vec2> CrossingDirections(const auto &into, const au
   return directions;
 }
 
+std::optional<bool> UpperIsFirst(const Osm::StreetField::Way &first,
+                                 const Osm::StreetField::Way &second) {
+  if (first.HasFloorOrderingWith(second)) {
+    if (first.Floor == second.Floor) { return std::nullopt; }
+    return first.Floor.value_or(0) > second.Floor.value_or(0);
+  }
+  if (!(first.Bridge || second.Bridge) ||
+      (first.Layer == second.Layer && first.Bridge == second.Bridge)) {
+    return std::nullopt;
+  }
+  return first.Layer != second.Layer ? first.Layer > second.Layer : first.Bridge;
+}
+
 bool SeparatedCrossing(const auto &on, const auto &crossing) {
   if (crossing.Nodes[0] == 0 || crossing.Nodes[1] == 0 || crossing.Nodes[0] == crossing.Nodes[1]) {
     return false;
   }
   const auto &first = on.Ways.Ways()[crossing.Lanes[0]];
   const auto &second = on.Ways.Ways()[crossing.Lanes[1]];
-  return (first.Bridge || second.Bridge) &&
-         (first.Layer != second.Layer || first.Bridge != second.Bridge);
+  return UpperIsFirst(first, second).has_value();
 }
 
 void PrepareCrossingCores(const auto &on, const auto &into, auto &graph, const auto &halfWidth) {
@@ -235,7 +248,9 @@ void BindCrossingHeights(const auto &on, const auto &into, auto &graph) {
   for (const auto &crossing : into.Crossings) {
     const auto &a = on.Ways.Ways()[crossing.Lanes[0]];
     const auto &b = on.Ways.Ways()[crossing.Lanes[1]];
-    if (a.Layer != b.Layer || a.Bridge != b.Bridge) { continue; }
+    if (a.Floor.value_or(0) != b.Floor.value_or(0) || a.Layer != b.Layer || a.Bridge != b.Bridge) {
+      continue;
+    }
     const uint64_t first = HeightOwner(crossing.Nodes[0], graph);
     const uint64_t second = HeightOwner(crossing.Nodes[1], graph);
     const uint64_t owner = std::min(first, second);
@@ -444,10 +459,9 @@ void Corridors::CrossingClearances(const Paving &on, const Paved &into, HeightGr
     if (crossing.Nodes[0] == crossing.Nodes[1]) { continue; }
     const auto &first = on.Ways.Ways()[crossing.Lanes[0]];
     const auto &second = on.Ways.Ways()[crossing.Lanes[1]];
-    if (first.Layer == second.Layer && first.Bridge == second.Bridge) { continue; }
-    if (!first.Bridge && !second.Bridge) { continue; }
-    const bool firstAbove = first.Layer != second.Layer ? first.Layer > second.Layer : first.Bridge;
-    const size_t upper = firstAbove ? 0 : 1;
+    const auto firstAbove = UpperIsFirst(first, second);
+    if (!firstAbove) { continue; }
+    const size_t upper = *firstAbove ? 0 : 1;
     const size_t lower = 1 - upper;
     const auto above = graph.Named.find(crossing.Nodes[upper]);
     const auto below = graph.Named.find(crossing.Nodes[lower]);

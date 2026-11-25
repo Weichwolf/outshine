@@ -41,6 +41,7 @@ public:
     std::array<bool, 2> OwnsEnds{true, true};
     int32_t Lanes = 0;
     int32_t Layer = 0;
+    std::optional<int32_t> Floor = std::nullopt;
     float ClearanceM = 0.0f;
     float MaxGradient = 0.0f;
     float SpeedMps = 0.0f;
@@ -50,6 +51,10 @@ public:
     bool Bridge = false;
     bool Ramp = false;
     std::optional<SourceReference> Source;
+
+    [[nodiscard]] bool HasFloorOrderingWith(const Way &other) const noexcept {
+      return Floor && other.Floor && (*Floor != 0 || *other.Floor != 0);
+    }
   };
 
   uint32_t Ingest(const OsmField &field,

@@ -57,6 +57,7 @@ struct Endpoint {
   uint64_t Position = 0;
   EastNorth At{};
   int32_t Layer = 0;
+  int32_t Floor = 0;
   uint8_t TrafficMask = 0;
   bool Owned = false;
   bool Bridge = false;
@@ -84,6 +85,7 @@ uint32_t RootOf(uint32_t at, std::vector<uint32_t> &parents) {
 }
 
 bool Connects(const Endpoint &a, const Endpoint &b) {
+  if (a.Floor != b.Floor) { return false; }
   constexpr uint8_t groundTraffic = (1u << static_cast<uint8_t>(Osm::StreetField::Traffic::Road)) |
                                     (1u << static_cast<uint8_t>(Osm::StreetField::Traffic::Path));
   const bool compatible = (a.TrafficMask & b.TrafficMask) != 0;
@@ -93,7 +95,8 @@ bool Connects(const Endpoint &a, const Endpoint &b) {
       a.Layer == b.Layer && a.Bridge == b.Bridge && (compatible || groundCrossing);
   const bool transition = a.Position == b.Position && a.Bridge != b.Bridge && a.Owned && b.Owned &&
                           (a.TrafficMask & b.TrafficMask) != 0;
-  return (sameLevel || transition) &&
+  const bool sharedFloor = a.Floor != 0 && a.Position == b.Position && a.Owned && b.Owned;
+  return (sameLevel || transition || sharedFloor) &&
          std::hypot(a.At.EastM - b.At.EastM, a.At.NorthM - b.At.NorthM) <= kEndpointWeldM;
 }
 
@@ -173,7 +176,8 @@ bool Corridors::JoinLanding(const Crossing &crossing, const Paving &on) {
 void Corridors::JoinCrossing(Crossing &crossing, const Paving &on) {
   const auto &a = on.Ways.Ways()[crossing.Lanes[0]];
   const auto &b = on.Ways.Ways()[crossing.Lanes[1]];
-  if (a.Bridge == b.Bridge || a.TrafficKind != b.TrafficKind || JoinLanding(crossing, on)) {
+  if (a.Floor.value_or(0) != b.Floor.value_or(0) || a.Bridge == b.Bridge ||
+      a.TrafficKind != b.TrafficKind || JoinLanding(crossing, on)) {
     return;
   }
   const auto points = on.Points;
@@ -233,6 +237,7 @@ std::unordered_map<uint64_t, uint64_t> Corridors::EndpointNodesOf(const Osm::Str
            .Position = RoadPositionKey(at),
            .At = {.EastM = local.EastM, .NorthM = local.NorthM},
            .Layer = way.Layer,
+           .Floor = way.Floor.value_or(0),
            .TrafficMask = static_cast<uint8_t>(1u << std::to_underlying(way.TrafficKind)),
            .Owned = way.OwnsEnds[end == ends.front() ? 0 : 1],
            .Bridge = way.Bridge},

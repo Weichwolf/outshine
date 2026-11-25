@@ -179,6 +179,9 @@ void StreetField::AppendFeature(const OsmField &field,
                                 Shape shape,
                                 const SurfacePlacement &placement) {
   const auto &feature = field.Features()[featureAt];
+  const auto kind = TrafficOf(field.Str(feature, "kind"));
+  const auto floor =
+      kind == Traffic::Path ? field.Integer(feature, "level").value_or(std::nullopt) : std::nullopt;
   const bool ribbon = shape == Shape::Ribbon;
   const bool area = shape == Shape::Area;
   for (uint32_t r = 0; r < feature.RingCount; r++) {
@@ -193,7 +196,8 @@ void StreetField::AppendFeature(const OsmField &field,
     w.HalfWidthM = ribbon ? rule.WidthM * 0.5f : 0.0f;
     w.CoverRow = static_cast<int32_t>(rule.Tpl);
     w.Form = ribbon ? Shape::Ribbon : Shape::Area;
-    w.TrafficKind = TrafficOf(field.Str(feature, "kind"));
+    w.TrafficKind = kind;
+    w.Floor = floor;
     if (ribbon) {
       w.OwnsEnds = {OwnsEnd(field, feature, ring.First),
                     OwnsEnd(field, feature, static_cast<size_t>(ring.First) + ring.Count - 1u)};
