@@ -8,6 +8,7 @@
 #include <span>
 #include <stop_token>
 #include <string>
+#include <vector>
 
 namespace outshine::Generators::Osm {
 inline constexpr unsigned kTerracePatchSpanM = 256;
@@ -30,8 +31,17 @@ struct TerraceRequest {
   unsigned SupportMostM = 0;
 };
 
+struct TerracePartition {
+  UrbanPrisms Grid;
+  std::vector<size_t> Retained;
+};
+
 [[nodiscard]] std::expected<UrbanPrisms, std::string>
 BuildFootprintTerraces(std::span<const TerraceFootprint> footprints, const TerraceRequest &request);
+
+[[nodiscard]] std::expected<TerracePartition, std::string>
+PartitionFootprintTerraces(std::span<const TerraceFootprint> footprints,
+                           const TerraceRequest &request);
 }
 
 #endif

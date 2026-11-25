@@ -50,6 +50,14 @@ int main() {
         "the occupied street block qualifies within the supported footprint size");
   CHECK(!Osm::BuildFootprintTerraces(footprints, demand),
         "losing the taller thin building would remove a visible part of the skyline");
+  CHECK(!Osm::PartitionFootprintTerraces(footprints, demand),
+        "refining the raster respects the total sampling budget across passes");
+  demand.PointTestsMost *= 2;
+  const auto mixed = Osm::PartitionFootprintTerraces(footprints, demand);
+  CHECK(mixed && mixed->Retained.size() == 1 && mixed->Retained.front() == 3 &&
+            mixed->Grid.Geometry.Patches.size() == 1,
+        "the tall building stays in source geometry while the street block becomes a grid");
+  demand.PointTestsMost = demand.SamplesMost;
   demand.SupportMostM = 0;
   --demand.SamplesMost;
   CHECK(!Osm::BuildFootprintTerraces(footprints, demand),

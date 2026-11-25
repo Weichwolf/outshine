@@ -11,6 +11,7 @@
 #include <geos_c.h>
 #include <limits>
 #include <memory>
+#include <numeric>
 #include <span>
 #include <string>
 #include <utility>
@@ -253,16 +254,20 @@ std::expected<UrbanPrisms, std::string> Pack(const Grid &grid, const TerraceRequ
   result.Geometry.Samples = std::move(samples);
   return result;
 }
+
+bool ValidRequest(const TerraceRequest &request) {
+  return ValidTerraceSpacing(request.SpacingM) &&
+         (request.SupportMostM == 0 ||
+          request.SupportMostM >= std::hypot(request.SpacingM, request.SpacingM)) &&
+         std::abs(request.Anchor.LatitudeDeg) <= kDegPerHalfTurn / 2 &&
+         std::abs(request.Anchor.LongitudeDeg) <= kDegPerHalfTurn;
 }
 
-std::expected<UrbanPrisms, std::string>
-BuildFootprintTerraces(std::span<const TerraceFootprint> footprints,
-                       const TerraceRequest &request) {
-  if (footprints.empty() || !ValidTerraceSpacing(request.SpacingM) ||
-      (request.SupportMostM != 0 &&
-       request.SupportMostM < std::hypot(request.SpacingM, request.SpacingM)) ||
-      !(std::abs(request.Anchor.LatitudeDeg) <= kDegPerHalfTurn / 2) ||
-      !(std::abs(request.Anchor.LongitudeDeg) <= kDegPerHalfTurn)) {
+std::expected<Grid, std::string> Raster(std::span<const TerraceFootprint> footprints,
+                                        const TerraceRequest &request,
+                                        size_t &testsLeft,
+                                        std::vector<size_t> &unsupported) {
+  if (footprints.empty() || !ValidRequest(request)) {
     return std::unexpected("invalid footprint terrace request");
   }
   Bounds domain;
@@ -283,7 +288,6 @@ BuildFootprintTerraces(std::span<const TerraceFootprint> footprints,
   if (context.Handle == nullptr) {
     return std::unexpected("could not initialize terrace rasterizer");
   }
-  size_t testsLeft = request.PointTestsMost;
   std::vector<std::array<double, 2>> witnesses(request.SupportMostM != 0 ? footprints.size() : 0);
   for (size_t at = 0; at < footprints.size(); ++at) {
     const auto ready = Rasterize(*grid,
@@ -298,9 +302,71 @@ BuildFootprintTerraces(std::span<const TerraceFootprint> footprints,
   for (size_t at = 0; at < witnesses.size(); ++at) {
     if (request.Stop.stop_requested()) { return std::unexpected("terrace generation cancelled"); }
     if (!Supported(*grid, footprints[at], bounds[at], witnesses[at], request)) {
-      return std::unexpected("terrace exceeds its source support limit");
+      unsupported.push_back(at);
     }
   }
+  return grid;
+}
+
+void RetainUnsupported(std::span<const size_t> unsupported,
+                       std::vector<TerraceFootprint> &eligible,
+                       std::vector<size_t> &sources,
+                       std::vector<size_t> &retained) {
+  auto next = unsupported.begin();
+  size_t count = 0;
+  for (size_t at = 0; at < eligible.size(); ++at) {
+    if (next != unsupported.end() && at == *next) {
+      retained.push_back(sources[at]);
+      ++next;
+    } else {
+      eligible[count] = eligible[at];
+      sources[count] = sources[at];
+      ++count;
+    }
+  }
+  eligible.resize(count);
+  sources.resize(count);
+}
+}
+
+std::expected<UrbanPrisms, std::string>
+BuildFootprintTerraces(std::span<const TerraceFootprint> footprints,
+                       const TerraceRequest &request) {
+  size_t remainingTests = request.PointTestsMost;
+  std::vector<size_t> unsupported;
+  const auto grid = Raster(footprints, request, remainingTests, unsupported);
+  if (!grid) { return std::unexpected(grid.error()); }
+  if (!unsupported.empty()) { return std::unexpected("terrace exceeds its source support limit"); }
   return Pack(*grid, request);
+}
+
+std::expected<TerracePartition, std::string>
+PartitionFootprintTerraces(std::span<const TerraceFootprint> footprints,
+                           const TerraceRequest &request) {
+  if (request.SupportMostM == 0) {
+    return std::unexpected("a mixed terrace requires a source support limit");
+  }
+  std::vector<TerraceFootprint> eligible(footprints.begin(), footprints.end());
+  std::vector<size_t> sources(footprints.size());
+  std::ranges::iota(sources, size_t{0});
+  std::vector<size_t> retained;
+  size_t remainingTests = request.PointTestsMost;
+  constexpr unsigned refinements = 2;
+  for (unsigned pass = 0; pass <= refinements && eligible.size() > 1; ++pass) {
+    std::vector<size_t> unsupported;
+    const auto grid = Raster(eligible, request, remainingTests, unsupported);
+    if (!grid) { return std::unexpected(grid.error()); }
+    if (unsupported.empty()) {
+      auto packed = Pack(*grid, request);
+      if (!packed) { return std::unexpected(packed.error()); }
+      if (packed->Placements.empty()) {
+        return std::unexpected("mixed terrace leaves no occupied grid");
+      }
+      std::ranges::sort(retained);
+      return TerracePartition{.Grid = std::move(*packed), .Retained = std::move(retained)};
+    }
+    RetainUnsupported(unsupported, eligible, sources, retained);
+  }
+  return std::unexpected("mixed terrace needs the original source coverage");
 }
 }

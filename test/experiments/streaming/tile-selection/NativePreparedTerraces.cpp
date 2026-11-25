@@ -24,6 +24,20 @@ using namespace outshine;
 namespace Osm = Generators::Osm;
 using Clock = std::chrono::steady_clock;
 
+std::expected<void, std::string> ExportRemainder(const AssetCache &cache,
+                                                 const Osm::TerraceAssetRequest &request,
+                                                 const char *path) {
+  const auto retained =
+      Osm::ReadPreparedTerraceRemainder(cache, request, Osm::kUrbanPrismBytesMost);
+  if (!retained) { return std::unexpected(retained.error()); }
+  std::ofstream output(std::string(path) + ".sources");
+  output << retained->SourceCount << '\n';
+  for (const auto source : retained->Sources) { output << source << '\n'; }
+  if (!output) { return std::unexpected("could not export the retained sources"); }
+  std::cout << "retained " << retained->Sources.size() << '/' << retained->SourceCount << ' ';
+  return {};
+}
+
 std::expected<void, std::string> Resolve(const std::shared_ptr<AssetCache> &cache,
                                          std::shared_ptr<Generators::PreparedBuildingAssets> source,
                                          const Osm::TerraceAssetRequest &request,
@@ -52,6 +66,10 @@ std::expected<void, std::string> Resolve(const std::shared_ptr<AssetCache> &cach
       output.write(reinterpret_cast<const char *>(bytes.data()),
                    static_cast<std::streamsize>(bytes.size()));
       if (!output) { return std::unexpected("could not export cached terrace payload"); }
+      if (request.RetainRemainder) {
+        const auto retained = ExportRemainder(*cache, request, path);
+        if (!retained) { return retained; }
+      }
       const auto &cost = job.Measurements();
       std::cout << "patches " << (*result)->Placements.size() << " bytes " << bytes.size()
                 << " generations " << cost.Generations << " build " << cost.BuildWorkerMs
@@ -65,9 +83,10 @@ std::expected<void, std::string> Resolve(const std::shared_ptr<AssetCache> &cach
 }
 
 int main(int argc, const char *const *argv) {
-  if (argc != 6 && argc != 7) {
-    std::cerr
-        << "usage: prepared_terraces BASE_DB|'-' OUTPUT_DB BASE_KEY SPACING OUTPUT [CELLS_HEX]\n";
+  constexpr int withSupport = 8;
+  if (argc < 6 || argc > withSupport) {
+    std::cerr << "usage: prepared_terraces BASE_DB|'-' OUTPUT_DB BASE_KEY SPACING OUTPUT "
+                 "[CELLS_HEX [SUPPORT_M]]\n";
     return 2;
   }
   const std::string_view spacing = argv[4];
@@ -75,10 +94,17 @@ int main(int argc, const char *const *argv) {
   const auto parsed =
       std::from_chars(spacing.data(), spacing.data() + spacing.size(), request.SpacingM);
   if (parsed.ec != std::errc{} || parsed.ptr != spacing.data() + spacing.size()) { return 2; }
-  if (argc == 7) {
+  if (argc >= 7) {
     const std::string_view cells = argv[6];
     const auto mask = std::from_chars(cells.begin(), cells.end(), request.Cells, 16);
     if (mask.ec != std::errc{} || mask.ptr != cells.end()) { return 2; }
+  }
+  if (argc == withSupport) {
+    const std::string_view support = argv[7];
+    const auto parsedSupport =
+        std::from_chars(support.begin(), support.end(), request.SupportMostM);
+    if (parsedSupport.ec != std::errc{} || parsedSupport.ptr != support.end()) { return 2; }
+    request.RetainRemainder = true;
   }
   auto output = AssetCache::Open(argv[2]);
   if (!output) { return 3; }

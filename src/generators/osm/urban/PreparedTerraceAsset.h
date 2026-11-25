@@ -8,6 +8,11 @@
 #include <memory>
 #include <stop_token>
 #include <string>
+#include <vector>
+
+namespace outshine {
+class AssetCache;
+}
 
 namespace outshine::Generators {
 class PreparedBuildingAssets;
@@ -19,14 +24,23 @@ struct TerraceAssetRequest {
   unsigned SpacingM = 0;
   uint64_t Cells = ~uint64_t{0};
   unsigned SupportMostM = 0;
+  bool RetainRemainder = false;
 
   [[nodiscard]] std::expected<std::string, std::string> Key() const;
+};
+
+struct TerraceRemainder {
+  uint32_t SourceCount = 0;
+  std::vector<uint32_t> Sources;
 };
 
 struct TerraceAssetBudget {
   size_t SamplesMost = 0;
   size_t PointTestsMost = 0;
 };
+
+[[nodiscard]] std::expected<TerraceRemainder, std::string> ReadPreparedTerraceRemainder(
+    const AssetCache &cache, const TerraceAssetRequest &request, size_t bytesMost);
 
 [[nodiscard]] std::expected<AssetPackage, std::string>
 PackagePreparedTerraces(const PreparedStructureTile &source,
