@@ -1,32 +1,24 @@
-# Outshine's own sparse-data generation methods
+# Outshine generation methods
 
-Method locator, checked 2026-11-19. Current tasks, decisions and acceptance live in the linked issues. Existing code is evidence of an implementation, never protected status or proof of worldwide adequacy.
+Generate a plausible, connected world from sparse map, elevation and weather
+data. Research determines geometry, recipes and context. Established methods
+handle presentation, spatial storage, navigation and simulation.
 
-## Research boundary and workflow
+The new native implementation uses the [Python reference package](../../../lib/),
+its fixtures and independent holdouts. Compare topology, contacts, visual
+coverage, work and memory before porting. Reuse portable research data and
+algorithms. [Legacy native code and experiments](https://github.com/Weichwolf/outshine/tree/0932b78323ebf23016f723fdfb3fa31da2e28337)
+provide historical comparisons.
 
-- Distinctive research: generate a coherent plausible worldwide environment from sparse OSM/DEM/weather/context, not reconstruct a digital twin.
-- Presentation, spatial asset storage, navigation and physical simulation use established methods and libraries; adapt and measure them rather than invent replacement theories.
-- Every algorithm starts in Python, including adopted literature methods. Establish correctness against analytic controls/independent checks, real inputs and counterexamples, plus adequate speed/work/memory in the declared scope, before C++ integration.
-- GLSL kernels may be part of Python references and dispatched directly to the GPU. Preserve one checked kernel for later native use; separate GPU timing from Python/dispatch/readback overhead.
-- A finite benchmark is not a global optimality proof. Record input range, tolerances, device, work/bytes, generation versus hit cost and remaining failure cases. C++ optimization cannot rescue an inadequate algorithmic design.
-- Keep the smallest useful reference, input fixtures and shared kernels while they have consumers; remove superseded experiments, not an actively consumed shader or necessary counterexample.
-
-## Own methods and concrete source locations
-
-Source snapshot: master `1d93c4334`; pending Research delivery: PR [#1973](https://github.com/Weichwolf/outshine/pull/1973), branch tip `59d5833f5`. Relative links below identify current master artifacts unless explicitly marked pending. No removed experiment path is used as acceptance evidence.
-
-| Area / issue | Own procedure and existing artifact | Remaining generation research |
+| Area | Reference | Next research |
 |---|---|---|
-| Transport / [#1964](https://github.com/Weichwolf/outshine/issues/1964) | OSM/MVT semantic/topology reconstruction; shared endpoint ports and junction pads; continuous grade-constrained height fitting; corridor/profile construction. Python: [horizontal/clothoids](../../../lib/src/outshine_ref/transport/horizontal.py), [port heights](../../../lib/src/outshine_ref/transport/port_heights/), [junction pads](../../../lib/src/outshine_ref/transport/junction_pads.py). Native: [OSM transport](../../../src/generators/osm/transport/), [functional plan](../../../src/generators/road/CorridorFunctionalPlan.cpp). | Generalized/clipped input connectivity, multi-level junctions, bounded recipe choice, bridge/tunnel transitions, grade/banking, complete local surfaces and terrain/building contacts across varied regions. |
-| Buildings / [#1963](https://github.com/Weichwolf/outshine/issues/1963) | Classified mass/roof/facade recipes: [Python modules](../../../lib/src/outshine_ref/buildings/), [native building generator](../../../src/generators/building/). Pending [HLOD recipe reference](https://github.com/Weichwolf/outshine/blob/59d5833f5/lib/src/outshine_ref/buildings/hlod.py) in PR #1973. | Reliable recipe choice from incomplete classes/heights, regional variation, robust complex footprints/roofs, specials and site placement. Pending HLOD evidence does not mandate its old error thresholds or prove native speed. |
-| Vegetation / [#1961](https://github.com/Weichwolf/outshine/issues/1961) | Parameterized plant morphology, seeded variants and shared leaf optics: [Python](../../../lib/src/outshine_ref/vegetation/), [native flora](../../../src/generators/flora/). Pending [density tile](https://github.com/Weichwolf/outshine/blob/59d5833f5/lib/src/outshine_ref/vegetation/density_tile.py) and [octahedral capture input](https://github.com/Weichwolf/outshine/blob/59d5833f5/lib/src/outshine_ref/vegetation/octahedral_capture.py). | Plausible geographic species/density mix, forest edges, understory, seasonal structure, grounded placement and variety from sparse available inputs. Density maps are not native forest acceptance. |
-| Ground/material distribution / [#1962](https://github.com/Weichwolf/outshine/issues/1962) | [Regional surface recipes](../../../src/generators/recipes/RegionSurfaceRecipes.cpp), [ground catalog](../../../src/generators/recipes/GroundMaterialCatalog.cpp). | Plausible terrain-relative material distribution, weathering/deposition/contact masks and recipe variation; use established PBR/composition/filtering for presentation. |
-| Water/terrain contacts / [#1966](https://github.com/Weichwolf/outshine/issues/1966), [#1957](https://github.com/Weichwolf/outshine/issues/1957) | Shared water-frame/profile fitting: [Python water](../../../lib/src/outshine_ref/water/), [native height fit](../../../src/generators/water/WaterHeightFit.cpp), [surface topology](../../../src/generators/water/WaterSurfaceTopology.cpp), [transport level fit](../../../lib/src/outshine_ref/transport/level_heights/). | Plausible connected levels, sparse-data shore/crossing reconstruction and mutually consistent transport/building/ground constraints. A smooth wave shader does not solve these generation gaps. |
-| Future assets/actors / [#1969](https://github.com/Weichwolf/outshine/issues/1969), [#1978](https://github.com/Weichwolf/outshine/issues/1978) | Existing [recipes](../../../src/generators/recipes/), [building interior references](../../../lib/src/outshine_ref/buildings/interiors/). | Expand reusable catalogs, context-driven interiors/body/rig/equipment recipes and validation of generated content. Reuse established physics/navigation/control for execution. |
+| [Transport #1964](https://github.com/Weichwolf/outshine/issues/1964) | [Canonical ports](../../../lib/src/outshine_ref/transport/canonical_ports/), [height fitting](../../../lib/src/outshine_ref/transport/port_heights/), [junction pads](../../../lib/src/outshine_ref/transport/junction_pads.py), [fixtures](../../../lib/tests/fixtures/) | Generalised and clipped ways, grade-separated continuity, bounded recipe choice, bridge and tunnel transitions, connected terrain and building contacts |
+| [Buildings #1963](https://github.com/Weichwolf/outshine/issues/1963) | [Roof and facade recipes](../../../lib/src/outshine_ref/buildings/), [interiors](../../../lib/src/outshine_ref/buildings/interiors/) | Incomplete classes and heights, regional variation, difficult footprints, industrial types and reliable placement |
+| [Vegetation #1961](https://github.com/Weichwolf/outshine/issues/1961) | [Habitats and plant reference](../../../lib/src/outshine_ref/vegetation/), [species recipes](../../../data/world/species/) | Site and season-dependent populations, ground contact, forest edges, understory and near/mid/far appearance |
+| [Ground #1980](https://github.com/Weichwolf/outshine/issues/1980) | [Material composition](../../../lib/src/outshine_ref/materials/), [ground recipes](../../../data/world/ground-materials.json) | Terrain-relative material distribution, drainage, erosion and coherent surface variation |
+| [Water #1966](https://github.com/Weichwolf/outshine/issues/1966) | [Water profiles](../../../lib/src/outshine_ref/water/) | Shorelines, crossings, plausible connected levels and constraints shared with transport and terrain |
 
-## Published building blocks, not claimed sources of our complete solver
-
-- [Galin 2010 / Chen 2008 and reviewed transport implementations](../transport/README.md): graph/geometry separation, profiles, construction and terrain fitting. Outshine's OSM-to-functional network solver remains our own composition and development; neither paper supplies it wholesale.
-- [Procedural Modeling of Buildings 2006](../buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), [Instant Architecture 2003](../buildings/siggraph/2003-instant-architecture.pdf): attributed/split rules. Missing source facts still require recipe decisions.
-- [Plant ecosystems 1998](../vegetation/siggraph/1998-plant-ecosystems.pdf), [Weber/Penn 1995](../vegetation/siggraph/1995-creation-and-rendering-of-realistic-trees.pdf): population/prototype separation and parameterized branching. A paper does not establish geography or species adequacy.
-- Existing recipes and negative cases must be reviewed, adapted or replaced explicitly. Further research is requested for the named generation gaps, not for a new renderer or database.
+Primary methods include [procedural roads and interactive street modelling](../transport/README.md),
+[procedural building modelling](../buildings/siggraph/2006-procedural-modeling-of-buildings.pdf),
+[plant ecosystems](../vegetation/siggraph/1998-plant-ecosystems.pdf), and
+[parameterised trees](../vegetation/siggraph/1995-creation-and-rendering-of-realistic-trees.pdf).

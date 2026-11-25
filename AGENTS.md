@@ -1,172 +1,86 @@
 # Outshine
 
 ## Ziel
-Outshine ist eine weltweite, datengetriebene Open-World-Sandbox: jeder Ort der Erde vom
-Orbit bis zum Nahdetail, aus OSM, DEM und Wetterdaten, physikalisch basiert gerendert.
-Die aktuelle Zieldefinition steht in [#1974](https://github.com/Weichwolf/outshine/issues/1974).
-Gelände, Verkehr, Gebäude, Vegetation und Wetter zuerst; danach Fahrzeuge, NPCs, Physik,
-Skripte, Audio und Persistenz in derselben Welt.
 
-GTA VI ist die visuelle Referenz für einen überzeugenden Game-Look mit eigenem
-Weltinhalt. Für das Gameplay dienen Skyrim und Fallout als Orientierung:
-offenes Rollenspiel mit einem LLM als Game Master. Ein Szenario liefert einen
-oder mehrere Systemprompts für Setting, Story und NPC-Verhalten. Der Game Master
-steuert Story, Quests und NPC-Entscheidungen. Validierte Aktionen wirken auf die
-laufende Simulation. Akzeptierte Entscheidungen und generierte Rezepte bleiben
-im Spielstand erhalten.
+Ich baue eine weltweite, datengetriebene Open-World-Sandbox. Aus OpenFreeMap, Mapterhorn,
+Open-Meteo, Szenariozeit und prozeduralen Rezepten entsteht eine plausible, funktionale Erde.
+Sie reicht vom Orbit bis zu Details auf Augenhöhe. Die Darstellung nutzt PBR und eine eigene,
+regional geprägte 2050-Solarpunk-Gestaltung. GTA VI gibt Orientierung für Umgebungsqualität,
+Fallout 4 für Himmel und offene Erkundung. Datierte Webcam-Archive sind meine erste
+Bildreferenz für reale Orte, Jahreszeiten, Tageslicht und Wetter.
+Die [Konzeptbilder](doc/images/concept/) zeigen exemplarische Fähigkeiten. Die Abnahme nutzt
+wechselnde Orte, Tageszeiten und Spielsituationen.
 
-**Feste Bedingungen:** bis 240 km Sichtweite, vollständige Inhalte, auch in Bewegung,
-jeweils einschließlich p99:
+Ich liefere zuerst die statische Welt inklusive Bewegung, Wasser, Vegetation und Wetter.
+Danach folgen Fahrzeuge, NPCs, Physik, Skripte, Audio und Persistenz. Ein LLM Game Master führt
+eigene Geschichten, Quests, Dialoge und NPC-Absichten. Die Simulation validiert und speichert
+akzeptierte Aktionen und deklarative Rezepte. [Produktziel #1974](https://github.com/Weichwolf/outshine/issues/1974)
 
-| Gerät | Profil | Framebudget |
+## Budget und Abnahme
+
+| Gerät | Darstellung | p99 |
 |---|---|---|
-| A18 Pro / Metal | 1280×720, mindestens 30 fps | 33,33 ms |
-| i5-1135G7 / Iris Xe / Vulkan | 1280×720, mindestens 30 fps | 33,33 ms |
-| RTX 3060 12 GB / Vulkan | 1920×1080, 60 fps | 16,67 ms |
+| A18 Pro / Metal | 1280×720 bei 30 fps | ≤ 33,33 ms |
+| i5-1135G7 / Iris Xe / Vulkan | 1280×720 bei 30 fps | ≤ 33,33 ms |
+| RTX 3060 12 GB / Vulkan | 1920×1080 bei 60 fps | ≤ 16,67 ms |
 
-A18 Pro und Iris Xe gehören zur 8-GB-Geräteklasse. Alle drei Geräte zeigen dieselben
-Inhalte und dieselbe Sichtweite; nur Auflösung, Rate und Qualitätsstufe unterscheiden
-sich – so beweist die Engine, dass sie mit der Hardware skaliert. 30 fps ist die
-Untergrenze; Reserve wird in Bildqualität oder höhere Rate umgesetzt. Wer das Budget
-reißt, braucht ein besseres Verfahren, keine gelockerte Bedingung und keine
-abgeschalteten Inhalte.
+Ich implementiere und messe auf dem verfügbaren A18 Pro. Die übrigen Geräte haben ihre eigene
+Abnahme. Alle Profile zeigen vollständige Inhalte und bis zu 240 km Sichtweite, soweit Wetter
+und Aussicht sie zulassen. Dichte Stadt und dichter Wald teilen sich das gleiche Gesamtbudget für
+GPU-Zeit, Bandbreite und Speicher. Ich stecke Detail in die sichtbare Bildwirkung.
 
-Ich baue eine plausible, funktionale Erde, keinen digitalen Zwilling. Quellen liefern
-Verteilung, Großformen und Parameter; Rezepte ergänzen den Rest glaubwürdig.
+- Ich halte zwölf wechselnde Places als Vergleich, auch unabhängige Gegenbeispiele. Kopfbewegung,
+  Drehung und Flug prüfen. Ich öffne aktuelle PNGs und Zwischenbilder. Pro Place bleibt unter
+  `build/shots/places/` das neueste PNG. Bilder publiziere ich nur auf ausdrücklichen Auftrag.
+- Ich messe CPU-/GPU-p50 und -p99, Passzeiten, IO, Uploads sowie physischen Speicher. Vorher/Nachher
+  gelten bei drei gepaarten Läufen auf demselben Gerät und Profil. [Benchmark #1956](https://github.com/Weichwolf/outshine/issues/1956)
+- Ich erweitere in sichtbaren vertikalen Schritten. Bei hohen Kosten prüfe ich zuerst den
+  dominanten Pass und seine Arbeit. Nach zwei erfolglosen Ansätzen ändere ich das Verfahren.
 
-## Was zählt
-**Aktueller Entwicklungsstand:** Der A18 Pro ist die verfügbare Entwicklungsmaschine.
-Entwicklungsabnahme und laufende Vergleiche erfolgen bei 720p30 über Metal.
-Die übrigen Zielgeräte folgen bei Verfügbarkeit und blockieren weder Implementierung
-noch Meilensteinwechsel. Messwerte gelten für das jeweilige Gerät und Profil.
+## Neubau
 
-1. **Das Bild und die Framezeit.** Fortschritt ist ein besseres geöffnetes Bild oder eine
-   bessere Zeile in der Benchmark-Tabelle. Commits, Tests, Issues, Verträge und Belege
-   sind kein Fortschritt.
-2. **Meilensteine in fester Reihenfolge** – Stand und Prioritäten stehen in der
-   [Roadmap #1972](https://github.com/Weichwolf/outshine/issues/1972).
-   Erst Distanzdarstellung und Grundkosten, dann die vollständige Umwelt mit
-   Nahdetail, weltweite Bewegung, spielbare Sandbox und Gesamtproduktabnahme.
-3. **Bewährtes zuerst.** Clipmaps/CDLOD, Kachel-HLOD, LUT-Atmosphäre, Impostor, Clustered
-   Shading. SIGGRAPH und Primärquellen nachschlagen, dann das etablierte Verfahren bauen.
-   Präsentation und Asset-DB beruhen auf etablierten Verfahren. Unser Forschungsfeld ist
-   die weltweite plausible Asset-Generierung aus wenigen Daten; vorhandene eigene
-   Verfahren samt Grenzen referenzieren, konkrete Generierungslücken weiter erforschen.
-4. **Messen vor Optimieren.** Erst Pass-Zeiten und Abschalt-Experiment, dann der teuerste
-   Posten. Jede Leistungsbehauptung zitiert die Benchmark-Tabelle (#1956) vorher/nachher,
-   drei Läufe, Median, auf dem Zielgerät.
-5. **Zwei erfolglose Versuche → Verfahren wechseln.** Das Verworfene in einem Satz im
-   Issue festhalten, damit es niemand wiederholt.
+Ich baue den neuen Darstellungs- und Ladepfad neben dem lauffähigen Produktstand. Der
+[Vergleichscommit](https://github.com/Weichwolf/outshine/tree/0932b78323ebf23016f723fdfb3fa31da2e28337) hält den
+bisherigen Vergleichsstand. Ich nutze seine funktionierenden Generatoren als Datenquelle
+für den Vergleich und übernehme Verfahren aus `lib/` mit ihren Tests und Eingabefällen.
+Ich ersetze Module, sobald Bewegung, Bild und Budget auf denselben Eingaben belegt sind.
 
-Neue und geänderte Algorithmen prüfe ich vor der nativen Implementierung in Python.
-Vorhandene Referenzen verwende ich weiter, wenn sie den Geltungsbereich abdecken.
-Ich prüfe Korrektheit, Laufzeit und Speicher an repräsentativen Daten und Gegenfällen.
-GLSL-Kerne prüfe ich bei Bedarf aus Python auf der GPU und verwende sie nativ weiter.
-GPU-Kosten messe ich auf der GPU. Die Geräteabnahme folgt nach der Integration.
+1. Ein Renderer erzeugt einen nativen Metal-Frame aus einem externen Szenario.
+2. Für die Ferne ersetze ich Objektgeometrie durch eine gefilterte Tiefen-Cubemap oder
+   einen Skydome. Für mittlere Entfernung nutze ich Gruppen-Impostors. Im Nahbereich
+   baue ich detaillierte Geometrie. Der Aufwand sinkt mit der Entfernung.
+3. Eine gemeinsame Kachelauswahl entscheidet vor IO, Decode und Upload. Ein grobes
+   Produkt deckt seinen Bereich ab, bis der Ersatz vollständig sichtbar ist.
+4. Quellen, Generatoren, SSD-Index, Residency und Renderer haben eigene Zuständigkeiten.
+   Generatoren liefern versionierte Produkte. World hält generische Produkte und
+   Abdeckung. Bild-, Schatten- und Funktionsbedarf sind unabhängig. Der Frame verarbeitet
+   residente Daten. Cache-Hits laden fertige Daten, Misses erzeugen sie asynchron.
+5. Ich löse Infrastruktur gegen grobe Höhen und leite daraus glatte Terrainanschlüsse ab.
+   Gebäude nutzen die gelösten Standortkontakte, Vegetation folgt danach. Die Darstellung
+   nutzt geeignete Repräsentationen desselben Weltinhalts.
 
-## Verantwortung
-Ich übernehme alle Aufgaben für Outshine in einer Rolle: Architektur, Art Direction,
-Prioritäten, Implementierung, Integration und Abnahme. Nötige Forschung führe ich
-selbst in Python durch.
-Der Nutzer ist Regisseur. Seine aktuellen Anweisungen gehen vor.
-Gemeinsame Verfahren und Shader gibt es einmal. Metal und Vulkan unterscheiden sich
-in der Backend-Ausführung.
+Umsetzungsreihenfolge, Abhängigkeiten und Abnahmen stehen in der
+[Roadmap #1972](https://github.com/Weichwolf/outshine/issues/1972). Details gehören ins Issue.
 
-## Backlog
-- [GitHub Issues](https://github.com/Weichwolf/outshine/issues) sind die einzige
-  Aufgabenablage. Offene Pakete decken die gesamte Produktvision ab.
-- **Je Host/Agent höchstens ein aktives Umsetzungspaket** (Label `active`), dazu
-  `priority:P0–P2` und `milestone:M1–M5`. Danach das höchstpriorisierte offene Paket
-  im frühesten Meilenstein aktivieren.
-- Ein Issue beschreibt ein sichtbares oder messbares Ergebnis: Befund, Ergebnis,
-  Anweisungen, „Fertig, wenn“. Höchstens 50 Zeilen. Varianten, Zwischenstände und
-  Teilfragen sind Kommentare, keine neuen Issues.
-- Issues auf Englisch: benannte Methoden, konkrete lokale/primäre Referenzen,
-  vorhandene eigene Python-/GLSL-Verfahren und ausdrücklich noch nötige Forschung.
-  Präsentations-/DB-Integration von neuer Asset-Generierungsforschung unterscheiden.
-- Kommentare: Ergebnis, Zahl oder Bild, nächster Schritt. Fünf Zeilen genügen fast immer.
-- Bei erfüllter Abnahme poste ich den Beleg, entferne `active` und schließe das Issue.
+## Arbeitsweise
 
-## Architektur in zehn Sätzen
-- **Die Kachel ist die Einheit.** Ein Quadtree trägt Speicherung, Streaming, LOD-Auswahl
-  und Draw für Gelände, Verkehr, Gebäude und Vegetation. Kacheln sind kameraneutral und
-  unveränderlich; Schlüssel umfassen Raum, Produkt/LOD und versionierte Erzeugungseingaben.
-  Blickabhängige Runtime-Caches haben einen getrennten begrenzten Lebenszyklus.
-- **Framearbeit ist O(sichtbare Kacheln)**, nie O(Objekte). Kein IO, keine Erzeugung,
-  kein unbegrenztes Warten im Frame.
-- **Drei Distanzbereiche:** nahe Geometrie → Gruppen-Impostor → wiederverwendbares
-  Fernpanorama/Cubemap. Ferne darf weich sein; Silhouette, Deckung, Helligkeit und
-  Übergänge erhalten. Terrain-Material allein ersetzt keine erhöhte Skyline.
-- **Auswahl vor Arbeit.** Bedarf aus Kamera, Geschwindigkeit und Bildfehler bestimmt,
-  was geladen wird; Eltern bleiben sichtbar, bis Kinder da sind.
-- **Cache:** Quellen und fertige Assets getrennt, beide mit Obergrenze und LRU. Ein
-  Cachetreffer wiederholt keine Quellaufbereitung.
-- **Schichten:** Sources beschaffen, Generatoren erzeugen native Produkte, World hält
-  die generische 3D-Welt, Engine koordiniert, Render/Audio konsumieren.
-- **Reihenfolge der Inhalte:** Terrain → Verkehr → Gebäude → Boden → Vegetation; jeder
-  Schritt nutzt die Freiräume der Vorgänger.
-- **Quellen:** OpenFreeMap (Vektoren), Mapterhorn (Höhen), Open-Meteo (Wetter). Keine
-  Fototexturen, Satellitenbilder, Photogrammetrie oder ortsspezifische Sondergeometrie.
-- **Produkt:** eine Szenario-Anwendung, kein SDK, kein glTF. Produktcode und -daten
-  kennen keine Places; Kameras und Messdaten gehören dem Testtreiber.
-- **Rendering:** Metallic-Roughness als Hauptshader, PBR und reale Referenzen statt
-  Stilvorgaben. Texturen prozedural erzeugt und als Assets gebacken, nicht pro Pixel
-  im Frame berechnet.
-
-## Bild und Messung
-- Zwölf wechselnde Places sind das Beurteilungswerkzeug; je Place liegt nur die neueste
-  PNG unter `build/shots/places/`. Bilder tatsächlich öffnen, vorher/nachher und gegen
-  datierte [Webcam-Aufnahmen](https://www.foto-webcam.eu/) vergleichen.
-  Auffällige Stellen im Originalmaßstab prüfen und konkrete Bildfehler im Issue
-  festhalten. Bei Änderungen an LOD, Sichtbarkeit oder temporalen Verfahren auch
-  Zwischenbilder aus Drehung und Flug ansehen. Sichtbare Fehler bleiben offen.
-- `make bench` (#1956) misst Still, Drehung und Flug je Place: CPU/GPU p50/p99, Draws,
-  Dreiecke, Speicher, Pass-Zeiten. Diese Tabelle ist die einzige Leistungswahrheit.
-- Zahlen gelten nur für das Gerät und Profil, auf dem sie gemessen wurden; RTX-Werte
-  belegen nie das Iris-Xe-Profil, Software-Rasterizer (llvmpipe) belegen gar nichts.
-- Bilder in `README` und `doc/` nur auf ausdrücklichen Nutzerauftrag.
-- Die Gesamtproduktabnahme umfasst bewegte Szenen und Spielabläufe auf Augenhöhe,
-  in Innenräumen, aus Fahrzeugen und im Flug. Rendering, Simulation, Audio, Skripte,
-  Spielstand und LLM Game Master teilen auf jedem Zielgerät das Framebudget.
-
-## Tests und Experimente
-- Tests schützen Produktverhalten: Places rendern vollständig, Cache-Miss und -Treffer,
-  korrekte Geometrie der Generatoren, Shader-/GPU-Layouts, Absturzfreiheit.
-- Tests aus typischem Spiel- und Simulationsverhalten ableiten, etwa Reisen,
-  Interaktion, Quest-Entscheidungen, Wiederkehr und Speichern/Laden.
-- Keine Tests für interne Zähler, Bytegleichheit, Zwischenformate oder Altpfade. Wer ein
-  Modul anfasst, löscht solche Tests mit.
-- Ein Experiment lebt in **einem** Verzeichnis unter `test/experiments/`, beantwortet
-  **eine** Frage; entbehrliche Teile nach der nativen Übernahme löschen. Weiter benötigte
-  Referenzen, Gegenfälle und gemeinsam konsumierte GLSL-Kerne erhalten, ohne Kopien.
-  Ergebnisse stehen im Issue; `doc/references/` enthält Methoden und Quellen.
-- `make test` ist das Gate. `make lint` läuft vor der Integration. Breite Prüfläufe bündle ich.
-
-## Code
-- C++23, native Metal/Vulkan, GLSL; SDL3 für Fenster, Eingabe, Audio. RAII, Composition,
-  keine Runtime-Exceptions; Fehler als `[[nodiscard]] std::expected`. Warnings sind Fehler.
-- KISS, DRY, klare Zuständigkeiten, erwartbare Namen. Code ohne Produktkonsumenten wird
-  samt Tests, Buildregeln und Doku gelöscht – ein Test allein hält keinen Altpfad am Leben.
-- `.cpp`/`.mm` unter `src/` ohne Kommentare; Header bei ihrer Komponente, kein
-  `include/`-Baum. Funktionen höchstens 120 Zeilen.
-- Kein gebündelter Fremdcode; Bibliotheken aus Homebrew/apt, nur bei echtem Bedarf.
-- CPU/GPU-Layouts mit `static_assert` sichern.
-- **Je Host/Agent höchstens ein Arbeitsbranch** nach `hostname/issueid_issuename`.
-  Nach jedem Fortschritt kleine, vollständige Commits mit Issuebezug pushen. Jede
-  Integration geht per PR nach `master`. Ich prüfe und merge meine PRs selbst.
-  Abgelöste Branches aufräumen und unintegrierte Änderungen archivieren.
-  Commit-Meldungen ohne KI-Attribution.
-- Builds und Lint neben Messungen mit `nice -n 10`; Messungen ohne Parallellast.
-
-## Ablage
-| Inhalt | Ort |
-|---|---|
-| Produktcode, Tests, Experimente, Python-Referenzen | `src/`, `test/outshine/`, `test/experiments/`, `lib/` |
-| Builds, Place-Bilder, Papers | `build/`, `build/shots/places/`, `doc/references/` |
-| Quell- und Assetcache | Client-Pref-Verzeichnis `sources/`, `assets/` |
-| Logs, Versuchsausgaben, Worktrees | `${TMPDIR:-/tmp}/outshine-<Host>-<Auftrag>-<Commit>` |
-
-Nach jedem Arbeitsblock eigene Temp-Ausgaben löschen (`make cleanup-temp`). Ins
-Repository kommt, was Outshine und seine Weiterentwicklung brauchen.
-
-Berichte knapp auf Deutsch: Ergebnis, Commit, Zahl oder Bild, offene Lücke.
+- Ich verantworte Architektur, Art Direction, Forschung, Code und Abnahme. Die aktuellen
+  Vorgaben des Regisseurs gehen vor.
+- Ich halte einen aktiven Issue und Arbeitsbranch je Host nach `hostname/issueid_issuename`.
+  Kleine vollständige Commits mit Issuebezug pushen. Integration per PR nach `master`,
+  nach eigener Abnahme mergen. Archivbranch von der laufenden Arbeit getrennt halten.
+- Issues sind englisch, kompakt und enthalten Priorität, Abhängigkeiten, Verfahren,
+  Literatur und sichtbare oder messbare Abnahme. Aktuelle Arbeit trägt `active`.
+- Ich verwende etablierte Verfahren aus den Primärquellen in `doc/references/` und bewährte
+  Bibliotheken mit echtem Nutzen. Neue Algorithmen prüfe ich zuerst in Python/GLSL an
+  echten Daten, Gegenfällen, Geschwindigkeit und Speicher. GPU-Kosten messe ich nativ.
+- C++23, CMake-Targets, native Metal/Vulkan, SDL3 für Fenster, Eingabe und Audio nach Bedarf.
+  Klare Namen und Zuständigkeiten, RAII, Composition, Fehler an Grenzen per
+  `[[nodiscard]] std::expected`, Warnings als Fehler. Header beim Modul und C++-Quellen
+  ohne Kommentare. Funktionen höchstens 120 Zeilen. CPU/GPU-Layouts per `static_assert`.
+- Die Anwendung kennt keine fest eingebauten Places. Ich teste typisches Spielverhalten,
+  Quellen- und Asset-Misses, Geometriequalität und CPU/GPU-Layouts. Für kleine Änderungen
+  laufen einschlägige Tests und Lint der betroffenen Dateien. Breite Läufe bündle ich.
+- Builds und Lint laufen mit `nice -n 10`, Messungen ohne Parallellast. Builds und Bilder
+  liegen unter `build/`, Logs und Versuchsausgaben im System-Tempverzeichnis.
+  Eigene überholte Versuchsausgaben entfernen. Berichte kurz auf Deutsch.
