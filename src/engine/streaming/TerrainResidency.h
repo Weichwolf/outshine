@@ -28,10 +28,14 @@ class SceneRenderer;
 enum class TerrainIdentityError { InvalidRequest, Unpublished, NoSource, OverBudget };
 
 enum class TerrainHeapScope { Retained, Additional };
+enum class TerrainBacking { Lattice, ClipmapSource };
 
 class TerrainResidency {
 public:
   TerrainResidency() = default;
+
+  explicit TerrainResidency(TerrainBacking backing) noexcept : Backing_(backing) {}
+
   TerrainResidency(const TerrainResidency &other);
   TerrainResidency &operator=(const TerrainResidency &) = delete;
   TerrainResidency(TerrainResidency &&) noexcept = default;
@@ -116,7 +120,8 @@ private:
   [[nodiscard]] PageBatch
   PlanPages(const Patchwork &patchwork, const TangentFrame &frame, size_t end) const;
   [[nodiscard]] Render::Native::Result<void>
-  UploadPages(const Patchwork &patchwork, const TangentFrame &frame, size_t end);
+  PublishPages(const Patchwork &patchwork, const TangentFrame &frame, size_t end);
+  [[nodiscard]] Render::Native::Result<void> IndexNewPages(const PageBatch &batch);
   [[nodiscard]] Render::Native::Result<void>
   CommitPages(PageBatch &batch, std::span<const Render::HeightPageHandle> pages);
   void RetirePages();
@@ -134,6 +139,8 @@ private:
                                        size_t most,
                                        std::vector<size_t> &slots) const;
 
+  [[nodiscard]] bool UsesLattice() const noexcept { return Backing_ == TerrainBacking::Lattice; }
+
   struct PageRange {
     size_t First = 0, End = 0;
   };
@@ -148,6 +155,7 @@ private:
   size_t Flat_ = 0;
   uint32_t GridPostings_ = 0;
   Render::SceneRenderer *Renderer_ = nullptr;
+  TerrainBacking Backing_ = TerrainBacking::Lattice;
   size_t NextSheet_ = 0;
   bool Publishing_ = false;
   double LongestBatchMs_ = 0.0;

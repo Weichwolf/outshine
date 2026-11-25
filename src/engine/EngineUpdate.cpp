@@ -36,6 +36,12 @@
 #include "TileGeodesy.h"
 
 namespace outshine {
+namespace {
+double ElapsedMs(std::chrono::steady_clock::time_point began) {
+  return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+      .count();
+}
+}
 
 namespace Says {
 constexpr auto kInvalidTriggerProbe =
@@ -332,20 +338,17 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   World.Surface().Footprints().ViewedFrom(CurrentGeographicEyeEcef());
   if (!AdvanceBuildingFields()) { return false; }
   const StructureBuildQueue::HeightSource heightAt = StructureHeightSource();
-  if (World.GroundBuild) {
+  const auto pollContacts = [this] {
     const auto collectionAt = std::chrono::steady_clock::now();
     World.StructureBuilds.PollCompletedTasks();
-    Cost.BakeCollection.Took(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - collectionAt)
-            .count());
+    Cost.BakeCollection.Took(ElapsedMs(collectionAt));
+  };
+  if (World.GroundBuild) {
+    pollContacts();
     return CollectGroundBuildingContacts(landsMost);
   }
   if (!World.GroundPublished.Current()) {
-    const auto collectionAt = std::chrono::steady_clock::now();
-    World.StructureBuilds.PollCompletedTasks();
-    Cost.BakeCollection.Took(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - collectionAt)
-            .count());
+    pollContacts();
     if (World.Surface().Ingested()) {
       const auto postingAt = std::chrono::steady_clock::now();
       (void)World.StructureBuilds.Posts(World.Surface(),
@@ -356,9 +359,7 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
                                         StructureBuildQueue::HeightRequirement::AllowFallback,
                                         std::nullopt,
                                         StructureBuildQueue::BuildPurpose::TerrainContacts);
-      Cost.BakePosting.Took(
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - postingAt)
-              .count());
+      Cost.BakePosting.Took(ElapsedMs(postingAt));
     }
     return true;
   }
@@ -368,17 +369,28 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
     return true;
   }
   const auto landingAt = std::chrono::steady_clock::now();
-  auto ready = World.StructureBuilds.NextLandings(World.Surface(),
-                                                  World.Surface().Footprints(),
-                                                  eye,
-                                                  heightAt,
-                                                  std::min(landsMost, size_t{1}),
-                                                  StructureBuildQueue::HeightRequirement::FineOnly,
-                                                  LevelOfDetail::Shell,
-                                                  StructureBuildQueue::BuildPurpose::StaticParents);
-  Cost.BakeLanding.Took(
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - landingAt)
-          .count());
+  auto ready = World.StructureBuilds.NextLandings(
+      World.Surface(),
+      World.Surface().Footprints(),
+      eye,
+      heightAt,
+      std::min(landsMost, size_t{1}),
+      StructureBuildQueue::HeightRequirement::FineOnly,
+      LevelOfDetail::Shell,
+      StructureBuildQueue::BuildPurpose::StaticParents,
+      {.Replaced =
+           [this](uint32_t tile, uint64_t key) {
+             return World.BuildingFields
+                        ? World.BuildingFields->ReplacementCells({.Tile = tile, .Key = key})
+                        : uint64_t{0};
+           },
+       .Complete =
+           [this](uint32_t tile, uint64_t key) {
+             return StructureBuildQueue::QualifiedSourceKey(World.Surface().Footprints(), tile) ==
+                        key &&
+                    StructureProductsReady(tile);
+           }});
+  Cost.BakeLanding.Took(ElapsedMs(landingAt));
   if (!ready) {
     Error = Generators::Describe(ready.error());
     return false;
@@ -386,24 +398,16 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   if (!ready->empty()) {
     const auto transferAt = std::chrono::steady_clock::now();
     const auto &landing = ready->front();
-    if (StructureBuildQueue::QualifiedSourceKey(World.Surface().Footprints(), landing.Tile) !=
-            landing.SourceKey ||
-        !StructureProductsReady(landing.Tile)) {
-      if (auto published = PublishStructureTile(World, Picture.Device, landing); !published) {
-        Error = std::move(published.error());
-        return false;
-      }
+    if (auto published = PublishStructureTile(World, Picture.Device, landing); !published) {
+      Error = std::move(published.error());
+      return false;
     }
-    const double transferMs =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - transferAt)
-            .count();
+    const double transferMs = ElapsedMs(transferAt);
     Cost.BakeTransfer.Took(transferMs);
     Cost.BakeLiveTransfer.Took(transferMs);
     const auto commitAt = std::chrono::steady_clock::now();
     World.StructureBuilds.CommitsLandings(World.Surface().Footprints(), *ready);
-    Cost.BakeCommit.Took(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - commitAt)
-            .count());
+    Cost.BakeCommit.Took(ElapsedMs(commitAt));
   }
   const auto postingAt = std::chrono::steady_clock::now();
   (void)World.StructureBuilds.Posts(
@@ -415,16 +419,12 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
       StructureBuildQueue::HeightRequirement::FineOnly,
       LevelOfDetail::Shell,
       StructureBuildQueue::BuildPurpose::StaticParents,
-      [this](uint32_t tile) { return StructureParentsReady(tile); },
-      [this](uint32_t tile) -> std::optional<uint64_t> {
-        const auto source =
-            StructureBuildQueue::QualifiedSourceKey(World.Surface().Footprints(), tile);
-        const auto *accepted = World.Surface().Footprints().InputOfTile(tile);
-        return source && accepted ? std::optional(accepted->OccupiedCells) : std::nullopt;
-      });
-  Cost.BakePosting.Took(
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - postingAt)
-          .count());
+      [this](uint32_t tile) {
+        return StructureParentsReady(tile) || StructureGeometryCells(tile) == 0;
+      },
+      [this](uint32_t tile) { return StructureGeometryCells(tile); },
+      World.PlannedTravelEcef);
+  Cost.BakePosting.Took(ElapsedMs(postingAt));
   Published.RecordMetric("buildings: tiles posted to the bake",
                          static_cast<double>(World.StructureBuilds.Posted()),
                          "tiles");
@@ -461,7 +461,8 @@ bool Engine::State::AdvanceBuildingFields() {
       .Renderer = Picture.Device,
       .Camera = Picture.Standing->Watching(),
       .Frame = TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
-                                 .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg})};
+                                 .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg}),
+      .PlannedView = World.PlannedCameraPath};
   if (!World.BuildingFields->Advance(context, Error)) { return false; }
   const auto counts = World.BuildingFields->Read();
   Published.RecordMetric(
@@ -487,6 +488,35 @@ bool Engine::State::AdvanceBuildingFields() {
   Published.RecordMetric("building fields: raster requests avoided before IO",
                          static_cast<double>(counts.AvoidedRasterRequests),
                          "requests");
+  Published.RecordMetric(
+      "building roof volumes: resident tiles", static_cast<double>(counts.ReadyRoofTiles), "tiles");
+  Published.RecordMetric(
+      "building roof volumes: active tiles", static_cast<double>(counts.ActiveRoofTiles), "tiles");
+  Published.RecordMetric("building roof volumes: active shapes",
+                         static_cast<double>(counts.ActiveRoofVolumes),
+                         "shapes");
+  Published.RecordMetric("building roof volumes: active casters",
+                         static_cast<double>(counts.ActiveRoofCasters),
+                         "cells");
+  Published.RecordMetric(
+      "building roof volumes: blocks read", static_cast<double>(counts.RoofBlocksRead), "blocks");
+  Published.RecordMetric("building roof volumes: shapes decoded",
+                         static_cast<double>(counts.RoofRowsDecoded),
+                         "shapes");
+  Published.RecordMetric("building roof volumes: cached cells read",
+                         static_cast<double>(counts.RoofCohortsRead),
+                         "cells");
+  Published.RecordMetric(
+      "building caster packets: data read", static_cast<double>(counts.CasterPacketBytes), "bytes");
+  Published.RecordMetric("building caster packets: conversion source data read",
+                         static_cast<double>(counts.CasterOriginalBytes),
+                         "bytes");
+  Published.RecordMetric(
+      "building terraces: resident cells", static_cast<double>(counts.ReadyTerraces), "cells");
+  Published.RecordMetric(
+      "building terraces: active cells", static_cast<double>(counts.ActiveTerraces), "cells");
+  Published.RecordMetric(
+      "building terraces: rejected cells", static_cast<double>(counts.RejectedTerraces), "cells");
   return true;
 }
 

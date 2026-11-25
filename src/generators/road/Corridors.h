@@ -28,6 +28,7 @@
 #include "RoadPageRecipe.h"
 #include "StreetField.h"
 #include "TerrainLoader.h"
+#include "TransportGeometry.h"
 #include "TangentFrame.h"
 #include "Wayfinding.h"
 #include "Geometry.h"
@@ -59,6 +60,7 @@ public:
     double EyeLatDeg = 0.0;
     double EyeLonDeg = 0.0;
     ProjectedErrorBudget Projection{};
+    RoadDeckProfile RoofDeck = nullptr;
   };
 
   [[nodiscard]] static Material StreetMaterial(const GroundMaterialCatalog &wearing);
@@ -100,6 +102,7 @@ private:
     ProjectedErrorBudget Projection{};
     bool FunctionalPlan = false;
     std::span<const uint32_t> FunctionalWays;
+    const RoadDeckProfile &RoofDeck;
   };
 
   struct Edge {
@@ -112,6 +115,7 @@ private:
     std::array<double, 2> CutM{};
     std::array<double, 2> GradeAtM{};
     std::array<bool, 2> HasEndGrade{};
+    RoadDeckSupport DeckSupport = RoadDeckSupport::Terrain;
     std::array<std::optional<RoadPort>, 2> EndPorts{};
     std::shared_ptr<const SurfaceBody> StepBody = nullptr;
   };
@@ -166,6 +170,7 @@ private:
     std::vector<double> FitEastNorth;
     double TightestDemandM = 0.0;
     std::vector<double> DeckM;
+    std::unordered_map<size_t, double> WaterDeckM;
     std::unordered_set<size_t> UnbankedWays;
     std::vector<Crossing> Crossings;
     std::unordered_map<uint64_t, std::vector<uint32_t>> AtCrossing;
@@ -293,6 +298,7 @@ private:
   };
 
   [[nodiscard]] static std::optional<Grounded> GroundUnder(const Paving &on, LongitudeLatitude at);
+  [[nodiscard]] static RoadDeckSupport DeckAt(const Paving &on, size_t lane, EastNorth at);
 
   static void RaisesEnds(std::span<const uint64_t> key, double deckM, Paved &into);
 

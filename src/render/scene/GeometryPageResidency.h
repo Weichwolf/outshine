@@ -143,7 +143,7 @@ public:
 
   void Retire(uint32_t tile);
   void Retire(uint32_t tile, uint64_t sourceKey, LevelOfDetail detail);
-  void DiscardStagedCells(uint32_t tile);
+  void DiscardStagedCells(uint32_t tile, uint64_t sourceKey = 0, uint64_t replacedCells = 0);
   void RetireCell(uint32_t tile, uint32_t cell);
   [[nodiscard]] bool SelectDetail(uint32_t tile, LevelOfDetail detail, std::string &error);
   [[nodiscard]] bool
@@ -182,25 +182,15 @@ public:
   void ForEachDigest(Each each,
                      GeometryPasses passes = GeometryPasses::Main,
                      bool includeHidden = false) const {
-    for (const auto &stood : Pages_) {
-      if ((!stood.Visible && !includeHidden) ||
-          (passes != GeometryPasses::MainAndShadow &&
-           stood.Passes != GeometryPasses::MainAndShadow && stood.Passes != passes)) {
-        continue;
-      }
-      each(DigestRecord{.Tile = stood.Tile,
-                        .Cell = stood.Cell,
-                        .Digest = stood.Digest,
-                        .SourceKey = stood.SourceKey,
-                        .FallbackHeights = stood.FallbackHeights,
-                        .Detail = stood.Detail,
-                        .OccupiedCells = stood.OccupiedCells,
-                        .Passes = stood.Passes,
-                        .AssetKey = stood.AssetKey,
-                        .Coverage = stood.Coverage ? &*stood.Coverage : nullptr,
-                        .View = stood.SelectedView ? &*stood.SelectedView : nullptr,
-                        .ErrorBound = stood.ErrorBound ? &*stood.ErrorBound : nullptr});
-    }
+    VisitDigests(Pages_, each, passes, includeHidden);
+  }
+
+  template <typename Each>
+  void ForEachTileDigest(uint32_t tile,
+                         Each each,
+                         GeometryPasses passes = GeometryPasses::Main,
+                         bool includeHidden = false) const {
+    VisitDigests(PagesForTile(tile), each, passes, includeHidden);
   }
 
   [[nodiscard]] std::vector<PieceHandle> Handles() const {
@@ -225,7 +215,8 @@ public:
   [[nodiscard]] size_t HeapBytes() const noexcept {
     size_t bytes = Pages_.capacity() * sizeof(ResidentGeometryPage) + Why_.capacity();
     for (const auto &page : Pages_) {
-      bytes += page.Parts.capacity() * sizeof(ResidentPart) + page.AssetKey.capacity() + 1;
+      bytes += page.Parts.capacity() * sizeof(ResidentPart) +
+               page.Prisms.capacity() * sizeof(ResidentPrism) + page.AssetKey.capacity() + 1;
       if (page.Coverage) { bytes += page.Coverage->CapacityBytes(); }
     }
     return bytes;
@@ -243,6 +234,11 @@ private:
 
   struct ResidentPart {
     PieceHandle Handle;
+    GeometryPasses Passes;
+  };
+
+  struct ResidentPrism {
+    PrismHandle Handle;
     GeometryPasses Passes;
   };
 
@@ -265,7 +261,36 @@ private:
     bool Visible = true;
     std::vector<ResidentPart> Parts;
     GeometryPasses Passes = GeometryPasses::MainAndShadow;
+    std::vector<ResidentPrism> Prisms;
   };
+
+  [[nodiscard]] std::span<const ResidentGeometryPage> PagesForTile(uint32_t tile) const noexcept;
+
+  template <typename Each>
+  static void VisitDigests(std::span<const ResidentGeometryPage> pages,
+                           Each &each,
+                           GeometryPasses passes,
+                           bool includeHidden) {
+    for (const auto &stood : pages) {
+      if ((!stood.Visible && !includeHidden) ||
+          (passes != GeometryPasses::MainAndShadow &&
+           stood.Passes != GeometryPasses::MainAndShadow && stood.Passes != passes)) {
+        continue;
+      }
+      each(DigestRecord{.Tile = stood.Tile,
+                        .Cell = stood.Cell,
+                        .Digest = stood.Digest,
+                        .SourceKey = stood.SourceKey,
+                        .FallbackHeights = stood.FallbackHeights,
+                        .Detail = stood.Detail,
+                        .OccupiedCells = stood.OccupiedCells,
+                        .Passes = stood.Passes,
+                        .AssetKey = stood.AssetKey,
+                        .Coverage = stood.Coverage ? &*stood.Coverage : nullptr,
+                        .View = stood.SelectedView ? &*stood.SelectedView : nullptr,
+                        .ErrorBound = stood.ErrorBound ? &*stood.ErrorBound : nullptr});
+    }
+  }
 
   [[nodiscard]] static std::pair<uint32_t, uint32_t>
   AddressOf(const ResidentGeometryPage &stood) noexcept {
@@ -315,8 +340,8 @@ private:
                                            const Vec3 &anchorEcef,
                                            uint64_t sourceKey,
                                            Publication publication);
-  [[nodiscard]] Native::Result<void> UploadParts(ResidentGeometryPage &stood,
-                                                 const GeometryPageView &baked);
+  [[nodiscard]] Native::Result<void> UploadGeometry(ResidentGeometryPage &stood,
+                                                    const GeometryPageView &baked);
   [[nodiscard]] bool ShouldShow(uint32_t tile,
                                 uint32_t cell,
                                 std::optional<LevelOfDetail> detail,

@@ -26,13 +26,20 @@ bool SameDepth(const GpuPrismPatch &before, const GpuPrismPatch &after) noexcept
          SameBits(before.Shape, after.Shape) && SameBits(before.Bounds, after.Bounds);
 }
 
+std::optional<BatchSphere> SphereOf(const Boxf &bounds) noexcept {
+  std::array<double, 3> centre{};
+  std::array<double, 3> half{};
+  for (size_t axis = 0; axis < 3; ++axis) {
+    const double low = bounds.Min[axis];
+    const double high = bounds.Max[axis];
+    centre[axis] = (high + low) / 2;
+    half[axis] = (high - low) / 2;
+  }
+  return PackSphere(centre, std::hypot(half[0], half[1], half[2]));
+}
+
 std::optional<Boxf> BoundsOf(const GpuPrismPatch &record) noexcept {
-  const double halfWidth = static_cast<double>(record.Bounds[1]) / 2;
-  const double halfDepth = static_cast<double>(record.Bounds[2]) / 2;
-  const double middle = (static_cast<double>(record.Shape[3]) + record.Bounds[0]) / 2;
-  const double halfHeight = (static_cast<double>(record.Bounds[0]) - record.Shape[3]) / 2;
-  const auto local =
-      PackSphere({halfWidth, middle, halfDepth}, std::hypot(halfWidth, halfHeight, halfDepth));
+  const auto local = SphereOf(record.LocalBounds());
   if (!local) { return std::nullopt; }
   Mat4 row{};
   for (size_t at = 0; at < row.Column.size(); ++at) { row[at] = record.Current[at]; }
@@ -41,7 +48,18 @@ std::optional<Boxf> BoundsOf(const GpuPrismPatch &record) noexcept {
 }
 }
 
-void PrismResidency::RecordShadowChanges(const PrismProduct &product,
+std::optional<BatchSphere>
+PrismResidency::ComputeWorldSphere(std::span<const GpuPrismPatch> records) noexcept {
+  Boxf world;
+  for (const auto &record : records) {
+    const auto bounds = BoundsOf(record);
+    if (!bounds) { return std::nullopt; }
+    world.Cover(*bounds);
+  }
+  return world.Empty() ? std::nullopt : SphereOf(world);
+}
+
+void PrismResidency::RecordShadowChanges(std::span<const GpuPrismPatch> previous,
                                          std::span<const GpuPrismPatch> records) noexcept {
   Boxf before;
   Boxf after;
@@ -55,16 +73,16 @@ void PrismResidency::RecordShadowChanges(const PrismProduct &product,
       known = false;
     }
   };
-  const size_t common = std::min(product.Records.size(), records.size());
+  const size_t common = std::min(previous.size(), records.size());
   for (size_t at = 0; at < common; ++at) {
-    if (SameDepth(product.Records[at], records[at])) { continue; }
+    if (SameDepth(previous[at], records[at])) { continue; }
     changed = true;
-    include(before, product.Records[at]);
+    include(before, previous[at]);
     include(after, records[at]);
   }
-  for (size_t at = common; at < product.Records.size(); ++at) {
+  for (size_t at = common; at < previous.size(); ++at) {
     changed = true;
-    include(before, product.Records[at]);
+    include(before, previous[at]);
   }
   for (size_t at = common; at < records.size(); ++at) {
     changed = true;

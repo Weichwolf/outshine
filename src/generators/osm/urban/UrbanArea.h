@@ -22,6 +22,7 @@ class OsmField;
 
 struct UrbanAreaRecipe {
   static constexpr double DefaultFillFraction = .75;
+  static constexpr double LowRiseFraction = .90;
   double ProjectedPitchM = 32;
   double FillFraction = DefaultFillFraction;
   uint32_t PatchSide = 8;

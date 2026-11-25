@@ -3,8 +3,11 @@
 #include "StructureBuildQueue.h"
 #include "PageIndexAsset.h"
 #include "Tasks.h"
+#include "Vec2.h"
+#include "SceneRenderer.h"
 #include <algorithm>
 #include <atomic>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -16,6 +19,30 @@
 #include <vector>
 
 namespace outshine {
+namespace {
+ViewPath ProductView(const BuildingFieldStreaming::Context &context, const Vec3 &eye) {
+  if (!context.PlannedView ||
+      !(context.PlannedView->DistanceTo(context.Camera.EyeM) <= context.PlannedView->RadiusM)) {
+    return {.Start = eye, .End = eye};
+  }
+  return ViewPathInEcef(*context.PlannedView, context.Frame);
+}
+
+uint64_t SupportedCells(const Generators::PreparedBuildingAssets::SourceGroups &groups) {
+  uint64_t supported = 0;
+  for (const auto &cell : groups.Cells) {
+    if (cell.NativeBytes != 0) { supported |= uint64_t{1} << (cell.Cell - 1u); }
+  }
+  for (const auto &member : groups.Members) {
+    if (member.Availability ==
+        Generators::PreparedBuildingAssets::SourceMember::State::Unresolved) {
+      supported &= ~(uint64_t{1} << (member.Cell - 1u));
+    }
+  }
+  return supported;
+}
+}
+
 bool BuildingFieldStreaming::State::PrepareCellSources(
     Tile &tile, const Generators::PreparedBuildingAssets::SourceGroups &groups) {
   std::vector<std::vector<uint32_t>> members(tile.Source.CellSourceCounts.size());
@@ -24,17 +51,29 @@ bool BuildingFieldStreaming::State::PrepareCellSources(
     if (cell == 0 || cell > members.size()) { return false; }
     members[cell - 1u].push_back(static_cast<uint32_t>(at));
   }
-  tile.Cells.reserve(groups.Cells.size());
-  for (const auto &source : groups.Cells) {
-    if (source.Cell == 0 || source.Cell > members.size() ||
-        members[source.Cell - 1u].size() != tile.Source.CellSourceCounts[source.Cell - 1u]) {
+  tile.Cells.reserve(static_cast<size_t>(std::popcount(tile.Source.Cells)));
+  uint64_t remaining = tile.Source.Cells;
+  size_t described = 0;
+  while (remaining != 0) {
+    const uint32_t cell = static_cast<uint32_t>(std::countr_zero(remaining)) + 1u;
+    remaining &= remaining - 1u;
+    const auto &ordinals = members[cell - 1u];
+    if (ordinals.empty() || ordinals.size() != tile.Source.CellSourceCounts[cell - 1u]) {
       return false;
     }
-    auto coverage = SourceCoverage::FromSources(
-        tile.Source.BaseKey, groups.Members.size(), members[source.Cell - 1u]);
+    const auto source = std::ranges::find(
+        groups.Cells, cell, &Generators::PreparedBuildingAssets::SourceCell::Cell);
+    auto coverage =
+        SourceCoverage::FromSources(tile.Source.BaseKey, groups.Members.size(), ordinals);
     if (!coverage) { return false; }
-    tile.Cells.emplace_back(source, std::move(*coverage));
+    tile.Cells.emplace_back(
+        source != groups.Cells.end()
+            ? *source
+            : Generators::PreparedBuildingAssets::SourceCell{.Cell = cell, .Bounds = {}},
+        std::move(*coverage));
+    described += ordinals.size();
   }
+  if (described != groups.Members.size()) { return false; }
   std::vector<SourceCoverage::Range> ranges;
   for (const auto &cell : tile.Cells) {
     const auto source = cell.Coverage.Ranges();
@@ -53,13 +92,7 @@ bool BuildingFieldStreaming::State::PrepareCells(
     const SourceProductSelection &selection,
     const SourceProductSelection::Cut &cut) {
   if (!PrepareCellSources(tile, groups)) { return false; }
-  uint64_t unsupportedCells = 0;
-  for (const auto &member : groups.Members) {
-    if (member.Availability ==
-        Generators::PreparedBuildingAssets::SourceMember::State::Unresolved) {
-      unsupportedCells |= uint64_t{1} << (member.Cell - 1u);
-    }
-  }
+  const uint64_t supportedCells = SupportedCells(groups);
   for (const auto &product : cut.Products) {
     const auto members = selection.Members(cut, product);
     if (!members || members->empty()) { continue; }
@@ -82,7 +115,7 @@ bool BuildingFieldStreaming::State::PrepareCells(
     cell->Groups.push_back(std::move(group));
   }
   for (auto &cell : tile.Cells) {
-    if ((unsupportedCells & (uint64_t{1} << (cell.Source.Cell - 1u))) != 0) {
+    if ((supportedCells & (uint64_t{1} << (cell.Source.Cell - 1u))) == 0) {
       Reject(cell);
       continue;
     }
@@ -107,11 +140,18 @@ bool BuildingFieldStreaming::State::PrepareCells(
 
 void BuildingFieldStreaming::State::PollMetadata() {
   if (!Reading || !Reading->Done.load(std::memory_order_acquire)) { return; }
+  Statistics.RoofBlocksRead += Reading->RoofRead.Blocks;
+  Statistics.RoofRowsDecoded += Reading->RoofRead.DecodedRows;
+  Statistics.RoofCohortsRead += Reading->RoofRead.Cohorts;
+  Statistics.CasterPacketBytes += Reading->RoofRead.Caster.PacketBytes;
+  Statistics.CasterOriginalBytes += Reading->RoofRead.Caster.OriginalBytes;
   if (ReadingTile) {
     if (!Reading->Groups || !Reading->Selection || !Reading->Cut ||
         !PrepareCells(*ReadingTile, *Reading->Groups, *Reading->Selection, *Reading->Cut)) {
       ReadingTile->Cells.clear();
       ReadingTile->Coverage.reset();
+    } else {
+      ReadingTile->RoofUpload = std::move(Reading->Roof);
     }
     Tiles.push_back(std::move(*ReadingTile));
   }
@@ -148,38 +188,55 @@ void BuildingFieldStreaming::State::StartMetadata(Context &context) {
   if (!bytes) { return; }
   auto result = std::make_shared<Metadata>();
   const auto assets = context.Surface.BuildingAssets();
+  const auto cache = context.Surface.AssetStore();
   const auto key = tile.Source.BaseKey;
+  const auto bounds = tile.Source.Bounds;
   const auto cells = tile.Source.Cells;
   const auto eye = WorldCamera(context).EyeM;
+  const auto path = ProductView(context, eye);
   const auto projection = context.Surface.Footprints().Projection();
-  if (!context.Workers.PostDetached([assets, key, cells, result, bytes, eye, projection] {
-        auto groups =
-            assets->DescribeSourceGroups(key, {.Occupied = cells, .IndexBytesMost = *bytes});
-        if (groups && *groups) {
-          std::vector<SourceProductSelection::Source> traits;
-          traits.reserve((**groups).Members.size());
-          for (const auto &member : (**groups).Members) {
-            traits.push_back(
-                {.Cohort = member.Cell,
-                 .FieldSupported = member.Availability ==
-                                   Generators::PreparedBuildingAssets::SourceMember::State::Surface,
-                 .Faces = member.Faces,
-                 .ShellErrorM = member.ShellErrorM});
-          }
-          const auto &index = (**groups).Index;
-          auto selected = SourceProductSelection::Of(
-              std::shared_ptr<const PlanHierarchy>(index, &index->Hierarchy), traits, key);
-          if (selected) {
-            auto cut = selected->Select(eye, projection);
-            if (cut) {
-              result->Cut = std::move(*cut);
-              result->Selection = std::move(*selected);
-              result->Groups = std::move(**groups);
+  const Vec2 viewport{{context.Renderer.PictureW(), context.Renderer.PictureH()}};
+  if (!context.Workers.PostDetached(
+          [assets, cache, key, cells, bounds, result, bytes, eye, path, viewport, projection] {
+            auto groups =
+                assets->DescribeSourceGroups(key, {.Occupied = cells, .IndexBytesMost = *bytes});
+            if (groups && *groups) {
+              if (cache) {
+                result->Roof = BuildingRoofTile::Load(*cache,
+                                                      *assets,
+                                                      key,
+                                                      bounds,
+                                                      **groups,
+                                                      path,
+                                                      viewport,
+                                                      projection,
+                                                      result->RoofRead);
+              }
+              std::vector<SourceProductSelection::Source> traits;
+              traits.reserve((**groups).Members.size());
+              for (const auto &member : (**groups).Members) {
+                traits.push_back(
+                    {.Cohort = member.Cell,
+                     .FieldSupported =
+                         member.Availability ==
+                         Generators::PreparedBuildingAssets::SourceMember::State::Surface,
+                     .Faces = member.Faces,
+                     .ShellErrorM = member.ShellErrorM});
+              }
+              const auto &index = (**groups).Index;
+              auto selected = SourceProductSelection::Of(
+                  std::shared_ptr<const PlanHierarchy>(index, &index->Hierarchy), traits, key);
+              if (selected) {
+                auto cut = selected->Select(eye, projection);
+                if (cut) {
+                  result->Cut = std::move(*cut);
+                  result->Selection = std::move(*selected);
+                  result->Groups = std::move(**groups);
+                }
+              }
             }
-          }
-        }
-        result->Done.store(true, std::memory_order_release);
-      })) {
+            result->Done.store(true, std::memory_order_release);
+          })) {
     return;
   }
   Reading = std::move(result);

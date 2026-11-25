@@ -27,7 +27,9 @@
 namespace outshine {
 BuildingFieldStreaming::BuildingFieldStreaming() : State_(std::make_unique<State>()) {}
 
-BuildingFieldStreaming::~BuildingFieldStreaming() = default;
+BuildingFieldStreaming::~BuildingFieldStreaming() {
+  if (State_->Terrace) { State_->Terrace->Cancel(); }
+}
 
 BuildingFieldStreaming::Counts BuildingFieldStreaming::Read() const noexcept {
   return State_->Statistics;
@@ -58,17 +60,33 @@ bool BuildingFieldStreaming::ProductsReady(SourceAddress source) const noexcept 
   return found != State_->Tiles.end() && found->SourceKey == source.Key && found->Complete;
 }
 
+uint64_t BuildingFieldStreaming::State::Tile::ReplacementCells() const noexcept {
+  uint64_t replaced = RoofOriginalsReplaced;
+  for (const auto &cell : Cells) {
+    if (cell.Qualified && !cell.ShadowNeeded) {
+      replaced |= uint64_t{1} << (cell.Source.Cell - 1u);
+    }
+  }
+  return replaced;
+}
+
+uint64_t BuildingFieldStreaming::ReplacementCells(SourceAddress source) const noexcept {
+  const auto found = std::ranges::find(State_->Tiles, source.Tile, &State::Tile::Index);
+  return found != State_->Tiles.end() && found->SourceKey == source.Key && found->Coverage
+             ? found->ReplacementCells()
+             : 0;
+}
+
 std::optional<uint64_t> BuildingFieldStreaming::OriginalCells(SourceAddress source) const noexcept {
+  if (State_->ReadingTile && State_->ReadingTile->Index == source.Tile &&
+      State_->ReadingTile->SourceKey == source.Key) {
+    return uint64_t{0};
+  }
   const auto found = std::ranges::find(State_->Tiles, source.Tile, &State::Tile::Index);
   if (found == State_->Tiles.end() || found->SourceKey != source.Key || !found->Coverage) {
     return std::nullopt;
   }
-  uint64_t needed = 0;
-  for (const auto &cell : found->Cells) {
-    if (!cell.Qualified || cell.ShadowNeeded) { needed |= uint64_t{1} << (cell.Source.Cell - 1u); }
-  }
-  needed &= ~found->ResidentOriginals;
-  return needed;
+  return found->Source.Cells & ~(found->ResidentOriginals | found->ReplacementCells());
 }
 
 Render::CameraBasis BuildingFieldStreaming::State::WorldCamera(const Context &context) {
@@ -132,15 +150,17 @@ DemandFor(const BuildingFieldStreaming::Context &context,
   const auto lens =
       Render::Lens::From(context.Camera, context.Renderer.PictureW(), context.Renderer.PictureH());
   if (!lens) { return std::nullopt; }
-  return BuildingFieldRequest::Demand{.Directions = {direction},
-                                      .Pixels = pixels,
-                                      .View = {0},
-                                      .GeometricView = BuildingFieldRequest::Pose{
-                                          .Camera = camera,
-                                          .Optics = *lens,
-                                          .GeometryErrorMostPx = projection.AllowedErrorPx,
-                                          .Space = BuildingFieldRequest::CoordinateSpace::World,
-                                          .Domain = BuildingFieldRequest::ViewDomain::Panoramic}};
+  return BuildingFieldRequest::Demand{
+      .Directions = {direction},
+      .Pixels = pixels,
+      .View = {0},
+      .GeometricView =
+          BuildingFieldRequest::Pose{.Camera = camera,
+                                     .Optics = *lens,
+                                     .GeometryErrorMostPx = projection.AllowedErrorPx,
+                                     .Space = BuildingFieldRequest::CoordinateSpace::World,
+                                     .Domain = BuildingFieldRequest::ViewDomain::Panoramic},
+      .Prepare = BuildingFieldRequest::Preparation::DisplaySurface};
 }
 
 std::optional<BuildingFieldRequest::Budget> BudgetFor(
@@ -177,7 +197,6 @@ bool BuildingFieldStreaming::State::RequestGroup(Context &context,
   if (cell.Where == Phase::Prepared && group.Where == Phase::Prepared) {
     assert(group.Request.has_value());
     group.Where = Phase::Pending;
-    PollCell(context, tile, cell);
     return true;
   }
   if (group.Where != Phase::Waiting) { return false; }
@@ -225,9 +244,7 @@ bool BuildingFieldStreaming::State::RequestGroup(Context &context,
   cell.Consumer = std::move(consumer);
   group.Request.emplace(std::move(*request));
   group.Where = Phase::Pending;
-  if (cell.Where != Phase::Prepared) {
-    cell.Where = cell.Groups.size() == 1 ? Phase::Prepared : Phase::Pending;
-  }
+  cell.Where = Phase::Pending;
   return true;
 }
 
@@ -243,9 +260,13 @@ void BuildingFieldStreaming::State::RequestOne(Context &context) {
   for (auto &tile : Tiles) {
     const auto source =
         StructureBuildQueue::QualifiedSourceKey(context.Surface.Footprints(), tile.Index);
-    if (source != tile.SourceKey) { continue; }
+    if (source != tile.SourceKey || tile.RoofUpload) { continue; }
     for (auto &cell : tile.Cells) {
-      if (cell.Where == Phase::Rejected || cell.Where == Phase::Ready) { continue; }
+      if (cell.Where == Phase::Rejected || cell.Where == Phase::Ready || cell.TerraceQualified ||
+          (tile.RoofActive && tile.ResidentRoof &&
+           (tile.ResidentRoof->Cells & (uint64_t{1} << (cell.Source.Cell - 1u))) != 0)) {
+        continue;
+      }
       for (auto &group : cell.Groups) {
         if (RequestGroup(context, tile, cell, group)) { return; }
         if (cell.Where == Phase::Rejected) { break; }
@@ -261,16 +282,36 @@ bool BuildingFieldStreaming::Advance(Context &context, std::string &error) {
   State_->PollFields(context);
   State_->Shadows = context.Renderer.DeclaredShadowDemand();
   if (!State_->Select(context, error)) { return false; }
+  State_->AdvanceTerrace(context);
   State_->RequestOne(context);
-  auto &counts = State_->Statistics;
-  counts.Sources = State_->Tiles.size();
-  counts.Pending = State_->Reading ? 1 : 0;
-  for (const auto &entry : State_->Sources.Entries()) {
+  State_->CollectCounts();
+  return true;
+}
+
+void BuildingFieldStreaming::State::CollectCounts() {
+  auto &counts = Statistics;
+  counts.Sources = Tiles.size();
+  counts.Pending = Reading ? 1 : 0;
+  for (const auto &entry : Sources.Entries()) {
     counts.Pending += entry.Where == BuildingSourceDemand::Phase::Pending ? 1 : 0;
   }
   counts.Ready = counts.Rejected = counts.ReadyGroups = 0;
-  for (const auto &tile : State_->Tiles) {
+  counts.ReadyRoofTiles = counts.ActiveRoofTiles = counts.ActiveRoofVolumes =
+      counts.ActiveRoofCasters = 0;
+  counts.ReadyTerraces = counts.ActiveTerraces = counts.RejectedTerraces = 0;
+  for (const auto &tile : Tiles) {
+    counts.Pending += static_cast<size_t>(tile.RoofUpload.has_value());
+    counts.ReadyRoofTiles += static_cast<size_t>(tile.ResidentRoof.has_value());
+    counts.ActiveRoofTiles += static_cast<size_t>(tile.RoofActive);
+    counts.ActiveRoofCasters += static_cast<size_t>(tile.RoofCasterActive);
+    counts.ActiveRoofVolumes +=
+        tile.RoofActive && tile.ResidentRoof ? tile.ResidentRoof->Count : 0u;
     for (const auto &cell : tile.Cells) {
+      const uint64_t cellMask = uint64_t{1} << (cell.Source.Cell - 1);
+      counts.ReadyTerraces += static_cast<size_t>(!cell.TerraceKey.empty());
+      counts.RejectedTerraces += static_cast<size_t>(cell.TerraceRejected);
+      counts.ActiveTerraces +=
+          static_cast<size_t>(cell.TerraceQualified && (tile.Active & cellMask) != 0);
       const auto pending = static_cast<size_t>(std::ranges::count_if(
           cell.Groups, [](const State::Group &g) { return g.Where == State::Phase::Pending; }));
       counts.Pending += pending + (pending == 0 && cell.Where == State::Phase::Prepared ? 1u : 0u);
@@ -280,6 +321,5 @@ bool BuildingFieldStreaming::Advance(Context &context, std::string &error) {
       counts.Rejected += cell.Where == State::Phase::Rejected ? 1 : 0;
     }
   }
-  return true;
 }
 }

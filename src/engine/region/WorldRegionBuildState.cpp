@@ -121,8 +121,8 @@ void WorldRegionBuildState::BindSurfaceInputs(const Generators::Osm::StreetField
   SurfaceInputsPhase_ = SurfaceInputsPhase::Bound;
 }
 
-[[nodiscard]] bool WorldRegionBuildState::InstallRegion(GroundRegionAsset region, bool hit) {
-  if (hit && !Schedule_.LoadReadyRegion()) { return false; }
+[[nodiscard]] bool WorldRegionBuildState::InstallRegion(GroundRegionAsset region) {
+  if (!Schedule_.LoadReadyRegion()) { return false; }
   auto &build = Candidate_.Products();
   Lays(std::move(region.Terrain));
   build.Ground = std::move(region.Surfaces);

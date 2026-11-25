@@ -4,12 +4,14 @@
 #include "Corridors.h"
 #include "PublishedRegion.h"
 #include "RegionSurfaceRecipes.h"
+#include "RoofPathSupport.h"
 #include "TerrainInputPreparation.h"
 #include <chrono>
 #include <expected>
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace outshine {
 class Tasks;
@@ -29,6 +31,8 @@ public:
     LongitudeLatitude Eye;
     int SheetZoom;
     int DemZoom;
+    std::shared_ptr<Generators::PreparedBuildingAssets> Buildings;
+    std::vector<std::string> RoofKeys;
   };
 
   struct Product {

@@ -14,6 +14,7 @@
 #include "Units.h"
 #include "Vec2.h"
 #include "Vec3.h"
+#include "ViewPath.h"
 #include "HttpTransport.h"
 #include "HeapProbe.h"
 #include "BuiltinGenerators.h"
@@ -26,6 +27,7 @@
 #include "GroundSnapshot.h"
 #include "RegionPool.h"
 #include "TerrainSurfacePublication.h"
+#include "GroundTerrainPacks.h"
 #include "Wayfinding.h"
 #include "GeometryPageResidency.h"
 #include "BuildingPageAdapter.h"
@@ -86,6 +88,7 @@ namespace outshine {
 struct GroundBuildProducts;
 struct TerrainPathPlan;
 class WorldRegionBuildState;
+class GroundRegionArchive;
 class BuildingFieldStreaming;
 class GroundWorldCandidate;
 class TerrainClipmapPreparation;
@@ -145,7 +148,7 @@ struct EngineServices {
 };
 
 struct WorldRegionState {
-  WorldRegionState();
+  explicit WorldRegionState(TerrainBacking backing = TerrainBacking::Lattice);
   ~WorldRegionState();
   WorldRegionState(const WorldRegionState &) = delete;
   WorldRegionState &operator=(const WorldRegionState &) = delete;
@@ -186,7 +189,10 @@ struct WorldRegionState {
   size_t AskedWanted = 0;
   GroundPublication GroundPublished;
   std::optional<Around> PublishedGroundCoverage;
+  std::optional<ViewPath> PlannedCameraPath;
+  std::optional<ViewPath> PlannedTravelEcef;
   std::shared_ptr<const TerrainSweep> PlannedTerrainSweep;
+  bool CachedCameraSweepPending = false;
   uint64_t NextTerrainSweep = 0;
   std::optional<GroundRevision> RequestedRefinedGround;
   std::unique_ptr<WorldRegionBuildState> GroundBuild;
@@ -198,6 +204,7 @@ struct WorldRegionState {
   std::shared_ptr<Generators::TerrainHaloCache> TerrainHalos;
   std::string GroundLookupRequest;
   std::unique_ptr<Generators::GroundRegionRequest> GroundLookup;
+  std::unique_ptr<GroundRegionArchive> GroundArchive;
   std::unique_ptr<GroundPatchPreparation> PlacementGround;
   size_t GroundCandidates = 0;
 
@@ -391,7 +398,7 @@ struct Engine::State {
   ScenarioSession Session;
   std::unique_ptr<ScenarioRuntime> ScenarioState = std::make_unique<ScenarioRuntime>();
   EngineServices Services;
-  WorldRegionState World;
+  WorldRegionState World{TerrainBacking::ClipmapSource};
   World::BodySnapshot BodyFrame;
   EngineCostCounters Cost;
   SimulationClock Ticking;
@@ -413,6 +420,8 @@ struct Engine::State {
 
   [[nodiscard]] LogThreadSinkScope Logs() const { return LogThreadSinkScope(Diagnostics); }
 
+  void SetFrameExtent(Extent extent);
+
   [[nodiscard]] Result MutationPermission() {
     if (!Capturing) { return {}; }
     Error = Says::kCaptureMutation;
@@ -430,6 +439,9 @@ struct Engine::State {
   [[nodiscard]] bool CanAdvanceGroundCandidate() const;
   [[nodiscard]] Result PumpPreload(GroundQuality quality);
   [[nodiscard]] Holds<bool> PrimeGroundRegion(GroundQuality quality);
+  void PlanCachedCameraDemand();
+  void InstallTerrainSweep(std::shared_ptr<TerrainSweep> sweep);
+  void PlanCameraSourceCoverage(std::span<const Around> coverage);
   [[nodiscard]] bool CanPrimeGroundRegion(GroundQuality quality) const;
   [[nodiscard]] Holds<bool> PositionGroundRegionCamera(const Scenario::View &view);
   [[nodiscard]] int VectorPreparationRing() const noexcept;
@@ -513,7 +525,8 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress BeginGroundRegionLookup(WorldRegionBuildState &state);
   [[nodiscard]] GroundBuildProgress AdvanceReadyGroundSheets(Patchwork &patchwork,
                                                              WorldRegionBuildState &state);
-  [[nodiscard]] GroundBuildProgress StoreGroundRegion(WorldRegionBuildState &state) const;
+  void PrepareGroundArchive(WorldRegionBuildState &state) const;
+  void AdvanceGroundArchive(bool canWrite);
   [[nodiscard]] GroundBuildProgress RestoreGroundRoadPages(WorldRegionBuildState &state);
   [[nodiscard]] GroundBuildProgress
   AdvanceGroundSheets(const TangentFrame &standing, Patchwork &patchwork, const Around &coverage);
@@ -600,6 +613,10 @@ struct Engine::State {
   [[nodiscard]] Around RequestedTerrainCoverage(LongitudeLatitude focus) const;
   [[nodiscard]] double TerrainSightM() const noexcept;
   [[nodiscard]] static double FinestTerrainSampleRadiusM() noexcept;
+  [[nodiscard]] static double FinestTerrainSampleHalfWidthM() noexcept;
+  [[nodiscard]] bool PublishedGroundCoversClipmap(const Around &request) const;
+  [[nodiscard]] Generators::Osm::GroundTerrainErrorLimit
+  TerrainPackErrorLimit(const Around &coverage) const;
   [[nodiscard]] Holds<std::vector<Around>>
   ViewPreparationPath(const Scenario::View &view,
                       double durationS,
@@ -626,6 +643,7 @@ struct Engine::State {
   [[nodiscard]] bool WorldPreparationPending() const;
   [[nodiscard]] bool StructureParentsReady(uint32_t tile) const;
   [[nodiscard]] bool StructureProductsReady(uint32_t tile) const;
+  [[nodiscard]] std::optional<uint64_t> StructureGeometryCells(uint32_t tile) const;
   [[nodiscard]] bool UpdateTriggers();
   [[nodiscard]] bool Updates(bool simulate);
   [[nodiscard]] bool Draws();

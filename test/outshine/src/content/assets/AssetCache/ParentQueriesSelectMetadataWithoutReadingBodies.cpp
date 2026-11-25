@@ -113,6 +113,59 @@ void Indexed(const AssetCache &cache, const std::array<AssetRecord, 8> &records)
                QuerySteps);
 }
 
+void TileProducts(AssetCache &cache, const AssetRecord &region, std::span<const uint8_t> payload) {
+  auto fine = region;
+  fine.Key = Key("fine render tile");
+  fine.Tile = AssetTile{.Revision = Key("terrain revision"),
+                        .Coverage = Key("footprint"),
+                        .Coarser = region.Key,
+                        .ErrorM = 0.25};
+  auto other = fine;
+  other.Key = Key("other render tile");
+  other.Tile->Revision = Key("older revision");
+  other.Tile->ErrorM.reset();
+  const std::array products{fine, other};
+  CHECK(cache.Publish(products, payload), "two spatially overlapping revisions can coexist");
+  const auto selected = cache.Select({.Bounds = region.Bounds,
+                                      .Kind = region.Kind,
+                                      .Level = region.Level,
+                                      .Radius = {},
+                                      .Planes = {},
+                                      .TileRevision = fine.Tile->Revision});
+  CHECK(selected && selected->size() == 1 && selected->front() == fine,
+        "the spatial index exposes the selection manifest for the current revision alone");
+  const auto inherited = cache.FindTile(other.Key);
+  CHECK(inherited && *inherited && (**inherited).Tile == other.Tile,
+        "unproven error and the fallback address survive metadata reads");
+  const auto observed = fine;
+  fine.Tile.reset();
+  CHECK(cache.Publish(std::span(&fine, 1), payload), "legacy publication can replace a tile");
+  const auto replaced = cache.FindTile(fine.Key);
+  CHECK(replaced && !*replaced, "republication cannot keep old coverage or error metadata");
+  fine.OffsetBytes += fine.ByteCount;
+  CHECK(cache.Publish(std::span(&fine, 1), payload) && cache.IndexTile(observed),
+        "an old index observation can race a new stored range");
+  const auto stale = cache.FindTile(fine.Key);
+  CHECK(stale && !*stale, "a different range does not acquire the old certificate");
+  fine.Tile = observed.Tile;
+  CHECK(cache.IndexTile(fine), "checked data can be indexed in place");
+  const auto live = cache.FindTile(fine.Key);
+  CHECK(live && *live && **live == fine, "the index exposes the validated current native page");
+  fine.Tile->Coarser = Key("alternate parent for the same render tile");
+  CHECK(cache.IndexTile(fine), "a resolved parent can be attached without copying the body");
+  const auto rebound = cache.FindTile(fine.Key);
+  CHECK(rebound && *rebound && **rebound == fine,
+        "the native tile retains its revision and bound with the new parent");
+  auto foreign = fine;
+  foreign.Tile->Coverage = Key("foreign coverage");
+  foreign.Tile->Coarser = other.Key;
+  CHECK(cache.IndexTile(foreign), "an old or foreign metadata update is harmless");
+  const auto retained = cache.FindTile(fine.Key);
+  CHECK(retained && *retained && **retained == fine,
+        "rebinding cannot change a native tile's coverage");
+  CHECK(cache.Remove(fine.Key) && cache.Remove(other.Key), "remove the temporary render variants");
+}
+
 void Exercise(const std::string &path) {
   auto opened = AssetCache::Open(path);
   CHECK(opened, "the renderer's native asset database opens");
@@ -144,6 +197,7 @@ void Exercise(const std::string &path) {
   Unrelated(*cache, records, payload);
   Queries(*cache, bounds, records);
   Indexed(*cache, records);
+  TileProducts(*cache, records[0], payload);
   const auto ready = cache->Load(records[1].Key, payload.size());
   CHECK(ready && *ready, "the native page body is valid before the corruption control");
   cache.reset();

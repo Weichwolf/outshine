@@ -69,6 +69,8 @@ SurfacePreparation::BindRegionCache(const ContentDirectories &under,
   materials->insert(0, "ground-palette-layers-1\n");
   materials->push_back('\0');
   materials->append(*vegetation);
+  materials->push_back('\0');
+  materials->append(PreparedBuildings_->Recipe());
   auto regions = Generators::Osm::PreparedGroundRegions::Open(AssetStore_, sources, *materials);
   if (!regions) { return std::unexpected(std::move(regions.error())); }
   PreparedRegions_ = std::move(*regions);
@@ -290,6 +292,11 @@ void SurfacePreparation::PlanMotionCoverage(std::span<const LongitudeLatitude> p
   if (!HasVectorSource_ || !Declared_.empty()) { return; }
   VectorMotion_ = Generators::Osm::OsmField::CoverPath(path, VectorZoom_, kVectorRing);
   Cls_.PlanMotionCoverage(path);
+}
+
+void SurfacePreparation::ClearMotionCoverage() noexcept {
+  VectorMotion_.reset();
+  Cls_.ClearMotionCoverage();
 }
 
 const Generators::Osm::OsmTileCoverage *

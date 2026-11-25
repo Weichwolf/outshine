@@ -4,6 +4,7 @@
 #include "ProjectedErrorBudget.h"
 #include "Vec2.h"
 #include "Vec3.h"
+#include "ViewPath.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -79,12 +80,25 @@ public:
                                                   ProjectedErrorBudget projection,
                                                   double translationM = 0,
                                                   bool orthographic = false);
+  [[nodiscard]] static double GeometryErrorLimitM(double distanceLowerM,
+                                                  const Vec2 &viewportPx,
+                                                  ProjectedErrorBudget projection);
   // All rotations; includes source-bound expansion by the geometric error.
   [[nodiscard]] static double GeometryErrorLimitM(const Box &bounds,
                                                   const Vec3 &eye,
                                                   const Vec2 &viewportPx,
                                                   ProjectedErrorBudget projection,
                                                   double translationM = 0);
+  [[nodiscard]] static double GeometryErrorLimitM(const Box &bounds,
+                                                  const ViewPath &path,
+                                                  const Vec2 &viewportPx,
+                                                  ProjectedErrorBudget projection);
+  // Maximum diameter of a source clipped to the viewport over the swept path.
+  [[nodiscard]] static double ProjectedSupportLimitM(const Box &bounds,
+                                                     const ViewPath &path,
+                                                     const Vec2 &viewportPx,
+                                                     double focalPx,
+                                                     double supportPx);
 
 private:
   struct Node {

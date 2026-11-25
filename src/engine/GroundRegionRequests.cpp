@@ -103,6 +103,7 @@ Holds<bool> Engine::State::PrimeGroundRegion(GroundQuality quality) {
   if (!Session.Views || !CanPrimeGroundRegion(quality)) { return true; }
   const auto positioned = PositionGroundRegionCamera(Session.Views->Active());
   if (!positioned || !*positioned) { return positioned; }
+  PlanCachedCameraDemand();
   const auto assets = World.Surface().RegionAssets();
   const auto focus = CurrentGeographicFocus();
   const auto coverage = RequestedTerrainCoverage(focus);
@@ -121,7 +122,8 @@ Holds<bool> Engine::State::PrimeGroundRegion(GroundQuality quality) {
     World.GroundLookupRequest = std::move(*request);
     World.GroundLookup = std::make_unique<Generators::GroundRegionRequest>(
         *Services.Compute,
-        Generators::GroundRegionRequest::Lookup(assets, World.GroundLookupRequest),
+        Generators::GroundRegionRequest::Lookup(
+            assets, World.GroundLookupRequest, {}, false, TerrainPackErrorLimit(coverage)),
         World.Surface().RoadAssets());
   }
   if (!World.GroundLookup) { return true; }
@@ -129,6 +131,15 @@ Holds<bool> Engine::State::PrimeGroundRegion(GroundQuality quality) {
   const auto *result = World.GroundLookup->Peek();
   if (result == nullptr) { return false; }
   if (!*result) { return std::unexpected(result->error()); }
+  if (std::exchange(World.CachedCameraSweepPending, false)) {
+    const bool hit = result->value().Loaded.has_value();
+    Published.RecordMetric("view data: cached terrain window", hit ? 1.0 : 0.0, "hit");
+    if (!hit) {
+      World.PlannedTerrainSweep.reset();
+      World.Surface().ClearMotionCoverage();
+      return false;
+    }
+  }
   if (result->value().Loaded) {
     World.Surface().UseCachedRegionNetwork(focus);
     const auto &classes = result->value().Loaded->Region.Classes;

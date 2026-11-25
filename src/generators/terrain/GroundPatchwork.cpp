@@ -1,5 +1,8 @@
 #include "GroundPatchwork.h"
+#include "Box.h"
+#include "TangentFrame.h"
 #include "TileGeodesy.h"
+#include "Units.h"
 
 #include <algorithm>
 #include <array>
@@ -7,7 +10,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <limits>
 #include <map>
+#include <optional>
 #include <span>
 #include <string>
 #include <tuple>
@@ -92,6 +97,21 @@ TileBlock BlockAt(const Around &over, int level) {
           .ContactX = static_cast<long>(std::floor(at.X)),
           .ContactY = static_cast<long>(std::floor(at.Y)),
           .Span = 1L << static_cast<unsigned>(level)};
+}
+
+Ground::GeoBounds FinestBlockBounds(const TileBlock &block) {
+  const double tiles = std::ldexp(1.0, block.Zoom);
+  const auto northwest = Ground::TileFracToGeo(
+      {.X = static_cast<double>(block.X), .Y = static_cast<double>(std::max(0L, block.Y))},
+      block.Zoom);
+  const auto southeast =
+      Ground::TileFracToGeo({.X = static_cast<double>(block.X + kBlockTiles),
+                             .Y = std::min(tiles, static_cast<double>(block.Y + kBlockTiles))},
+                            block.Zoom);
+  return {.MinLonDeg = northwest.LongitudeDeg,
+          .MinLatDeg = southeast.LatitudeDeg,
+          .MaxLonDeg = southeast.LongitudeDeg,
+          .MaxLatDeg = northwest.LatitudeDeg};
 }
 
 template <typename Visit> void ForEachBlockTile(const TileBlock &block, Visit visit) {
@@ -253,9 +273,23 @@ std::vector<Data::TileId> RemoveCoveredPatchworkTiles(std::span<const Data::Tile
 }
 
 bool SweptPatchworkCovers(const TerrainSweep &sweep, const Around &request, const Vec3 &eyeM) {
-  if (!sweep.Eyes.Holds(eyeM)) { return false; }
+  if (!sweep.Eyes.Holds(eyeM) ||
+      (sweep.EyePath && !(sweep.EyePath->DistanceTo(eyeM) <= sweep.EyePath->RadiusM))) {
+    return false;
+  }
   const auto wanted = PlanPatchworkTiles(request);
   return wanted && std::ranges::includes(sweep.Requested, *wanted, {}, TileAddress, TileAddress);
+}
+
+std::optional<Ground::GeoBounds> PatchworkFocusWindow(const Around &coverage) {
+  if (!ValidCoverage(coverage) || coverage.Sweep) { return std::nullopt; }
+  const auto block = BlockAt(coverage, 0);
+  auto bounds = FinestBlockBounds(block);
+  if (block.Y <= 0) { bounds.MaxLatDeg = kDegPerHalfTurn * 0.5; }
+  if (static_cast<double>(block.Y + kBlockTiles) >= std::ldexp(1.0, block.Zoom)) {
+    bounds.MinLatDeg = -kDegPerHalfTurn * 0.5;
+  }
+  return bounds;
 }
 
 bool PatchworkIncludesContactTile(const Around &coverage, const Around &request) noexcept {
@@ -271,39 +305,97 @@ bool PatchworkIncludesContactTile(const Around &coverage, const Around &request)
   return column < kBlockTiles && row >= 0 && row < kBlockTiles;
 }
 
-bool PatchworkCoversFocus(const Around &coverage, const Around &request, double radiusM) noexcept {
-  if (!PatchworkIncludesContactTile(coverage, request) || !std::isfinite(radiusM) ||
-      radiusM <= 0.0) {
-    return false;
-  }
+namespace {
+bool RetainsCoarseBlocks(const Around &coverage, const Around &request) noexcept {
+  if (!PatchworkIncludesContactTile(coverage, request)) { return false; }
   const int levels = std::min(coverage.Levels, coverage.Zoom);
   for (int level = 1; level < levels; ++level) {
     const TileBlock held = BlockAt(coverage, level);
     const TileBlock wanted = BlockAt(request, level);
     if (held.X != wanted.X || held.Y != wanted.Y) { return false; }
   }
+  return true;
+}
+
+constexpr double kEdgeRoundoffM = 256 * std::numeric_limits<double>::epsilon() * kWgs84A;
+enum class EdgeBound { Lower, Upper };
+
+bool InsideMeridian(std::span<const Vec3> corners, double degrees, EdgeBound bound) noexcept {
+  const double inward = bound == EdgeBound::Lower ? 1 : -1;
+  const double angle = degrees * kDeg2Rad;
+  const Vec3 normal{{-inward * std::sin(angle), inward * std::cos(angle), 0}};
+  return std::ranges::all_of(
+      corners, [&](const Vec3 &corner) { return Dot(normal, corner) > kEdgeRoundoffM; });
+}
+
+bool InsideParallel(std::span<const Vec3> corners,
+                    const Box &rotated,
+                    double degrees,
+                    EdgeBound bound) noexcept {
+  if (!(rotated.Min[0] > 0)) { return false; }
+  const double inward = bound == EdgeBound::Lower ? 1 : -1;
+  const double angle = degrees * kDeg2Rad;
+  const double vertical = inward * std::cos(angle);
+  const double sine = std::sin(angle);
+  const double radial = -inward * sine;
+  const double primeVertical = kWgs84A / std::sqrt(1 - kWgs84E2 * sine * sine);
+  const double offset = kWgs84E2 * primeVertical * sine * vertical;
+  const double outerEast = std::max(std::abs(rotated.Min[1]), std::abs(rotated.Max[1]));
+  const double radialSlack = outerEast * outerEast / (2 * rotated.Min[0]);
+  const double margin = kEdgeRoundoffM + std::max(0.0, -radial * radialSlack);
+  return std::ranges::all_of(corners, [&](const Vec3 &corner) {
+    return radial * corner[0] + vertical * corner[2] + offset > margin;
+  });
+}
+}
+
+bool PatchworkCoversFocus(const Around &coverage, const Around &request, double radiusM) noexcept {
+  if (!std::isfinite(radiusM) || radiusM <= 0.0 || !RetainsCoarseBlocks(coverage, request)) {
+    return false;
+  }
   const auto block = BlockAt(coverage, 0);
-  const double tiles = std::ldexp(1.0, coverage.Zoom);
-  const auto northwest = Ground::TileFracToGeo(
-      {.X = static_cast<double>(block.X), .Y = static_cast<double>(std::max(0L, block.Y))},
-      coverage.Zoom);
-  const auto southeast =
-      Ground::TileFracToGeo({.X = static_cast<double>(block.X + kBlockTiles),
-                             .Y = std::min(tiles, static_cast<double>(block.Y + kBlockTiles))},
-                            coverage.Zoom);
+  const auto bounds = FinestBlockBounds(block);
   constexpr double minimumRadiusM = kWgs84A * (1.0 - kWgs84E2);
   const double radiusRad = radiusM / minimumRadiusM;
   const double latSpan = radiusRad * kRad2Deg;
   const double latitude = request.LatitudeDeg;
-  if (latitude - latSpan <= southeast.LatitudeDeg || latitude + latSpan >= northwest.LatitudeDeg) {
+  if (latitude - latSpan <= bounds.MinLatDeg || latitude + latSpan >= bounds.MaxLatDeg) {
     return false;
   }
-  if (tiles <= kBlockTiles) { return true; }
+  if (std::ldexp(1.0, coverage.Zoom) <= kBlockTiles) { return true; }
   const double lonSpan = radiusRad * kRad2Deg / std::cos((std::abs(latitude) + latSpan) * kDeg2Rad);
-  const double offset = request.LongitudeDeg - northwest.LongitudeDeg;
+  const double offset = request.LongitudeDeg - bounds.MinLonDeg;
   const double eastward = offset - kDegPerTurn * std::floor(offset / kDegPerTurn);
-  const double width = southeast.LongitudeDeg - northwest.LongitudeDeg;
+  const double width = bounds.MaxLonDeg - bounds.MinLonDeg;
   return lonSpan < eastward && eastward + lonSpan < width;
+}
+
+bool PatchworkCoversSamples(const Around &coverage,
+                            const Around &request,
+                            const TangentFrame &frame,
+                            const Box &localBounds) noexcept {
+  if (localBounds.Empty() || !RetainsCoarseBlocks(coverage, request)) { return false; }
+  const auto window = FinestBlockBounds(BlockAt(coverage, 0));
+  const double width = window.MaxLonDeg - window.MinLonDeg;
+  std::array<Vec3, 8> corners;
+  const auto &east = frame.EastEcef();
+  const Vec3 radial{{east[1], -east[0], 0}};
+  const double origin = frame.Anchor().LongitudeDeg;
+  Box rotated;
+  for (unsigned i = 0; i < corners.size(); ++i) {
+    const auto point = localBounds.Corner(i);
+    const auto corner =
+        frame.ToEcefPosition({.EastM = point[0], .NorthM = point[1], .UpM = point[2]});
+    corners[i] = {{Dot(radial, corner), Dot(east, corner), corner[2]}};
+    rotated.Cover(corners[i]);
+  }
+  const bool betweenMeridians =
+      width >= kDegPerTurn ||
+      (width <= kDegPerHalfTurn &&
+       InsideMeridian(corners, window.MinLonDeg - origin, EdgeBound::Lower) &&
+       InsideMeridian(corners, window.MaxLonDeg - origin, EdgeBound::Upper));
+  return betweenMeridians && InsideParallel(corners, rotated, window.MinLatDeg, EdgeBound::Lower) &&
+         InsideParallel(corners, rotated, window.MaxLatDeg, EdgeBound::Upper);
 }
 
 std::expected<Patchwork, std::string> Patchworker::Lay(TileMeshes &tiles,

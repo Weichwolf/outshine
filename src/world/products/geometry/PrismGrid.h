@@ -24,6 +24,18 @@ struct PrismPatch {
   float PitchX = 1;
   float PitchZ = 1;
   float FillFraction = 1;
+  uint32_t RowStride = 0;
+
+  [[nodiscard]] uint32_t Stride() const noexcept { return RowStride == 0 ? Columns : RowStride; }
+
+  [[nodiscard]] uint64_t SampleExtent() const noexcept {
+    return Rows == 0 ? 0 : uint64_t{Rows - 1} * Stride() + Columns;
+  }
+
+  [[nodiscard]] bool Fits(size_t samples) const noexcept {
+    return Columns != 0 && Rows != 0 && Stride() >= Columns && FirstSample <= samples &&
+           SampleExtent() <= samples - FirstSample;
+  }
 };
 
 struct PrismGrid {

@@ -37,6 +37,11 @@ public:
     size_t PageBytesMost = 0;
   };
 
+  struct DisplayPage {
+    Generators::RoadPageAddress Address;
+    size_t BytesMost;
+  };
+
   // The pool outlives this queue and all unfinished callbacks.
   RoadPageQueue(Tasks &pool,
                 std::shared_ptr<Generators::PreparedRoadPages> pages,
@@ -48,7 +53,9 @@ public:
   [[nodiscard]] std::expected<bool, std::string>
   RequestRecord(Generators::RoadPageRequest request,
                 std::shared_ptr<const Generators::RoadPageProducer> producer = {});
-  [[nodiscard]] bool RequestCached(const std::string &key, Manifest dependency = {});
+  [[nodiscard]] bool RequestCached(const std::string &key,
+                                   Manifest dependency = {},
+                                   std::optional<DisplayPage> display = std::nullopt);
   [[nodiscard]] bool RequestRecipe(Generators::RoadPageAddress address);
   [[nodiscard]] bool RequestMetadata(Generators::RoadPageAddress address);
   [[nodiscard]] bool SetGeneration(AssetConsumerGeneration generation) noexcept;

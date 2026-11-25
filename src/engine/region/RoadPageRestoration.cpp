@@ -1,7 +1,9 @@
 #include "RoadPageRestoration.h"
 #include "PageIndexAsset.h"
 #include "Log.h"
+#include "SourceProductSelection.h"
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -56,7 +58,8 @@ RoadPageRestoration::Begin(Tasks &pool,
                            std::string manifestKey,
                            std::optional<Vec3> eye,
                            Limits limits,
-                           std::shared_ptr<AssetPipeline> publications) {
+                           std::shared_ptr<AssetPipeline> publications,
+                           std::optional<DisplayView> display) {
   if (!pages || !manifest || manifest->Materials.surfaces() != 1 ||
       manifest->Materials.parts() != 0 || manifest->Materials.images() != 0 ||
       manifest->Pages.size() > std::numeric_limits<uint32_t>::max() || limits.PendingMost == 0 ||
@@ -66,6 +69,7 @@ RoadPageRestoration::Begin(Tasks &pool,
   auto result = std::unique_ptr<RoadPageRestoration>(new RoadPageRestoration(
       pool, std::move(pages), std::move(manifest), limits, std::move(publications)));
   result->ManifestKey_ = std::move(manifestKey);
+  result->Display_ = display;
   if (selected) {
     result->Selected_.assign(selected->begin(), selected->end());
   } else {
@@ -134,7 +138,7 @@ std::expected<bool, std::string> RoadPageRestoration::Advance(const Consumer &co
       if (const auto loaded = Collect(); !loaded) { return std::unexpected(loaded.error()); }
       if (!Loaded_ || Missing_) { return false; }
     }
-    const auto accepted = consume(*Loaded_, Manifest_->Pages[Selected_[Next_]], until);
+    const auto accepted = consume(*Loaded_, ActiveReference(Window_.front()), until);
     if (!accepted) { return std::unexpected(accepted.error()); }
     if (!*accepted) { return false; }
     FinishPage();
@@ -142,6 +146,36 @@ std::expected<bool, std::string> RoadPageRestoration::Advance(const Consumer &co
     if (std::chrono::steady_clock::now() >= until) { return false; }
   }
   return false;
+}
+
+const Generators::RoadPageReference &
+RoadPageRestoration::ActiveReference(const Pending &pending) const {
+  return pending.Display ? *pending.Display : Manifest_->Pages[pending.Index];
+}
+
+std::optional<RoadPageQueue::DisplayPage>
+RoadPageRestoration::PreferredDisplay(const Generators::RoadPageReference &reference) const {
+  if (!Display_ || reference.PositionErrorM || reference.Level != 0) { return std::nullopt; }
+  const auto &view = *Display_;
+  const double error =
+      view.PathEnd
+          ? SourceProductSelection::GeometryErrorLimitM(
+                reference.Bounds,
+                ViewPath{.Start = view.Eye, .End = *view.PathEnd, .RadiusM = view.TranslationM},
+                view.ViewportPx,
+                view.Projection)
+          : SourceProductSelection::GeometryErrorLimitM(
+                reference.Bounds, view.Eye, view.ViewportPx, view.Projection, view.TranslationM);
+  constexpr std::array errors{1.0, 0.5, 0.25, 0.125};
+  const auto *const selected =
+      std::ranges::find_if(errors, [error](double level) { return level <= error; });
+  if (selected == errors.end()) { return std::nullopt; }
+  auto address = Generators::StoredRoadPageAddress(*Manifest_, reference);
+  address.Level = 1;
+  address.PositionErrorM = *selected;
+  address.DisplayPolicy = Generators::RoadDisplayPolicy::StoredSurfaceEnvelope;
+  return RoadPageQueue::DisplayPage{.Address = std::move(address),
+                                    .BytesMost = static_cast<size_t>(reference.ByteCount - 1)};
 }
 
 std::expected<void, std::string> RoadPageRestoration::Prefetch() {
@@ -152,10 +186,13 @@ std::expected<void, std::string> RoadPageRestoration::Prefetch() {
                              page.ByteCount > Limits_.NativeBytesMost - WindowBytes_)) {
       break;
     }
-    if (!Queue_.RequestCached(page.Key, {.Key = CanRepair(page) ? std::string{} : ManifestKey_})) {
+    if (!Queue_.RequestCached(page.Key,
+                              {.Key = CanRepair(page) ? std::string{} : ManifestKey_},
+                              PreferredDisplay(page))) {
       return std::unexpected("road restoration lookup admission failed");
     }
-    Window_.push_back({.Index = index, .Result = std::nullopt, .Producer = {}});
+    Window_.push_back(
+        {.Index = index, .Result = std::nullopt, .Producer = {}, .Display = std::nullopt});
     WindowBytes_ += static_cast<size_t>(page.ByteCount);
     ++Requested_;
   }
@@ -213,13 +250,34 @@ std::expected<void, std::string> RoadPageRestoration::Collect() {
       break;
     case Stage::Verify: break;
   }
-  if (!one) { return std::unexpected(std::move(one.error())); }
-  if (!*one) {
+  return CollectRead(pending, one);
+}
+
+std::expected<void, std::string> RoadPageRestoration::CollectRead(Pending &pending,
+                                                                  RoadPageQueue::Result &result) {
+  if (!result) { return std::unexpected(std::move(result.error())); }
+  if (!*result) {
     Missing_ = true;
     for (const auto &page : Window_) { Queue_.Cancel(Manifest_->Pages[page.Index].Key); }
     return {};
   }
-  const auto collected = CollectPayload(reference, **one);
+  const auto &reference = Manifest_->Pages[pending.Index];
+  const auto *loaded = std::get_if<Generators::RoadPageLease>(&**result);
+  if (loaded != nullptr && loaded->Record.Key != reference.Key) {
+    if (!loaded->Page || !Display_ || pending.Step != Stage::Read) {
+      return std::unexpected("road restoration received an unrequested display page");
+    }
+    const auto &address = loaded->Page->Address;
+    pending.Display = reference;
+    auto &display = *pending.Display;
+    display.Key = loaded->Record.Key;
+    display.Level = address.Level;
+    display.PositionErrorM = address.PositionErrorM;
+    display.DisplayPolicy = address.DisplayPolicy;
+    display.Bounds = loaded->Record.Bounds;
+    display.ByteCount = loaded->Record.ByteCount;
+  }
+  const auto collected = CollectPayload(ActiveReference(pending), **result);
   if (collected && pending.Step == Stage::Verify) { ++RecoveredPages_; }
   return collected;
 }
@@ -290,6 +348,7 @@ RoadPageRestoration::CollectPayload(const Generators::RoadPageReference &referen
 }
 
 void RoadPageRestoration::FinishPage() {
+  if (Window_.front().Display) { ++DisplayPages_; }
   WindowBytes_ -= static_cast<size_t>(Manifest_->Pages[Window_.front().Index].ByteCount);
   Window_.pop_front();
   ++Next_;

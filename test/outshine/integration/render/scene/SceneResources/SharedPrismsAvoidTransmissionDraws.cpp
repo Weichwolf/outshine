@@ -63,7 +63,7 @@ Image Draw(Core::RuntimeScene &scene, SceneRenderer &renderer) {
 
 void CheckPublication(std::unique_ptr<Core::RuntimeScene> &scene,
                       SceneRenderer &renderer,
-                      PrismGridHandle prism) {
+                      PrismHandle prism) {
   {
     Core::WorldCandidate abandoned(renderer);
     CHECK(abandoned.Prepare(*scene, nullptr), "a private replacement restores the prism source");
@@ -71,11 +71,11 @@ void CheckPublication(std::unique_ptr<Core::RuntimeScene> &scene,
     CHECK(published.Depth.size() > kCentre && published.Depth[kCentre] > 0,
           "published geometry remains valid while another scene owns candidate products");
   }
-  CHECK(renderer.HasPrismGrid(prism), "discarding a candidate retains the published handle");
+  CHECK(renderer.HasPrism(prism), "discarding a candidate retains the published handle");
   Core::WorldCandidate replacement(renderer);
   CHECK(replacement.Prepare(*scene, nullptr) && replacement.Publish(scene),
         "the actual world publication moves pass borrowers with their stable scene owner");
-  CHECK(renderer.HasPrismGrid(prism), "the same handle resolves the newly published product");
+  CHECK(renderer.HasPrism(prism), "the same handle resolves the newly published product");
   const auto restored = Draw(*scene, renderer);
   CHECK(restored.Depth.size() > kCentre && restored.Depth[kCentre] > 0 &&
             renderer.Spent(Stage::TransmissiveGeometry).DeviceBytes == 0,
@@ -147,7 +147,7 @@ void Exercise() {
             std::abs(moved.Velocity[kCentre * 2]) > kMinimumMotion,
         "the shared residency preserves distinct previous/current placements");
   CheckPublication(scene, renderer, *prism);
-  renderer.ReleasePrismGrid(*prism);
+  renderer.ReleasePrism(*prism);
   const auto released = Draw(*scene, renderer);
   CHECK(released.Depth.size() > kCentre && released.Depth[kCentre] == 0 &&
             renderer.Spent(Stage::OpaqueGeometry).DeviceBytes == baseline,

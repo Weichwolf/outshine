@@ -25,6 +25,7 @@ struct AssetCache::State {
   sqlite3 *Database = nullptr;
   std::unique_ptr<CacheUsageIndex> Usage;
   std::atomic<bool> UsageWarning{false};
+  std::atomic_uint64_t PackageBytesRead{0};
   [[nodiscard]] std::expected<void, AssetCacheError> EnsureOpen();
   [[nodiscard]] std::expected<void, AssetCacheError> Initialize();
   void ReleaseConnection();
@@ -34,7 +35,7 @@ struct AssetCache::State {
   // Payload estimates guide reclamation; the VFS enforces the physical quota.
   [[nodiscard]] std::expected<void, AssetCacheError> BeginWrite(size_t payloadBytes = 0) const;
   [[nodiscard]] std::expected<void, AssetCacheError>
-  StorePublication(const AssetCache::Publication &publication);
+  StorePublications(std::span<const AssetCache::Publication> publications, size_t storedBytes);
   ~State();
 };
 
@@ -60,6 +61,8 @@ Prepare(sqlite3 *database, const char *sql, Statement &statement);
 
 inline constexpr auto kColumns = "a.key,a.kind,a.minx,a.miny,a.minz,a.maxx,a.maxy,a.maxz,a.package,"
                                  "a.offset,a.bytes,a.level,a.parent";
+inline constexpr auto kTileColumns = ",t.revision,t.coverage,t.coarser,t.error_m";
+inline constexpr auto kTileJoin = " JOIN asset_tiles t ON t.asset_id=a.id AND t.package=a.package";
 
 }
 }

@@ -1,5 +1,4 @@
 #include "BuildingFieldStreamingState.h"
-#include "ImpostorSurface.h"
 #include "SceneRenderer.h"
 #include "SurfacePreparation.h"
 #include "StructureBuildQueue.h"
@@ -57,7 +56,10 @@ std::expected<void, std::string> BuildingFieldStreaming::State::PrepareCellMetad
     if (group.Where != Phase::Pending || !group.Request) { continue; }
     const auto ready = group.Request->PollMetadata();
     if (!ready) { return std::unexpected(ready.error()); }
-    if (*ready) { group.Where = Phase::Prepared; }
+    if (!*ready) { continue; }
+    group.Metadata = (**ready).Metadata->Metadata();
+    group.Support = (**ready).GeometricSupport;
+    group.Where = Phase::Prepared;
   }
   if (std::ranges::all_of(cell.Groups, [](const Group &g) { return g.Where == Phase::Prepared; })) {
     cell.Where = Phase::Prepared;
@@ -67,15 +69,31 @@ std::expected<void, std::string> BuildingFieldStreaming::State::PrepareCellMetad
 
 std::expected<void, std::string>
 BuildingFieldStreaming::State::LoadCellFields(Context &context, Tile &tile, Cell &cell) {
+  if (!std::ranges::all_of(cell.Groups, [&](Group &group) { return ValidPose(context, group); })) {
+    for (auto &group : cell.Groups) {
+      group.Request.reset();
+      group.Metadata.reset();
+      group.Support.reset();
+      group.Surface.reset();
+      group.AssetKey.clear();
+      group.SceneBounds.reset();
+      group.Where = Phase::Waiting;
+    }
+    cell.Where = Phase::Waiting;
+    cell.Consumer.reset();
+    return {};
+  }
   std::string error;
   for (auto &group : cell.Groups) {
     if (group.Where != Phase::Pending || !group.Request) { continue; }
     const auto ready = group.Request->Poll();
     if (!ready) { return std::unexpected(ready.error()); }
     if (!*ready) { continue; }
-    if (!StageGroup(context, tile, group, **ready, error)) { return std::unexpected(error); }
-    group.Metadata = (**ready).Metadata->Metadata();
-    group.Support = (**ready).GeometricSupport;
+    auto surface = group.Request->TakeDisplaySurface();
+    if (!surface) { return std::unexpected("building field display surface is unavailable"); }
+    if (!StageGroup(context, tile, group, **ready, std::move(*surface), error)) {
+      return std::unexpected(error);
+    }
     group.Request.reset();
     group.Where = Phase::Ready;
   }
@@ -113,6 +131,7 @@ void BuildingFieldStreaming::State::PollCell(Context &context, Tile &tile, Cell 
 
 void BuildingFieldStreaming::State::PollFields(Context &context) {
   for (auto &tile : Tiles) {
+    if (tile.RoofUpload) { PollRoof(context, tile); }
     for (auto &cell : tile.Cells) { PollCell(context, tile, cell); }
   }
 }
@@ -121,23 +140,22 @@ bool BuildingFieldStreaming::State::StageGroup(Context &context,
                                                const Tile &tile,
                                                Group &group,
                                                const BuildingFieldRequest::Product &product,
+                                               Geometry geometry,
                                                std::string &error) {
   if (!product.Field || !product.Metadata || !product.GeometricSupport ||
       !product.Metadata->Metadata().WorldFromField) {
     error = "building field has no complete registered source or geometric support";
     return false;
   }
-  auto geometry =
-      Render::BuildImpostorSurface(*product.Field, 0, Render::ImpostorSurfaceDetail::Flat);
-  if (!geometry || geometry->parts() != 1) {
+  if (geometry.parts() != 1) {
     error = "building field has no opaque PBR surface";
     return false;
   }
   const Mat4 &world = *product.Metadata->Metadata().WorldFromField;
-  const auto positions = geometry->positionsOf(0);
-  const auto normals = geometry->normalsOf(0);
-  const auto texture = geometry->textureOf(0);
-  const auto sourceTangents = geometry->tangentsOf(0);
+  const auto positions = geometry.positionsOf(0);
+  const auto normals = geometry.normalsOf(0);
+  const auto texture = geometry.textureOf(0);
+  const auto sourceTangents = geometry.tangentsOf(0);
   std::vector<StoredVertex> vertices;
   std::vector<float> tangents;
   vertices.reserve(positions.size() / 3);
@@ -164,9 +182,9 @@ bool BuildingFieldStreaming::State::StageGroup(Context &context,
                        sourceTangents[at * 4 + 3]});
     }
   }
-  const auto indices = geometry->trianglesOf(0);
+  const auto indices = geometry.trianglesOf(0);
   std::vector<uint32_t> triangles(indices.begin(), indices.end());
-  auto material = context.Renderer.RegisterPieceMaterials(std::move(*geometry));
+  auto material = context.Renderer.RegisterPieceMaterials(std::move(geometry));
   if (!material) {
     error = material.error();
     return false;

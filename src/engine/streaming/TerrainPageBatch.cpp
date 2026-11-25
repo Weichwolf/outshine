@@ -23,21 +23,30 @@ TerrainResidency::PageBatch TerrainResidency::PlanPages(const Patchwork &patchwo
       ++batch.Flat;
       continue;
     }
-    const auto extrema = std::ranges::minmax(sheet.Nodes);
-    const std::array<float, 2> samples{extrema.min, extrema.max};
+    const auto nodes = sheet.Samples();
     const auto *const found = PageIndex_.Find(sheet.Tile);
     const size_t slot = found != nullptr ? *found : Held_.size() + batch.Appended;
-    const bool unchanged = found != nullptr && Renderer_->HasHeightPage(Held_[slot].Page) &&
-                           std::ranges::equal(Held_[slot].Samples(), sheet.Nodes);
+    const bool unchanged = found != nullptr &&
+                           (!UsesLattice() || Renderer_->HasHeightPage(Held_[slot].Page)) &&
+                           (nodes.data() == Held_[slot].Samples().data() ||
+                            std::ranges::equal(Held_[slot].Samples(), nodes));
+    std::array<float, 2> samples;
+    if (unchanged) {
+      samples = Held_[slot].SampleBounds;
+    } else {
+      const auto extrema = std::ranges::minmax(nodes);
+      samples = {extrema.min, extrema.max};
+    }
     if (!unchanged) {
       auto &pending = batch.Pages[batch.PageCount++];
       pending.Slot = slot;
       pending.Appended = found == nullptr;
       pending.Value = {.Tile = sheet.Tile,
-                       .Nodes = std::make_shared<const std::vector<float>>(sheet.Nodes.begin(),
-                                                                           sheet.Nodes.end()),
+                       .Nodes = sheet.SharedSamples ? sheet.SharedSamples
+                                                    : std::make_shared<const std::vector<float>>(
+                                                          nodes.begin(), nodes.end()),
                        .SharedNodes = nullptr,
-                       .SamplesDigest = SamplesIdentity(sheet.Nodes),
+                       .SamplesDigest = SamplesIdentity(nodes),
                        .SampleBounds = samples,
                        .Postings = sheet.Postings,
                        .Virtual = sheet.Virtual};
@@ -51,20 +60,15 @@ TerrainResidency::PageBatch TerrainResidency::PlanPages(const Patchwork &patchwo
   return batch;
 }
 
-Render::Native::Result<void>
-TerrainResidency::CommitPages(PageBatch &batch, std::span<const Render::HeightPageHandle> pages) {
+Render::Native::Result<void> TerrainResidency::IndexNewPages(const PageBatch &batch) {
   std::array<Data::TileId, Render::kHeightPageBatchMost> registered{};
   size_t inserted = 0;
-  const auto rollback = [&] {
-    for (size_t at = 0; at < inserted; ++at) { PageIndex_.Erase(registered[at]); }
-    for (const auto page : pages) { Renderer_->ReleaseHeightPage(page); }
-  };
   for (size_t at = 0; at < batch.PageCount; ++at) {
     const auto &pending = batch.Pages[at];
     if (!pending.Appended) { continue; }
     const auto indexed = PageIndex_.Emplace(pending.Value.Tile, pending.Slot);
     if (!indexed || !indexed->second) {
-      rollback();
+      for (size_t undo = 0; undo < inserted; ++undo) { PageIndex_.Erase(registered[undo]); }
       const bool allocation = !indexed && indexed.error() == FlatMapError::AllocationFailed;
       return std::unexpected(
           Render::Native::Error{.Kind = allocation ? Render::Native::ErrorKind::OutOfMemory
@@ -74,15 +78,25 @@ TerrainResidency::CommitPages(PageBatch &batch, std::span<const Render::HeightPa
     }
     registered[inserted++] = pending.Value.Tile;
   }
+  return {};
+}
+
+Render::Native::Result<void>
+TerrainResidency::CommitPages(PageBatch &batch, std::span<const Render::HeightPageHandle> pages) {
+  const auto indexed = IndexNewPages(batch);
+  if (!indexed) {
+    for (const auto page : pages) { Renderer_->ReleaseHeightPage(page); }
+    return indexed;
+  }
   for (size_t at = 0; at < batch.PageCount; ++at) {
     auto &pending = batch.Pages[at];
-    pending.Value.Page = pages[at];
+    if (!pages.empty()) { pending.Value.Page = pages[at]; }
     if (pending.Appended) {
       Held_.push_back(std::move(pending.Value));
     } else {
       const auto previous = Held_[pending.Slot].Page;
       Held_[pending.Slot] = std::move(pending.Value);
-      Replaced_.push_back(previous);
+      if (!pages.empty()) { Replaced_.push_back(previous); }
     }
   }
   for (size_t at = 0; at < batch.SheetCount; ++at) {
@@ -99,15 +113,16 @@ TerrainResidency::CommitPages(PageBatch &batch, std::span<const Render::HeightPa
 }
 
 Render::Native::Result<void>
-TerrainResidency::UploadPages(const Patchwork &patchwork, const TangentFrame &frame, size_t end) {
+TerrainResidency::PublishPages(const Patchwork &patchwork, const TangentFrame &frame, size_t end) {
   auto batch = PlanPages(patchwork, frame, end);
   GrowCapacity(Held_, Held_.size() + batch.Appended);
-  GrowCapacity(Replaced_, Replaced_.size() + batch.PageCount - batch.Appended);
   const auto sheets = std::span(batch.Sheets).first(batch.SheetCount);
   const auto virtualCount = static_cast<size_t>(
       std::ranges::count_if(sheets, [](const PendingSheet &sheet) { return sheet.Virtual; }));
   GrowCapacity(Instances_, Instances_.size() + batch.SheetCount - virtualCount);
   GrowCapacity(Virtual_, Virtual_.size() + virtualCount);
+  if (!UsesLattice()) { return CommitPages(batch, {}); }
+  GrowCapacity(Replaced_, Replaced_.size() + batch.PageCount - batch.Appended);
   std::array<Render::HeightPageView, Render::kHeightPageBatchMost> nodes{};
   for (size_t at = 0; at < batch.PageCount; ++at) { nodes[at] = batch.Pages[at].Value.Samples(); }
   const auto placed = Renderer_->PlaceHeightPages(std::span(nodes).first(batch.PageCount));

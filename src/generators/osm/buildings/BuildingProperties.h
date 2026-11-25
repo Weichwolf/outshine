@@ -25,6 +25,11 @@ struct BuildingProperties {
   bool WallColourRejected = false;
 };
 
+[[nodiscard]] inline bool HiddenBuildingOutline(const OsmField &field,
+                                                const OsmField::Feature &feature) {
+  return field.Num(feature, "hide_3d", 0.0) != 0.0 || field.Str(feature, "hide_3d") == "true";
+}
+
 [[nodiscard]] inline std::optional<uint32_t> ParseBuildingColour(std::string_view text) noexcept {
   if (text.size() == 6) {
     std::array<char, 7> encoded{'#'};
@@ -52,15 +57,13 @@ struct BuildingProperties {
     }
   }
   if (field.Schema() != MvtSchema::OpenMapTiles) { return result; }
-  const bool hidden =
-      field.Num(feature, "hide_3d", 0.0) != 0.0 || field.Str(feature, "hide_3d") == "true";
   const double top = field.Num(feature, "height", 0.0);
   const double minimum = field.Num(feature, "min_height", 0.0);
   const auto supplied = field.Integer(feature, "height");
   const bool missing = supplied && !*supplied;
   const bool conflict = !missing && (!std::isfinite(top) || top <= minimum);
   constexpr double defaultBodyHeightM = 5.0;
-  result.Hidden = hidden;
+  result.Hidden = HiddenBuildingOutline(field, feature);
   result.Height = Ground::BuildingHeightInterval{
       .TopM = missing || conflict ? minimum + defaultBodyHeightM : top,
       .MinimumM = minimum,

@@ -28,6 +28,7 @@ namespace outshine::Render {
 class GeometryRenderer;
 class PrismResidency;
 class TerrainRenderer;
+struct ConvexPrism;
 
 struct GroundClassificationSource {
   std::shared_ptr<const uint32_t> Classes;
@@ -100,20 +101,29 @@ public:
   [[nodiscard]] size_t PieceSourceCount() const noexcept;
   [[nodiscard]] bool HasPiece(PieceHandle handle) const noexcept;
 
-  [[nodiscard]] Native::Result<PrismGridHandle>
+  [[nodiscard]] Native::Result<PrismHandle>
   PlacePrismGrid(GeometryRenderer &geometry,
                  std::shared_ptr<const PrismGrid> source,
                  std::span<const PrismInstance> instances,
-                 const MaterialRegistration &material);
+                 const MaterialRegistration &material,
+                 std::optional<GeometryPasses> passes = GeometryPasses::MainAndShadow);
+  [[nodiscard]] Native::Result<PrismHandle>
+  PlaceConvexPrisms(GeometryRenderer &geometry,
+                    std::shared_ptr<const std::vector<ConvexPrism>> source,
+                    const MaterialRegistration &material,
+                    std::optional<GeometryPasses> passes);
+  void SetPrismPasses(GeometryRenderer &geometry,
+                      PrismHandle which,
+                      std::optional<GeometryPasses> passes) noexcept;
   [[nodiscard]] Native::Result<void> ReplacePrismGrid(GeometryRenderer &geometry,
-                                                      PrismGridHandle which,
+                                                      PrismHandle which,
                                                       std::shared_ptr<const PrismGrid> source,
                                                       std::span<const PrismInstance> instances,
                                                       const MaterialRegistration &material);
   [[nodiscard]] Native::Result<void> SetPrismGridInstances(
-      GeometryRenderer &geometry, PrismGridHandle which, std::span<const PrismInstance> instances);
-  void ReleasePrismGrid(GeometryRenderer &geometry, PrismGridHandle which);
-  [[nodiscard]] bool HasPrismGrid(PrismGridHandle which) const noexcept;
+      GeometryRenderer &geometry, PrismHandle which, std::span<const PrismInstance> instances);
+  void ReleasePrism(GeometryRenderer &geometry, PrismHandle which);
+  [[nodiscard]] bool HasPrism(PrismHandle which) const noexcept;
 
   [[nodiscard]] size_t PieceSlots() const noexcept { return Pieces_.size(); }
 
@@ -200,7 +210,14 @@ private:
     std::vector<PrismInstance> Instances;
     MaterialRegistration Material;
     uint64_t Resident = 0;
+    std::shared_ptr<const std::vector<ConvexPrism>> Convex;
+    std::optional<GeometryPasses> Passes = GeometryPasses::MainAndShadow;
   };
+
+  [[nodiscard]] static Native::Result<void> RestorePrism(GeometryRenderer &geometry,
+                                                         PrismSource &held);
+  [[nodiscard]] Native::Result<PrismHandle> RegisterPrism(GeometryRenderer &geometry,
+                                                          PrismSource held);
 
   void
   CopyPrismSourcesFrom(const SceneResources &source, PieceSources pieces, bool reusePrismGrids);
@@ -217,8 +234,8 @@ private:
   std::vector<HeightPage> HeightPages_;
   uint32_t FirstFreeHeightPage_ = kNoResourceSlot;
   size_t FirstHeightPageToRestore_ = 0;
-  std::vector<PrismSource> PrismGrids_;
-  uint32_t FirstFreePrismGrid_ = kNoResourceSlot;
+  std::vector<PrismSource> PrismSources_;
+  uint32_t FirstFreePrism_ = kNoResourceSlot;
   std::vector<float> GroundGrid_;
   std::vector<TerrainTile> GroundReal_;
   std::vector<TerrainTile> GroundVirtual_;

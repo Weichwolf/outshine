@@ -1,4 +1,5 @@
 #include "OpenAssetStore.h"
+#include "AssetCache.h"
 #include "TerrainFieldPreparation.h"
 #include "Check.h"
 #include "PreparedTerrainAssets.h"
@@ -87,8 +88,8 @@ int main() {
   CHECK(reference.TryField() != nullptr && original.Calls > 0,
         "cold reference performs source acquisition and edge/corner stitching");
   if (reference.TryField() == nullptr) { return outshine::Test::Report(); }
-  auto opened = Generators::PreparedTerrainAssets::Open(
-      outshine::Test::OpenAssetStore((root / "assets").string()), sources);
+  const auto cache = outshine::Test::OpenAssetStore((root / "assets").string());
+  auto opened = Generators::PreparedTerrainAssets::Open(cache, sources);
   CHECK(opened.has_value(), "native terrain uses the common persistent spatial cache");
   if (!opened) { return outshine::Test::Report(); }
   auto assets = std::move(*opened);
@@ -105,6 +106,19 @@ int main() {
           "resident requests share the native field without IO, preparation or array copies");
     CHECK(assets->Costs().Writes == 1, "one completed miss writes one native terrain package");
   }
+  constexpr double kEarthExtentM = 10000000;
+  const Box earth{.Min = {{-kEarthExtentM, -kEarthExtentM, -kEarthExtentM}},
+                  .Max = {{kEarthExtentM, kEarthExtentM, kEarthExtentM}}};
+  const auto spatial = cache->Select(
+      {.Bounds = earth, .Kind = "terrain-field", .Level = {}, .Radius = {}, .Planes = {}});
+  if (spatial && spatial->size() == 1) {
+    const auto field = cache->FindTile(spatial->front().Key);
+    CHECK(field && *field && (**field).Tile && !(**field).Tile->Coarser.empty() &&
+              !(**field).Tile->ErrorM,
+          "the prepared field advertises an ancestor without certifying an unknown surface error");
+  } else {
+    CHECK(false, "the prepared field is reachable from the spatial index");
+  }
   assets.reset();
   opened = Generators::PreparedTerrainAssets::Open(
       outshine::Test::OpenAssetStore((root / "assets").string()), sources);
@@ -112,7 +126,7 @@ int main() {
   if (!opened) { return outshine::Test::Report(); }
   assets = std::move(*opened);
   CHECK(assets->HasIndexedField(at, {}), "path preparation can find the stored field by metadata");
-  CHECK(!assets->HasIndexedField(at, {.Seed = 1}),
+  CHECK(!assets->HasIndexedField(at, {.Kind = {}, .Seed = 1}),
         "a changed terrain shape cannot satisfy the path with the old field");
   Fields offline;
   offline.Available = false;

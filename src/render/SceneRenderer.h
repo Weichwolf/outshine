@@ -390,16 +390,31 @@ public:
         ActiveContent().Geometry(), pieces, error);
   }
 
-  [[nodiscard]] Native::Result<PrismGridHandle>
+  [[nodiscard]] Native::Result<PrismHandle>
   PlacePrismGrid(std::shared_ptr<const PrismGrid> source,
                  std::span<const PrismInstance> instances,
-                 const MaterialRegistration &material) {
+                 const MaterialRegistration &material,
+                 std::optional<GeometryPasses> passes = GeometryPasses::MainAndShadow) {
     auto &content = ActiveContent();
     return content.Scene().Resources().PlacePrismGrid(
-        content.Geometry(), std::move(source), instances, material);
+        content.Geometry(), std::move(source), instances, material, passes);
   }
 
-  [[nodiscard]] Native::Result<void> ReplacePrismGrid(PrismGridHandle which,
+  [[nodiscard]] Native::Result<PrismHandle>
+  PlaceConvexPrisms(std::shared_ptr<const std::vector<ConvexPrism>> source,
+                    const MaterialRegistration &material,
+                    std::optional<GeometryPasses> passes = GeometryPasses::MainAndShadow) {
+    auto &content = ActiveContent();
+    return content.Scene().Resources().PlaceConvexPrisms(
+        content.Geometry(), std::move(source), material, passes);
+  }
+
+  void SetPrismPasses(PrismHandle which, std::optional<GeometryPasses> passes) noexcept {
+    auto &content = ActiveContent();
+    content.Scene().Resources().SetPrismPasses(content.Geometry(), which, passes);
+  }
+
+  [[nodiscard]] Native::Result<void> ReplacePrismGrid(PrismHandle which,
                                                       std::shared_ptr<const PrismGrid> source,
                                                       std::span<const PrismInstance> instances,
                                                       const MaterialRegistration &material) {
@@ -409,18 +424,18 @@ public:
   }
 
   [[nodiscard]] Native::Result<void>
-  SetPrismGridInstances(PrismGridHandle which, std::span<const PrismInstance> instances) {
+  SetPrismGridInstances(PrismHandle which, std::span<const PrismInstance> instances) {
     auto &content = ActiveContent();
     return content.Scene().Resources().SetPrismGridInstances(content.Geometry(), which, instances);
   }
 
-  void ReleasePrismGrid(PrismGridHandle which) {
+  void ReleasePrism(PrismHandle which) {
     auto &content = ActiveContent();
-    content.Scene().Resources().ReleasePrismGrid(content.Geometry(), which);
+    content.Scene().Resources().ReleasePrism(content.Geometry(), which);
   }
 
-  [[nodiscard]] bool HasPrismGrid(PrismGridHandle which) const noexcept {
-    return ActiveContent().Scene().Resources().HasPrismGrid(which);
+  [[nodiscard]] bool HasPrism(PrismHandle which) const noexcept {
+    return ActiveContent().Scene().Resources().HasPrism(which);
   }
 
   [[nodiscard]] bool RestorePieces(std::string &error) {

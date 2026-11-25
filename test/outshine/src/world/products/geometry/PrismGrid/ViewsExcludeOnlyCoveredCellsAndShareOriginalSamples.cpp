@@ -32,25 +32,22 @@ int main() {
       planned->Geometry.Samples == source.Samples &&
           planned->Placements.size() == planned->Geometry.Patches.size(),
       "views retain the same immutable sample allocation and explicit original placement offsets");
-  CHECK(
-      InspectPrismGrid(planned->Geometry),
-      "the unchanged dense PrismGrid contract accepts cropped views without row-stride extensions");
+  CHECK(InspectPrismGrid(planned->Geometry), "cropped views validate their addressed spans");
   std::array<std::vector<uint8_t>, 2> visits{std::vector<uint8_t>(30), std::vector<uint8_t>(9)};
   for (size_t index = 0; index < planned->Placements.size(); ++index) {
     const auto &view = planned->Geometry.Patches[index];
     const auto &placement = planned->Placements[index];
     const auto &original = source.Patches[placement.Patch];
     CHECK(view.PitchX == original.PitchX && view.PitchZ == original.PitchZ &&
-              view.FillFraction == original.FillFraction &&
-              (view.Rows == 1 || (view.Columns == original.Columns && placement.Column == 0)),
-          "partial columns use single-row views; full-width bands preserve dense multirow storage");
+              view.FillFraction == original.FillFraction && view.Stride() == original.Stride(),
+          "cropping preserves the source dimensions of each lot and the shared row stride");
     for (uint32_t row = 0; row < view.Rows; ++row) {
       for (uint32_t column = 0; column < view.Columns; ++column) {
         const uint32_t x = placement.Column + column;
         const uint32_t y = placement.Row + row;
         const size_t cell = static_cast<size_t>(y) * original.Columns + x;
         ++visits[placement.Patch][cell];
-        CHECK(view.FirstSample + static_cast<size_t>(row) * view.Columns + column ==
+        CHECK(view.FirstSample + static_cast<size_t>(row) * view.Stride() + column ==
                   original.FirstSample + cell,
               "view sample addresses and original local-frame offsets identify the same prism");
       }

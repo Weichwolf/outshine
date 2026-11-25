@@ -12,6 +12,7 @@ int main() {
                                .Classes = 2,
                                .Footprints = 3,
                                .Projection = {0, 1.0, 2.0},
+                               .Viewport = {.WidthPx = 1280, .HeightPx = 720},
                                .Coverage = {}};
   CHECK(!publication.Current() && publication.NeedsRebuild(initial, false, false),
         "an unpublished world needs its first build even without tile arrivals");
@@ -55,6 +56,10 @@ int main() {
     CHECK(!publication.NeedsRebuild(initial, true, false),
           "failed requests retain the formerly published revision");
   }
+  GroundRevision resized = initial;
+  resized.Viewport.WidthPx = 1920;
+  CHECK(!initial.MatchesCandidate(resized) && publication.NeedsRebuild(resized, false, false),
+        "a wider view reselects terrain before accepting products at its new pixel error");
   GroundRevision moreTiles = initial;
   ++moreTiles.ResidentTiles;
   CHECK(!publication.NeedsRebuild(moreTiles, false, false) &&

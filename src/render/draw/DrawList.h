@@ -220,6 +220,7 @@ struct DrawBatch {
   VertexMotion Motion = VertexMotion::Deforming;
   std::optional<std::array<float, 4>> WorldSphere;
   GeometryPasses Passes = GeometryPasses::MainAndShadow;
+  bool CompleteIndexRange = false;
 };
 
 struct IndexRun {

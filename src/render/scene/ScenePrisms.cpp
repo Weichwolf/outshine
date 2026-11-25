@@ -6,58 +6,95 @@
 #include <expected>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace outshine::Render {
-bool SceneResources::HasPrismGrid(PrismGridHandle which) const noexcept {
-  return which.Slot < PrismGrids_.size() && PrismGrids_[which.Slot].State.Matches(which.Generation);
+bool SceneResources::HasPrism(PrismHandle which) const noexcept {
+  return which.Slot < PrismSources_.size() &&
+         PrismSources_[which.Slot].State.Matches(which.Generation);
 }
 
-Native::Result<PrismGridHandle>
-SceneResources::PlacePrismGrid(GeometryRenderer &geometry,
-                               std::shared_ptr<const PrismGrid> source,
-                               std::span<const PrismInstance> instances,
-                               const MaterialRegistration &material) {
-  if (FirstFreePrismGrid_ == kNoResourceSlot && PrismGrids_.size() >= kNoResourceSlot) {
+Native::Result<PrismHandle> SceneResources::PlacePrismGrid(GeometryRenderer &geometry,
+                                                           std::shared_ptr<const PrismGrid> source,
+                                                           std::span<const PrismInstance> instances,
+                                                           const MaterialRegistration &material,
+                                                           std::optional<GeometryPasses> passes) {
+  return RegisterPrism(geometry,
+                       {.State = {.Occupied = true},
+                        .Source = std::move(source),
+                        .Instances = {instances.begin(), instances.end()},
+                        .Material = material,
+                        .Convex = {},
+                        .Passes = passes});
+}
+
+Native::Result<PrismHandle>
+SceneResources::PlaceConvexPrisms(GeometryRenderer &geometry,
+                                  std::shared_ptr<const std::vector<ConvexPrism>> source,
+                                  const MaterialRegistration &material,
+                                  std::optional<GeometryPasses> passes) {
+  if (!source) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "convex prism source is missing"});
+  }
+  return RegisterPrism(geometry,
+                       {.State = {.Occupied = true},
+                        .Source = {},
+                        .Instances = {},
+                        .Material = material,
+                        .Convex = std::move(source),
+                        .Passes = passes});
+}
+
+Native::Result<PrismHandle> SceneResources::RegisterPrism(GeometryRenderer &geometry,
+                                                          PrismSource held) {
+  if (FirstFreePrism_ == kNoResourceSlot && PrismSources_.size() >= kNoResourceSlot) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Unsupported,
                                          .Message = "prism source slots exceed native indices"});
   }
-  if (!HasMaterialRegistration(material)) {
+  if (!HasMaterialRegistration(held.Material)) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "prism material has no matching live source"});
   }
-  auto placed = geometry.PlacePrismGrid(source, instances, material.First);
-  if (!placed) { return std::unexpected(placed.error()); }
-  PrismSource held{.State = {.Occupied = true},
-                   .Source = std::move(source),
-                   .Instances = {instances.begin(), instances.end()},
-                   .Material = material,
-                   .Resident = *placed};
-  uint32_t slot = FirstFreePrismGrid_;
-  if (slot != kNoResourceSlot) {
-    held.State.Generation = PrismGrids_[slot].State.Generation;
-    FirstFreePrismGrid_ = PrismGrids_[slot].State.NextFree;
-    PrismGrids_[slot] = std::move(held);
-  } else {
-    slot = static_cast<uint32_t>(PrismGrids_.size());
-    PrismGrids_.push_back(std::move(held));
+  if (auto restored = RestorePrism(geometry, held); !restored) {
+    return std::unexpected(std::move(restored.error()));
   }
-  return PrismGridHandle{.Slot = slot, .Generation = PrismGrids_[slot].State.Generation};
+  uint32_t slot = FirstFreePrism_;
+  if (slot != kNoResourceSlot) {
+    held.State.Generation = PrismSources_[slot].State.Generation;
+    FirstFreePrism_ = PrismSources_[slot].State.NextFree;
+    PrismSources_[slot] = std::move(held);
+  } else {
+    slot = static_cast<uint32_t>(PrismSources_.size());
+    PrismSources_.push_back(std::move(held));
+  }
+  return PrismHandle{.Slot = slot, .Generation = PrismSources_[slot].State.Generation};
+}
+
+Native::Result<void> SceneResources::RestorePrism(GeometryRenderer &geometry, PrismSource &held) {
+  auto placed =
+      held.Convex
+          ? geometry.PlaceConvexPrisms(*held.Convex, held.Material.First, held.Passes)
+          : geometry.PlacePrismGrid(held.Source, held.Instances, held.Material.First, held.Passes);
+  if (!placed) { return std::unexpected(std::move(placed.error())); }
+  held.Resident = *placed;
+  return {};
 }
 
 Native::Result<void> SceneResources::ReplacePrismGrid(GeometryRenderer &geometry,
-                                                      PrismGridHandle which,
+                                                      PrismHandle which,
                                                       std::shared_ptr<const PrismGrid> source,
                                                       std::span<const PrismInstance> instances,
                                                       const MaterialRegistration &material) {
-  if (!HasPrismGrid(which)) {
+  if (!HasPrism(which) || PrismSources_[which.Slot].Convex) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
-                                         .Message = "prism handle names no live source"});
+                                         .Message = "prism handle names no live grid"});
   }
-  auto &held = PrismGrids_[which.Slot];
+  auto &held = PrismSources_[which.Slot];
   if (held.Source == source && held.Material.First == material.First &&
       held.Material.Source == material.Source && held.Resident != 0) {
     return SetPrismGridInstances(geometry, which, instances);
@@ -66,9 +103,9 @@ Native::Result<void> SceneResources::ReplacePrismGrid(GeometryRenderer &geometry
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "prism material has no matching live source"});
   }
-  auto placed = geometry.PlacePrismGrid(source, instances, material.First);
+  auto placed = geometry.PlacePrismGrid(source, instances, material.First, held.Passes);
   if (!placed) { return std::unexpected(placed.error()); }
-  if (held.Resident != 0) { geometry.ReleasePrismGrid(held.Resident); }
+  if (held.Resident != 0) { geometry.ReleasePrism(held.Resident); }
   held.Resident = *placed;
   held.Source = std::move(source);
   held.Material = material;
@@ -77,12 +114,12 @@ Native::Result<void> SceneResources::ReplacePrismGrid(GeometryRenderer &geometry
 }
 
 Native::Result<void> SceneResources::SetPrismGridInstances(
-    GeometryRenderer &geometry, PrismGridHandle which, std::span<const PrismInstance> instances) {
-  if (!HasPrismGrid(which)) {
+    GeometryRenderer &geometry, PrismHandle which, std::span<const PrismInstance> instances) {
+  if (!HasPrism(which) || PrismSources_[which.Slot].Convex) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
-                                         .Message = "prism handle names no live source"});
+                                         .Message = "prism handle names no live grid"});
   }
-  auto &held = PrismGrids_[which.Slot];
+  auto &held = PrismSources_[which.Slot];
   if (held.Resident == 0) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Busy,
                                          .Message = "prism source awaits native restoration"});
@@ -93,24 +130,34 @@ Native::Result<void> SceneResources::SetPrismGridInstances(
   return {};
 }
 
-void SceneResources::ReleasePrismGrid(GeometryRenderer &geometry, PrismGridHandle which) {
-  if (!HasPrismGrid(which)) { return; }
-  auto &held = PrismGrids_[which.Slot];
-  if (held.Resident != 0) { geometry.ReleasePrismGrid(held.Resident); }
+void SceneResources::SetPrismPasses(GeometryRenderer &geometry,
+                                    PrismHandle which,
+                                    std::optional<GeometryPasses> passes) noexcept {
+  if (!HasPrism(which)) { return; }
+  auto &held = PrismSources_[which.Slot];
+  if (held.Passes == passes) { return; }
+  held.Passes = passes;
+  if (held.Resident != 0) { geometry.SetPrismPasses(held.Resident, passes); }
+}
+
+void SceneResources::ReleasePrism(GeometryRenderer &geometry, PrismHandle which) {
+  if (!HasPrism(which)) { return; }
+  auto &held = PrismSources_[which.Slot];
+  if (held.Resident != 0) { geometry.ReleasePrism(held.Resident); }
   auto state = held.State;
   if (state.Release()) {
-    state.NextFree = FirstFreePrismGrid_;
-    FirstFreePrismGrid_ = which.Slot;
+    state.NextFree = FirstFreePrism_;
+    FirstFreePrism_ = which.Slot;
   }
-  held = {.State = state, .Source = {}, .Instances = {}, .Material = {}};
+  held = {.State = state, .Source = {}, .Instances = {}, .Material = {}, .Convex = {}};
 }
 
 bool SceneResources::CanReusePrismResidents(const PrismResidency &residency) const {
   const auto products = residency.Products();
-  if (products.size() > PrismGrids_.size()) { return false; }
+  if (products.size() > PrismSources_.size()) { return false; }
   std::vector<uint64_t> ids;
   ids.reserve(products.size());
-  for (const auto &grid : PrismGrids_) {
+  for (const auto &grid : PrismSources_) {
     if (grid.State.Occupied) { ids.push_back(grid.Resident); }
   }
   std::ranges::sort(ids);
@@ -122,17 +169,17 @@ void SceneResources::CopyPrismSourcesFrom(const SceneResources &source,
                                           bool reusePrismGrids) {
   FirstPrismToRestore_ = 0;
   if (pieces == PieceSources::Omit) {
-    PrismGrids_.clear();
-    FirstFreePrismGrid_ = kNoResourceSlot;
+    PrismSources_.clear();
+    FirstFreePrism_ = kNoResourceSlot;
     return;
   }
-  PrismGrids_ = source.PrismGrids_;
-  FirstFreePrismGrid_ = source.FirstFreePrismGrid_;
+  PrismSources_ = source.PrismSources_;
+  FirstFreePrism_ = source.FirstFreePrism_;
   if (reusePrismGrids) {
-    FirstPrismToRestore_ = PrismGrids_.size();
+    FirstPrismToRestore_ = PrismSources_.size();
     return;
   }
-  for (auto &held : PrismGrids_) { held.Resident = 0; }
+  for (auto &held : PrismSources_) { held.Resident = 0; }
 }
 
 std::expected<bool, std::string> SceneResources::AdvancePrismRestore(GeometryRenderer &geometry,
@@ -140,19 +187,18 @@ std::expected<bool, std::string> SceneResources::AdvancePrismRestore(GeometryRen
                                                                      size_t gridsMost) {
   nextGrid = std::max(nextGrid, FirstPrismToRestore_);
   size_t visited = 0;
-  while (nextGrid < PrismGrids_.size() && visited < gridsMost) {
-    auto &held = PrismGrids_[nextGrid];
+  while (nextGrid < PrismSources_.size() && visited < gridsMost) {
+    auto &held = PrismSources_[nextGrid];
     if (held.State.Occupied && held.Resident == 0) {
-      auto placed = geometry.PlacePrismGrid(held.Source, held.Instances, held.Material.First);
+      auto placed = RestorePrism(geometry, held);
       if (!placed) {
         if (placed.error().Kind == Native::ErrorKind::Busy) { return false; }
         return std::unexpected(std::move(placed.error().Message));
       }
-      held.Resident = *placed;
     }
     ++nextGrid;
     ++visited;
   }
-  return nextGrid == PrismGrids_.size();
+  return nextGrid == PrismSources_.size();
 }
 }

@@ -35,7 +35,7 @@ template <class Archive, class... T> bool Scalars(Archive &archive, T &...values
   return (Scalar(archive, values) && ...);
 }
 
-bool Nodes(ByteWriter &out, const std::vector<float> &values) {
+bool Nodes(ByteWriter &out, std::span<const float> values) {
   if (values.size() > kTerrainDeformationBytesMost / sizeof(float) ||
       !out.Number(static_cast<uint32_t>(values.size())) ||
       !std::ranges::all_of(values, [](float value) { return std::isfinite(value); })) {
@@ -86,7 +86,7 @@ bool Page(ByteWriter &out, const Sheet &page) {
   return out.Number(page.Tile.Zoom) && out.Number(page.Tile.X) && out.Number(page.Tile.Y) &&
          out.Number(page.Side) && out.Number(page.Postings) &&
          out.Number(static_cast<uint8_t>(page.Virtual)) && out.Number(page.SourceZoom) &&
-         Nodes(out, page.Nodes);
+         Nodes(out, page.Samples());
 }
 
 bool Page(ByteReader &in, Sheet &page, size_t &remaining) {
@@ -118,7 +118,7 @@ EncodeTerrainDeformation(const std::string &key,
   if (key.size() != 64 || pages.size() > kPagesMost) { return std::nullopt; }
   ByteWriter out(kTerrainDeformationBytesMost);
   size_t bytes = sizeof(PreparedTerrainDeformation);
-  for (const Sheet &page : pages) { bytes += sizeof(Sheet) + page.Nodes.size() * sizeof(float); }
+  for (const Sheet &page : pages) { bytes += sizeof(Sheet) + page.Samples().size_bytes(); }
   out.Reserve(bytes + 512);
   if (!out.Number(kFormat) ||
       !out.Put({reinterpret_cast<const uint8_t *>(key.data()), key.size()}) ||

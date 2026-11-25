@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <span>
 #include <utility>
 
@@ -19,9 +20,7 @@ Native::Binding PrismStorage(uint32_t set, uint32_t slot, const Native::Buffer &
 }
 }
 
-Native::Result<uint64_t> GeometryRenderer::PlacePrismGrid(std::shared_ptr<const PrismGrid> source,
-                                                          std::span<const PrismInstance> instances,
-                                                          uint32_t material) {
+Native::Result<void> GeometryRenderer::ValidatePrismMaterial(uint32_t material) const {
   if (material >= RegisteredSlotOf_.size() || RegisteredSlotOf_[material] >= Slots.size()) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "prism material is not registered"});
@@ -32,9 +31,28 @@ Native::Result<uint64_t> GeometryRenderer::PlacePrismGrid(std::shared_ptr<const 
       surface.Unlit.has_value()) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Unsupported,
-                      .Message = "prism grids require an opaque metallic-roughness material"});
+                      .Message = "prisms require an opaque metallic-roughness material"});
   }
-  return Prisms_->Place(std::move(source), instances, material);
+  return {};
+}
+
+Native::Result<uint64_t> GeometryRenderer::PlacePrismGrid(std::shared_ptr<const PrismGrid> source,
+                                                          std::span<const PrismInstance> instances,
+                                                          uint32_t material,
+                                                          std::optional<GeometryPasses> passes) {
+  if (const auto valid = ValidatePrismMaterial(material); !valid) {
+    return std::unexpected(valid.error());
+  }
+  return Prisms_->Place(std::move(source), instances, material, passes);
+}
+
+Native::Result<uint64_t> GeometryRenderer::PlaceConvexPrisms(std::span<const ConvexPrism> shapes,
+                                                             uint32_t material,
+                                                             std::optional<GeometryPasses> passes) {
+  if (const auto valid = ValidatePrismMaterial(material); !valid) {
+    return std::unexpected(valid.error());
+  }
+  return Prisms_->PlaceConvex(shapes, material, passes);
 }
 
 Native::Result<void>
@@ -42,15 +60,19 @@ GeometryRenderer::SetPrismGridInstances(uint64_t id, std::span<const PrismInstan
   return Prisms_->SetInstances(id, instances);
 }
 
-void GeometryRenderer::ReleasePrismGrid(uint64_t id) {
+void GeometryRenderer::ReleasePrism(uint64_t id) {
   (void)Prisms_->Release(id);
 }
 
 Native::Result<void> GeometryRenderer::EncodePrisms(const PassRecording &into,
-                                                    const FrameUniforms &uniforms) {
+                                                    const FrameUniforms &uniforms,
+                                                    const BatchFrustum &visible) {
   if (IsTransmission() || Binding().Behind != nullptr) { return {}; }
   for (const auto &product : Prisms_->Products()) {
-    if (product.Records.empty()) { continue; }
+    if (!product.Draws(GeometryPasses::Main) || product.Records.empty() ||
+        visible.Outside(product.WorldSphere)) {
+      continue;
+    }
     if (into.Commands == nullptr || Binding().Prisms.Colour() == nullptr ||
         product.Material >= RegisteredSlotOf_.size() ||
         RegisteredSlotOf_[product.Material] >= Slots.size()) {
@@ -84,7 +106,7 @@ Native::Result<void> GeometryRenderer::EncodePrisms(const PassRecording &into,
                              into.Clip);
     if (!drawn) { return drawn; }
     ++EncodedWork_.DrawRequests;
-    constexpr uint32_t proxyTriangles = 12;
+    constexpr uint32_t proxyTriangles = 2;
     EncodedWork_.DirectTriangles += product.Records.size() * proxyTriangles;
     EncodedWork_.SurfaceSlotLimit = std::max(EncodedWork_.SurfaceSlotLimit, slot + 1);
   }

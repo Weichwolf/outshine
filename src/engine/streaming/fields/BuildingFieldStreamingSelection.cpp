@@ -1,6 +1,8 @@
 #include "BuildingFieldStreamingState.h"
 #include "SurfacePreparation.h"
 #include "StructureBuildQueue.h"
+#include "SceneRenderer.h"
+#include "Vec2.h"
 #include <algorithm>
 #include <bit>
 #include <cstddef>
@@ -16,6 +18,16 @@
 
 namespace outshine {
 namespace {
+Box CasterBounds(const TangentFrame &frame, const Box &world) {
+  Box scene;
+  if (world.Empty()) { return scene; }
+  for (unsigned corner = 0; corner < 8; ++corner) {
+    const auto local = frame.ToLocalPosition(world.Corner(corner));
+    scene.Cover(Vec3{{local.EastM, local.UpM, -local.NorthM}});
+  }
+  return scene;
+}
+
 bool OriginalSupportsView(const Render::GeometryPageResidency::DigestRecord &page,
                           uint64_t sourceKey,
                           const Generators::Osm::BuildingField &prints,
@@ -57,20 +69,20 @@ BuildingFieldStreaming::State::BindOriginals(Context &context,
   std::optional<OriginalProduct> whole;
   uint64_t collected = 0;
   std::string error;
-  const auto geographicEye = GeoFromEcef(WorldCamera(context).EyeM);
+  const Vec3 worldEye = WorldCamera(context).EyeM;
+  const auto geographicEye = GeoFromEcef(worldEye);
   if (!geographicEye) { return result; }
   const LongitudeLatitude eye{.LongitudeDeg = geographicEye->LongitudeDeg,
                               .LatitudeDeg = geographicEye->LatitudeDeg};
-  context.Pages.ForEachDigest(
+  context.Pages.ForEachTileDigest(
+      tile.Index,
       [&](const auto &page) {
-        if (!error.empty() || page.Tile != tile.Index || page.SourceKey != sourceKey ||
+        if (!error.empty() || page.SourceKey != sourceKey ||
             page.Detail == LevelOfDetail::Skyline) {
           return;
         }
         const auto &prints = context.Surface.Footprints();
-        if (!OriginalSupportsView(page, sourceKey, prints, eye, WorldCamera(context).EyeM)) {
-          return;
-        }
+        if (!OriginalSupportsView(page, sourceKey, prints, eye, worldEye)) { return; }
         OriginalProduct product{.Legacy = {.Cell = page.Cell,
                                            .Detail = page.Detail,
                                            .OccupiedCells = page.OccupiedCells},
@@ -104,49 +116,69 @@ BuildingFieldStreaming::State::BindOriginals(Context &context,
   return result;
 }
 
-BuildingFieldStreaming::State::ProductCut
-BuildingFieldStreaming::State::SelectReplacements(std::span<const OriginalProduct> originals,
+std::optional<BuildingFieldStreaming::State::ProductCut>
+BuildingFieldStreaming::State::SelectReplacements(const SourceCoverage &domain,
+                                                  std::span<const OriginalProduct> originals,
                                                   std::span<const Cell *const> candidates,
-                                                  uint64_t shadowCells) {
+                                                  uint64_t shadowCells,
+                                                  const Tile::RoofProduct *roof,
+                                                  bool roofCaster) {
   ProductCut result;
+  if (roofCaster && roof != nullptr && roof->Caster) {
+    result.Shadow.push_back(roof->Caster->Key);
+    result.ShadowSources.push_back(&roof->Coverage);
+    result.RoofCasterActive = true;
+    shadowCells &= ~roof->Cells;
+  }
   for (const auto &original : originals) {
     if ((original.Legacy.Mask() & shadowCells) != 0) {
       result.Shadow.push_back(original.Key);
       result.ShadowSources.push_back(original.Coverage);
     }
-    std::vector<const Cell *> children;
-    std::vector<const SourceCoverage *> sources;
-    for (const auto *cell : candidates) {
-      if (!original.Coverage->Contains(cell->Coverage)) { continue; }
-      children.push_back(cell);
-      sources.push_back(&cell->Coverage);
-    }
-    if (!SourceCoverage::Partition(*original.Coverage, sources)) {
-      result.Main.push_back(original.Key);
-      result.MainSources.push_back(original.Coverage);
-      continue;
-    }
-    for (const auto *cell : children) {
-      result.Main.push_back(cell->AssetKey);
+  }
+  std::vector<const SourceCoverage *> fallback;
+  std::vector<const SourceCoverage *> ready;
+  fallback.reserve(originals.size());
+  ready.reserve(candidates.size() + (roof != nullptr ? 1u : 0u));
+  for (const auto &original : originals) { fallback.push_back(original.Coverage); }
+  for (const auto *cell : candidates) { ready.push_back(&cell->Coverage); }
+  if (roof != nullptr) { ready.push_back(&roof->Coverage); }
+  const auto cut = SourceCoverage::Prefer(domain, fallback, ready);
+  if (!cut) { return std::nullopt; }
+  for (const size_t at : cut->Retained) {
+    result.Main.push_back(originals[at].Key);
+    result.MainSources.push_back(originals[at].Coverage);
+  }
+  for (const size_t at : cut->Preferred) {
+    if (at == candidates.size() && roof != nullptr) {
+      result.Main.push_back(roof->Key);
+      result.MainSources.push_back(&roof->Coverage);
+      result.RoofActive = true;
+    } else {
+      const auto *cell = candidates[at];
+      result.Main.push_back(cell->SelectedKey());
       result.MainSources.push_back(&cell->Coverage);
       result.ActiveCells |= uint64_t{1} << (cell->Source.Cell - 1u);
-      result.ActiveGroups += cell->Groups.size();
+      result.ActiveGroups += cell->TerraceQualified ? 1 : cell->Groups.size();
     }
-  }
-  for (const auto *cell : candidates) {
-    if (std::ranges::any_of(originals, [&](const auto &original) {
-          return original.Coverage->Contains(cell->Coverage);
-        })) {
-      continue;
-    }
-    result.Main.push_back(cell->AssetKey);
-    result.MainSources.push_back(&cell->Coverage);
-    result.ActiveCells |= uint64_t{1} << (cell->Source.Cell - 1u);
-    result.ActiveGroups += cell->Groups.size();
   }
   std::ranges::sort(result.Main);
   std::ranges::sort(result.Shadow);
   return result;
+}
+
+const BuildingFieldStreaming::State::Tile::RoofProduct *BuildingFieldStreaming::State::EligibleRoof(
+    const Context &context, const Tile &tile, std::span<const OriginalProduct> originals) {
+  if (!tile.ResidentRoof || std::ranges::any_of(originals, [](const auto &original) {
+        return original.Legacy.Cell == 0;
+      })) {
+    return nullptr;
+  }
+  const Vec2 viewport{{context.Renderer.PictureW(), context.Renderer.PictureH()}};
+  return tile.ResidentRoof->Projected.Allows(
+             WorldCamera(context).EyeM, viewport, context.Surface.Footprints().Projection())
+             ? &*tile.ResidentRoof
+             : nullptr;
 }
 
 bool BuildingFieldStreaming::State::Select(Context &context, std::string &error) {
@@ -162,14 +194,20 @@ std::vector<const BuildingFieldStreaming::State::Cell *>
 BuildingFieldStreaming::State::EvaluateCells(Context &context, Tile &tile) {
   std::vector<const Cell *> candidates;
   tile.ShadowCells = 0;
+  const Vec3 eye = WorldCamera(context).EyeM;
   for (auto &cell : tile.Cells) {
-    cell.Qualified =
+    cell.TerraceQualified = !cell.TerraceKey.empty() && AllowsTerrace(context, tile, cell, eye);
+    const bool field =
         cell.Where == Phase::Ready && cell.Staged &&
         std::ranges::all_of(cell.Groups, [&](Group &g) { return ValidPose(context, g); });
+    cell.Qualified = cell.TerraceQualified || field;
     cell.ShadowNeeded = !Shadows || cell.Where != Phase::Ready ||
                         std::ranges::any_of(cell.Groups, [&](const Group &g) {
                           return !g.SceneBounds || Shadows->MayContain(*g.SceneBounds);
                         });
+    if (!cell.ShadowNeeded && Shadows->Regions != 0) {
+      cell.ShadowNeeded = Shadows->MayContain(CasterBounds(context.Frame, cell.Source.Bounds));
+    }
     if (cell.ShadowNeeded) { tile.ShadowCells |= uint64_t{1} << (cell.Source.Cell - 1u); }
     if (cell.Qualified) {
       candidates.push_back(&cell);
@@ -182,6 +220,7 @@ BuildingFieldStreaming::State::EvaluateCells(Context &context, Tile &tile) {
 bool BuildingFieldStreaming::State::SelectTile(Context &context, Tile &tile, std::string &error) {
   tile.Complete = false;
   tile.ResidentOriginals = 0;
+  tile.RoofOriginalsReplaced = 0;
   if (!tile.Coverage.has_value()) { return true; }
   const auto &expected = tile.Coverage.value();
   const auto qualified =
@@ -211,9 +250,17 @@ bool BuildingFieldStreaming::State::SelectTile(Context &context, Tile &tile, std
     tile.OriginalProducts.clear();
     tile.Active = 0;
     tile.ActiveGroups = 0;
+    tile.RoofActive = tile.RoofQualified = false;
+    tile.RoofCasterActive = false;
     return true;
   }
-  const auto candidates = EvaluateCells(context, tile);
+  auto candidates = EvaluateCells(context, tile);
+  const auto *roof = EligibleRoof(context, tile, *originals);
+  if (roof != nullptr) {
+    std::erase_if(candidates, [roof](const Cell *cell) {
+      return (roof->Cells & (uint64_t{1} << (cell->Source.Cell - 1u))) != 0;
+    });
+  }
   std::vector<std::string_view> shadowKeys;
   for (const auto &original : *originals) { shadowKeys.push_back(original.Key); }
   std::ranges::sort(shadowKeys);
@@ -222,10 +269,18 @@ bool BuildingFieldStreaming::State::SelectTile(Context &context, Tile &tile, std
       tile.ShadowCells |= original.Legacy.Mask();
     }
   }
-  const auto candidateKeys = candidates | std::views::transform([](const Cell *cell) {
-                               return std::string_view(cell->AssetKey);
-                             });
+  const bool roofCaster =
+      roof != nullptr && roof->Caster && (tile.ShadowCells & roof->Cells) != 0 &&
+      roof->Caster->Error.Allows(
+          tile.SourceKey, WorldCamera(context).EyeM, context.Surface.Footprints().Projection()) &&
+      std::ranges::none_of(*originals, [roof](const OriginalProduct &original) {
+        return (original.Legacy.Mask() & roof->Cells) != 0 && original.Legacy.Mask() != roof->Cells;
+      });
+  if (roofCaster) { tile.RoofOriginalsReplaced = roof->Cells; }
+  const auto candidateKeys =
+      candidates | std::views::transform([](const Cell *cell) { return cell->SelectedKey(); });
   if (!tile.MainProducts.empty() && tile.ShadowCells == tile.PublishedShadowCells &&
+      tile.RoofQualified == (roof != nullptr) && tile.RoofCasterActive == roofCaster &&
       std::ranges::equal(shadowKeys, tile.OriginalProducts) &&
       std::ranges::equal(candidateKeys, tile.CandidateProducts)) {
     tile.Complete = true;
@@ -235,16 +290,17 @@ bool BuildingFieldStreaming::State::SelectTile(Context &context, Tile &tile, std
     return true;
   }
   tile.Originals = std::move(legacy);
-  const auto selected = SelectReplacements(*originals, candidates, tile.ShadowCells);
+  const auto selected =
+      SelectReplacements(expected, *originals, candidates, tile.ShadowCells, roof, roofCaster);
   const auto shadowExpected = OriginalCoverage(tile, tile.ShadowCells);
-  if (!shadowExpected || !SourceCoverage::Partition(expected, selected.MainSources) ||
-      !SourceCoverage::Partition(*shadowExpected, selected.ShadowSources)) {
+  if (!selected || !shadowExpected || !SourceCoverage::Partition(expected, selected->MainSources) ||
+      !SourceCoverage::Partition(*shadowExpected, selected->ShadowSources)) {
     return true;
   }
-  const auto &main = selected.Main;
-  const auto &shadow = selected.Shadow;
-  const auto active = selected.ActiveCells;
-  Statistics.ActiveGroups += selected.ActiveGroups;
+  const auto &main = selected->Main;
+  const auto &shadow = selected->Shadow;
+  const auto active = selected->ActiveCells;
+  Statistics.ActiveGroups += selected->ActiveGroups;
   Statistics.SelectedProducts += main.size();
   Statistics.Active += static_cast<size_t>(std::popcount(active));
   if ((!std::ranges::equal(main, tile.MainProducts) ||
@@ -263,7 +319,10 @@ bool BuildingFieldStreaming::State::SelectTile(Context &context, Tile &tile, std
   tile.PublishedShadowCells = tile.ShadowCells;
   tile.Complete = true;
   tile.Active = active;
-  tile.ActiveGroups = selected.ActiveGroups;
+  tile.ActiveGroups = selected->ActiveGroups;
+  tile.RoofActive = selected->RoofActive;
+  tile.RoofQualified = roof != nullptr;
+  tile.RoofCasterActive = selected->RoofCasterActive;
   return true;
 }
 }

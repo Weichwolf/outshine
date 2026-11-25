@@ -1,4 +1,5 @@
 #include "StructurePreparation.h"
+#include "BuildingCanopy.h"
 #include "PreparedStructurePlan.h"
 #include "BuildingScratch.h"
 #include "BuildingShape.h"
@@ -492,6 +493,9 @@ std::expected<PreparedStructureTile, StructureBakeError> PrepareStructureTile(
   }
   base.SkippedRings = diagnostics.SkippedRings;
   base.NoGround = diagnostics.NoGround;
+  if (!AttachCanopySupports(base, ways, stopping)) {
+    return std::unexpected(StructureBakeErrorKind::Cancelled);
+  }
   return base;
 }
 }

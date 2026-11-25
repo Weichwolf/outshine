@@ -32,8 +32,9 @@ Box Bounds(std::span<const Sheet> pages) {
         {.X = page.Tile.X + 1.0 + halo, .Y = page.Tile.Y + 1.0 + halo}, page.Tile.Zoom);
     double lower = 0;
     double upper = 0;
-    if (!page.Nodes.empty()) {
-      const auto range = std::ranges::minmax_element(page.Nodes);
+    const auto nodes = page.Samples();
+    if (!nodes.empty()) {
+      const auto range = std::ranges::minmax_element(nodes);
       lower = *range.min;
       upper = *range.max;
     }
@@ -130,13 +131,6 @@ PreparedTerrainAssets::LoadDeformation(const std::string &key, size_t heapBytesM
   }
   ++DeformationMisses_;
   return std::optional<PreparedTerrainDeformation>{};
-}
-
-size_t PreparedTerrainAssets::DeformationWrite::HeapBytes() const noexcept {
-  size_t bytes = Key_.capacity() + 1 + Product_.Pages.capacity() * sizeof(Sheet) +
-                 Parts_.capacity() * sizeof(uint32_t);
-  for (const auto &page : Product_.Pages) { bytes += page.Nodes.capacity() * sizeof(float); }
-  return bytes + (Package_ ? Package_->CapacityBytes() - sizeof(PreparedAssetWrite) : 0);
 }
 
 std::expected<PreparedTerrainAssets::DeformationWrite, PreparedTerrainAssets::Failure>

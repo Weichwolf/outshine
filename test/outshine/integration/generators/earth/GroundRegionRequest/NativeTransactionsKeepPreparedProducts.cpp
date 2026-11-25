@@ -78,8 +78,8 @@ void ColdThenWarmBind() {
   CHECK(fresh, "a fresh native owner can verify the persisted request binding");
   if (!fresh) { return; }
   auto product = (*fresh)->LoadRequestProduct(alias);
-  const auto hit = product && *product ? (*fresh)->Decode(std::move(**product)) : std::nullopt;
-  CHECK(product && *product && hit && hit->Key == fixture.Key,
+  const auto hit = product && *product ? (*fresh)->Restore(std::move(**product)) : std::nullopt;
+  CHECK(product && *product && hit && *hit && (**hit).Key == fixture.Key,
         "the exact warm request alias survives independently of the original owner");
 }
 

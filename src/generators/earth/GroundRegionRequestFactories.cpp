@@ -19,20 +19,27 @@ struct LookupState {
   std::shared_ptr<Regions> Assets;
   std::string Request;
   std::optional<RegionRequest::IdentityInputs> Inputs;
+  Osm::GroundTerrainErrorLimit TerrainLimit;
   bool CheckedRequest = false, CheckedContent = false;
   std::string Key;
   std::optional<Regions::Loaded> Held;
 
-  RegionRequest::Attempt Advance() {
+  [[nodiscard]] std::expected<std::optional<Regions::Loaded>, Regions::Failure>
+  Read(Regions::ReadResult product, const std::stop_token &stop) const {
+    if (!product) { return std::unexpected(std::move(product.error())); }
+    if (!*product) { return std::nullopt; }
+    return Assets->Restore(std::move(**product), stop, TerrainLimit);
+  }
+
+  RegionRequest::Attempt Advance(const std::stop_token &stop) {
     if (!CheckedRequest) {
-      auto product = Assets->LoadRequestProduct(Request);
-      if (!product) { return std::unexpected(std::move(product.error())); }
+      auto loaded = Read(Assets->LoadRequestProduct(Request), stop);
+      if (!loaded) { return std::unexpected(std::move(loaded.error())); }
       CheckedRequest = true;
-      auto loaded = *product ? Assets->Decode(std::move(**product)) : std::nullopt;
-      if (loaded) {
-        auto key = loaded->Key;
+      if (*loaded) {
+        auto key = (**loaded).Key;
         return RegionRequest::Completed{.Key = std::move(key),
-                                        .Loaded = std::move(loaded),
+                                        .Loaded = std::move(*loaded),
                                         .RequestKey = Request,
                                         .RequestHit = true,
                                         .SurfacePages = nullptr};
@@ -56,9 +63,9 @@ struct LookupState {
       Inputs.reset();
     }
     if (!CheckedContent) {
-      auto product = Assets->LoadProduct(Key);
-      if (!product) { return std::unexpected(std::move(product.error())); }
-      Held = *product ? Assets->Decode(std::move(**product)) : std::nullopt;
+      auto loaded = Read(Assets->LoadProduct(Key), stop);
+      if (!loaded) { return std::unexpected(std::move(loaded.error())); }
+      Held = std::move(*loaded);
       CheckedContent = true;
     }
     if (Held) {
@@ -142,12 +149,14 @@ GroundRegionRequest::Factory
 GroundRegionRequest::Lookup(std::shared_ptr<Osm::PreparedGroundRegions> assets,
                             std::string request,
                             std::optional<IdentityInputs> inputs,
-                            bool checked) {
+                            bool checked,
+                            Osm::GroundTerrainErrorLimit terrainLimit) {
   auto state = std::make_shared<LookupState>();
   state->Assets = std::move(assets);
   state->Request = std::move(request);
   state->Inputs = std::move(inputs);
   state->CheckedRequest = checked;
+  state->TerrainLimit = std::move(terrainLimit);
   return [state = std::move(state)](const std::stop_token &stop) -> Attempt {
     if (stop.stop_requested()) {
       return std::unexpected(std::string("ground region lookup canceled"));
@@ -155,7 +164,7 @@ GroundRegionRequest::Lookup(std::shared_ptr<Osm::PreparedGroundRegions> assets,
     if (!state->Assets || state->Request.empty()) {
       return std::unexpected(std::string("ground request key or service is missing"));
     }
-    return state->Advance();
+    return state->Advance(stop);
   };
 }
 

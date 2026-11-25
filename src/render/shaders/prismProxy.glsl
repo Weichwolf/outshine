@@ -2,10 +2,11 @@ vec4 prismProxyPosition(PrismPatch gridPatch, mat4 clipFromLocal, uint vertex) {
   vec2 lower = vec2(1.0), upper = vec2(-1.0);
   bool crossesEye = false;
   uint outside = 63u;
+  vec3 low = prismIsConvex(gridPatch) ? gridPatch.shape.xyz : vec3(0, gridPatch.shape.w, 0);
+  vec3 high = gridPatch.bounds.yxz;
   for (uint corner = 0u; corner < 8u; ++corner) {
     vec3 fraction = vec3(float(corner & 1u), float((corner >> 1u) & 1u), float(corner >> 2u));
-    vec3 point = fraction * vec3(gridPatch.bounds.y, gridPatch.bounds.x - gridPatch.shape.w, gridPatch.bounds.z);
-    point.y += gridPatch.shape.w;
+    vec3 point = mix(low, high, fraction);
     vec4 clip = clipFromLocal * vec4(point, 1.0);
     if (any(isnan(clip)) || any(isinf(clip))) {
       crossesEye = true;

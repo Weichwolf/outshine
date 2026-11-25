@@ -40,7 +40,7 @@ GPU-Zeit, Bandbreite und Speicher. Ich stecke Detail in die sichtbare Bildwirkun
 ## Neubau
 
 Ich baue den neuen Darstellungs- und Ladepfad neben dem lauffähigen Produktstand. Der
-[Legacy-Branch](https://github.com/Weichwolf/outshine/tree/legacy/2026-11-25) hält den
+[Vergleichscommit](https://github.com/Weichwolf/outshine/tree/0932b78323ebf23016f723fdfb3fa31da2e28337) hält den
 bisherigen Vergleichsstand. Ich nutze seine funktionierenden Generatoren als Datenquelle
 für den Vergleich und übernehme Verfahren aus `lib/` mit ihren Tests und Eingabefällen.
 Ich ersetze Module, sobald Bewegung, Bild und Budget auf denselben Eingaben belegt sind.

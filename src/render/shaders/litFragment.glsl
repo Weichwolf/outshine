@@ -72,6 +72,9 @@ void main() {
   readSurfaceDifferentials();
 #endif
   M surface = materialAt();
+#if PRISM_GRID
+  if (prismRoughnessOverride >= 0.0) { surface.roughness = prismRoughnessOverride; }
+#endif
   SurfaceSample sampled = sampleSurfaceMaterial(surface);
 #if SURFACE_BASE_LOCATION == 0
   SURFACE_SHADOW_RECEIVER receiverSlope = sunShadowReceiverSlope(lightSpace);

@@ -751,7 +751,8 @@ size_t StructureBuildQueue::Posts(Ground::SurfacePreparation &stack,
                                   std::optional<LevelOfDetail> detail,
                                   BuildPurpose purpose,
                                   const std::function<bool(uint32_t)> &cellReady,
-                                  const CellDemand &originalCells) {
+                                  const CellDemand &originalCells,
+                                  const std::optional<ViewPath> &path) {
   if (candidatesMost == 0 || Pool_ == nullptr || Context_.Mesher == nullptr) { return 0; }
   if (!AdmitContext()) { return 0; }
   AdvanceQueuedTasks(stack.Vectors(), prints, eye, heightAt.Revision, requirement, detail, purpose);
@@ -779,7 +780,8 @@ size_t StructureBuildQueue::Posts(Ground::SurfacePreparation &stack,
                       detail,
                       purpose,
                       cellReady,
-                      originalCells);
+                      originalCells,
+                      path);
 }
 
 StructureBuildQueue::QueuedBuild
@@ -789,7 +791,8 @@ StructureBuildQueue::VectorBuild(JobAdmission::Lease admission,
                                  ::outshine::Generators::Osm::TileAdmission::Next next,
                                  BakeRevision revision,
                                  VectorSelection selected,
-                                 bool replacement) {
+                                 bool replacement,
+                                 const std::optional<ViewPath> &path) {
   auto raw = Borrowed(Context_.IdleRaw);
   const auto extractionAt = std::chrono::steady_clock::now();
   if (selected.Basis) {
@@ -852,7 +855,7 @@ StructureBuildQueue::VectorBuild(JobAdmission::Lease admission,
   if (!selected.RequestKey.empty()) { Context_.NativeLookups.erase(selected.RequestKey); }
   if (revision.Purpose == BuildPurpose::StaticParents && !selected.Key.empty() &&
       !revision.FallbackHeights && (task.HeightQualified() || task.Raw().Structures.empty())) {
-    task.UseIntrinsicParents(sourceKey);
+    task.UseIntrinsicParents(sourceKey, path);
   }
   return {.Revision = revision,
           .Task = std::move(task),
@@ -999,7 +1002,8 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
                                          std::optional<LevelOfDetail> detail,
                                          BuildPurpose purpose,
                                          const std::function<bool(uint32_t)> &cellReady,
-                                         const CellDemand &originalCells) {
+                                         const CellDemand &originalCells,
+                                         const std::optional<ViewPath> &path) {
   if (Pool_ == nullptr || Context_.Mesher == nullptr || stack.Vectors() == nullptr ||
       !prints.Anchored()) {
     return 0;
@@ -1062,8 +1066,14 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
                                                                   : selected.Heights->Fallback()};
     if (!replacement) { prints.Take(next->Tile); }
     selected.StreetDigest = *streetDigest;
-    Context_.Queue.push_back(VectorBuild(
-        std::move(*admission), stack, prints, *next, revision, std::move(selected), replacement));
+    Context_.Queue.push_back(VectorBuild(std::move(*admission),
+                                         stack,
+                                         prints,
+                                         *next,
+                                         revision,
+                                         std::move(selected),
+                                         replacement,
+                                         path));
     const auto postingAt = std::chrono::steady_clock::now();
     PostSlice(Context_.Queue.back());
     if (replacement) { prints.AdvanceRefinement(); }
@@ -1131,6 +1141,15 @@ bool StructureBuildQueue::RetryMissingNativeInputs(
   return true;
 }
 
+bool StructureBuildQueue::NeedsLanding(const Ground::SurfacePreparation &stack,
+                                       const HeightSource &heightAt,
+                                       const QueuedBuild &bake,
+                                       HeightRequirement heights,
+                                       const LandingCoverage &coverage) const {
+  return (!coverage.Complete || !coverage.Complete(bake.Task.Tile(), bake.SourceKey)) &&
+         WholeTileSourceCurrent(stack, heightAt, bake, heights);
+}
+
 std::expected<std::vector<StructureBuildQueue::Landing>, Generators::StructureBakeError>
 StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
                                   ::outshine::Generators::Osm::BuildingField &prints,
@@ -1139,7 +1158,8 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
                                   size_t most,
                                   HeightRequirement heights,
                                   std::optional<LevelOfDetail> detail,
-                                  BuildPurpose purpose) {
+                                  BuildPurpose purpose,
+                                  const LandingCoverage &coverage) {
   if (Context_.NativeFailure) { return std::unexpected(*Context_.NativeFailure); }
   std::vector<Landing> landings;
   if (Pool_ == nullptr || most == 0) { return landings; }
@@ -1175,13 +1195,12 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
     }
     const auto &completed = bake.Task.Result().Tile;
     if (!completed) { break; }
-    const bool current = WholeTileSourceCurrent(stack, heightAt, bake, heights);
-    if (!current) {
+    if (!NeedsLanding(stack, heightAt, bake, heights, coverage)) {
       if (count != 0) { break; }
       DiscardFront(prints);
       continue;
     }
-    CollectInitialCell(bake);
+    CollectInitialCell(bake, prints, coverage.Replaced);
 
     ++count;
     if (bake.InitialCells) { break; }
@@ -1189,13 +1208,23 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
   return PrepareLandings(prints, vectors, count);
 }
 
-void StructureBuildQueue::CollectInitialCell(QueuedBuild &bake) {
+void StructureBuildQueue::CollectInitialCell(
+    QueuedBuild &bake,
+    const ::outshine::Generators::Osm::BuildingField &prints,
+    const CellCoverage &replacementCells) {
   auto &completed = bake.Task.Result().Tile;
   assert(completed);
   if (const uint64_t cells = bake.Task.InitialCells(); cells != 0) {
     if (!bake.InitialCells) { bake.InitialCells.emplace(cells); }
     PrepareGeometry(*completed, bake.Task.Raw());
     bake.InitialCells->Collect(*completed);
+    if (replacementCells && QualifiedSourceKey(prints, bake.Task.Tile()) == bake.SourceKey) {
+      const auto original = bake.InitialCells->Cells();
+      bake.InitialCells->SkipCovered(replacementCells(bake.Task.Tile(), bake.SourceKey));
+      if (bake.InitialCells->Cells() != original) {
+        bake.Revision.OriginalCells = bake.InitialCells->Cells();
+      }
+    }
   }
 }
 
@@ -1244,20 +1273,26 @@ StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
   Generators::BakedTile &baked = *completed;
   PrepareGeometry(baked, bake.Task.Raw());
   const bool complete = !bake.InitialCells || bake.InitialCells->Remaining() == 0;
-  Landing landing{.Tile = bake.Task.Tile(),
-                  .Baked = &baked,
-                  .AnchorEcef = bake.Task.Raw().AnchorEcef,
-                  .SourceKey = bake.SourceKey,
-                  .InitialCells = bake.InitialCells ? bake.InitialCells->Cells() : 0,
-                  .SourceComplete = complete,
-                  .Footprints = std::nullopt,
-                  .Publish = bake.Revision.OriginalCells ? Landing::Publication::Products
-                                                         : Landing::Publication::Source};
+  const uint32_t tile = bake.Task.Tile();
+  const auto *accepted = prints.InputOfTile(tile);
+  const bool current =
+      complete && bake.SourceKey != 0 && QualifiedSourceKey(prints, tile) == bake.SourceKey;
+  const bool partial =
+      bake.Revision.OriginalCells &&
+      (!current || accepted == nullptr || *bake.Revision.OriginalCells != accepted->OccupiedCells);
+  Landing landing{
+      .Tile = tile,
+      .Baked = &baked,
+      .AnchorEcef = bake.Task.Raw().AnchorEcef,
+      .SourceKey = bake.SourceKey,
+      .InitialCells = bake.InitialCells ? bake.InitialCells->Cells() : 0,
+      .CellDetails = bake.InitialCells ? bake.InitialCells->Details()
+                                       : std::span<const std::optional<LevelOfDetail>>{},
+      .SourceComplete = complete,
+      .Footprints = std::nullopt,
+      .Publish = partial ? Landing::Publication::Products : Landing::Publication::Source};
   if (!complete) { return landing; }
-  if (bake.Revision.Purpose != BuildPurpose::TerrainContacts && landing.SourceKey != 0 &&
-      QualifiedSourceKey(prints, landing.Tile) == landing.SourceKey) {
-    return landing;
-  }
+  if (bake.Revision.Purpose != BuildPurpose::TerrainContacts && current) { return landing; }
   const std::optional<Data::TileSourceIdentity> vectorSource =
       baked.Coordinates->Origin.Provenance ? std::nullopt
                                            : VectorSource(*vectors, bake.Task.Tile());

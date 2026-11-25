@@ -1,7 +1,10 @@
 #include "BuildingQueueFixture.h"
 #include "Check.h"
+#include "StructureCellAssembly.h"
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -34,11 +37,13 @@ bool Start(BuildingQueueFixture &fixture, std::optional<LevelOfDetail> detail) {
   return true;
 }
 
-std::vector<StructureBuildQueue::Landing> Finish(BuildingQueueFixture &fixture,
-                                                 Generators::Osm::BuildingField &prints,
-                                                 LongitudeLatitude eye,
-                                                 const StructureBuildQueue::HeightSource &height,
-                                                 std::optional<LevelOfDetail> detail) {
+std::vector<StructureBuildQueue::Landing>
+Finish(BuildingQueueFixture &fixture,
+       Generators::Osm::BuildingField &prints,
+       LongitudeLatitude eye,
+       const StructureBuildQueue::HeightSource &height,
+       std::optional<LevelOfDetail> detail,
+       const StructureBuildQueue::LandingCoverage &coverage = {}) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (std::chrono::steady_clock::now() < deadline) {
     auto ready = fixture.Queue.NextLandings(fixture.Stack,
@@ -47,7 +52,9 @@ std::vector<StructureBuildQueue::Landing> Finish(BuildingQueueFixture &fixture,
                                             height,
                                             1,
                                             StructureBuildQueue::HeightRequirement::FineOnly,
-                                            detail);
+                                            detail,
+                                            StructureBuildQueue::BuildPurpose::ViewDetail,
+                                            coverage);
     CHECK(ready, "native continuation preserves its error result");
     if (!ready) { return {}; }
     if (!ready->empty()) { return std::move(*ready); }
@@ -106,6 +113,55 @@ void IntrinsicDemandCompletes(bool continueFromPosts) {
   CHECK(prints.OfTile(0).size() == kStructures,
         "the full intrinsic product publishes all semantic building footprints");
 }
+
+void CoveredWorkCanBeRequestedAgain() {
+  BuildingQueueFixture fixture;
+  constexpr auto detail = LevelOfDetail::Fine;
+  if (!Start(fixture, detail)) { return; }
+  auto &prints = fixture.Stack.Footprints();
+  const auto ready = Finish(fixture,
+                            prints,
+                            fixture.Eye,
+                            fixture.Source,
+                            detail,
+                            {.Replaced = {}, .Complete = [](uint32_t tile, uint64_t key) {
+                               return tile == 0 && key != 0;
+                             }});
+  CHECK(ready.empty() && fixture.Queue.Queued() == 0,
+        "a published replacement discards the old job instead of carrying an unstaged completion");
+  const auto posted = fixture.Queue.Posts(fixture.Stack,
+                                          prints,
+                                          fixture.Eye,
+                                          fixture.Source,
+                                          1,
+                                          StructureBuildQueue::HeightRequirement::AllowFallback,
+                                          detail);
+  CHECK(posted == 1, "the released source can be requested when the replacement loses coverage");
+  const auto needed = Finish(fixture, prints, fixture.Eye, fixture.Source, detail);
+  CHECK(needed.size() == 1 && needed.front().SourceComplete,
+        "renewed demand gets a fresh, complete landing for publication");
+}
+
+void ResidentReplacementRetiresPendingCell() {
+  constexpr uint64_t landed = 1;
+  constexpr uint64_t replaced = 2;
+  constexpr uint64_t missing = 4;
+  StructureCellAssembly build(landed | replaced | missing);
+  Generators::BakedTile child;
+  child.RequestedCell = 1;
+  child.RequestedDetail = LevelOfDetail::Shell;
+  child.OccupiedCells = landed;
+  child.Coordinates = std::make_shared<Ground::BuildingGeometry>();
+  build.Collect(child);
+  build.SkipCovered(landed | replaced);
+  CHECK(build.Remaining() == missing && build.Metadata().OccupiedCells == landed,
+        "resident coverage skips only pending geometry and preserves the original already read");
+  child.RequestedCell = 3;
+  child.OccupiedCells = missing;
+  build.Collect(child);
+  CHECK(build.Remaining() == 0 && build.Cells() == (landed | missing),
+        "the partial publication contains exactly the geometry built by this request");
+}
 }
 
 int main() {
@@ -114,5 +170,7 @@ int main() {
   }
   IntrinsicDemandCompletes(false);
   IntrinsicDemandCompletes(true);
+  CoveredWorkCanBeRequestedAgain();
+  ResidentReplacementRetiresPendingCell();
   return Report();
 }

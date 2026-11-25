@@ -185,25 +185,26 @@ BuildingSurface::Prepare(const StructurePlan &plan, BuildingScratch &scratch) {
   }
   source.MinimumHeightM_ = plan.MinimumHeightM;
   source.WallColour_ = plan.WallColour;
-  source.Shapes_.assign(shapes->begin(), shapes->end());
-  source.FaceOffsets_.push_back(0);
-  for (auto &shape : source.Shapes_) {
-    if (shape.Roof == RoofKind::Hip) {
-      const auto hip = RoofSurface::PrepareHip(shape);
-      if (!hip) { shape.Roof = RoofKind::Flat; }
-    }
-    size_t count = shape.Ring.size() + 2;
-    for (const auto &hole : shape.Holes) { count += hole.size(); }
-    source.FaceOffsets_.push_back(source.FaceOffsets_.back() + count);
-    const double bottom = BuildingBottomM(shape, plan.MinimumHeightM);
-    for (const auto &point : shape.Ring) {
-      for (const double height : {bottom, shape.TopM()}) {
-        source.Bounds_.Cover(source.Origin_ +
-                             Global(source.Axes_, {{point.EastM, point.NorthM, height}}));
-      }
+  source.Shapes_.reserve(shapes->size());
+  for (const auto &shape : *shapes) { source.AppendPart(shape); }
+  return source;
+}
+
+void BuildingSurface::AppendPart(BuildingShape shape) {
+  if (shape.Roof == RoofKind::Hip && !RoofSurface::PrepareHip(shape)) {
+    shape.Roof = RoofKind::Flat;
+  }
+  if (FaceOffsets_.empty()) { FaceOffsets_.push_back(0); }
+  size_t count = shape.Ring.size() + 2;
+  for (const auto &hole : shape.Holes) { count += hole.size(); }
+  FaceOffsets_.push_back(FaceOffsets_.back() + count);
+  const double bottom = BuildingBottomM(shape, MinimumHeightM_);
+  for (const auto &point : shape.Ring) {
+    for (const double height : {bottom, shape.TopM()}) {
+      Bounds_.Cover(Origin_ + Global(Axes_, {{point.EastM, point.NorthM, height}}));
     }
   }
-  return source;
+  Shapes_.push_back(std::move(shape));
 }
 
 BuildingSurface::Face BuildingSurface::FaceAt(size_t index) const noexcept {

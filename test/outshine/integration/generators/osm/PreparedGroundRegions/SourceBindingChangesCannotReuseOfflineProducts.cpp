@@ -9,6 +9,7 @@
 #include "TilePool.h"
 #include "WaterAsset.h"
 #include "Wayfinding.h"
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <filesystem>
@@ -110,18 +111,17 @@ int Offline(const std::filesystem::path &root, bool pair) {
   const auto request = Request(**opened);
   auto product = (*opened)->LoadRequestProduct(request);
   CHECK(product, "the real early request lookup completes without a storage error");
-  const auto loaded = product && *product ? (*opened)->Decode(std::move(**product)) : std::nullopt;
-  const bool hit = loaded.has_value();
+  const auto loaded = product && *product ? (*opened)->Restore(std::move(**product)) : std::nullopt;
+  const bool hit = loaded && loaded->has_value();
   if (pair) {
     CHECK(!hit && request != kLegacyRequest,
           "the different source binding cannot inherit the current or old ambiguous product");
   } else {
-    CHECK(loaded.has_value(), "the same binding remains an offline hit");
-    if (loaded.has_value()) {
-      const auto &region = loaded->Region;
+    CHECK(hit, "the same binding remains an offline hit");
+    if (hit) {
+      const auto &region = (**loaded).Region;
       CHECK(region.Terrain.Sheets.size() == 1 &&
-                region.Terrain.Sheets.front().Nodes ==
-                    std::vector<float>(kTerrainHeightsM.begin(), kTerrainHeightsM.end()),
+                std::ranges::equal(region.Terrain.Sheets.front().Samples(), kTerrainHeightsM),
             "the same binding restores the exact native product in a fresh offline process");
       CHECK(region.Network && region.NetworkWays == 1 &&
                 region.Network->TagOf(0) == kNetworkSourceTag &&

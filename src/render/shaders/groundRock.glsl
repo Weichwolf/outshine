@@ -40,7 +40,7 @@ GroundDetail rockDetail(vec3 worldM, vec3 worldDx, vec3 worldDy, uint rows) {
   float albedoScale = clamp(1.0 + contrast * (0.4 * macro.z + 0.5 * coarse.z + 0.1 * fine.z), 0.72, 1.28);
   float roughnessOffset = 0.14 * macro.z + 0.06 * coarse.z;
   float macroHeight = min(macroM * 0.025, 3.0);
-  float coarseHeight = min(coarseM * 0.04, 0.4);
-  vec2 gradient = macroHeight * macro.xy + coarseHeight * coarse.xy + heightAmplitudeM * fine.xy;
+  float beddingHeight = min(coarseM * 0.04, heightAmplitudeM);
+  vec2 gradient = macroHeight * macro.xy + beddingHeight * coarse.xy + heightAmplitudeM * fine.xy;
   return GroundDetail(albedoScale, roughnessOffset, gradient);
 }

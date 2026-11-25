@@ -5,6 +5,7 @@
 #include "Presentation.h"
 #include "Render.h"
 #include <expected>
+#include <limits>
 #include <memory>
 #include <span>
 #include <string>
@@ -100,6 +101,42 @@ public:
   DrawIndexedIndirect([[maybe_unused]] const IndirectDrawDescription &description) {
     return std::unexpected(
         Error{.Kind = ErrorKind::Unsupported, .Message = "native raster commands unavailable"});
+  }
+
+  [[nodiscard]] virtual Result<void>
+  DrawIndexedSequence(const Native::IndexedDrawSequence &sequence) {
+    if (sequence.SourceRanges.size() != sequence.Arguments.Count) {
+      return std::unexpected(Error{.Kind = ErrorKind::Invalid,
+                                   .Message = "indexed draw sequence has mismatched rows"});
+    }
+    const auto &arguments = sequence.Arguments;
+    if (arguments.Count != 0 &&
+        arguments.Offset > std::numeric_limits<uint64_t>::max() -
+                               uint64_t{arguments.Count - 1u} * arguments.Stride) {
+      return std::unexpected(
+          Error{.Kind = ErrorKind::Invalid, .Message = "indexed draw sequence offsets overflow"});
+    }
+    for (size_t at = 0; at < sequence.SourceRanges.size();) {
+      if (const auto &source = sequence.SourceRanges[at]) {
+        const auto result = DrawIndexed(
+            {.State = sequence.State, .Indices = sequence.SourceIndices, .Range = *source});
+        if (!result) { return result; }
+        ++at;
+        continue;
+      }
+      size_t end = at + 1;
+      while (end < sequence.SourceRanges.size() && !sequence.SourceRanges[end]) { ++end; }
+      const auto result =
+          DrawIndexedIndirect({.State = sequence.State,
+                               .Indices = sequence.CompactedIndices,
+                               .Range = {.Data = arguments.Data,
+                                         .Offset = arguments.Offset + at * arguments.Stride,
+                                         .Count = static_cast<uint32_t>(end - at),
+                                         .Stride = arguments.Stride}});
+      if (!result) { return result; }
+      at = end;
+    }
+    return {};
   }
 
   [[nodiscard]] virtual Result<void> EndRenderPass() {

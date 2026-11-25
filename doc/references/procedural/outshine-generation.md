@@ -7,7 +7,7 @@ handle presentation, spatial storage, navigation and simulation.
 The new native implementation uses the [Python reference package](../../../lib/),
 its fixtures and independent holdouts. Compare topology, contacts, visual
 coverage, work and memory before porting. Reuse portable research data and
-algorithms. [Legacy native code and experiments](https://github.com/Weichwolf/outshine/tree/legacy/2026-11-25)
+algorithms. [Legacy native code and experiments](https://github.com/Weichwolf/outshine/tree/0932b78323ebf23016f723fdfb3fa31da2e28337)
 provide historical comparisons.
 
 | Area | Reference | Next research |

@@ -18,6 +18,11 @@
 
 namespace outshine {
 namespace {
+const Material &UrbanWall() {
+  static const auto wall = Generators::AverageHouseWallMaterial();
+  return wall;
+}
+
 double MercatorY(double latitudeDeg) {
   return kWgs84A * std::asinh(std::tan(latitudeDeg * kDeg2Rad));
 }
@@ -93,7 +98,7 @@ UrbanAreaStreaming::Publish(Group &group,
                             bool uploadAvailable) {
   const auto &key = group.Slot->ReadyKey();
   if (group.PublishedKey == key && group.ChildrenRevision == childrenRevision &&
-      (!group.Handle || Renderer_->HasPrismGrid(group.Handle))) {
+      (!group.Handle || Renderer_->HasPrism(group.Handle))) {
     return false;
   }
   const auto &product = *group.Slot->Ready();
@@ -102,7 +107,7 @@ UrbanAreaStreaming::Publish(Group &group,
   }
   auto cuts = Exclusions(*group.Area, group.Patches, children);
   if (group.PublishedKey == key && group.Exclusions == cuts &&
-      (!group.Handle || Renderer_->HasPrismGrid(group.Handle))) {
+      (!group.Handle || Renderer_->HasPrism(group.Handle))) {
     group.ChildrenRevision = childrenRevision;
     return false;
   }
@@ -116,19 +121,25 @@ UrbanAreaStreaming::Publish(Group &group,
   const auto info = InspectPrismGrid(*geometry);
   if (!info) { return std::unexpected("urban view references an invalid cached prism grid"); }
   if (info->Occupied == 0) {
-    if (group.Handle) { Renderer_->ReleasePrismGrid(group.Handle); }
+    if (group.Handle) { Renderer_->ReleasePrism(group.Handle); }
     group.Handle = {};
   } else {
     std::vector<Render::PrismInstance> instances;
     instances.reserve(views->Placements.size());
+    const auto &wall = UrbanWall().BaseColour;
+    const auto roof = Generators::BuildingRoofCoating(
+        static_cast<float>(Generators::Osm::UrbanAreaRecipe::LowRiseFraction),
+        {{wall[0], wall[1], wall[2]}});
     for (size_t index = 0; index < views->Placements.size(); ++index) {
       const auto placement = views->Placements[index];
       const auto matrix = RelativePlacement(product.Placements[placement.Patch].EcefFromLocal,
                                             view.Frame,
                                             product.Geometry.Patches[placement.Patch],
                                             placement);
-      instances.push_back(
-          {.Patch = static_cast<uint32_t>(index), .Current = matrix, .Previous = matrix});
+      instances.push_back({.Patch = static_cast<uint32_t>(index),
+                           .Current = matrix,
+                           .Previous = matrix,
+                           .TopCoating = roof});
     }
     const auto uploaded = Upload(group, geometry, instances);
     if (!uploaded || !*uploaded) { return uploaded; }
@@ -147,20 +158,14 @@ UrbanAreaStreaming::Upload(Group &group,
                            std::span<const Render::PrismInstance> instances) {
   if (!Material_) {
     Geometry materials;
-    Material surface;
-    for (size_t axis = 0; axis < 3; ++axis) {
-      surface.BaseColour[axis] = Generators::kBuildingWallColour[axis];
-    }
-    constexpr float roughness = 0.8f;
-    surface.Roughness = roughness;
-    if (!materials.addSurface("urban-shell", surface)) {
+    if (!materials.addSurface("urban-shell", UrbanWall())) {
       return std::unexpected("could not declare the urban shell material");
     }
     auto material = Renderer_->RegisterPieceMaterials(std::move(materials));
     if (!material) { return std::unexpected(material.error()); }
     Material_ = *material;
   }
-  if (Renderer_->HasPrismGrid(group.Handle)) {
+  if (Renderer_->HasPrism(group.Handle)) {
     auto replaced = Renderer_->ReplacePrismGrid(group.Handle, geometry, instances, *Material_);
     if (!replaced && replaced.error().Kind == Render::Native::ErrorKind::Busy) { return false; }
     if (!replaced) { return std::unexpected(replaced.error().Message); }

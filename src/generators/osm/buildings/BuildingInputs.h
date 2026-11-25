@@ -12,6 +12,8 @@
 
 namespace outshine::Generators::Osm {
 
+[[nodiscard]] bool HasCanopySlab(const OsmField &vectors, uint32_t tile);
+
 void PrepareBuildingInputs(const OsmField &vectors,
                            const BuildingField &prints,
                            const StreetField &streets,

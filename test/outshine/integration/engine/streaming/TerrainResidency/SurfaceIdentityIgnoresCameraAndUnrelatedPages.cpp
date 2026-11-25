@@ -3,6 +3,7 @@
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
+#include "UrbanAreaTerrainPrisms.h"
 #include "streaming/TerrainResidency.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -50,6 +51,25 @@ bool CompletePublication(TerrainResidency &terrain,
   return false;
 }
 
+auto CoarseUrbanIdentity(const TerrainResidency &terrain) {
+  constexpr uint32_t patchSide = 32;
+  constexpr uint32_t patchesPerSide = 4;
+  constexpr size_t patchCount = size_t{patchesPerSide} * patchesPerSide;
+  Generators::Osm::UrbanArea area;
+  area.Recipe = {.ProjectedPitchM = 64, .PatchSide = patchSide};
+  area.FirstCell = {35, -36};
+  area.Columns = area.Rows = patchesPerSide * patchSide;
+  std::array<Generators::Osm::UrbanPatchRange, patchCount> patches;
+  for (size_t index = 0; index < patches.size(); ++index) {
+    patches[index] = {.Column = static_cast<uint32_t>(index % patchesPerSide) * patchSide,
+                      .Row = static_cast<uint32_t>(index / patchesPerSide) * patchSide,
+                      .Columns = patchSide,
+                      .Rows = patchSide};
+  }
+  return UrbanPrismTerrainIdentity(
+      area, patches, terrain, {.PatchesMost = patches.size(), .RegionsMost = 16, .PagesMost = 8});
+}
+
 void CheckIdentity(Render::SceneRenderer &renderer) {
   TerrainResidency terrain;
   terrain.Into(&renderer);
@@ -69,7 +89,9 @@ void CheckIdentity(Render::SceneRenderer &renderer) {
   CHECK(PublishTerrain(terrain, patch, frame, error), "the complete terrain publication succeeds");
   const auto initial = terrain.SurfaceIdentity(kFocus, 2);
   const auto parent = terrain.SurfaceIdentity(kParent, 5);
+  const auto coarseUrban = CoarseUrbanIdentity(terrain);
   CHECK(initial && parent, "ancestor and descendant pages participate in the local source set");
+  CHECK(coarseUrban, "a coarse settlement group fits the terrain region budget");
   CHECK(terrain.SurfaceIdentity(kFocus, 1) == initial,
         "a covering detailed page excludes coarser ancestors that cannot supply this region");
   CHECK(terrain.SurfaceIdentity({.Zoom = 10, .X = 512, .Y = 512}, 5) == parent,
@@ -98,6 +120,8 @@ void CheckIdentity(Render::SceneRenderer &renderer) {
   CHECK(terrain.SurfaceIdentity(kFocus, 2) == initial &&
             terrain.SurfaceIdentity(kParent, 5) == parent,
         "outside content does not invalidate a local asset");
+  CHECK(CoarseUrbanIdentity(terrain) == coarseUrban,
+        "outside content does not invalidate a coarse settlement group");
   auto &changed = patch.Sheets[patch.Sheets.size() - 2];
   CHECK(changed.Tile == kFocus, "the independent fixture changes the selected child");
   changed.Nodes.assign(Render::TerrainLattice::kPageNodes, 7);
@@ -105,6 +129,8 @@ void CheckIdentity(Render::SceneRenderer &renderer) {
   CHECK(terrain.SurfaceIdentity(kFocus, 2) != initial &&
             terrain.SurfaceIdentity(kParent, 5) != parent,
         "actual local height changes invalidate child and containing-region identities");
+  CHECK(CoarseUrbanIdentity(terrain) != coarseUrban,
+        "a local height change invalidates the coarse settlement group");
   const auto changedKey = terrain.SurfaceIdentity(kFocus, 2);
   changed.Postings += 1;
   CHECK(terrain.BeginPublish(patch, error) && CompletePublication(terrain, patch, moved, error),

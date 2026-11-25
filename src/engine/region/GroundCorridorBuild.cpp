@@ -3,9 +3,13 @@
 #include "WorldRegionBuildState.h"
 #include "GroundWorldCandidate.h"
 #include "DiagnosticLedger.h"
+#include "SourceProductSelection.h"
 #include "WaterSurfaceBuilder.h"
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <format>
 #include <memory>
@@ -20,16 +24,59 @@ namespace {
 constexpr size_t kCorridorLanesPerFrame = 128;
 constexpr size_t kCorridorNodesPerFrame = 64;
 
+std::optional<std::vector<std::string>> RoofKeys(WorldRegionBuildState &state) {
+  const auto &sources = state.Candidate().Sources();
+  const auto *vectors = sources.Vectors.get();
+  std::vector<std::string> keys;
+  if (vectors == nullptr) { return keys; }
+  const int buildingLayer = vectors->Layer(Generators::Osm::OsmLayer::Buildings);
+  if (buildingLayer < 0) { return keys; }
+  const auto &prints = state.Footprints();
+  for (uint32_t index = 0; index < vectors->Tiles().size(); ++index) {
+    if (std::ranges::none_of(sources.Ways.OfTile(static_cast<int>(index)),
+                             [](const auto &way) { return way.Floor.value_or(0) > 0; }) ||
+        std::ranges::none_of(vectors->OfTile(static_cast<int>(index)), [&](const auto &feature) {
+          return feature.Type == 3 && std::cmp_equal(feature.Layer, buildingLayer);
+        })) {
+      continue;
+    }
+    const auto *accepted = prints.InputOfTile(index);
+    if (accepted == nullptr || !accepted->Qualified) {
+      if (state.Revision().Quality == GroundQuality::Refined) { return std::nullopt; }
+      continue;
+    }
+    if (accepted->Bake.PreparedAssetKey) { keys.push_back(*accepted->Bake.PreparedAssetKey); }
+  }
+  return keys;
+}
+
+std::optional<RoadPageRestoration::DisplayView> RoadDisplayView(const ViewPath &path,
+                                                                const TangentFrame &frame,
+                                                                const Render::Viewpoint &camera,
+                                                                Vec2 viewport) {
+  if (camera.Kind == Render::CameraKind::Orthographic) { return std::nullopt; }
+  const auto world = ViewPathInEcef(path, frame);
+  const double focal = viewport[1] / (2.0 * std::tan(camera.YfovRad * 0.5));
+  return RoadPageRestoration::DisplayView{.Eye = world.Start,
+                                          .ViewportPx = viewport,
+                                          .Projection = {.FocalPx = focal},
+                                          .TranslationM = world.RadiusM,
+                                          .PathEnd = world.End};
+}
+
 std::expected<void, std::string>
 AdvanceRoadPlan(EngineServices &services,
                 const Generators::Corridors::Site &site,
                 const Around &coverage,
                 WorldRegionBuildState &state,
                 const std::shared_ptr<Generators::PreparedRoadPages> &assets,
+                const std::shared_ptr<Generators::PreparedBuildingAssets> &buildings,
                 Core::DiagnosticLedger &published) {
   auto *pool = services.Compute.get();
   if (state.RoadPlanning() == nullptr) {
     if (pool == nullptr) { return std::unexpected("road planning has no worker pool"); }
+    auto roofs = buildings ? RoofKeys(state) : std::vector<std::string>{};
+    if (!roofs) { return {}; }
     const auto began = std::chrono::steady_clock::now();
     state.BeginRoadPlanning(std::make_unique<RoadPlanTask>(
         *pool,
@@ -44,7 +91,9 @@ AdvanceRoadPlan(EngineServices &services,
                             .Began = site.CensusAt,
                             .Eye = {.LongitudeDeg = site.EyeLonDeg, .LatitudeDeg = site.EyeLatDeg},
                             .SheetZoom = coverage.Zoom,
-                            .DemZoom = site.Ground->BlockZoom()}));
+                            .DemZoom = site.Ground->BlockZoom(),
+                            .Buildings = buildings,
+                            .RoofKeys = std::move(*roofs)}));
     published.RecordMetric(
         "ground candidate: corridor job admission",
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
@@ -186,8 +235,13 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
       .EyeLonDeg = coverage.LongitudeDeg,
       .Projection = build.Footprints.Projection()};
   if (!state.CorridorsPlanned()) {
-    const auto plan =
-        AdvanceRoadPlan(Services, site, coverage, state, World.Surface().RoadAssets(), Published);
+    const auto plan = AdvanceRoadPlan(Services,
+                                      site,
+                                      coverage,
+                                      state,
+                                      World.Surface().RoadAssets(),
+                                      World.Surface().BuildingAssets(),
+                                      Published);
     if (!plan) {
       Error = plan.error();
       return false;
@@ -260,14 +314,23 @@ Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
                              "bool");
     }
     const auto origin = Session.Declared.Ground.Origin;
+    const auto frame =
+        TangentFrame::At({.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg});
     auto publication = RoadGeometryPublication::Begin(
-        Picture.Device,
-        state.Candidate().Products().Roads,
-        *state.RoadManifest(),
-        TangentFrame::At({.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg}));
+        Picture.Device, state.Candidate().Products().Roads, *state.RoadManifest(), frame);
     if (!publication) {
       Error = std::move(publication.error());
       return GroundBuildProgress::Failed;
+    }
+    std::optional<RoadPageRestoration::DisplayView> display;
+    if (const auto &sweep = state.Coverage().Sweep; sweep && sweep->EyePath && Picture.Standing) {
+      const auto &camera =
+          Picture.Standing->Watched() ? Picture.Standing->Watching() : Picture.Standing->Aimed();
+      display = RoadDisplayView(*sweep->EyePath,
+                                frame,
+                                camera,
+                                {{static_cast<double>(Picture.Frame.WidthPx),
+                                  static_cast<double>(Picture.Frame.HeightPx)}});
     }
     auto restore = RoadPageRestoration::Begin(*Services.Compute,
                                               World.Surface().RoadAssets(),
@@ -276,7 +339,8 @@ Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
                                               state.SurfaceManifestKey(),
                                               CurrentGeographicEyeEcef(),
                                               RoadPageRestoration::DefaultLimits,
-                                              Services.AssetPublications());
+                                              Services.AssetPublications(),
+                                              display);
     if (!restore) {
       Error = std::move(restore.error());
       return GroundBuildProgress::Failed;
@@ -300,6 +364,9 @@ Engine::State::RestoreGroundRoadPages(WorldRegionBuildState &state) {
       "ground candidate: restored road pages", static_cast<double>(restore->Pages()), "pages");
   Published.RecordMetric("ground candidate: recovered road pages",
                          static_cast<double>(restore->RecoveredPages()),
+                         "pages");
+  Published.RecordMetric("ground candidate: road display pages",
+                         static_cast<double>(restore->DisplayPages()),
                          "pages");
   Published.RecordMetric("ground candidate: retained resident road pages",
                          static_cast<double>(publication->RetainedPages()),

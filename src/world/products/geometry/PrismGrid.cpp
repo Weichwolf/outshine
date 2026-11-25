@@ -21,9 +21,7 @@ InspectPrismPatch(const PrismPatch &patch, std::span<const PrismSpan> samples) n
     return std::unexpected(PrismGridError::InvalidFill);
   }
   const uint64_t count = uint64_t{patch.Columns} * patch.Rows;
-  if (patch.FirstSample > samples.size() || count > samples.size() - patch.FirstSample) {
-    return std::unexpected(PrismGridError::SampleRange);
-  }
+  if (!patch.Fits(samples.size())) { return std::unexpected(PrismGridError::SampleRange); }
   const double width = static_cast<double>(patch.Columns) * patch.PitchX;
   const double depth = static_cast<double>(patch.Rows) * patch.PitchZ;
   if (width > std::numeric_limits<float>::max() || depth > std::numeric_limits<float>::max()) {
@@ -40,14 +38,17 @@ InspectPrismPatch(const PrismPatch &patch, std::span<const PrismSpan> samples) n
   if (result.Depth < depth) {
     result.Depth = std::nextafter(result.Depth, std::numeric_limits<float>::infinity());
   }
-  for (const auto &cell : samples.subspan(static_cast<size_t>(patch.FirstSample), result.Samples)) {
-    if (!std::isfinite(cell.Lower) || !std::isfinite(cell.Upper)) {
-      return std::unexpected(PrismGridError::NonfiniteSample);
+  for (uint32_t row = 0; row < patch.Rows; ++row) {
+    const auto first = static_cast<size_t>(patch.FirstSample + uint64_t{row} * patch.Stride());
+    for (const auto &cell : samples.subspan(first, patch.Columns)) {
+      if (!std::isfinite(cell.Lower) || !std::isfinite(cell.Upper)) {
+        return std::unexpected(PrismGridError::NonfiniteSample);
+      }
+      if (cell.Upper <= cell.Lower) { continue; }
+      ++result.Occupied;
+      result.Lower = std::min(result.Lower, cell.Lower);
+      result.Upper = std::max(result.Upper, cell.Upper);
     }
-    if (cell.Upper <= cell.Lower) { continue; }
-    ++result.Occupied;
-    result.Lower = std::min(result.Lower, cell.Lower);
-    result.Upper = std::max(result.Upper, cell.Upper);
   }
   if (result.Occupied == 0) { result.Lower = result.Upper = 0; }
   if (static_cast<double>(result.Upper) - result.Lower > std::numeric_limits<float>::max()) {

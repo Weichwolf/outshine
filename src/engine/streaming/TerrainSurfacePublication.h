@@ -29,6 +29,9 @@ class SceneRenderer;
 class TerrainSurfacePublication {
 public:
   TerrainSurfacePublication() = default;
+
+  explicit TerrainSurfacePublication(TerrainBacking backing) noexcept : Residency_(backing) {}
+
   TerrainSurfacePublication(const TerrainSurfacePublication &other) = default;
   TerrainSurfacePublication &operator=(const TerrainSurfacePublication &) = delete;
   TerrainSurfacePublication(TerrainSurfacePublication &&) noexcept = default;

@@ -4,10 +4,22 @@
 #include "Check.h"
 #include "Geodesy.h"
 #include <algorithm>
+#include <bit>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <optional>
+
+namespace {
+bool SameVertices(std::span<const outshine::StoredVertex> left,
+                  std::span<const outshine::StoredVertex> right) {
+  using Words = std::array<uint32_t, outshine::kStoredVertexFloats>;
+  return std::ranges::equal(left, right, [](const auto &a, const auto &b) {
+    return std::bit_cast<Words>(a) == std::bit_cast<Words>(b);
+  });
+}
+}
 
 int main() {
   using namespace outshine;
@@ -49,10 +61,15 @@ int main() {
   const auto encoded = EncodeStructureArtifact(product, key);
   CHECK(encoded.has_value(), "complete product encodes");
   if (!encoded) { return Report(); }
+  constexpr size_t versionOffset = std::string_view("outshine-structure").size();
+  CHECK((*encoded)[versionOffset] == 15, "shared shell positions use the palette format");
   auto decoded = DecodeStructureArtifact(*encoded, key, 29);
   CHECK(decoded.has_value(), "product decodes under current source identity");
   if (!decoded) { return Report(); }
   CHECK(decoded->GeometryAssetKey == key, "the verified complete artifact key reaches its product");
+  CHECK(SameVertices(decoded->Built.WallCorners, product.Built.WallCorners) &&
+            SameVertices(decoded->Built.RoofCorners, product.Built.RoofCorners),
+        "palette reconstruction preserves positions, material seams and winding inputs");
   CHECK(decoded->SurfaceError && decoded->SurfaceError->Upper.SourceKey == 29 &&
             decoded->SurfaceError->Upper.ReferenceToVariantM == 0.2 &&
             decoded->SurfaceError->Upper.VariantToReferenceM == 0.3,
@@ -100,14 +117,18 @@ int main() {
         "clustered building production supplies both index orders before publication");
   const auto drawAsset = EncodeStructureArtifact(clustered, key);
   const auto drawProduct = drawAsset ? DecodeStructureArtifact(*drawAsset, key, 29) : std::nullopt;
-  CHECK(drawProduct && drawProduct->Built.WallRun.empty() && drawProduct->Built.RoofRun.empty() &&
-            std::ranges::equal(drawProduct->Walls.DrawIndices(drawProduct->Built.WallRun),
-                               clustered.Walls.Index) &&
-            std::ranges::equal(drawProduct->Roofs.DrawIndices(drawProduct->Built.RoofRun),
-                               clustered.Roofs.Index) &&
-            drawProduct->Triangles() == clustered.Triangles() &&
-            drawProduct->GeometryBytes() == clustered.GeometryBytes(),
-        "published geometry retains every draw triangle and skips redundant source order");
+  CHECK(
+      drawProduct && drawProduct->Built.WallRun.empty() && drawProduct->Built.RoofRun.empty() &&
+          std::ranges::equal(drawProduct->Walls.DrawIndices(drawProduct->Built.WallRun),
+                             clustered.Walls.Index) &&
+          std::ranges::equal(drawProduct->Roofs.DrawIndices(drawProduct->Built.RoofRun),
+                             clustered.Roofs.Index) &&
+          std::ranges::any_of(clustered.Walls.Clusters,
+                              [](const DagCluster &cluster) { return cluster.NormalCosine > 0; }) &&
+          drawProduct->Walls.Clusters == clustered.Walls.Clusters &&
+          drawProduct->Triangles() == clustered.Triangles() &&
+          drawProduct->GeometryBytes() == clustered.GeometryBytes(),
+      "published geometry retains every draw triangle and skips redundant source order");
   raw.Projection.FocalPx = 720;
   raw.RequestedDetail.reset();
   raw.RequestedCell.reset();

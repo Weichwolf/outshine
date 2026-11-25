@@ -7,9 +7,10 @@
 namespace outshine::Generators::Osm {
 
 [[nodiscard]] inline Data::SourceProvider PreferredVectorSource() {
-  const std::string revision = "20261101_080013_pt";
+  const std::string revision = "20261115_080022_pt";
   return {.Kind = "vector",
           .Revision = revision,
+          .Priority = 1,
           .Missing = Data::MissingDataPolicy::Fail,
           .Dataset = "openfreemap.openmaptiles",
           .Location = "",

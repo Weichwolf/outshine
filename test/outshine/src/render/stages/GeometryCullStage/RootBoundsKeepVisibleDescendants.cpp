@@ -1,4 +1,5 @@
 #include "BatchVisibility.h"
+#include "DirectIndexSelection.h"
 #include "Check.h"
 #include "GpuPlacement.h"
 #include "GeometryHierarchy.h"
@@ -209,6 +210,7 @@ std::unique_ptr<Buffer> HierarchyBounds(Device &device,
   const GeometryHierarchyView hierarchy{
       .RootCount = count, .ChunkCapacity = count, .WorstChunks = count, .GridWidth = 7};
   const auto pipeline = Require(device.CreateComputePipeline(Shader("geometryRootCull.comp.spv")));
+  const DirectIndexSelection direct;
   const std::array bindings{
       Storage(0, 0, *rootBuffer),
       Storage(0, 1, placements),
@@ -216,7 +218,8 @@ std::unique_ptr<Buffer> HierarchyBounds(Device &device,
       Storage(1, 1, *queueState),
       Storage(1, 2, *visible),
       Binding{.Set = 2, .Slot = 0, .Value = Uniform{std::as_bytes(std::span(&view, 1))}},
-      Binding{.Set = 2, .Slot = 1, .Value = Uniform{std::as_bytes(std::span(&hierarchy, 1))}}};
+      Binding{.Set = 2, .Slot = 1, .Value = Uniform{std::as_bytes(std::span(&hierarchy, 1))}},
+      Binding{.Set = 2, .Slot = 2, .Value = Uniform{std::as_bytes(std::span(direct.Words))}}};
   const uint32_t groups = count / 64 + uint32_t{count % 64 != 0};
   Require(commands.Dispatch(
       *pipeline,

@@ -76,6 +76,16 @@ int main() {
   const std::array<float, 9> vertices{0, 0, 0, 1, 0, 0, 0, 1, 0};
   const std::array<uint32_t, 3> triangle{0, 1, 2};
   Verify({.PositionsM = vertices, .Indices = triangle}, 1);
+  const std::array<uint32_t, 6> opposed{0, 1, 2, 0, 2, 1};
+  const auto directional = CookDirectionalClusters({.PositionsM = vertices, .Indices = opposed}, 8);
+  CHECK(directional && directional->Clusters.size() == 2 &&
+            ValidClusterRanges(directional->Clusters, opposed.size()) &&
+            std::ranges::all_of(directional->Clusters,
+                                [](const DagCluster &cluster) {
+                                  return cluster.Count == 3 && cluster.NormalCosine > 0.99f;
+                                }) &&
+            directional->Clusters[0].NormalAxis != directional->Clusters[1].NormalAxis,
+        "opposed windings retain their triangles in separately bounded facing ranges");
   const auto empty = CookClusters({}, 1);
   CHECK(empty && empty->Index.empty() && empty->Clusters.empty(),
         "an empty mesh is a valid empty result");

@@ -14,6 +14,7 @@
 #include "JobAdmission.h"
 #include "StructureBake.h"
 #include "StructureMesher.h"
+#include "ViewPath.h"
 
 namespace outshine {
 class Tasks;
@@ -81,7 +82,7 @@ public:
                        std::string requestKey = {});
   [[nodiscard]] std::optional<std::string_view> PreparedAssetKey() const noexcept;
   void UseTerrainContacts();
-  void UseIntrinsicParents(uint64_t sourceKey);
+  void UseIntrinsicParents(uint64_t sourceKey, const std::optional<ViewPath> &path);
   void UseInitialCells(std::optional<uint64_t> selected = std::nullopt);
   [[nodiscard]] uint64_t InitialCells() const noexcept;
   void SelectNextCell(uint32_t cell);

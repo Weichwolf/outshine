@@ -61,9 +61,11 @@ void FreshRequestHit(const std::string &directory,
             !(*opened)->PlanRequest({}, 2, MvtSchema::Shortbread, -1, shape, parameters),
         "invalid planned demands fail before source access");
   auto product = (*opened)->LoadRequestProduct(request);
-  auto hit = product && *product ? (*opened)->Decode(std::move(**product)) : std::nullopt;
-  CHECK(product && *product && hit && hit->Key == key && hit->Region.Terrain.Sheets.size() == 1 &&
-            hit->Region.Terrain.Sheets[0].Nodes == std::vector<float>({100, 101, 102, 103}),
+  auto hit = product && *product ? (*opened)->Restore(std::move(**product)) : std::nullopt;
+  CHECK(product && *product && hit && *hit && (**hit).Key == key &&
+            (**hit).Region.Terrain.Sheets.size() == 1 &&
+            std::ranges::equal((**hit).Region.Terrain.Sheets[0].Samples(),
+                               std::array{100.0f, 101.0f, 102.0f, 103.0f}),
         "bound demand restores native contacts before any unavailable inputs exist");
   const auto changed = (*opened)->RequestKey(3, MvtSchema::Shortbread, shape, parameters, inputs);
   const auto miss = (*opened)->LoadRequestProduct(changed);
@@ -130,8 +132,9 @@ int main() {
       *cache, key, GroundRegionBoundsEcef(region), region, water.Asset(vectors));
   CHECK(saved, "complete native region is stored under source and demand bindings");
   auto product = cache->LoadProduct(key);
-  const auto hit = product && *product ? cache->Decode(std::move(**product)) : std::nullopt;
-  CHECK(product && *product && hit && hit->Region.Terrain.Sheets == region.Terrain.Sheets,
+  const auto hit = product && *product ? cache->Restore(std::move(**product)) : std::nullopt;
+  CHECK(product && *product && hit && *hit &&
+            (**hit).Region.Terrain.Sheets == region.Terrain.Sheets,
         "a region hit loads native contact pages without a prepared street graph");
   const std::array<Ground::TileSpot, 1> inputs{{{.Zoom = 2, .X = 1, .Y = 1}}};
   const auto request =

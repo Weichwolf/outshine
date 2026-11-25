@@ -305,6 +305,7 @@ void PrintStats(std::string_view name,
   row("source_deliveries", loading.SourceDeliveries, "deliveries");
   row("source_from_store", loading.SourceFromStore, "deliveries");
   row("source_bytes", loading.SourceBytes, "bytes");
+  row("asset_package_bytes_read", loading.AssetPackageBytesRead, "bytes");
   row("used_sources", loading.Sources.size(), "sources");
   for (size_t index = 0; index < loading.Sources.size(); ++index) {
     const outshine::Loading::UsedSource &source = loading.Sources[index];

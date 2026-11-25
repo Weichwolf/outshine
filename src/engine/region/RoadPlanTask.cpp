@@ -30,6 +30,10 @@ struct RoadPlanTask::State {
       return Finish(std::unexpected("road planning cancelled"));
     }
     const auto began = std::chrono::steady_clock::now();
+    if (!Plan && In.Buildings && !In.RoofKeys.empty()) {
+      RoofDeck =
+          PrepareRoofDeckProfile(*In.Sources, *In.Buildings, In.RoofKeys, In.Frame, Stopping);
+    }
     const TriangleBvh surface;
     size_t misses = 0;
     std::optional<EastNorth> firstMiss;
@@ -57,7 +61,8 @@ struct RoadPlanTask::State {
                                .CensusAt = In.Began,
                                .EyeLatDeg = In.Eye.LatitudeDeg,
                                .EyeLonDeg = In.Eye.LongitudeDeg,
-                               .Projection = In.Projection};
+                               .Projection = In.Projection,
+                               .RoofDeck = RoofDeck};
     if (!Plan) { Plan = Corridors::Begin(site); }
     const Generators::ProfiledRoadMesher mesher;
     const auto ready = Corridors(mesher).AdvancePlan(*Plan, site, kWaysPerStep, kNodesPerStep);
@@ -92,6 +97,7 @@ struct RoadPlanTask::State {
   }
 
   Input In;
+  RoadDeckProfile RoofDeck;
   std::unique_ptr<Corridors::Job> Plan;
   std::optional<Result> Output;
   std::atomic_bool Stopping{false};

@@ -67,6 +67,17 @@ void PublishWithoutOriginals(BuildingFieldStreaming &fields,
   CHECK(after.GeometryReadBytes == before.GeometryReadBytes &&
             after.GeometryPreparations == before.GeometryPreparations,
         "the complete field-only cut performs no original payload IO or generation");
+  if (!source) { return; }
+  const auto *accepted = context.Surface.Footprints().InputOfTile(0);
+  if (accepted == nullptr) { return; }
+  const auto visible = context.Pages.Digest();
+  context.Renderer.SetShadowFrame({{0, 1, 1}}, {{0, 1, 0}}, 4096, false, 0, Vec3{});
+  CHECK(fields.Advance(context, error) && error.empty(), "shadow demand can change in place");
+  CHECK(!fields.ProductsReady({.Tile = 0, .Key = *source}) && accepted->OccupiedCells != 0 &&
+            fields.OriginalCells({.Tile = 0, .Key = *source}) == accepted->OccupiedCells,
+        "a new sun shadow can need an original even when the same near-camera field stays valid");
+  CHECK(visible != 0 && context.Pages.Digest() == visible,
+        "an unmet shadow request preserves the previously published main coverage");
 }
 
 void PrepareWithoutOriginals(BuildingFieldStreaming &fields,
@@ -91,8 +102,21 @@ void PrepareWithoutOriginals(BuildingFieldStreaming &fields,
   context.Camera.YfovRad = 1;
   context.Camera.ZNearM = .1;
   context.Camera.ZFarM = 240000;
-  const auto before = context.Surface.BuildingAssets()->Costs();
+  const auto distantEye = context.Camera.EyeM;
   std::string error;
+  CHECK(fields.Advance(context, error) && fields.Read().Pending == 1,
+        "the distant view requests a field");
+  context.Camera.EyeM = {{0, 5, 0}};
+  const auto nearbyDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  do {
+    CHECK(fields.Advance(context, error), "the field can be reconsidered after moving nearby");
+    if (!error.empty() || fields.Read().Pending == 0) { break; }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  } while (std::chrono::steady_clock::now() < nearbyDeadline);
+  CHECK(error.empty() && fields.Read().Pending == 0 && fields.Read().Ready == 0,
+        "an out-of-budget field does not become resident after moving nearby");
+  context.Camera.EyeM = distantEye;
+  const auto before = context.Surface.BuildingAssets()->Costs();
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   do {
     CHECK(fields.Advance(context, error), "field preparation proceeds without original pages");

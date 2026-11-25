@@ -45,7 +45,7 @@ std::expected<std::shared_ptr<PreparedBuildingAssets>, std::string>
 PreparedBuildingAssets::Open(std::shared_ptr<AssetCache> cache, const Data::SourceSet &sources) {
   if (!cache) { return std::unexpected("building assets require an asset store"); }
   constexpr std::array kinds{Data::DataKind::Elevation, Data::DataKind::VectorMap};
-  auto recipe = AssetSourceRecipe("prepared-building-base-12", sources, kinds);
+  auto recipe = AssetSourceRecipe("prepared-building-base-13", sources, kinds);
   if (recipe.empty()) { return std::unexpected("building source metadata cannot be encoded"); }
   auto assets = std::shared_ptr<PreparedBuildingAssets>(
       new PreparedBuildingAssets(std::move(cache), std::move(recipe)));

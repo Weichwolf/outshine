@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "HeightFieldError.h"
+#include "TileCut.h"
 #include "TileGeodesy.h"
 #include "math/RenderFrame.h"
 
@@ -193,26 +194,47 @@ struct PatchSelection {
         error.DeviationM, Detail.FocalPx, DistanceToPatch(tile, error.HeightsM, Frame, Detail));
   }
 
-  void Append(Data::TileId tile, HeightField::GridRegion region, size_t index) {
+  struct Patch {
+    Data::TileId Tile;
+    HeightField::GridRegion Region;
+    size_t Index = 0;
+  };
+
+  void Append(Data::TileId tile) {
     const auto grid = static_cast<size_t>(Layout.Side - 1);
-    if (region.Cells > grid && (ScreenError(tile, index, region, grid) > Detail.ErrorPx ||
-                                CorridorNeedsDetail(tile, Frame, Layout, Corridors))) {
-      const size_t half = region.Cells / 2u;
-      for (uint32_t child = 0; child < 4; ++child) {
-        const uint32_t column = child % 2u;
-        const uint32_t row = child / 2u;
-        Append({.Zoom = tile.Zoom + 1, .X = tile.X * 2u + column, .Y = tile.Y * 2u + row},
-               {.X = region.X + column * half, .Y = region.Y + row * half, .Cells = half},
-               index * 4u + 1u + child);
-      }
-      return;
-    }
-    Selected.push_back({.Tile = tile,
-                        .Nodes = {},
-                        .Side = Layout.Side,
-                        .Postings = static_cast<uint32_t>(Layout.Side),
-                        .Virtual = tile.Zoom > SourceZoom,
-                        .SourceZoom = SourceZoom});
+    VisitTileCut(
+        Patch{.Tile = tile, .Region = {.Cells = Cells}},
+        [&](const Patch &patch) {
+          const bool split =
+              patch.Region.Cells > grid &&
+              (ScreenError(patch.Tile, patch.Index, patch.Region, grid) > Detail.ErrorPx ||
+               CorridorNeedsDetail(patch.Tile, Frame, Layout, Corridors));
+          return split ? TileCutAction::Refine : TileCutAction::Keep;
+        },
+        [](const Patch &parent) {
+          std::array<Patch, 4> children{};
+          const size_t half = parent.Region.Cells / 2u;
+          for (uint32_t at = 0; at < children.size(); ++at) {
+            const uint32_t column = at % 2u;
+            const uint32_t row = at / 2u;
+            children[at] = {.Tile = {.Zoom = parent.Tile.Zoom + 1,
+                                     .X = parent.Tile.X * 2u + column,
+                                     .Y = parent.Tile.Y * 2u + row},
+                            .Region = {.X = parent.Region.X + column * half,
+                                       .Y = parent.Region.Y + row * half,
+                                       .Cells = half},
+                            .Index = parent.Index * 4u + 1u + at};
+          }
+          return children;
+        },
+        [&](const Patch &patch) {
+          Selected.push_back({.Tile = patch.Tile,
+                              .Nodes = {},
+                              .Side = Layout.Side,
+                              .Postings = static_cast<uint32_t>(Layout.Side),
+                              .Virtual = patch.Tile.Zoom > SourceZoom,
+                              .SourceZoom = SourceZoom});
+        });
   }
 };
 
@@ -284,7 +306,7 @@ void SelectSourcePatches(const TerrainRefinementSource &source,
                            .Corridors = corridors,
                            .Selected = selected,
                            .Reference = {}};
-  selection.Append(sheet.Tile, {.Cells = cells}, 0);
+  selection.Append(sheet.Tile);
 }
 
 std::expected<std::vector<Sheet>, std::string> UniquePatches(std::vector<Sheet> selected) {

@@ -280,7 +280,7 @@ struct PanoramicExtrema {
   }
 
   [[nodiscard]] std::expected<ImpostorPoseBounds::Error, std::string>
-  Project(const Lens &lens) const {
+  Project(const Lens &lens, double directionNorm) const {
     const auto matrix = lens.Projection();
     const auto slope = [&](size_t axis) {
       const double pixels = axis == 0 ? lens.WidePx : lens.HighPx;
@@ -288,16 +288,12 @@ struct PanoramicExtrema {
       return Divide(Add(Exact(1), Exact(guard)), Exact(matrix[axis * 5]));
     };
     const double scale = UpperNorm({Exact(1), slope(0), slope(1)});
-    Point widths;
-    for (size_t axis = 0; axis < 3; ++axis) {
-      widths[axis] = Subtract(Exact(Envelope[axis].Upper), Exact(Envelope[axis].Lower));
-    }
     const auto basisSquared = Enclose(1 - 3 * kBasisTolerance, 1 + 3 * kBasisTolerance);
     const auto basis = Enclose(std::sqrt(basisSquared.Lower), std::sqrt(basisSquared.Upper));
-    const double depth = Subtract(Multiply(Exact(basis.Lower),
-                                           Divide(Exact(MinimumDistance(Envelope)), Exact(scale))),
-                                  Multiply(Exact(basis.Upper), Exact(UpperNorm(widths))))
-                             .Lower;
+    const auto visibleDepth =
+        Multiply(Exact(basis.Lower), Divide(Exact(MinimumDistance(Envelope)), Exact(scale)));
+    const auto separation = Multiply(Multiply(Exact(Height), Exact(directionNorm)), basis);
+    const double depth = Subtract(visibleDepth, separation).Lower;
     const double near = Divide(Exact(matrix[14]), Add(Exact(1), Exact(matrix[10]))).Upper;
     const double far = matrix[10] > 0 ? Divide(Exact(matrix[14]), Exact(matrix[10])).Lower
                                       : std::numeric_limits<double>::infinity();
@@ -312,7 +308,7 @@ struct PanoramicExtrema {
                       Exact(0)};
     const auto numerator =
         Multiply(Multiply(Exact(Height), Exact(Numerator)), Exact(basisSquared.Upper));
-    const auto divisor = Multiply(Exact(depth), Exact(depth));
+    const auto divisor = Multiply(Exact(depth), Exact(visibleDepth.Lower));
     for (size_t axis = 0; axis < 2; ++axis) {
       result.AxisUpperPx[axis] = Divide(Multiply(numerator, focal[axis]), divisor).Upper;
     }
@@ -469,6 +465,6 @@ std::expected<ImpostorPoseBounds::Error, std::string> ImpostorPoseBounds::Projec
       return std::unexpected("panoramic geometric support overflow");
     }
   }
-  return extrema.Project(lens);
+  return extrema.Project(lens, UpperNorm(worldDirection));
 }
 }

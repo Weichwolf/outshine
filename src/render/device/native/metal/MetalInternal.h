@@ -276,6 +276,7 @@ public:
   Result<void> Draw(const DrawDescription &description) override;
   Result<void> DrawIndexed(const IndexedDrawDescription &description) override;
   Result<void> DrawIndexedIndirect(const IndirectDrawDescription &description) override;
+  Result<void> DrawIndexedSequence(const Native::IndexedDrawSequence &sequence) override;
   Result<void> Present(std::unique_ptr<PresentFrame> frame) override;
   void BeginLabel(std::string_view name) override;
   void EndLabel() override;

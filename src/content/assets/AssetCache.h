@@ -33,6 +33,7 @@ struct AssetQuery {
   std::span<const std::array<double, 4>> Planes;
   // nullopt selects any parent; an empty address selects roots.
   std::optional<std::string_view> Parent = std::nullopt;
+  std::optional<std::string_view> TileRevision = std::nullopt;
 };
 
 enum class AssetCacheError { InvalidInput, Storage, Busy, UnsupportedVersion, CapacityExceeded };
@@ -107,9 +108,21 @@ public:
   PublicationBufferBytes(size_t nativeBytes);
   // Busy leaves the owned package intact for a later background step.
   [[nodiscard]] std::expected<void, AssetCacheError> Publish(const PreparedAssetWrite &prepared);
+  [[nodiscard]] std::expected<void, AssetCacheError>
+  PublishBatch(std::span<const PreparedAssetWrite> packages);
 
   [[nodiscard]] std::expected<std::optional<AssetRecord>, AssetCacheError>
   Find(std::string_view key) const;
+
+  [[nodiscard]] std::expected<std::optional<AssetRecord>, AssetCacheError>
+  FindTile(std::string_view key) const;
+
+  // Keys are unique. Absent tiles are omitted; result order is unspecified.
+  [[nodiscard]] std::expected<std::vector<AssetRecord>, AssetCacheError>
+  FindTiles(std::span<const std::string_view> keys) const;
+
+  // Attach validated metadata only while the observed package is still current.
+  [[nodiscard]] std::expected<void, AssetCacheError> IndexTile(const AssetRecord &record);
 
   [[nodiscard]] std::expected<std::optional<AssetRecord>, AssetCacheError>
   FindRequest(std::string_view requestKey) const;
@@ -152,6 +165,7 @@ public:
   [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
   LoadRequest(std::string_view requestKey, size_t packageBytesMost) const;
   void UsePackage(std::string_view packageKey) const;
+  [[nodiscard]] uint64_t PackageBytesRead() const noexcept;
 
   [[nodiscard]] std::expected<std::vector<AssetRecord>, AssetCacheError>
   Select(const AssetQuery &query) const;
@@ -162,7 +176,7 @@ private:
   struct State;
   struct Publication;
   [[nodiscard]] std::expected<void, AssetCacheError>
-  PublishPrepared(const Publication &publication);
+  PublishPrepared(std::span<const Publication> publications);
   [[nodiscard]] std::expected<bool, AssetCacheError>
   BindRequest(std::string_view key,
               std::string_view requestKey,

@@ -1,4 +1,5 @@
 #include "SourceProductSelection.h"
+#include "Box.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -61,6 +62,20 @@ double Distance(const Box &bounds, const Vec3 &eye) {
   }
   return std::hypot(delta[0], delta[1], delta[2]);
 }
+
+bool ValidPanoramicProjection(const Vec2 &viewport, ProjectedErrorBudget projection) {
+  return std::isfinite(viewport[0]) && viewport[0] > 0 && std::isfinite(viewport[1]) &&
+         viewport[1] > 0 && std::isfinite(projection.FocalPx) && projection.FocalPx > 0 &&
+         std::isfinite(projection.AllowedErrorPx) && projection.AllowedErrorPx >= 0;
+}
+
+}
+
+double SourceProductSelection::GeometryErrorLimitM(double distanceLowerM,
+                                                   const Vec2 &viewportPx,
+                                                   ProjectedErrorBudget projection) {
+  if (!ValidPanoramicProjection(viewportPx, projection)) { return 0; }
+  return Envelope(viewportPx, projection.FocalPx).Limit(distanceLowerM, projection.AllowedErrorPx);
 }
 
 double SourceProductSelection::GeometryErrorLimitM(const Box &bounds,
@@ -69,16 +84,42 @@ double SourceProductSelection::GeometryErrorLimitM(const Box &bounds,
                                                    ProjectedErrorBudget projection,
                                                    double translationM) {
   const auto finite = [](double value) { return std::isfinite(value); };
-  if (bounds.Empty() || !std::ranges::all_of(bounds.Min, finite) ||
-      !std::ranges::all_of(bounds.Max, finite) || !std::ranges::all_of(eye, finite) ||
-      !std::ranges::all_of(viewportPx, finite) || viewportPx[0] <= 0 || viewportPx[1] <= 0 ||
-      !finite(projection.FocalPx) || projection.FocalPx <= 0 ||
-      !finite(projection.AllowedErrorPx) || projection.AllowedErrorPx < 0 ||
-      !finite(translationM) || translationM < 0) {
+  if (!ValidPanoramicProjection(viewportPx, projection) || !bounds.Holds(bounds.Max) ||
+      !std::ranges::all_of(bounds.Min, finite) || !std::ranges::all_of(bounds.Max, finite) ||
+      !std::ranges::all_of(eye, finite) || !finite(translationM) || translationM < 0) {
     return 0;
   }
   return Envelope(viewportPx, projection.FocalPx)
       .Limit(std::max(0.0, Distance(bounds, eye) - translationM), projection.AllowedErrorPx);
+}
+
+double SourceProductSelection::GeometryErrorLimitM(const Box &bounds,
+                                                   const ViewPath &path,
+                                                   const Vec2 &viewportPx,
+                                                   ProjectedErrorBudget projection) {
+  if (!ValidPanoramicProjection(viewportPx, projection)) { return 0; }
+  return Envelope(viewportPx, projection.FocalPx)
+      .Limit(path.DistanceBelow(bounds), projection.AllowedErrorPx);
+}
+
+double SourceProductSelection::ProjectedSupportLimitM(const Box &bounds,
+                                                      const ViewPath &path,
+                                                      const Vec2 &viewportPx,
+                                                      double focalPx,
+                                                      double supportPx) {
+  if (!ValidPanoramicProjection(viewportPx, {.FocalPx = focalPx, .AllowedErrorPx = supportPx})) {
+    return 0;
+  }
+  const double distance = path.DistanceBelow(bounds);
+  if (distance <= 0 || !std::isfinite(distance)) { return 0; }
+  const auto upper = [](double value) {
+    return std::nextafter(value, std::numeric_limits<double>::infinity());
+  };
+  const double tx = upper(upper(viewportPx[0] * 0.5) / focalPx);
+  const double ty = upper(upper(viewportPx[1] * 0.5) / focalPx);
+  const double denominator = upper(focalPx * upper(upper(1.0 + upper(tx * tx)) + upper(ty * ty)));
+  const double limit = std::nextafter(std::nextafter(supportPx / denominator, 0.0) * distance, 0.0);
+  return std::isfinite(limit) ? limit : 0.0;
 }
 
 std::expected<SourceProductSelection::Cut, SourceProductSelectionError>
@@ -89,10 +130,8 @@ SourceProductSelection::SelectGeometry(const Vec3 &eye,
                                        bool cohortGroups) const {
   const auto finite = [](double x) { return std::isfinite(x); };
   if (!Hierarchy_ || !std::ranges::all_of(eye, finite) ||
-      !std::ranges::all_of(viewportPx, finite) || viewportPx[0] <= 0 || viewportPx[1] <= 0 ||
-      !finite(projection.FocalPx) || projection.FocalPx <= 0 ||
-      !finite(projection.AllowedErrorPx) || projection.AllowedErrorPx < 0 ||
-      !finite(translationM) || translationM < 0) {
+      !ValidPanoramicProjection(viewportPx, projection) || !finite(translationM) ||
+      translationM < 0) {
     return std::unexpected(SourceProductSelectionError::InvalidInput);
   }
   const PanoramicError envelope = Envelope(viewportPx, projection.FocalPx);

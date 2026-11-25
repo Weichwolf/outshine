@@ -11,8 +11,12 @@ int main() {
   const std::array partial{PrismCellRect{.Right = 1, .Bottom = 4096}};
   auto views = ExcludePrismCells(
       source, partial, {.InputRecordsMost = 2, .ViewsMost = 64, .IntersectionTestsMost = 3});
-  CHECK(!views && views.error() == PrismViewError::OverBudget,
-        "a narrow tall window refuses its required 4096 records before enumerating rows");
+  CHECK(views && views->Geometry.Patches.size() == 1 && views->Geometry.Samples == source.Samples &&
+            views->Geometry.Patches[0].Rows == 4096 && views->Geometry.Patches[0].Stride() == 2,
+        "a tall narrow window retains the original sample stride in one shared rectangle");
+  CHECK(!ExcludePrismCells(
+            source, partial, {.InputRecordsMost = 2, .ViewsMost = 0, .IntersectionTestsMost = 3}),
+        "the remaining rectangle still needs one view slot");
   const std::array full{PrismCellRect{.Right = 2, .Bottom = 4096}};
   views = ExcludePrismCells(
       source, full, {.InputRecordsMost = 2, .ViewsMost = 0, .IntersectionTestsMost = 3});

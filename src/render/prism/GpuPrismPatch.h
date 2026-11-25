@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_PRISM_GPUPRISMPATCH_H
 #define OUTSHINE_RENDER_PRISM_GPUPRISMPATCH_H
 
+#include "Box.h"
 #include "Mat4.h"
 #include <array>
 #include <cstddef>
@@ -15,9 +16,16 @@ struct alignas(16) GpuPrismPatch {
   Mat4f Previous;
   std::array<uint32_t, 4> Samples{};
   std::array<float, 4> Shape{};
-  std::array<float, 4> Bounds{};
+  std::array<float, 3> Bounds{};
+  uint32_t TopCoating = 0;
 
   [[nodiscard]] bool operator==(const GpuPrismPatch &) const = default;
+
+  [[nodiscard]] Boxf LocalBounds() const noexcept {
+    const Vec3f lower =
+        Samples[3] == 1 ? Vec3f{{Shape[0], Shape[1], Shape[2]}} : Vec3f{{0, Shape[3], 0}};
+    return {.Min = lower, .Max = {{Bounds[1], Bounds[0], Bounds[2]}}};
+  }
 };
 
 static_assert(std::is_standard_layout_v<GpuPrismPatch>);
@@ -28,6 +36,8 @@ static_assert(offsetof(GpuPrismPatch, Previous) == 64);
 static_assert(offsetof(GpuPrismPatch, Samples) == 128);
 static_assert(offsetof(GpuPrismPatch, Shape) == 128 + 16);
 static_assert(offsetof(GpuPrismPatch, Bounds) == 128 + 2 * 16);
+static_assert(offsetof(GpuPrismPatch, TopCoating) ==
+              offsetof(GpuPrismPatch, Bounds) + sizeof(GpuPrismPatch::Bounds));
 
 struct alignas(16) PrismDepthView {
   Mat4f ClipFromWorld;

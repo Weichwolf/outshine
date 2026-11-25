@@ -6,6 +6,30 @@ float projectedError(float error, vec3 centre, float radius) {
   return error * view.errorPerMetre / away;
 }
 
+bool oppositeCone(mat4 model, vec4 sphere, vec2 cone, vec3 relativeCentre, float widest) {
+  vec3 perspective = vec3(view.clip[0].w, view.clip[1].w, view.clip[2].w);
+  if (cone.y <= 0.0 || widest > 1.01 || all(equal(perspective, vec3(0.0)))) { return false; }
+  mat3 linear = mat3(model);
+  float det = determinant(linear);
+  if (det < 0.99 || det > 1.01) { return false; }
+  vec3 dir = inverse(linear) * -relativeCentre;
+  uint packed = uint(cone.x);
+  uvec2 qr = uvec2(packed >> 12u, packed & 4095u);
+  vec2 fold = vec2(qr) * (2.0 / 4095.0) - 1.0;
+  vec3 axis = vec3(fold, 1.0 - abs(fold.x) - abs(fold.y));
+  if (axis.z < 0.0) {
+    axis.xy = (1.0 - abs(axis.yx)) *
+              mix(vec2(-1.0), vec2(1.0), greaterThanEqual(axis.xy, vec2(0.0)));
+  }
+  axis = normalize(axis);
+  float along = dot(dir, axis);
+  if (along >= 0.0) { return false; }
+  float lateral = length(cross(dir, axis));
+  float sine = sqrt(max(0.0, 1.0 - cone.y * cone.y));
+  float guard = 4.0e-5 * (length(dir) + sphere.w + length(model[3].xyz) + length(view.shift.xyz) + 1.0);
+  return along * cone.y + lateral * sine + sphere.w + guard < 0.0;
+}
+
 uint geometryClusterCount(mat4 model, uint sphereIndex, uint indexCount) {
   const vec4 sphere = spheres[sphereIndex * kClusterFloat4s];
   const vec4 parent = spheres[sphereIndex * kClusterFloat4s + 1u];
@@ -18,6 +42,7 @@ uint geometryClusterCount(mat4 model, uint sphereIndex, uint indexCount) {
   }
   const vec3 centre = worldSphere.xyz;
   const float radius = worldSphere.w;
+  if (oppositeCone(model, sphere, errs.zw, centre, widest)) { return 0u; }
 
   for (uint at = 0u; at < 6u; ++at) {
     const vec4 plane = view.planes[at];

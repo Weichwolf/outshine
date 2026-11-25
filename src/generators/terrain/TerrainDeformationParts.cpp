@@ -19,7 +19,7 @@ constexpr size_t kHeaderMost = 512;
 
 size_t TerrainDeformationHeap(std::span<const Sheet> pages) noexcept {
   size_t bytes = pages.size() * sizeof(Sheet);
-  for (const Sheet &page : pages) { bytes += page.Nodes.size() * sizeof(float); }
+  for (const Sheet &page : pages) { bytes += page.Samples().size_bytes(); }
   return bytes;
 }
 
@@ -29,11 +29,11 @@ std::optional<std::vector<uint32_t>> TerrainDeformationPageCounts(std::span<cons
   size_t bytes = kHeaderMost;
   uint32_t count = 0;
   for (const Sheet &page : pages) {
-    if (page.Nodes.size() >
+    if (page.Samples().size() >
         (kTerrainDeformationBytesMost - kHeaderMost - sizeof(Sheet)) / sizeof(float)) {
       return std::nullopt;
     }
-    const size_t held = sizeof(Sheet) + page.Nodes.size() * sizeof(float);
+    const size_t held = sizeof(Sheet) + page.Samples().size_bytes();
     if (held > kTerrainDeformationBytesMost - bytes) {
       counts.push_back(count);
       count = 0;

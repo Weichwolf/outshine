@@ -1,5 +1,6 @@
 #include "StructureArtifact.h"
 #include "StructureBinary.h"
+#include "StructurePositionPalette.h"
 #include "BuildingFootprintFields.h"
 #include "Sha256.h"
 #include <algorithm>
@@ -24,7 +25,9 @@ static_assert(sizeof(size_t) == sizeof(uint64_t));
 constexpr uint32_t kPreviousVersion = 10;
 constexpr uint32_t kCeilingVersion = 11;
 constexpr uint32_t kPartVersion = 12;
-constexpr uint32_t kVersion = 13;
+constexpr uint32_t kDirectionalVersion = 14;
+constexpr uint32_t kPositionVersion = 15;
+constexpr uint32_t kPackedNormalMaximum = 0x00ffffffu;
 constexpr size_t kHashBytes = 64;
 constexpr size_t kMostBytes = kStructureArtifactBytesMost;
 constexpr std::string_view kMagic = "outshine-structure";
@@ -44,7 +47,10 @@ constexpr auto vertex = [](auto &archive, auto &value) {
   return archive.Number(value.texture[0]) && archive.Number(value.texture[1]) &&
          archive.Number(value.normWord);
 };
-constexpr auto cluster = [](auto &archive, auto &value) {
+constexpr auto vertexLists = [](auto &archive, auto &geometry) {
+  return archive.List(geometry.WallCorners, vertex) && archive.List(geometry.RoofCorners, vertex);
+};
+constexpr auto cluster = [](auto &archive, auto &value, bool directions) {
   for (size_t i = 0; i < 3; ++i) {
     if (!archive.Number(value.SelfCenter[i]) || !archive.Number(value.ParentCenter[i])) {
       return false;
@@ -52,7 +58,9 @@ constexpr auto cluster = [](auto &archive, auto &value) {
   }
   return archive.Number(value.SelfRadius) && archive.Number(value.ParentRadius) &&
          archive.Number(value.SelfErr) && archive.Number(value.ParentErr) &&
-         archive.Number(value.First) && archive.Number(value.Count) && archive.Number(value.Level);
+         archive.Number(value.First) && archive.Number(value.Count) &&
+         archive.Number(value.Level) &&
+         (!directions || (archive.Number(value.NormalAxis) && archive.Number(value.NormalCosine)));
 };
 
 constexpr auto surface = [](auto &archive, auto &value) {
@@ -86,13 +94,14 @@ bool OriginalIndices(Reader &archive, BakedTile &tile) {
 }
 
 template <typename Archive, typename Tile>
-bool Product(Archive &archive, Tile &tile, bool terrainFields = true, bool partFields = true) {
-  if (!archive.List(tile.Built.WallCorners, vertex) ||
-      !archive.List(tile.Built.RoofCorners, vertex) || !OriginalIndices(archive, tile) ||
-      !archive.List(tile.Walls.Clusters, cluster) ||
+bool Product(Archive &archive, Tile &tile, uint32_t version) {
+  const auto writeCluster = [version](auto &held, auto &value) {
+    return cluster(held, value, version >= kDirectionalVersion);
+  };
+  if (!OriginalIndices(archive, tile) || !archive.List(tile.Walls.Clusters, writeCluster) ||
       !archive.List(tile.Built.WallColours, scalar) ||
       !archive.List(tile.Built.WallMaterialM, scalar) || !archive.List(tile.Walls.Index, scalar) ||
-      !archive.List(tile.Roofs.Clusters, cluster) || !archive.List(tile.Roofs.Index, scalar) ||
+      !archive.List(tile.Roofs.Clusters, writeCluster) || !archive.List(tile.Roofs.Index, scalar) ||
       !archive.Number(tile.Digest) || !archive.Number(tile.FallbackHeights) ||
       !archive.Maybe(tile.SelectedView,
                      [](auto &held, auto &view) { return SelectionView(held, view); }) ||
@@ -110,9 +119,9 @@ bool Product(Archive &archive, Tile &tile, bool terrainFields = true, bool partF
     if (!archive.Number(error)) { return false; }
   }
   return archive.List(tile.Prints,
-                      [terrainFields, partFields](auto &held, auto &print) {
+                      [version](auto &held, auto &print) {
                         return StructureBinary::FootprintFields(
-                            held, print, terrainFields, partFields);
+                            held, print, version >= kCeilingVersion, version >= kPartVersion);
                       }) &&
          archive.List(tile.FootprintDetails, scalar) && archive.List(tile.SeatSpreadM, scalar) &&
          archive.List(tile.AcrossM, scalar) && archive.Number(tile.OsmHeights) &&
@@ -131,13 +140,15 @@ bool MeshValid(const std::vector<StoredVertex> &vertices,
       !std::ranges::all_of(indices, validIndex) || !std::ranges::all_of(mesh.Index, validIndex)) {
     return false;
   }
-  if (indices.empty() && !mesh.Index.empty()) {
-    return ValidClusterRanges(mesh.Clusters, mesh.Index.size());
+  if (indices.empty() && !mesh.Index.empty() &&
+      !ValidClusterRanges(mesh.Clusters, mesh.Index.size())) {
+    return false;
   }
   return std::ranges::all_of(mesh.Clusters, [&](const DagCluster &item) {
     return item.First <= mesh.Index.size() && item.Count <= mesh.Index.size() - item.First &&
            item.Count % 3 == 0 && item.SelfRadius >= 0 && item.ParentRadius >= 0 &&
-           item.SelfErr >= 0 && item.ParentErr >= 0;
+           item.SelfErr >= 0 && item.ParentErr >= 0 && item.NormalAxis <= kPackedNormalMaximum &&
+           item.NormalCosine >= 0 && item.NormalCosine <= 1;
   });
 }
 
@@ -208,11 +219,16 @@ std::expected<std::vector<uint8_t>, StructureArtifactError>
 EncodeStructureArtifact(const BakedTile &tile, std::string_view inputKey) {
   if (!KeyValid(inputKey)) { return std::unexpected(StructureArtifactError::InvalidKey); }
   if (!Valid(tile)) { return std::unexpected(StructureArtifactError::InvalidProduct); }
+  const auto palette = tile.RequestedDetail == LevelOfDetail::Shell
+                           ? StructureBinary::PositionPalette::Make(tile.Built)
+                           : std::nullopt;
+  const auto version = palette ? kPositionVersion : kDirectionalVersion;
   Writer writer;
   writer.Bytes.insert(writer.Bytes.end(), kMagic.begin(), kMagic.end());
-  if (!writer.Number(kVersion)) { return std::unexpected(writer.Failure); }
+  if (!writer.Number(version)) { return std::unexpected(writer.Failure); }
   writer.Bytes.insert(writer.Bytes.end(), inputKey.begin(), inputKey.end());
-  if (!Product(writer, tile) || writer.Bytes.size() > kMostBytes - kHashBytes) {
+  if (!(palette ? palette->Write(writer, tile.Built) : vertexLists(writer, tile.Built)) ||
+      !Product(writer, tile, version) || writer.Bytes.size() > kMostBytes - kHashBytes) {
     return std::unexpected(writer.Failure);
   }
   const auto checksum = Sha256Hex(writer.Bytes.data(), writer.Bytes.size());
@@ -223,7 +239,7 @@ EncodeStructureArtifact(const BakedTile &tile, std::string_view inputKey) {
 std::optional<BakedTile> DecodeStructureArtifact(std::span<const uint8_t> bytes,
                                                  std::string_view inputKey,
                                                  uint64_t currentSourceKey) {
-  const size_t header = kMagic.size() + sizeof(kVersion) + kHashBytes;
+  const size_t header = kMagic.size() + sizeof(uint32_t) + kHashBytes;
   if (!KeyValid(inputKey) || bytes.size() > kMostBytes || bytes.size() < header + kHashBytes ||
       !std::equal(kMagic.begin(), kMagic.end(), bytes.begin())) {
     return std::nullopt;
@@ -235,16 +251,16 @@ std::optional<BakedTile> DecodeStructureArtifact(std::span<const uint8_t> bytes,
   }
   Reader reader(payload.subspan(kMagic.size()));
   uint32_t version = 0;
-  if (!reader.Number(version) ||
-      (version != kVersion && version != kPartVersion && version != kCeilingVersion &&
-       version != kPreviousVersion) ||
+  if (!reader.Number(version) || version < kPreviousVersion || version > kPositionVersion ||
       !std::equal(inputKey.begin(), inputKey.end(), reader.Bytes.begin())) {
     return std::nullopt;
   }
   reader.Bytes = reader.Bytes.subspan(kHashBytes);
   BakedTile tile;
-  if (!Product(reader, tile, version >= kCeilingVersion, version >= kPartVersion) ||
-      !reader.Bytes.empty() || !Valid(tile)) {
+  const bool positions = version == kPositionVersion
+                             ? StructureBinary::PositionPalette::Read(reader, tile.Built)
+                             : vertexLists(reader, tile.Built);
+  if (!positions || !Product(reader, tile, version) || !reader.Bytes.empty() || !Valid(tile)) {
     return std::nullopt;
   }
   if (tile.SurfaceError) {

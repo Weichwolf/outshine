@@ -186,18 +186,21 @@ inline std::optional<BatchSphere> WorldSphereOf(const std::optional<BatchSphere>
 
 class BatchFrustum {
 public:
-  BatchFrustum(const FrameContext &frame, const Vec3 &anchor) {
+  BatchFrustum(const FrameContext &frame, const Vec3 &anchor)
+      : BatchFrustum(frame.Mvp, frame.PreViewTranslation, anchor) {}
+
+  BatchFrustum(const Mat4f &clip, const Vec3 &translation, const Vec3 &anchor) {
     for (size_t axis = 0; axis < 3; ++axis) {
-      Shift_[axis] = static_cast<float>(anchor[axis] + frame.PreViewTranslation[axis]);
+      Shift_[axis] = static_cast<float>(anchor[axis] + translation[axis]);
       Valid_ &= NormalOrZero(Shift_[axis]);
     }
     for (size_t side = 0; side < Planes_.size(); ++side) {
       auto &plane = Planes_[side];
       const double sign = side % 2 == 0 ? 1 : -1;
       for (size_t column = 0; column < 4; ++column) {
-        const double a = frame.Mvp.At(3, column);
-        const double b = frame.Mvp.At(side / 2, column);
-        Valid_ &= NormalOrZero(a) && NormalOrZero(b);
+        const double a = side == 4 ? 0.0 : clip.At(3, column);
+        const double b = clip.At(side / 2, column);
+        if (side < 4) { Valid_ &= NormalOrZero(a) && NormalOrZero(b); }
         plane.Equation[column] = a + sign * b;
         plane.Error[column] = std::abs(a) + std::abs(b);
       }
@@ -206,23 +209,23 @@ public:
   }
 
   [[nodiscard]] bool Outside(const std::optional<BatchSphere> &sphere) const {
-    if (!Valid_ || !sphere || (*sphere)[3] < 0 || !std::ranges::all_of(*sphere, NormalOrZero)) {
-      return false;
-    }
-    constexpr double kGuard = 32 * std::numeric_limits<float>::epsilon();
+    if (!sphere || !Valid(*sphere)) { return false; }
     bool outside = false;
-    for (const auto &plane : Planes_) {
-      double maximum = plane.Equation[3] + (*sphere)[3] * plane.Scale;
-      double uncertainty = plane.Error[3] + 1;
-      for (size_t axis = 0; axis < 3; ++axis) {
-        maximum += plane.Equation[axis] * ((*sphere)[axis] + Shift_[axis]);
-        uncertainty +=
-            plane.Error[axis] * (std::abs((*sphere)[axis]) + (*sphere)[3] + std::abs(Shift_[axis]));
-      }
-      if (uncertainty > std::numeric_limits<float>::max()) { return false; }
-      outside |= maximum < -kGuard * uncertainty;
+    for (const auto &plane : std::span(Planes_).first<4>()) {
+      const double bound = PlaneBound(plane, *sphere, 1.0);
+      if (!std::isfinite(bound)) { return false; }
+      outside |= bound < 0.0;
     }
     return outside;
+  }
+
+  [[nodiscard]] bool Contains(const std::optional<BatchSphere> &sphere) const {
+    if (!sphere || !Valid(*sphere)) { return false; }
+    const auto &bounds = *sphere;
+    return std::ranges::all_of(Planes_, [&](const Plane &plane) {
+      const double bound = PlaneBound(plane, bounds, -1.0);
+      return std::isfinite(bound) && bound > 0.0;
+    });
   }
 
 private:
@@ -231,7 +234,27 @@ private:
     double Scale = 0;
   };
 
-  std::array<Plane, 4> Planes_{};
+  [[nodiscard]] bool Valid(const BatchSphere &sphere) const {
+    return Valid_ && sphere[3] >= 0 && std::ranges::all_of(sphere, NormalOrZero);
+  }
+
+  [[nodiscard]] double
+  PlaneBound(const Plane &plane, const BatchSphere &sphere, double side) const {
+    constexpr double kGuard = 32 * std::numeric_limits<float>::epsilon();
+    double distance = plane.Equation[3];
+    double uncertainty = plane.Error[3] + 1;
+    for (size_t axis = 0; axis < 3; ++axis) {
+      distance += plane.Equation[axis] * (sphere[axis] + Shift_[axis]);
+      uncertainty +=
+          plane.Error[axis] * (std::abs(sphere[axis]) + sphere[3] + std::abs(Shift_[axis]));
+    }
+    if (uncertainty > std::numeric_limits<float>::max()) {
+      return std::numeric_limits<double>::quiet_NaN();
+    }
+    return distance + side * (sphere[3] * plane.Scale + kGuard * uncertainty);
+  }
+
+  std::array<Plane, 6> Planes_{};
   std::array<double, 3> Shift_{};
   bool Valid_ = true;
 };

@@ -1,5 +1,6 @@
 #ifndef OUTSHINE_GENERATORS_BUILDING_PREPAREDBUILDINGASSETS_H
 #define OUTSHINE_GENERATORS_BUILDING_PREPAREDBUILDINGASSETS_H
+#include "BuildingShadowCell.h"
 
 #include "AssetCache.h"
 #include "PreparedStructureTile.h"
@@ -8,6 +9,7 @@
 #include "Box.h"
 #include <cstddef>
 #include "TilePool.h"
+#include "ViewPath.h"
 #include <atomic>
 #include <expected>
 #include <memory>
@@ -108,6 +110,9 @@ public:
   BindBasisRequestIfUnbound(const std::string &key, const std::string &requestKey);
   [[nodiscard]] std::expected<void, StructureBakeError> InvalidateBasis(const std::string &key);
   [[nodiscard]] std::expected<Base, StructureBakeError> Load(const std::string &key);
+
+  [[nodiscard]] std::string_view Recipe() const noexcept { return Recipe_; }
+
   // Worker-only. A stored hierarchy needs neither the prepared headers nor form blocks.
   [[nodiscard]] std::expected<std::shared_ptr<const PageIndexAsset>, StructureBakeError>
   ResolveSourceIndex(const std::string &key, size_t bytesMost);
@@ -165,6 +170,10 @@ public:
                uint64_t sourceKey = 0);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError> LoadGeometry(
       const std::string &baseKey, Basis basis, const RawTile &view, uint64_t sourceKey = 0);
+  [[nodiscard]] bool RejectsCachedShell(const std::string &baseKey,
+                                        const RawTile &view,
+                                        uint64_t sourceKey,
+                                        const std::optional<ViewPath> &path = std::nullopt) const;
   [[nodiscard]] std::expected<ProductWrite, StructureBakeError>
   PrepareGeometry(const std::string &baseKey,
                   const PreparedStructureTile &base,
@@ -176,6 +185,8 @@ public:
   LoadTerrainContacts(const std::string &baseKey, const PreparedStructureTile &base);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
   LoadTerrainContacts(const std::string &baseKey, Basis basis);
+  [[nodiscard]] std::optional<BuildingShadowCell>
+  LoadShadowCell(const std::string &baseKey, uint32_t cell, BuildingShadowCell::ReadCost &cost);
   [[nodiscard]] std::expected<ProductWrite, StructureBakeError> PrepareTerrainContacts(
       const std::string &baseKey, const PreparedStructureTile &base, const BakedTile &tile);
   [[nodiscard]] Counters Costs() const noexcept;
@@ -198,6 +209,9 @@ private:
   LoadCachedBasis(const std::string &key, const std::string &requestKey);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError> LoadGeometryArtifact(
       const std::string &baseKey, uint64_t sourceKey, const RawTile &view, size_t coordinatePoints);
+  [[nodiscard]] std::optional<AssetTile>
+  GeometryManifest(const std::string &baseKey, const RawTile &view, const BakedTile &tile) const;
+  void IndexGeometryManifest(const AssetRecord &record, const RawTile &view, const BakedTile &tile);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
   LoadContactArtifact(const std::string &baseKey,
                       std::span<const double> coordinates,

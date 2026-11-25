@@ -2,6 +2,7 @@
 #ifndef OUTSHINE_ENGINE_GROUNDPUBLICATION_H
 #define OUTSHINE_ENGINE_GROUNDPUBLICATION_H
 
+#include "Extent.h"
 #include <array>
 #include <compare>
 #include <cstddef>
@@ -31,6 +32,7 @@ struct GroundRevision {
   size_t StreetTiles = 0;
   size_t WaterTiles = 0;
   std::array<double, 3> Projection{};
+  Extent Viewport{};
   GroundCoverage Coverage;
   GroundQuality Quality = GroundQuality::Refined;
 
@@ -44,7 +46,8 @@ struct GroundRevision {
     difference |= Footprints != requested.Footprints ? 1u << 2u : 0u;
     difference |= StreetTiles != requested.StreetTiles ? 1u << 3u : 0u;
     difference |= WaterTiles != requested.WaterTiles ? 1u << 4u : 0u;
-    difference |= Projection != requested.Projection ? 1u << 5u : 0u;
+    difference |=
+        (Projection != requested.Projection || Viewport != requested.Viewport) ? 1u << 5u : 0u;
     difference |= Coverage != requested.Coverage ? 1u << 6u : 0u;
     difference |= Quality != requested.Quality ? 1u << 7u : 0u;
     difference |= VectorGeneration != requested.VectorGeneration ? 1u << 8u : 0u;
@@ -75,7 +78,8 @@ public:
            Current_->StreetTiles != requested.StreetTiles ||
            Current_->WaterTiles != requested.WaterTiles ||
            Current_->Projection != requested.Projection ||
-           Current_->Coverage != requested.Coverage || Current_->Quality < requested.Quality ||
+           Current_->Viewport != requested.Viewport || Current_->Coverage != requested.Coverage ||
+           Current_->Quality < requested.Quality ||
            (includeResidency &&
             (Current_->ResidentTiles != requested.ResidentTiles || missingRims));
   }

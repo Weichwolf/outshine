@@ -1,5 +1,6 @@
 #include "ShapedGround.h"
 #include "PreparedGroundRegions.h"
+#include "GroundTerrainPacks.h"
 #include "AssetSourceRecipe.h"
 #include "BinaryValueArchive.h"
 #include "Sha256.h"
@@ -25,6 +26,8 @@ namespace outshine::Generators::Osm {
 namespace {
 constexpr size_t kRequestBytesMost = size_t{4} * 1024u * 1024u;
 constexpr uint64_t kPackageVersion = 0x35524e474fULL;
+constexpr uint64_t kTerrainPacksVersion = 0x36524e474fULL;
+constexpr uint64_t kTerrainParentsVersion = 0x37524e474fULL;
 
 bool ShapeValues(BinaryValueWriter &out, const ::outshine::Ground::ShapedGround &shape) {
   return out.Text(shape.Kind) && out(shape.AmplitudeM,
@@ -37,12 +40,15 @@ bool ShapeValues(BinaryValueWriter &out, const ::outshine::Ground::ShapedGround 
 }
 
 std::expected<PreparedGroundRegions::Loaded, std::string>
-DecodePackage(std::span<const uint8_t> bytes) {
+DecodePackage(std::span<const uint8_t> bytes, GroundTerrainManifest &terrain) {
   BinaryValueReader in(bytes);
   uint64_t version = 0;
   uint64_t groundSize = 0;
   uint64_t waterSize = 0;
-  if (!in(version, groundSize) || version != kPackageVersion || groundSize > in.In.Remaining()) {
+  if (!in(version, groundSize) ||
+      (version != kPackageVersion && version != kTerrainPacksVersion &&
+       version != kTerrainParentsVersion) ||
+      groundSize > in.In.Remaining()) {
     return std::unexpected("invalid native region package header");
   }
   const auto groundBytes = in.In.Take(static_cast<size_t>(groundSize));
@@ -54,6 +60,10 @@ DecodePackage(std::span<const uint8_t> bytes) {
   const auto waterBytes = in.In.Take(static_cast<size_t>(waterSize));
   if (!waterBytes) { return std::unexpected("invalid native region water range"); }
   auto water = WaterAsset::DecodeNative(*waterBytes);
+  if (version != kPackageVersion &&
+      (!region->Terrain.Sheets.empty() || !terrain.Read(in, version == kTerrainParentsVersion))) {
+    return std::unexpected("invalid native region terrain manifest");
+  }
   if (!water || !water->SurfacesReady() || in.In.Remaining() != 0) {
     return std::unexpected("invalid native region water inputs");
   }
@@ -63,13 +73,18 @@ DecodePackage(std::span<const uint8_t> bytes) {
                                        .Key = {}};
 }
 
-std::expected<std::vector<uint8_t>, std::string>
-Encode(const GroundRegionAsset &region, const WaterAsset &water, size_t bytesMost) {
+std::expected<std::vector<uint8_t>, std::string> Encode(const GroundRegionAsset &region,
+                                                        const WaterAsset &water,
+                                                        const GroundTerrainManifest &terrain,
+                                                        size_t bytesMost) {
   if (!water.SurfacesReady()) {
     return std::unexpected("native region water surfaces are not prepared");
   }
   BinaryValueWriter out(bytesMost);
-  if (!out(kPackageVersion, uint64_t{0}) || !EncodeGroundRegionAsset(region, out)) {
+  const bool packed = terrain.Sheets != 0;
+  const auto inlineSheets = packed ? std::span<const Sheet>{} : std::span(region.Terrain.Sheets);
+  if (!out(packed ? kTerrainParentsVersion : kPackageVersion, uint64_t{0}) ||
+      !EncodeGroundRegionAsset(region, inlineSheets, out)) {
     return std::unexpected("native region products cannot be encoded");
   }
   const size_t waterLengthAt = out.Out.Bytes().size();
@@ -81,12 +96,17 @@ Encode(const GroundRegionAsset &region, const WaterAsset &water, size_t bytesMos
           static_cast<uint64_t>(out.Out.Bytes().size() - waterLengthAt - sizeof(uint64_t)))) {
     return std::unexpected("native region package exceeds its budget");
   }
+  if (packed && !terrain.Write(out)) {
+    return std::unexpected("native region terrain manifest exceeds its budget");
+  }
   return std::move(out.Out).TakeBytes();
 }
 }
 
 PreparedGroundRegions::PreparedGroundRegions(std::shared_ptr<AssetCache> cache, std::string recipe)
-    : Cache_(std::move(cache)), Recipe_(std::move(recipe)) {
+    : Cache_(std::move(cache)),
+      TerrainPacks_(std::make_unique<GroundTerrainPackReader>()),
+      Recipe_(std::move(recipe)) {
   BinaryValueWriter prefix(kRequestBytesMost);
   if (!prefix.Text("native-ground-region-demand-2") || !prefix.Text(Recipe_)) { return; }
   const auto bytes = prefix.Out.Bytes();
@@ -94,11 +114,13 @@ PreparedGroundRegions::PreparedGroundRegions(std::shared_ptr<AssetCache> cache, 
   RequestPrefixBytes_ = bytes.size();
 }
 
+PreparedGroundRegions::~PreparedGroundRegions() = default;
+
 std::expected<std::shared_ptr<PreparedGroundRegions>, std::string> PreparedGroundRegions::Open(
     std::shared_ptr<AssetCache> cache, const Data::SourceSet &sources, std::string_view rules) {
   if (!cache) { return std::unexpected("ground regions require an asset store"); }
   auto recipe = Generators::AssetSourceRecipe(
-      "prepared-ground-region-104",
+      "prepared-ground-region-108",
       sources,
       std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap});
   if (recipe.empty()) { return std::unexpected("ground source metadata cannot be encoded"); }
@@ -144,11 +166,33 @@ PreparedGroundRegions::ReadResult PreparedGroundRegions::LoadProduct(const std::
   return product;
 }
 
-std::optional<PreparedGroundRegions::Loaded> PreparedGroundRegions::Decode(CachedAsset product) {
-  if (product.Record().Kind != "ground-region") { return std::nullopt; }
+std::expected<std::optional<PreparedGroundRegions::Loaded>, PreparedGroundRegions::Failure>
+PreparedGroundRegions::Restore(CachedAsset product,
+                               const std::stop_token &stop,
+                               const GroundTerrainErrorLimit &limit) {
+  if (product.Record().Kind != "ground-region" || product.Bytes().size() > PackageBytesMost) {
+    return std::nullopt;
+  }
   ++Decodes_;
-  auto decoded = DecodePackage(product.Bytes());
+  GroundTerrainManifest terrain;
+  auto decoded = DecodePackage(product.Bytes(), terrain);
   if (!decoded) { return std::nullopt; }
+  if (terrain.Sheets != 0) {
+    GroundTerrainRead read;
+    const auto restored = TerrainPacks_->Restore(*Cache_,
+                                                 product.Record(),
+                                                 terrain,
+                                                 PackageBytesMost - product.Bytes().size(),
+                                                 decoded->Region.Terrain.Sheets,
+                                                 read,
+                                                 stop,
+                                                 limit);
+    ReadBytes_ += read.Bytes;
+    if (!restored) { return std::unexpected(restored.error()); }
+    if (!*restored) { return std::nullopt; }
+    decoded->ReadBytes += read.Bytes;
+    decoded->CompactTerrainPacks = read.CompactPacks;
+  }
   decoded->Key = product.Record().Key;
   return std::move(*decoded);
 }
@@ -244,10 +288,11 @@ PreparedGroundRegions::BindRequest(const std::string &key, const std::string &re
 }
 
 std::expected<std::optional<PreparedGroundRegions::Loaded>, PreparedGroundRegions::Failure>
-PreparedGroundRegions::LoadDecoded(const std::string &key) {
+PreparedGroundRegions::LoadRegion(const std::string &key, const std::stop_token &stop) {
   auto product = LoadProduct(key);
   if (!product) { return std::unexpected(std::move(product.error())); }
-  return *product ? Decode(std::move(**product)) : std::nullopt;
+  if (!*product) { return std::nullopt; }
+  return Restore(std::move(**product), stop);
 }
 
 std::expected<PreparedGroundRegions::StoreWork, PreparedGroundRegions::Failure>
@@ -256,7 +301,7 @@ PreparedGroundRegions::PrepareStore(const std::string &key,
                                     const GroundRegionAsset &region,
                                     const WaterAsset &water,
                                     const std::string &requestKey) {
-  auto loaded = LoadDecoded(key);
+  auto loaded = LoadRegion(key);
   if (!loaded) { return std::unexpected(std::move(loaded.error())); }
   StoreWork work(key, requestKey);
   if (*loaded && (**loaded).Region.SurfaceManifest == region.SurfaceManifest) {
@@ -264,7 +309,16 @@ PreparedGroundRegions::PrepareStore(const std::string &key,
     work.Current_ = StoreWork::Phase::Bind;
     return work;
   }
-  auto encoded = Encode(region, water, PackageBytesMost);
+  GroundTerrainManifest terrain;
+  size_t bytesMost = PackageBytesMost;
+  if (!region.Terrain.Sheets.empty()) {
+    auto packed =
+        PrepareGroundTerrainPacks(*Cache_, region.Terrain.Sheets, bytesMost, work.Packages_);
+    if (!packed) { return std::unexpected(packed.error()); }
+    terrain = std::move(*packed);
+    for (const auto &pack : work.Packages_) { bytesMost -= pack.NativeBytes(); }
+  }
+  auto encoded = Encode(region, water, terrain, bytesMost);
   if (!encoded) { return std::unexpected(std::move(encoded.error())); }
   std::vector<AssetRecord> records{
       {.Key = key,
@@ -276,7 +330,7 @@ PreparedGroundRegions::PrepareStore(const std::string &key,
        .RequestKey = requestKey.empty() ? std::nullopt : std::optional(requestKey)}};
   auto prepared = Cache_->PreparePublication(std::move(records), std::move(*encoded));
   if (!prepared) { return std::unexpected(prepared.error()); }
-  work.Package_ = std::move(*prepared);
+  work.Packages_.push_back(std::move(*prepared));
   ++Preparations_;
   return work;
 }
@@ -289,16 +343,17 @@ PreparedGroundRegions::ResumeStore(StoreWork &work, const std::stop_token &stop)
     return std::unexpected(std::string("ground region publication canceled"));
   }
   if (work.Current_ == Phase::Publish) {
-    if (!work.Package_) {
+    if (work.Packages_.empty()) {
       return std::unexpected(std::string("prepared ground publication is missing"));
     }
     ++work.Attempts_;
-    const auto committed = Cache_->Publish(*work.Package_);
+    const auto committed = Cache_->PublishBatch(work.Packages_);
     if (!committed) { return std::unexpected(committed.error()); }
+    std::vector<PreparedAssetWrite>{}.swap(work.Packages_);
     work.Current_ = Phase::Restore;
   }
   if (work.Current_ == Phase::Restore) {
-    auto loaded = LoadDecoded(work.Key_);
+    auto loaded = LoadRegion(work.Key_, stop);
     if (!loaded) { return std::unexpected(std::move(loaded.error())); }
     if (!*loaded) {
       return std::unexpected(std::string("published ground region failed native validation"));
@@ -322,7 +377,7 @@ PreparedGroundRegions::Store(StoreWork &work, const std::stop_token &stop) {
   }
   const auto *error = result ? nullptr : std::get_if<AssetCacheError>(&result.error());
   if (error == nullptr || *error != AssetCacheError::Busy) {
-    work.Package_.reset();
+    std::vector<PreparedAssetWrite>{}.swap(work.Packages_);
     work.Loaded_.reset();
     work.Current_ = StoreWork::Phase::Complete;
   }

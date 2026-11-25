@@ -29,6 +29,7 @@
 #include "PrismPipelines.h"
 #include "GeometryResidency.h"
 #include "GeometryHierarchyAdmission.h"
+#include "DirectIndexSelection.h"
 #include "GpuPlacement.h"
 #include "MaterialPacking.h"
 #include "SceneLighting.h"
@@ -172,10 +173,19 @@ public:
 
   [[nodiscard]] Native::Result<uint64_t> PlacePrismGrid(std::shared_ptr<const PrismGrid> source,
                                                         std::span<const PrismInstance> instances,
-                                                        uint32_t material);
+                                                        uint32_t material,
+                                                        std::optional<GeometryPasses> passes);
+  [[nodiscard]] Native::Result<uint64_t> PlaceConvexPrisms(std::span<const ConvexPrism> shapes,
+                                                           uint32_t material,
+                                                           std::optional<GeometryPasses> passes);
+
+  void SetPrismPasses(uint64_t id, std::optional<GeometryPasses> passes) noexcept {
+    Prisms_->SetPasses(id, passes);
+  }
+
   [[nodiscard]] Native::Result<void>
   SetPrismGridInstances(uint64_t id, std::span<const PrismInstance> instances);
-  void ReleasePrismGrid(uint64_t id);
+  void ReleasePrism(uint64_t id);
   [[nodiscard]] Native::Result<void> EncodePrismShadow(const PassRecording &into,
                                                        const PrismDepthView &view) const;
 
@@ -205,6 +215,10 @@ public:
   [[nodiscard]] uint32_t MainMeshRows() const { return MainMeshRows_; }
 
   [[nodiscard]] uint32_t ClusterJobs() const { return Jobs_; }
+
+  [[nodiscard]] std::span<const GeometryClusterTemplate> ClusterTemplates() const noexcept {
+    return TableTemplates_;
+  }
 
   [[nodiscard]] const GeometryHierarchyAdmission &Hierarchy() const noexcept { return Hierarchy_; }
 
@@ -389,12 +403,15 @@ private:
   [[nodiscard]] Native::Result<void> EncodeGround(const PassRecording &into,
                                                   const FrameUniforms &uniforms) const;
   [[nodiscard]] Native::Result<void> EncodePrisms(const PassRecording &into,
-                                                  const FrameUniforms &uniforms);
+                                                  const FrameUniforms &uniforms,
+                                                  const BatchFrustum &visible);
+  [[nodiscard]] Native::Result<void> ValidatePrismMaterial(uint32_t material) const;
   [[nodiscard]] Native::Result<void> DrawBatchRange(const PassRecording &into,
                                                     size_t first,
                                                     bool culled,
                                                     size_t end,
-                                                    const DrawResources &resources);
+                                                    const DrawResources &resources,
+                                                    const DirectIndexSelection *direct);
 
 public:
   [[nodiscard]] bool SetLights(std::span<const SceneLight> lights, std::string &error);
@@ -424,7 +441,9 @@ public:
     GroundPalette_ = from.Palette;
   }
 
-  [[nodiscard]] Native::Result<void> Encode(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> Encode(const FrameContext &ctx,
+                                            const PassRecording &into,
+                                            const DirectIndexSelection *direct = nullptr);
   [[nodiscard]] Native::Result<void> EncodeGround(const FrameContext &ctx,
                                                   const PassRecording &into);
 
@@ -557,6 +576,7 @@ private:
   size_t NativeMaterialSlots_ = 0;
   uint64_t MaterialRevision_ = 0;
   std::vector<DrawBatch> Batches;
+  std::vector<std::optional<Native::IndexRange>> SourceRanges_;
 
   std::vector<VertexLayout> BatchLayout;
 
@@ -658,7 +678,7 @@ private:
   void BindShadowResources(DrawResources &resources,
                            const DrawBatch &batch,
                            std::span<const std::byte> view) const;
-  [[nodiscard]] size_t IndirectRunEnd(size_t first) const noexcept;
+  [[nodiscard]] size_t IndirectRunEnd(size_t first, const BatchFrustum &visible) const noexcept;
   [[nodiscard]] bool Retable(std::string &error);
   [[nodiscard]] bool BuildMainMeshBatches(std::string &error);
   [[nodiscard]] bool PrepareMainMeshTables(std::string &error);

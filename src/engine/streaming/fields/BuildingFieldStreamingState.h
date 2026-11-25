@@ -4,6 +4,7 @@
 #include "AssetPipeline.h"
 #include "BuildingFieldRequest.h"
 #include "BuildingSourceDemand.h"
+#include "BuildingRoofTile.h"
 #include "PreparedBuildingAssets.h"
 #include "GeometryPageResidency.h"
 #include "Geometry.h"
@@ -11,11 +12,15 @@
 #include "MaterialRegistration.h"
 #include "StoredVertex.h"
 #include "ShadowDemand.h"
+#include "PreparedTerraceAsset.h"
+#include "UrbanPrismPreparation.h"
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <expected>
 #include <memory>
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -55,13 +60,34 @@ struct BuildingFieldStreaming::State {
     std::vector<Group> Groups;
     std::vector<Group> Alternatives;
     std::string AssetKey;
+    std::string TerraceKey;
+    bool TerraceRejected = false;
+    bool TerraceQualified = false;
     bool Staged = false;
     bool Qualified = false;
     bool ShadowNeeded = true;
     std::shared_ptr<AssetPipeline::Consumer> Consumer;
+
+    [[nodiscard]] std::string_view SelectedKey() const noexcept {
+      return TerraceQualified ? TerraceKey : AssetKey;
+    }
   };
 
   struct Tile {
+    struct RoofProduct {
+      struct Shadow {
+        std::string Key;
+        GeometryErrorBound Error;
+      };
+
+      BuildingRoofTile::Support Projected;
+      std::string Key;
+      SourceCoverage Coverage;
+      uint64_t Cells;
+      size_t Count;
+      std::optional<Shadow> Caster = std::nullopt;
+    };
+
     uint32_t Index = 0;
     uint64_t SourceKey = 0;
     BuildingSourceDemand::Source Source;
@@ -73,9 +99,16 @@ struct BuildingFieldStreaming::State {
     std::vector<std::string> OriginalProducts;
     size_t ActiveGroups = 0;
     uint64_t Active = 0;
-    uint64_t ShadowCells = 0, ResidentOriginals = 0;
+    uint64_t ShadowCells = 0, ResidentOriginals = 0, RoofOriginalsReplaced = 0;
     uint64_t PublishedShadowCells = 0;
     bool Complete = false;
+    std::optional<BuildingRoofTile> RoofUpload = std::nullopt;
+    std::optional<RoofProduct> ResidentRoof = std::nullopt;
+    bool RoofActive = false;
+    bool RoofQualified = false;
+    bool RoofCasterActive = false;
+
+    [[nodiscard]] uint64_t ReplacementCells() const noexcept;
   };
 
   struct OriginalProduct {
@@ -86,9 +119,38 @@ struct BuildingFieldStreaming::State {
 
   struct Metadata {
     std::atomic_bool Done{false};
+    BuildingRoofTile::ReadCost RoofRead;
     std::optional<Generators::PreparedBuildingAssets::SourceGroups> Groups;
     std::optional<SourceProductSelection> Selection;
     std::optional<SourceProductSelection::Cut> Cut;
+    std::optional<BuildingRoofTile> Roof;
+  };
+
+  struct TerraceWork {
+    struct DetailLoad {
+      std::atomic_bool Done{false};
+      std::stop_source Stop;
+      std::expected<std::optional<GeometryAsset::Product>, std::string> Result;
+    };
+
+    uint32_t Tile;
+    uint64_t Revision;
+    uint32_t Cell;
+    Generators::Osm::TerraceAssetRequest Request;
+    std::unique_ptr<Generators::Osm::UrbanPrismPreparation> Job;
+    std::shared_ptr<DetailLoad> Detail;
+    bool Retiring = false;
+
+    void Cancel() noexcept {
+      Job->Cancel();
+      if (Detail) { Detail->Stop.request_stop(); }
+      Retiring = true;
+    }
+  };
+
+  struct RemainderParts {
+    std::vector<std::vector<StoredVertex>> Vertices;
+    std::vector<Render::GeometryPagePartView> Parts;
   };
 
   struct ProductCut {
@@ -96,6 +158,8 @@ struct BuildingFieldStreaming::State {
     std::vector<std::string_view> Shadow;
     uint64_t ActiveCells = 0;
     size_t ActiveGroups = 0;
+    bool RoofActive = false;
+    bool RoofCasterActive = false;
     std::vector<const SourceCoverage *> MainSources, ShadowSources;
   };
 
@@ -109,6 +173,9 @@ struct BuildingFieldStreaming::State {
   Counts Statistics;
   std::string LastRejection;
   std::optional<Render::ShadowDemand> Shadows;
+  std::optional<TerraceWork> Terrace;
+  std::shared_ptr<BuildingSourceRead> TerraceSourceRead;
+  std::optional<Render::MaterialRegistration> TerraceMaterial;
 
   void Discover(Context &context);
   void PollMetadata();
@@ -121,6 +188,30 @@ struct BuildingFieldStreaming::State {
                const SourceProductSelection::Cut &cut);
   void StartMetadata(Context &context);
   void RequestOne(Context &context);
+  void CollectCounts();
+  void AdvanceTerrace(Context &context);
+  void PollTerrace(Context &context, const Vec3 &eye, TerraceWork &work);
+  void RequestTerrace(Context &context, const Vec3 &eye);
+  [[nodiscard]] static bool
+  PrepareTerraceDetail(Context &context, const Cell &cell, TerraceWork &work);
+  [[nodiscard]] bool PublishTerrace(Context &context,
+                                    const Tile &tile,
+                                    Cell &cell,
+                                    TerraceWork &work,
+                                    const Generators::Osm::UrbanPrismPreparation::Product &ready);
+  [[nodiscard]] static bool
+  AllowsTerrace(const Context &context, const Tile &tile, const Cell &cell, const Vec3 &eye);
+  [[nodiscard]] bool StageTerrace(Context &context,
+                                  const Tile &tile,
+                                  Cell &cell,
+                                  const Generators::Osm::UrbanPrismPreparation::Product &ready,
+                                  const std::string &key,
+                                  const std::optional<GeometryAsset::Product> &detail);
+  [[nodiscard]] static RemainderParts MeshParts(const GeometryAsset::Product &asset,
+                                                const Render::MaterialRegistration &materials);
+  [[nodiscard]] static std::expected<Render::MaterialRegistration, std::string>
+  RegisterPaint(Render::SceneRenderer &renderer, const std::array<Material, 3> &surfaces);
+  [[nodiscard]] static Mat4 ToScene(const TangentFrame &frame, const Mat4 &world);
   bool RequestGroup(Context &context, Tile &tile, Cell &cell, Group &group);
   [[nodiscard]] static std::expected<void, std::string> PrepareCellMetadata(Cell &cell);
   void RecordAbortedPreflight(const Cell &cell);
@@ -128,14 +219,21 @@ struct BuildingFieldStreaming::State {
   LoadCellFields(Context &context, Tile &tile, Cell &cell);
   void PollCell(Context &context, Tile &tile, Cell &cell);
   void PollFields(Context &context);
+  static void PollRoof(Context &context, Tile &tile);
   [[nodiscard]] bool Select(Context &context, std::string &error);
   [[nodiscard]] bool SelectTile(Context &context, Tile &tile, std::string &error);
   [[nodiscard]] std::vector<const Cell *> EvaluateCells(Context &context, Tile &tile);
   [[nodiscard]] static std::expected<std::vector<OriginalProduct>, std::string>
   BindOriginals(Context &context, const Tile &tile, uint64_t sourceKey);
-  [[nodiscard]] static ProductCut SelectReplacements(std::span<const OriginalProduct> originals,
-                                                     std::span<const Cell *const> candidates,
-                                                     uint64_t shadowCells);
+  [[nodiscard]] static std::optional<ProductCut>
+  SelectReplacements(const SourceCoverage &domain,
+                     std::span<const OriginalProduct> originals,
+                     std::span<const Cell *const> candidates,
+                     uint64_t shadowCells,
+                     const Tile::RoofProduct *roof,
+                     bool roofCaster);
+  [[nodiscard]] static const Tile::RoofProduct *EligibleRoof(
+      const Context &context, const Tile &tile, std::span<const OriginalProduct> originals);
   [[nodiscard]] static std::expected<SourceCoverage, std::string> OriginalCoverage(const Tile &tile,
                                                                                    uint64_t cells);
   [[nodiscard]] static std::expected<bool, std::string>
@@ -144,6 +242,7 @@ struct BuildingFieldStreaming::State {
                                        const Tile &tile,
                                        Group &group,
                                        const BuildingFieldRequest::Product &product,
+                                       Geometry geometry,
                                        std::string &error);
   static void Reject(Cell &cell);
   [[nodiscard]] static bool ValidPose(const Context &context, Group &group);

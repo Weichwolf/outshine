@@ -38,13 +38,21 @@ uint64_t Corridors::RoadNodeAt(const ::outshine::Generators::Osm::StreetField::W
   const auto traffic = !lane.Bridge && lane.TrafficKind != Osm::StreetField::Traffic::Rail
                            ? Osm::StreetField::Traffic::Road
                            : lane.TrafficKind;
-  if (lane.Layer == 0 && !lane.Bridge && traffic == Osm::StreetField::Traffic::Road) { return key; }
+  const int32_t floor = lane.Floor.value_or(0);
+  if (floor == 0 && lane.Layer == 0 && !lane.Bridge && traffic == Osm::StreetField::Traffic::Road) {
+    return key;
+  }
   uint64_t digest = kDigestBasis;
   for (unsigned shift = 0; shift < 64; shift += kByteBits) {
     digest = DigestFolded(digest, static_cast<uint8_t>(key >> shift));
   }
   for (unsigned shift = 0; shift < 32; shift += kByteBits) {
     digest = DigestFolded(digest, static_cast<uint8_t>(static_cast<uint32_t>(lane.Layer) >> shift));
+  }
+  if (floor != 0) {
+    for (unsigned shift = 0; shift < 32; shift += kByteBits) {
+      digest = DigestFolded(digest, static_cast<uint8_t>(static_cast<uint32_t>(floor) >> shift));
+    }
   }
   digest = DigestFolded(digest, static_cast<uint8_t>(traffic));
   return DigestFolded(digest, lane.Bridge ? 1u : 0u) | kRoadLevelNodeTag;

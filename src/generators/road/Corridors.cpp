@@ -347,6 +347,7 @@ void Corridors::DetermineWaterClearance(const Paving &on, size_t laneAt, Paved &
     }
     if (clear > 0.0) {
       into.DeckM[laneAt] = std::max(into.DeckM[laneAt], waterUpM + clear);
+      into.WaterDeckM.insert_or_assign(laneAt, waterUpM + clear);
       ++into.DecksOverWater;
       into.MostOverWaterM = std::max(into.MostOverWaterM, clear);
     }
@@ -522,11 +523,20 @@ void Corridors::RaiseDeckOver(const Path::Network::Crossing &one,
   if (!UsesWay(on, a) && !UsesWay(on, b)) { return; }
   const ::outshine::Generators::Osm::StreetField::Way &first = ways.Ways()[a];
   const ::outshine::Generators::Osm::StreetField::Way &second = ways.Ways()[b];
-  if (first.PointCount < 2 || second.PointCount < 2 || first.Bridge == second.Bridge) { return; }
+  if (first.PointCount < 2 || second.PointCount < 2 || first.Bridge == second.Bridge ||
+      first.HasFloorOrderingWith(second)) {
+    return;
+  }
   const LongitudeLatitude at{.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg};
   if (PlannedNodeAt(on, first, at) == PlannedNodeAt(on, second, at)) { return; }
   const size_t spans = first.Bridge ? a : b;
+  const auto &bridge = first.Bridge ? first : second;
   const ::outshine::Generators::Osm::StreetField::Way &below = first.Bridge ? second : first;
+  if (bridge.Layer < below.Layer) { return; }
+  if (on.RoofDeck && bridge.Floor.value_or(0) > 0 &&
+      DeckAt(on, spans, on.Standing.ToLocalGroundPosition(at)) != RoadDeckSupport::Terrain) {
+    return;
+  }
   const std::optional<Grounded> under =
       GroundUnder(on, {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg});
   if (!under) { return; }
@@ -590,6 +600,14 @@ std::optional<Corridors::Grounded> Corridors::GroundUnder(const Paving &on, Long
   const Drape::EastNorth here = {.EastM = enu.EastM, .NorthM = enu.NorthM};
   return Grounded{
       .EastM = here.EastM, .NorthM = here.NorthM, .GradeM = drapedOver.At(here, enu.UpM)};
+}
+
+RoadDeckSupport Corridors::DeckAt(const Paving &on, size_t lane, EastNorth at) {
+  if (!on.RoofDeck || on.Ways.Ways()[lane].Floor.value_or(0) <= 0) {
+    return RoadDeckSupport::Terrain;
+  }
+  RoadStation station{.EastM = at.EastM, .NorthM = at.NorthM};
+  return on.RoofDeck(lane, std::span(&station, 1), 0);
 }
 
 void Corridors::RaisesEnds(std::span<const uint64_t> key, double deckM, Paved &into) {
@@ -1412,7 +1430,8 @@ bool Corridors::Job::RetireMaps(size_t unitsMost) noexcept {
       if (RetireMap(Work.EndM, unitsMost, deadline)) { Retirement = RetireStage::GroundEndMap; }
       break;
     case RetireStage::GroundEndMap:
-      if (RetireMap(Work.GroundEndM, unitsMost, deadline)) {
+      if (RetireMap(Work.GroundEndM, unitsMost, deadline) &&
+          RetireMap(Work.WaterDeckM, unitsMost, deadline)) {
         Retirement = RetireStage::SharedNodes;
       }
       break;
@@ -1575,7 +1594,8 @@ Corridors::Advance(Job &job,
                           .FunctionalPlan = job.Functional.has_value(),
                           .FunctionalWays = job.Functional
                                                 ? std::span<const uint32_t>(job.Functional->Ways)
-                                                : std::span<const uint32_t>{}});
+                                                : std::span<const uint32_t>{},
+                          .RoofDeck = site.RoofDeck});
   }
   const JobSlice slice{.site = site,
                        .ways = ways,
@@ -2036,6 +2056,11 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadJunctions(Job &job,
           std::min(job.NextBody + std::max(size_t{1}, nodesMost), into.Junctions.size());
       for (; job.NextBody < end; ++job.NextBody) {
         const auto &junction = into.Junctions[job.NextBody];
+        if (std::ranges::any_of(junction.Legs, [&](const Leg &leg) {
+              return slice.ways.Ways()[into.Edges[leg.Edge].Lane].Floor.value_or(0) != 0;
+            })) {
+          continue;
+        }
         AppendJunctionTerrainStamp(junction, junction.RootsM, junction.Elevated, into);
       }
       job.StageMs += elapsed();
@@ -2068,7 +2093,9 @@ std::expected<bool, std::string_view> Corridors::AdvanceTerrainContacts(Job &job
   if (slice.paving != nullptr) {
     for (; job.NextEdge < end; ++job.NextEdge) {
       auto &edge = job.Work.Edges[job.NextEdge];
-      if (edge.PlannedCount < 2) { continue; }
+      if (edge.PlannedCount < 2 || slice.ways.Ways()[edge.Lane].Floor.value_or(0) != 0) {
+        continue;
+      }
       const auto first = job.Work.Planned.begin() + edge.PlannedFirst;
       job.Work.Along.assign(first, first + edge.PlannedCount);
       if (!PrepareStepBody(*slice.paving, edge, job.Work, job.Corridor)) {

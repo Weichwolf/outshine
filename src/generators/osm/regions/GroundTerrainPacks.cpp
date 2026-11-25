@@ -1,0 +1,490 @@
+#include "GroundTerrainPacks.h"
+#include "GroundTerrainPrecision.h"
+#include "BinaryValueArchive.h"
+#include "GroundRegionAsset.h"
+#include "Sha256.h"
+#include "TileProductSelection.h"
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <span>
+#include <stop_token>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <utility>
+#include <vector>
+
+namespace outshine::Generators::Osm {
+namespace {
+constexpr std::string_view kKind = "ground-terrain-pack";
+constexpr std::string_view kBaseKind = "ground-terrain-base";
+constexpr std::string_view kDetailKind = "ground-terrain-detail";
+constexpr uint32_t kPackWidth = 8;
+constexpr uint32_t kSheetsPerPack = kPackWidth * kPackWidth;
+constexpr uint32_t kSheetsMost = 65536;
+constexpr size_t kKeyLength = 64;
+constexpr uint32_t kPackFormat = 1;
+using Address = std::tuple<int, uint32_t, uint32_t>;
+
+Address PackAddress(const Data::TileId &tile) {
+  return {tile.Zoom, tile.X / kPackWidth, tile.Y / kPackWidth};
+}
+
+bool ValidKey(std::string_view key) {
+  return key.size() == kKeyLength && std::ranges::all_of(key, [](char byte) {
+           return (byte >= '0' && byte <= '9') || (byte >= 'a' && byte <= 'f');
+         });
+}
+
+bool ReadKey(BinaryValueReader &in, std::string &key, bool optional) {
+  uint32_t length = 0;
+  if (!in(length)) { return false; }
+  if (length == 0 && optional) {
+    key.clear();
+    return true;
+  }
+  if (length != kKeyLength) { return false; }
+  const auto bytes = in.In.Take(length);
+  if (!bytes) { return false; }
+  key.assign(reinterpret_cast<const char *>(bytes->data()), bytes->size());
+  return ValidKey(key);
+}
+
+std::string PackKey(std::string_view revision) {
+  std::string key("ground-terrain-pack:");
+  key += revision;
+  return Sha256Hex(key);
+}
+
+std::string BaseKey(std::string_view revision) {
+  std::string key("ground-terrain-base:");
+  key += revision;
+  return Sha256Hex(key);
+}
+
+std::expected<bool, AssetCacheError> PreparePrecision(AssetCache &cache,
+                                                      const AssetRecord &record,
+                                                      GroundTerrainPrecision precision,
+                                                      size_t exactStoredBytes,
+                                                      std::vector<PreparedAssetWrite> &into) {
+  if (!record.Tile) { return std::unexpected(AssetCacheError::InvalidInput); }
+  const auto &tile = *record.Tile;
+  AssetRecord base = record;
+  base.Key = BaseKey(tile.Revision);
+  base.Kind = kBaseKind;
+  base.ByteCount = precision.Base.size();
+  base.Tile = AssetTile{.Revision = tile.Revision,
+                        .Coverage = tile.Coverage,
+                        .Coarser = {},
+                        .ErrorM = precision.ErrorM};
+  const auto baseKey = base.Key;
+  auto compact = cache.PreparePublication({std::move(base)}, std::move(precision.Base));
+  if (!compact) { return std::unexpected(compact.error()); }
+  if (compact->StoredBytes() >= exactStoredBytes) { return false; }
+  AssetRecord detail = record;
+  detail.Kind = kDetailKind;
+  detail.ByteCount = precision.Residual.size();
+  detail.Tile = AssetTile{
+      .Revision = tile.Revision, .Coverage = tile.Coverage, .Coarser = baseKey, .ErrorM = 0};
+  auto residual = cache.PreparePublication({std::move(detail)}, std::move(precision.Residual));
+  if (!residual) { return std::unexpected(residual.error()); }
+  if (compact->StoredBytes() + residual->StoredBytes() > exactStoredBytes) { return false; }
+  into.push_back(std::move(*compact));
+  into.push_back(std::move(*residual));
+  return true;
+}
+
+std::expected<void, AssetCacheError> PreparePack(AssetCache &cache,
+                                                 const Address &address,
+                                                 std::span<const Sheet> sheets,
+                                                 size_t bytesMost,
+                                                 GroundTerrainManifest::Pack &pack,
+                                                 std::vector<PreparedAssetWrite> &into) {
+  BinaryValueWriter out(bytesMost);
+  const auto [zoom, column, row] = address;
+  constexpr size_t kCoverageBytes = (4u + 2u * kSheetsPerPack) * sizeof(uint32_t);
+  BinaryValueWriter coverageId(kCoverageBytes);
+  if (pack.Slots.size() > kSheetsPerPack ||
+      !out(kPackFormat, static_cast<uint32_t>(pack.Slots.size())) ||
+      !coverageId(kPackFormat, zoom, column, row)) {
+    return std::unexpected(AssetCacheError::InvalidInput);
+  }
+  const auto coordinates = [&](uint32_t slot) {
+    const auto &tile = sheets[slot].Tile;
+    return std::pair(tile.X, tile.Y);
+  };
+  std::ranges::sort(pack.Slots, {}, coordinates);
+  if (std::ranges::adjacent_find(pack.Slots, {}, coordinates) != pack.Slots.end()) {
+    return std::unexpected(AssetCacheError::InvalidInput);
+  }
+  Box bounds;
+  for (const auto slot : pack.Slots) {
+    const auto &sheet = sheets[slot];
+    if (!coverageId(sheet.Tile.X, sheet.Tile.Y) || !WriteGroundTerrainSheet(out, sheet)) {
+      return std::unexpected(AssetCacheError::InvalidInput);
+    }
+    bounds.Cover(GroundTerrainSheetBoundsEcef(sheet));
+  }
+  auto bytes = std::move(out.Out).TakeBytes();
+  const auto byteCount = bytes.size();
+  const auto footprint = coverageId.Out.Bytes();
+  auto coverage = Sha256Hex(footprint.data(), footprint.size());
+  auto revision = Sha256Hex(bytes.data(), byteCount);
+  pack.Key = PackKey(revision);
+  const AssetRecord record{.Key = pack.Key,
+                           .Kind = std::string(kKind),
+                           .Bounds = bounds,
+                           .Package = {},
+                           .ByteCount = byteCount,
+                           .Level = static_cast<uint32_t>(zoom),
+                           .Parent = {},
+                           .Tile = AssetTile{.Revision = std::move(revision),
+                                             .Coverage = std::move(coverage),
+                                             .Coarser = {}}};
+  auto exact = cache.PreparePublication({record}, std::move(bytes));
+  if (!exact) { return std::unexpected(exact.error()); }
+  if (auto split = EncodeGroundTerrainPrecision(sheets, pack.Slots, bytesMost); split) {
+    auto prepared = PreparePrecision(cache, record, std::move(*split), exact->StoredBytes(), into);
+    if (!prepared) { return std::unexpected(prepared.error()); }
+    if (*prepared) {
+      pack.Coarser = BaseKey(record.Tile->Revision);
+      return {};
+    }
+  }
+  into.push_back(std::move(*exact));
+  return {};
+}
+
+std::shared_ptr<const std::vector<Sheet>> DecodePack(std::span<const uint8_t> bytes,
+                                                     size_t expected) {
+  BinaryValueReader in(bytes);
+  uint32_t format = 0;
+  uint32_t count = 0;
+  if (!in(format, count) || format != kPackFormat || count != expected) { return {}; }
+  auto sheets = std::make_shared<std::vector<Sheet>>(count);
+  for (auto &sheet : *sheets) {
+    if (!ReadGroundTerrainSheet(in, sheet)) { return {}; }
+  }
+  return in.In.Remaining() == 0 ? std::shared_ptr<const std::vector<Sheet>>(std::move(sheets))
+                                : nullptr;
+}
+
+bool IsCanonical(const AssetRecord &pack, const AssetRecord &region) {
+  if (!pack.Tile || pack.OffsetBytes != 0) { return false; }
+  const auto &revision = pack.Tile->Revision;
+  if (pack.Kind == kDetailKind) {
+    return pack.Parent.empty() && ValidKey(revision) && PackKey(revision) == pack.Key &&
+           BaseKey(revision) == pack.Tile->Coarser;
+  }
+  if (pack.Kind != kKind) { return false; }
+  return pack.Parent.empty() ? revision == pack.Package && PackKey(revision) == pack.Key
+                             : pack.Parent == region.Key && revision == region.Key;
+}
+
+bool CanDecodeDetail(const AssetRecord &base, const AssetRecord &detail) {
+  return base.Kind == kBaseKind && base.OffsetBytes == 0 && base.Parent.empty() &&
+         base.Bounds == detail.Bounds && base.Level == detail.Level && base.Tile &&
+         base.Tile->Coarser.empty() && CertifiedTileError(base).has_value();
+}
+
+bool AllowsCompact(const AssetRecord &base, const GroundTerrainErrorLimit &limit) {
+  return limit && FitsTileError(base, [&](const Box &bounds, double error) {
+           return error <= limit(bounds);
+         });
+}
+
+const AssetRecord *FindPack(std::span<const AssetRecord> index, std::string_view key) {
+  const auto record = std::ranges::lower_bound(index, key, {}, &AssetRecord::Key);
+  return record != index.end() && record->Key == key ? &*record : nullptr;
+}
+
+const AssetRecord *FindIndependentParent(std::span<const AssetRecord> index,
+                                         const GroundTerrainManifest::Pack &entry,
+                                         const GroundTerrainErrorLimit &limit) {
+  const auto *base = FindPack(index, entry.Coarser);
+  if (base == nullptr || base->Kind != kBaseKind || base->OffsetBytes != 0 ||
+      !base->Parent.empty() || !base->Tile || !base->Tile->Coarser.empty()) {
+    return nullptr;
+  }
+  const auto &revision = base->Tile->Revision;
+  return PackKey(revision) == entry.Key && BaseKey(revision) == entry.Coarser &&
+                 AllowsCompact(*base, limit)
+             ? base
+             : nullptr;
+}
+
+}
+
+struct GroundTerrainPackReader::PlannedPack {
+  const AssetRecord *Payload;
+  const GroundTerrainManifest::Pack *Entry;
+  const AssetRecord *Base = nullptr;
+  Pages Resident;
+
+  [[nodiscard]] bool Choose(std::span<const AssetRecord> bases,
+                            const GroundTerrainErrorLimit &limit,
+                            size_t &bytesMost);
+};
+
+bool GroundTerrainPackReader::PlannedPack::Choose(std::span<const AssetRecord> bases,
+                                                  const GroundTerrainErrorLimit &limit,
+                                                  size_t &bytesMost) {
+  if (Resident) { return true; }
+  if (Payload == nullptr) {
+    Payload = FindIndependentParent(bases, *Entry, limit);
+    if (Payload == nullptr) { return false; }
+  }
+  const auto &record = *Payload;
+  if (record.Kind == kDetailKind) {
+    if (!record.Tile) { return false; }
+    const std::string_view key = record.Tile->Coarser;
+    const auto *base =
+        FindTileProduct(bases,
+                        std::span(&key, 1),
+                        {.Revision = record.Tile->Revision, .Coverage = record.Tile->Coverage});
+    if (base == nullptr || !CanDecodeDetail(*base, record)) { return false; }
+    if (AllowsCompact(*base, limit)) {
+      Payload = base;
+    } else {
+      if (base->ByteCount > bytesMost) { return false; }
+      bytesMost -= static_cast<size_t>(base->ByteCount);
+      Base = base;
+    }
+  }
+  if (Payload->ByteCount > bytesMost) { return false; }
+  bytesMost -= static_cast<size_t>(Payload->ByteCount);
+  return true;
+}
+
+namespace {
+void AssignTerrainPack(std::span<Sheet> sheets,
+                       std::span<const uint32_t> slots,
+                       const std::shared_ptr<const std::vector<Sheet>> &pages) {
+  for (size_t pageIndex = 0; pageIndex < slots.size(); ++pageIndex) {
+    const auto &page = (*pages)[pageIndex];
+    sheets[slots[pageIndex]] = {.Tile = page.Tile,
+                                .Nodes = {},
+                                .Side = page.Side,
+                                .Postings = page.Postings,
+                                .Virtual = page.Virtual,
+                                .SourceZoom = page.SourceZoom,
+                                .SharedSamples =
+                                    std::shared_ptr<const std::vector<float>>(pages, &page.Nodes)};
+  }
+}
+
+}
+
+bool GroundTerrainManifest::Write(BinaryValueWriter &out) const {
+  if (!out(Sheets, static_cast<uint32_t>(Packs.size()))) { return false; }
+  return std::ranges::all_of(Packs, [&](const auto &pack) {
+    return out.Text(pack.Key) && out.Text(pack.Coarser) && out.Array<uint32_t>(pack.Slots);
+  });
+}
+
+bool GroundTerrainManifest::Read(BinaryValueReader &in, bool indexedParents) {
+  uint32_t count = 0;
+  if (!in(Sheets, count) || Sheets == 0 || Sheets > kSheetsMost || count == 0 || count > Sheets ||
+      count > in.In.Remaining() / (kKeyLength + 3 * sizeof(uint32_t))) {
+    return false;
+  }
+  Packs.resize(count);
+  std::vector<bool> present(Sheets);
+  size_t found = 0;
+  for (auto &pack : Packs) {
+    if (!ReadKey(in, pack.Key, false) || (indexedParents && !ReadKey(in, pack.Coarser, true))) {
+      return false;
+    }
+    uint32_t slots = 0;
+    if (!in(slots) || slots == 0 || slots > kSheetsPerPack ||
+        slots > in.In.Remaining() / sizeof(uint32_t)) {
+      return false;
+    }
+    pack.Slots.resize(slots);
+    for (auto &slot : pack.Slots) {
+      if (!in(slot) || slot >= Sheets || present[slot]) { return false; }
+      present[slot] = true;
+      ++found;
+    }
+  }
+  std::ranges::sort(Packs, {}, &Pack::Key);
+  return found == Sheets && std::ranges::adjacent_find(Packs, {}, &Pack::Key) == Packs.end();
+}
+
+std::expected<GroundTerrainManifest, AssetCacheError>
+PrepareGroundTerrainPacks(AssetCache &cache,
+                          std::span<const Sheet> sheets,
+                          size_t bytesMost,
+                          std::vector<PreparedAssetWrite> &into) {
+  if (sheets.empty() || sheets.size() > kSheetsMost) {
+    return std::unexpected(AssetCacheError::InvalidInput);
+  }
+  std::map<Address, std::vector<uint32_t>> slots;
+  for (uint32_t slot = 0; slot < sheets.size(); ++slot) {
+    slots[PackAddress(sheets[slot].Tile)].push_back(slot);
+  }
+  GroundTerrainManifest manifest{.Sheets = static_cast<uint32_t>(sheets.size()), .Packs = {}};
+  manifest.Packs.reserve(slots.size());
+  into.reserve(2 * slots.size() + 1);
+  for (auto &[address, indices] : slots) {
+    auto &entry = manifest.Packs.emplace_back(
+        GroundTerrainManifest::Pack{.Key = {}, .Coarser = {}, .Slots = std::move(indices)});
+    const size_t first = into.size();
+    auto pack = PreparePack(cache, address, sheets, bytesMost, entry, into);
+    if (!pack) { return std::unexpected(pack.error()); }
+    for (const auto &part : std::span(into).subspan(first)) { bytesMost -= part.NativeBytes(); }
+  }
+  return manifest;
+}
+
+GroundTerrainPackReader::Pages
+GroundTerrainPackReader::Retain(const AssetCache &cache, const AssetRecord &record, size_t count) {
+  Pages pages;
+  std::string base;
+  {
+    const std::scoped_lock lock(Lock_);
+    const auto found = Resident_.find(record.Key);
+    if (found == Resident_.end() || found->second.Package != record.Package ||
+        found->second.NativeBytes != record.ByteCount) {
+      return {};
+    }
+    pages = found->second.Pages.lock();
+    if (!pages || pages->size() != count) { return {}; }
+    base = found->second.BasePackage;
+  }
+  cache.UsePackage(record.Package);
+  if (!base.empty()) { cache.UsePackage(base); }
+  return pages;
+}
+
+std::expected<GroundTerrainPackReader::Pages, AssetCacheError>
+GroundTerrainPackReader::Read(const AssetCache &cache,
+                              const AssetRecord &record,
+                              const AssetRecord *base,
+                              size_t count,
+                              size_t &readBytes) {
+  if (record.OffsetBytes != 0) { return Pages{}; }
+  if (auto resident = Retain(cache, record, count); resident) { return resident; }
+  const auto pack = cache.Load(record.Key, static_cast<size_t>(record.ByteCount));
+  if (!pack) { return std::unexpected(pack.error()); }
+  if (!*pack || (**pack).Record().Package != record.Package ||
+      (**pack).Record().ByteCount != record.ByteCount ||
+      (**pack).Record().OffsetBytes != record.OffsetBytes) {
+    return Pages{};
+  }
+  const auto bytes = (**pack).Bytes();
+  readBytes += bytes.size();
+  auto decoded = Materialize(cache, record, base, bytes, count, readBytes);
+  if (!decoded) { return std::unexpected(decoded.error()); }
+  if (*decoded) {
+    const std::scoped_lock lock(Lock_);
+    auto &entry = Resident_[record.Key];
+    if (auto published = entry.Pages.lock(); published && entry.Package == record.Package &&
+                                             entry.NativeBytes == record.ByteCount &&
+                                             published->size() == count) {
+      return published;
+    }
+    entry = {.Pages = *decoded,
+             .Package = record.Package,
+             .BasePackage = base != nullptr ? base->Package : std::string{},
+             .NativeBytes = record.ByteCount};
+  }
+  return decoded;
+}
+
+std::expected<GroundTerrainPackReader::Pages, AssetCacheError>
+GroundTerrainPackReader::Materialize(const AssetCache &cache,
+                                     const AssetRecord &record,
+                                     const AssetRecord *base,
+                                     std::span<const uint8_t> bytes,
+                                     size_t count,
+                                     size_t &readBytes) {
+  if (base != nullptr) {
+    auto coarse = Read(cache, *base, nullptr, count, readBytes);
+    if (!coarse) { return std::unexpected(coarse.error()); }
+    if (!*coarse) { return Pages{}; }
+    auto exact = std::make_shared<std::vector<Sheet>>(**coarse);
+    if (!ApplyGroundTerrainResidual(bytes, *exact)) { return Pages{}; }
+    return exact;
+  }
+  if (record.Kind != kBaseKind) { return DecodePack(bytes, count); }
+  auto compact = DecodeGroundTerrainBase(bytes, count);
+  return compact ? std::make_shared<const std::vector<Sheet>>(std::move(*compact)) : nullptr;
+}
+
+std::expected<bool, AssetCacheError>
+GroundTerrainPackReader::Restore(const AssetCache &cache,
+                                 const AssetRecord &region,
+                                 const GroundTerrainManifest &manifest,
+                                 size_t bytesMost,
+                                 std::vector<Sheet> &sheets,
+                                 GroundTerrainRead &read,
+                                 const std::stop_token &stop,
+                                 const GroundTerrainErrorLimit &limit) {
+  if (stop.stop_requested()) { return false; }
+  std::vector<std::string_view> keys;
+  keys.reserve(manifest.Packs.size());
+  for (const auto &pack : manifest.Packs) { keys.push_back(pack.Key); }
+  auto index = cache.FindTiles(keys);
+  if (!index) { return std::unexpected(index.error()); }
+  std::ranges::sort(*index, {}, &AssetRecord::Key);
+  keys.clear();
+  std::vector<PlannedPack> selected;
+  selected.reserve(manifest.Packs.size());
+  for (const auto &entry : manifest.Packs) {
+    const auto *record = FindPack(*index, entry.Key);
+    if (record == nullptr) {
+      if (entry.Coarser.empty() || !limit) { return false; }
+      keys.push_back(entry.Coarser);
+      selected.push_back({.Payload = nullptr, .Entry = &entry, .Resident = {}});
+      continue;
+    }
+    if (!IsCanonical(*record, region)) { return false; }
+    auto resident = Retain(cache, *record, entry.Slots.size());
+    if (!resident && record->Kind == kDetailKind && record->Tile) {
+      keys.push_back(record->Tile->Coarser);
+    }
+    selected.push_back({.Payload = record, .Entry = &entry, .Resident = std::move(resident)});
+  }
+  auto bases = cache.FindTiles(keys);
+  if (!bases) { return std::unexpected(bases.error()); }
+  std::ranges::sort(*bases, {}, &AssetRecord::Key);
+  for (auto &plan : selected) {
+    if (!plan.Choose(*bases, limit, bytesMost)) { return false; }
+  }
+  {
+    const std::scoped_lock lock(Lock_);
+    std::erase_if(Resident_, [](const auto &entry) { return entry.second.Pages.expired(); });
+  }
+  sheets.resize(manifest.Sheets);
+  return RestorePacks(cache, selected, sheets, read, stop);
+}
+
+std::expected<bool, AssetCacheError>
+GroundTerrainPackReader::RestorePacks(const AssetCache &cache,
+                                      std::span<const PlannedPack> selected,
+                                      std::span<Sheet> sheets,
+                                      GroundTerrainRead &read,
+                                      const std::stop_token &stop) {
+  for (const auto &[record, entry, base, resident] : selected) {
+    if (stop.stop_requested()) { return false; }
+    if (resident) {
+      AssignTerrainPack(sheets, entry->Slots, resident);
+      continue;
+    }
+    const auto pages = Read(cache, *record, base, entry->Slots.size(), read.Bytes);
+    if (!pages) { return std::unexpected(pages.error()); }
+    if (!*pages) { return false; }
+    read.CompactPacks += static_cast<size_t>(record->Kind == kBaseKind);
+    AssignTerrainPack(sheets, entry->Slots, *pages);
+  }
+  return true;
+}
+}

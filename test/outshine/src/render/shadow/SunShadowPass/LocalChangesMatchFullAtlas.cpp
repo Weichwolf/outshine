@@ -281,7 +281,8 @@ void Prisms(Device &device, GeometryRenderer &geometry, Atlas &partial, Atlas &f
                     std::vector<PrismSpan>{{.Lower = -6, .Upper = 8}}),
                 .Patches = {{.Columns = 1, .Rows = 1, .PitchX = 32, .PitchZ = 32}}});
   PrismInstance instance;
-  const auto id = Require(geometry.PlacePrismGrid(source, std::span(&instance, 1), 0));
+  const auto id = Require(
+      geometry.PlacePrismGrid(source, std::span(&instance, 1), 0, GeometryPasses::MainAndShadow));
   Compare(device, geometry, partial, full, frame);
   const auto revision = geometry.Prisms().ShadowChangesSince(0).Revision;
   const auto generation = geometry.Prisms().Generation();
@@ -301,7 +302,7 @@ void Prisms(Device &device, GeometryRenderer &geometry, Atlas &partial, Atlas &f
   Compare(device, geometry, partial, full, frame);
   Require(geometry.SetPrismGridInstances(id, {}));
   Compare(device, geometry, partial, full, frame);
-  geometry.ReleasePrismGrid(id);
+  geometry.ReleasePrism(id);
   Compare(device, geometry, partial, full, frame);
   CHECK(!partial.Shadow.Casting(), "retiring already empty prisms preserves the atlas");
 }

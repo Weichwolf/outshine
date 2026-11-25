@@ -1,10 +1,13 @@
 #include "EngineState.h"
+#include "Box.h"
 #include "GroundPatchwork.h"
 #include "RuntimeScene.h"
 #include "TerrainPathPreparation.h"
 #include "RoadHeightCoverage.h"
+#include "ViewPath.h"
 #include <chrono>
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -14,6 +17,7 @@
 #include <cmath>
 #include <expected>
 #include <span>
+#include <tuple>
 #include <vector>
 
 namespace outshine {
@@ -21,8 +25,32 @@ namespace {
 using Clock = std::chrono::steady_clock;
 constexpr double kMostAwaitS = 0.01;
 
+struct CameraMotion {
+  Box Eyes;
+  ViewPath Path;
+};
+
+CameraMotion PlanCameraMotion(std::span<const Vec3> positions) {
+  CameraMotion motion{.Eyes = {}, .Path = {.Start = positions.front(), .End = positions.back()}};
+  for (const Vec3 position : positions) {
+    motion.Eyes.Cover(position);
+    motion.Path.RadiusM = std::max(motion.Path.RadiusM, motion.Path.DistanceTo(position));
+  }
+  double roundoff = 0;
+  for (size_t axis = 0; axis < 3; ++axis) {
+    const double guard =
+        64 * std::numeric_limits<double>::epsilon() *
+        std::max({std::abs(motion.Eyes.Min[axis]), std::abs(motion.Eyes.Max[axis]), 1.0});
+    motion.Eyes.Min[axis] -= guard;
+    motion.Eyes.Max[axis] += guard;
+    roundoff += guard;
+  }
+  motion.Path.RadiusM += roundoff;
+  return motion;
+}
+
 std::shared_ptr<TerrainSweep> PlanMotionTerrain(std::span<const Around> coverage,
-                                                std::span<const Vec3> positions,
+                                                const CameraMotion &motion,
                                                 std::vector<Data::TileId> requested,
                                                 double sampleRadiusM) {
   const auto initial = PlanPatchworkTiles(coverage.front());
@@ -32,14 +60,6 @@ std::shared_ptr<TerrainSweep> PlanMotionTerrain(std::span<const Around> coverage
       })) {
     return {};
   }
-  Box eyes;
-  for (const Vec3 position : positions) { eyes.Cover(position); }
-  for (size_t axis = 0; axis < 3; ++axis) {
-    const double guard = 64 * std::numeric_limits<double>::epsilon() *
-                         std::max({std::abs(eyes.Min[axis]), std::abs(eyes.Max[axis]), 1.0});
-    eyes.Min[axis] -= guard;
-    eyes.Max[axis] += guard;
-  }
   const int levels = std::ranges::max(coverage, {}, &Around::Levels).Levels;
   auto patches = RemoveCoveredPatchworkTiles(requested);
   return std::make_shared<TerrainSweep>(
@@ -47,7 +67,8 @@ std::shared_ptr<TerrainSweep> PlanMotionTerrain(std::span<const Around> coverage
                    .Patches = std::move(patches),
                    .Focus = {.LongitudeDeg = coverage.front().LongitudeDeg,
                              .LatitudeDeg = coverage.front().LatitudeDeg},
-                   .Eyes = eyes,
+                   .Eyes = motion.Eyes,
+                   .EyePath = motion.Path,
                    .Levels = levels});
 }
 }
@@ -217,21 +238,16 @@ Result Engine::State::PrepareViewTerrain(std::span<const Around> coverage,
                                          TerrainPathPlan plan,
                                          Clock::time_point deadline) {
   if (!positions.empty() && !World.GroundPublished.Current()) {
-    std::vector<LongitudeLatitude> route;
-    route.reserve(coverage.size());
-    for (const auto &at : coverage) {
-      route.push_back({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg});
-    }
-    World.Surface().PlanMotionCoverage(route);
-    auto sweep = PlanMotionTerrain(
-        coverage, positions, std::move(plan.Meshes), FinestTerrainSampleRadiusM());
-    if (sweep) {
-      constexpr uint64_t kSweptTerrainRegion = uint64_t{1} << 63u;
-      sweep->Region = kSweptTerrainRegion | ++World.NextTerrainSweep;
-      Published.RecordMetric(
-          "view data: swept terrain patches", static_cast<double>(sweep->Patches.size()), "tiles");
-    }
-    World.PlannedTerrainSweep = std::move(sweep);
+    const auto motion = PlanCameraMotion(positions);
+    World.CachedCameraSweepPending = false;
+    PlanCameraSourceCoverage(coverage);
+    World.PlannedCameraPath = motion.Path;
+    const auto &origin = Session.Declared.Ground.Origin;
+    World.PlannedTravelEcef = ViewPathInEcef(
+        motion.Path,
+        TangentFrame::At({.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg}));
+    InstallTerrainSweep(
+        PlanMotionTerrain(coverage, motion, std::move(plan.Meshes), FinestTerrainSampleRadiusM()));
     return {};
   }
   const auto prepared = PrepareTerrainPath(std::move(plan), World.Surface(), deadline);
@@ -245,5 +261,64 @@ Result Engine::State::PrepareViewTerrain(std::span<const Around> coverage,
                                          World.BuildingCoverage.Regions(),
                                          World.BuildingCoverage.Version(),
                                          deadline);
+}
+
+void Engine::State::PlanCameraSourceCoverage(std::span<const Around> coverage) {
+  std::vector<LongitudeLatitude> route;
+  route.reserve(coverage.size());
+  for (const auto &at : coverage) {
+    route.push_back({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg});
+  }
+  World.Surface().PlanMotionCoverage(route);
+}
+
+void Engine::State::InstallTerrainSweep(std::shared_ptr<TerrainSweep> sweep) {
+  if (sweep) {
+    constexpr uint64_t kSweptTerrainRegion = uint64_t{1} << 63u;
+    sweep->Region = kSweptTerrainRegion | ++World.NextTerrainSweep;
+    Published.RecordMetric(
+        "view data: swept terrain patches", static_cast<double>(sweep->Patches.size()), "tiles");
+  }
+  World.PlannedTerrainSweep = std::move(sweep);
+}
+
+void Engine::State::PlanCachedCameraDemand() {
+  if (World.PlannedCameraPath) { return; }
+  const auto &view =
+      Picture.Standing->Watched() ? Picture.Standing->Watching() : Picture.Standing->Aimed();
+  const auto eye = view.EyeM;
+  const double widthM = FinestTerrainSampleHalfWidthM();
+  std::array<Vec3, 10> positions{};
+  positions.front() = positions.back() = eye;
+  for (size_t corner = 0; corner < 8; ++corner) {
+    for (size_t axis = 0; axis < 3; ++axis) {
+      const bool positive = (corner & (1u << (2u - axis))) != 0;
+      positions[corner + 1][axis] = eye[axis] + (positive ? widthM : -widthM);
+    }
+  }
+  const auto motion = PlanCameraMotion(positions);
+  World.PlannedCameraPath = motion.Path;
+  std::array<Around, positions.size()> coverage;
+  for (size_t at = 0; at < positions.size(); ++at) {
+    coverage[at] = TerrainCoverageAt(GeographicFocusFor(positions[at]));
+  }
+  const auto initial = PlanPatchworkTiles(coverage.front());
+  if (!initial) { return; }
+  auto tiles = *initial;
+  for (const auto &window : std::span(coverage).subspan(1)) {
+    const auto nearby = PlanPatchworkTiles(window);
+    if (!nearby) { return; }
+    for (const auto tile : *nearby) {
+      if (tile.Zoom == coverage.front().Zoom) { tiles.push_back(tile); }
+    }
+  }
+  std::ranges::sort(
+      tiles, {}, [](Data::TileId tile) { return std::tuple(tile.Zoom, tile.X, tile.Y); });
+  tiles.erase(std::ranges::unique(tiles).begin(), tiles.end());
+  auto sweep = PlanMotionTerrain(coverage, motion, std::move(tiles), FinestTerrainSampleRadiusM());
+  if (!sweep) { return; }
+  PlanCameraSourceCoverage(coverage);
+  InstallTerrainSweep(std::move(sweep));
+  World.CachedCameraSweepPending = true;
 }
 }

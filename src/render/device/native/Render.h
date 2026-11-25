@@ -129,5 +129,13 @@ struct IndirectDrawDescription {
   IndirectRange Range;
 };
 
+struct IndexedDrawSequence {
+  DrawState State;
+  IndexBuffer SourceIndices;
+  IndexBuffer CompactedIndices;
+  IndirectRange Arguments;
+  std::span<const std::optional<IndexRange>> SourceRanges;
+};
+
 }
 #endif

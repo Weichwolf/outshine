@@ -67,13 +67,6 @@ public:
     DeformationWrite(const DeformationWrite &) = delete;
     DeformationWrite &operator=(const DeformationWrite &) = delete;
 
-    // Owned buffer capacities; excludes this object and allocator overhead.
-    [[nodiscard]] size_t HeapBytes() const noexcept;
-
-    [[nodiscard]] const TerrainDeformationMetrics &Effects() const noexcept {
-      return Product_.Effects;
-    }
-
   private:
     friend class PreparedTerrainAssets;
 

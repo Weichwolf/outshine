@@ -59,7 +59,7 @@ Inputs Sources(const Osm::OsmField &field,
     const auto &axis = axes[way];
     const auto &street = ways.Ways()[way];
     if (axis.size() < 2 || street.TrafficKind != Osm::StreetField::Traffic::Path ||
-        street.Form != Osm::StreetField::Shape::Ribbon) {
+        street.Floor.value_or(0) != 0 || street.Form != Osm::StreetField::Shape::Ribbon) {
       continue;
     }
     const auto facts = Osm::ReadFootpathSource(field, ways, way);

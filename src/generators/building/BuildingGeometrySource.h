@@ -26,6 +26,7 @@ public:
   struct Budget {
     size_t EncodedBytesMost = 0;
     uint64_t TriangleAttempts = 0;
+    bool KeepWhenCacheBusy = false;
   };
 
   // Camera-independent Fine/Shell render geometry; caller owns producer/resident admission.

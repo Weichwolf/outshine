@@ -188,8 +188,14 @@ public:
 
 private:
   enum class Path { Lattice, Clipmap };
+
+  struct ShadowProjections {
+    const Mat4f &Raster;
+    const Mat4f &Patch;
+  };
+
   [[nodiscard]] Native::Result<void>
-  CastClipmaps(const PassRecording &into, const Mat4f &clipFromWorld, const Vec4f &shift) const;
+  CastClipmaps(const PassRecording &into, ShadowProjections projections, const Vec4f &shift) const;
   void SyncInputs();
 
   [[nodiscard]] bool Current() const noexcept {

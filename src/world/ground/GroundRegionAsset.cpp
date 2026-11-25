@@ -70,23 +70,26 @@ template <class Archive, class Grid> bool GridFields(Archive &archive, Grid &gri
 }
 
 template <class Archive, class Page> bool PageFields(Archive &archive, Page &page) {
-  if (!archive(page.Tile.Zoom,
-               page.Tile.X,
-               page.Tile.Y,
-               page.Side,
-               page.Postings,
-               page.Virtual,
-               page.SourceZoom) ||
-      !archive.template Array<float>(page.Nodes) || page.Tile.Zoom < 0 ||
-      page.Tile.Zoom > Data::TileId::MaximumZoom ||
+  return archive(page.Tile.Zoom,
+                 page.Tile.X,
+                 page.Tile.Y,
+                 page.Side,
+                 page.Postings,
+                 page.Virtual,
+                 page.SourceZoom);
+}
+
+bool ValidPage(const Sheet &page) {
+  const auto nodes = page.Samples();
+  if (page.Tile.Zoom < 0 || page.Tile.Zoom > Data::TileId::MaximumZoom ||
       page.Tile.X >= (uint32_t{1} << static_cast<unsigned>(page.Tile.Zoom)) ||
       page.Tile.Y >= (uint32_t{1} << static_cast<unsigned>(page.Tile.Zoom)) || page.Side < 1 ||
       page.Side > 4096 || page.Postings < 2 || page.SourceZoom < -1 ||
-      page.SourceZoom > page.Tile.Zoom || !Finite<float>(page.Nodes)) {
+      page.SourceZoom > page.Tile.Zoom || !Finite<float>(nodes)) {
     return false;
   }
   const auto side = static_cast<size_t>(page.Side);
-  return page.Nodes.size() == side * side || page.Nodes.size() == (side + 2) * (side + 2);
+  return nodes.size() == side * side || nodes.size() == (side + 2) * (side + 2);
 }
 
 template <class Archive, class Patch> bool PatchFields(Archive &archive, Patch &terrain) {
@@ -196,6 +199,15 @@ bool ReadClasses(BinaryValueReader &in, std::shared_ptr<const TerrainClassificat
 }
 }
 
+bool WriteGroundTerrainSheet(BinaryValueWriter &out, const Sheet &sheet) {
+  return ValidPage(sheet) && PageFields(out, sheet) && out.Array<float>(sheet.Samples());
+}
+
+bool ReadGroundTerrainSheet(BinaryValueReader &in, Sheet &sheet) {
+  sheet.SharedSamples.reset();
+  return PageFields(in, sheet) && in.Array<float>(sheet.Nodes) && ValidPage(sheet);
+}
+
 std::optional<std::vector<uint8_t>> EncodeGroundRegionAsset(const GroundRegionAsset &region,
                                                             size_t bytesMost) {
   BinaryValueWriter out(bytesMost);
@@ -204,11 +216,16 @@ std::optional<std::vector<uint8_t>> EncodeGroundRegionAsset(const GroundRegionAs
 }
 
 bool EncodeGroundRegionAsset(const GroundRegionAsset &region, BinaryValueWriter &out) {
-  if (!ValidRegion(region) || region.Terrain.Sheets.size() > kPagesMost) { return false; }
-  if (!out(kFormat) || !RegionFields(out, region) ||
-      !out(static_cast<uint32_t>(region.Terrain.Sheets.size())) ||
-      !std::ranges::all_of(region.Terrain.Sheets,
-                           [&](const Sheet &page) { return PageFields(out, page); }) ||
+  return EncodeGroundRegionAsset(region, region.Terrain.Sheets, out);
+}
+
+bool EncodeGroundRegionAsset(const GroundRegionAsset &region,
+                             std::span<const Sheet> sheets,
+                             BinaryValueWriter &out) {
+  if (!ValidRegion(region) || sheets.size() > kPagesMost) { return false; }
+  if (!out(kFormat) || !RegionFields(out, region) || !out(static_cast<uint32_t>(sheets.size())) ||
+      !std::ranges::all_of(sheets,
+                           [&](const Sheet &page) { return WriteGroundTerrainSheet(out, page); }) ||
       !WriteClasses(out, region.Classes) || !out(region.Network != nullptr)) {
     return false;
   }
@@ -237,7 +254,7 @@ std::optional<GroundRegionAsset> DecodeGroundRegionAsset(std::span<const uint8_t
   }
   region.Terrain.Sheets.resize(pages);
   if (!std::ranges::all_of(region.Terrain.Sheets,
-                           [&](Sheet &page) { return PageFields(in, page); }) ||
+                           [&](Sheet &page) { return ReadGroundTerrainSheet(in, page); }) ||
       !ReadClasses(in, region.Classes)) {
     return std::nullopt;
   }

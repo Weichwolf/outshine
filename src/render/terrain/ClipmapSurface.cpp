@@ -162,9 +162,6 @@ Native::Result<void> ClipmapSurface::Prepare(const ClipmapView &view) {
   if (View_ == view && !Rings_.empty()) { return {}; }
   const auto origin = Heights_.Origin(0);
   if (!origin) { return std::unexpected(Invalid("clipmap height window is unpublished")); }
-  if (!Covers(view.Camera)) {
-    return std::unexpected(Invalid("camera left the prepared clipmap window"));
-  }
   const auto &grid = Heights_.Grid();
   Vec2 focus;
   for (size_t axis = 0; axis < 2; ++axis) {

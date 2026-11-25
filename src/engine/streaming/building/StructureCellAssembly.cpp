@@ -12,6 +12,7 @@ void StructureCellAssembly::Collect(const Generators::BakedTile &child) {
   assert((Cells_ & bit) != 0 && child.OccupiedCells == bit);
   if ((Collected_ & bit) != 0) { return; }
   const size_t at = *child.RequestedCell - 1u;
+  Details_[at] = child.RequestedDetail;
   if (!Metadata_.Coordinates) {
     Metadata_.Coordinates = child.Coordinates;
   } else {

@@ -29,6 +29,7 @@ class BuildingFieldRequest {
 public:
   enum class CoordinateSpace : uint8_t { CaptureLocal, World };
   enum class ViewDomain : uint8_t { Directional, Panoramic };
+  enum class Preparation : uint8_t { MaterialRaster, DisplaySurface };
 
   struct Pose {
     // Snapshot only; movement requires a fresh geometric evaluation before replacement.
@@ -48,6 +49,7 @@ public:
     std::optional<Pose> GeometricView = std::nullopt;
     // Nonempty ordinals select an exact subgroup instead of whole source cells.
     std::optional<std::vector<uint32_t>> Sources = std::nullopt;
+    Preparation Prepare = Preparation::MaterialRaster;
   };
 
   struct Budget {
@@ -93,6 +95,7 @@ public:
   // Preflight a replacement component without producing or loading its raster.
   [[nodiscard]] std::expected<std::shared_ptr<const Product>, std::string> PollMetadata();
   [[nodiscard]] std::expected<std::shared_ptr<const Product>, std::string> Poll();
+  [[nodiscard]] std::optional<Geometry> TakeDisplaySurface();
   void Cancel() noexcept;
 
 private:

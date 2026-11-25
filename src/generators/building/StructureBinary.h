@@ -29,9 +29,12 @@ public:
         }
       }
       if (Bytes.size() > kStructureArtifactBytesMost - sizeof(T)) { return false; }
-      using Word = std::conditional_t<sizeof(T) == 8,
-                                      uint64_t,
-                                      std::conditional_t<sizeof(T) == 4, uint32_t, uint8_t>>;
+      using Word = std::conditional_t<
+          sizeof(T) == 8,
+          uint64_t,
+          std::conditional_t<sizeof(T) == 4,
+                             uint32_t,
+                             std::conditional_t<sizeof(T) == 2, uint16_t, uint8_t>>>;
       static_assert(sizeof(Word) == sizeof(T));
       const auto bits = std::bit_cast<Word>(value);
       for (size_t i = 0; i < sizeof(T); ++i) {
@@ -79,9 +82,12 @@ public:
     } else {
       std::array<uint8_t, sizeof(T)> encoded{};
       if (!Get(encoded)) { return false; }
-      using Word = std::conditional_t<sizeof(T) == 8,
-                                      uint64_t,
-                                      std::conditional_t<sizeof(T) == 4, uint32_t, uint8_t>>;
+      using Word = std::conditional_t<
+          sizeof(T) == 8,
+          uint64_t,
+          std::conditional_t<sizeof(T) == 4,
+                             uint32_t,
+                             std::conditional_t<sizeof(T) == 2, uint16_t, uint8_t>>>;
       static_assert(sizeof(Word) == sizeof(T));
       Word bits = 0;
       for (size_t i = 0; i < sizeof(T); ++i) {

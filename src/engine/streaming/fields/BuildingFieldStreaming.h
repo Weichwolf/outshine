@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_STREAMING_FIELDS_BUILDINGFIELDSTREAMING_H
 #include "TangentFrame.h"
 #include "Viewing.h"
+#include "ViewPath.h"
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -35,6 +36,7 @@ public:
     Render::SceneRenderer &Renderer;
     Render::Viewpoint Camera;
     TangentFrame Frame;
+    std::optional<ViewPath> PlannedView = std::nullopt;
   };
 
   struct Counts {
@@ -43,6 +45,11 @@ public:
     size_t SelectedProducts = 0;
     size_t FieldOnlyCells = 0;
     size_t AvoidedRasterRequests = 0;
+    size_t ReadyRoofTiles = 0, ActiveRoofTiles = 0, ActiveRoofVolumes = 0;
+    size_t ActiveRoofCasters = 0;
+    size_t RoofBlocksRead = 0, RoofRowsDecoded = 0, RoofCohortsRead = 0;
+    size_t CasterPacketBytes = 0, CasterOriginalBytes = 0;
+    size_t ReadyTerraces = 0, ActiveTerraces = 0, RejectedTerraces = 0;
   };
 
   BuildingFieldStreaming();
@@ -59,6 +66,7 @@ public:
   };
 
   [[nodiscard]] bool ProductsReady(SourceAddress source) const noexcept;
+  [[nodiscard]] uint64_t ReplacementCells(SourceAddress source) const noexcept;
   [[nodiscard]] std::optional<uint64_t> OriginalCells(SourceAddress source) const noexcept;
 
 private:

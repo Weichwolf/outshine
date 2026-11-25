@@ -28,6 +28,7 @@
 #include "StructureCellAssembly.h"
 #include "StructureMesher.h"
 #include "Tasks.h"
+#include "ViewPath.h"
 
 namespace outshine::Ground {
 class SurfacePreparation;
@@ -170,6 +171,13 @@ public:
   };
 
   using CellDemand = std::function<std::optional<uint64_t>(uint32_t)>;
+  using CellCoverage = std::function<uint64_t(uint32_t, uint64_t)>;
+
+  struct LandingCoverage {
+    CellCoverage Replaced;
+    std::function<bool(uint32_t, uint64_t)> Complete;
+  };
+
   [[nodiscard]] size_t Posts(Ground::SurfacePreparation &stack,
                              ::outshine::Generators::Osm::BuildingField &footprints,
                              LongitudeLatitude eye,
@@ -179,7 +187,8 @@ public:
                              std::optional<LevelOfDetail> detail = std::nullopt,
                              BuildPurpose purpose = BuildPurpose::ViewDetail,
                              const std::function<bool(uint32_t)> &cellReady = {},
-                             const CellDemand &originalCells = {});
+                             const CellDemand &originalCells = {},
+                             const std::optional<ViewPath> &path = std::nullopt);
 
   [[nodiscard]] static std::optional<uint64_t>
   QualifiedSourceKey(const ::outshine::Generators::Osm::BuildingField &footprints, uint32_t tile);
@@ -191,6 +200,7 @@ public:
     Vec3 AnchorEcef;
     uint64_t SourceKey = 0;
     uint64_t InitialCells = 0;
+    std::span<const std::optional<LevelOfDetail>> CellDetails;
     bool SourceComplete = true;
     std::optional<::outshine::Generators::Osm::BuildingField::PendingAcceptance> Footprints;
     Publication Publish = Publication::Source;
@@ -204,7 +214,8 @@ public:
                size_t most,
                HeightRequirement heights = HeightRequirement::AllowFallback,
                std::optional<LevelOfDetail> detail = std::nullopt,
-               BuildPurpose purpose = BuildPurpose::ViewDetail);
+               BuildPurpose purpose = BuildPurpose::ViewDetail,
+               const LandingCoverage &coverage = {});
   void PollCompletedTasks();
   void CommitsLandings(::outshine::Generators::Osm::BuildingField &footprints,
                        std::span<Landing> landings) noexcept;
@@ -285,7 +296,8 @@ private:
                                     std::optional<LevelOfDetail> detail,
                                     BuildPurpose purpose,
                                     const std::function<bool(uint32_t)> &cellReady,
-                                    const CellDemand &originalCells);
+                                    const CellDemand &originalCells,
+                                    const std::optional<ViewPath> &path);
   [[nodiscard]] size_t PostsOriginal(uint32_t tile,
                                      Ground::SurfacePreparation &stack,
                                      ::outshine::Generators::Osm::BuildingField &footprints,
@@ -356,6 +368,8 @@ private:
   void PrefetchContactBases(Ground::SurfacePreparation &stack,
                             const Generators::Osm::BuildingField &prints,
                             const Generators::Osm::OsmField &vectors);
+  [[nodiscard]] const std::string &BuildingInputDigest(const Generators::Osm::OsmField &vectors,
+                                                       uint32_t tile);
   [[nodiscard]] bool SelectNativeBasis(Ground::SurfacePreparation &stack,
                                        const ::outshine::Generators::Osm::BuildingField &prints,
                                        uint32_t tile,
@@ -374,7 +388,8 @@ private:
                                         ::outshine::Generators::Osm::TileAdmission::Next next,
                                         BakeRevision revision,
                                         VectorSelection selected,
-                                        bool replacement);
+                                        bool replacement,
+                                        const std::optional<ViewPath> &path);
 
   [[nodiscard]] std::vector<Landing>
   PrepareLandings(::outshine::Generators::Osm::BuildingField &prints,
@@ -383,7 +398,9 @@ private:
   [[nodiscard]] static Landing PrepareLanding(QueuedBuild &bake,
                                               ::outshine::Generators::Osm::BuildingField &prints,
                                               const ::outshine::Generators::Osm::OsmField *vectors);
-  static void CollectInitialCell(QueuedBuild &bake);
+  static void CollectInitialCell(QueuedBuild &bake,
+                                 const ::outshine::Generators::Osm::BuildingField &prints,
+                                 const CellCoverage &replacementCells);
   [[nodiscard]] static ::outshine::Generators::Osm::BuildingField::Baked
   ContactMetadata(const QueuedBuild &bake) noexcept;
   static void CommitFootprints(QueuedBuild &bake,
@@ -408,6 +425,11 @@ private:
                              BuildPurpose purpose,
                              const std::function<bool(uint32_t)> &cellReady) const;
   void PostSlice(QueuedBuild &build);
+  [[nodiscard]] bool NeedsLanding(const Ground::SurfacePreparation &stack,
+                                  const HeightSource &heightAt,
+                                  const QueuedBuild &bake,
+                                  HeightRequirement heights,
+                                  const LandingCoverage &coverage) const;
   [[nodiscard]] bool WholeTileSourceCurrent(const Ground::SurfacePreparation &stack,
                                             const HeightSource &heightAt,
                                             const QueuedBuild &bake,
@@ -459,6 +481,9 @@ private:
     int PreparingOriginalHeightZoom = -1;
     std::deque<QueuedBuild> Queue;
     std::unordered_map<std::string, std::shared_ptr<NativeLookup>> NativeLookups;
+    std::shared_ptr<const void> BuildingInputOrigin;
+    uint64_t BuildingInputGeneration = 0;
+    std::vector<std::string> BuildingInputDigests;
     std::shared_ptr<NativeProgress> LookupProgress;
     std::shared_ptr<Generators::PreparedBuildingAssets> NativeAssets;
     std::optional<Generators::StructureBakeError> NativeFailure;

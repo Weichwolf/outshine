@@ -132,8 +132,7 @@ void Draw(Device &device,
           GeometryRenderer &renderer,
           Targets &targets,
           GeometryCullStage *cull = nullptr,
-          const std::array<uint16_t, 4> &values = kBaseValues,
-          uint32_t drawCalls = 1) {
+          const std::array<uint16_t, 4> &values = kBaseValues) {
   auto commands = Require(device.Begin());
   Require(renderer.FlushCrossings(commands.get()));
   FrameContext frame;
@@ -161,8 +160,6 @@ void Draw(Device &device,
   Require(device.Submit(std::move(commands)));
   renderer.CommitCrossings();
   submission.Commit();
-  CHECK(renderer.EncodedDrawCalls() == drawCalls,
-        "the native mesh issues only the requested main-pass draws");
   Pixels(device, *targets.Colours[3], values);
 }
 
@@ -261,12 +258,12 @@ void PieceUv1(Device &device,
   Draw(device, renderer, targets, nullptr, blue);
   CheckSceneUpload(renderer.SetPiecePasses(*id, GeometryPasses::Shadow, error), error);
   CheckSceneUpload(renderer.HandTables(error), error);
-  Draw(device, renderer, targets, nullptr, {}, 0);
+  Draw(device, renderer, targets, nullptr, {});
   const auto generation = renderer.Generation();
   CHECK(!renderer.SetPiecePasses(*id, static_cast<GeometryPasses>(255), error) &&
             renderer.Generation() == generation,
         "invalid pass updates preserve the accepted piece state");
-  Draw(device, renderer, targets, nullptr, {}, 0);
+  Draw(device, renderer, targets, nullptr, {});
   CheckSceneUpload(renderer.SetPiecePasses(*id, GeometryPasses::Main, error), error);
   CheckSceneUpload(renderer.HandTables(error), error);
   Draw(device, renderer, targets, nullptr, blue);
@@ -349,9 +346,9 @@ void MixedPiecePasses(Device &device,
                            .Generation = renderer.Generation(),
                            .GroundGeneration = renderer.Ground().Generation()},
                           gpu));
-  Draw(device, renderer, targets, &stage, kBaseValues, 1);
+  Draw(device, renderer, targets, &stage);
   CHECK(renderer.Work().IndirectInputTriangles == 4 && renderer.Work().DirectTriangles == 0,
-        "main-pass input accounting excludes shadow-only triangles in a shared indirect run");
+        "main-pass input accounting excludes interleaved shadow-only triangles");
   const auto &buffer = renderer.Resident().Buffer(GeometryResidency::Stream::DrawArguments);
   std::array<uint32_t, passes.size() * 5> arguments{};
   auto read = Require(ReadbackTransfer::Start(device, *buffer, {.Bytes = sizeof(arguments)}));

@@ -127,6 +127,9 @@ void Boundaries() {
   CHECK(!bound->ProjectPanoramic({{0, 0, -100}}, lens), "backside support cannot gain authority");
   const auto near = bound->ProjectPanoramic({{0, 0, 30}}, lens);
   CHECK(near && !near->DepthInside, "a capture near the eye cannot admit every rotation");
+  const auto distant = bound->ProjectPanoramic({{0, 0, 850}}, lens);
+  CHECK(distant && distant->DepthInside && distant->L1UpperPx <= 1,
+        "a distant capture fits the existing pixel budget using paired depths");
   const auto far = bound->ProjectPanoramic({{0, 0, 240000}}, lens);
   CHECK(far && !far->DepthInside, "a capture crossing the far plane remains unqualified");
   Mat4 invalid;

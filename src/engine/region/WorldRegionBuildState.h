@@ -41,8 +41,13 @@ class WorldRegionBuildState {
 public:
   enum class GeometrySubmission : uint8_t { Classes, ClassRanges, Begin, Cook };
   enum class CorridorCompletion : uint8_t { Build, Retire };
-  enum class RegionPhase : uint8_t { Lookup, Loading, Miss, Hit, Storing, Stored, Bypass };
+  enum class RegionPhase : uint8_t { Lookup, Loading, Miss, Hit, Generated, Bypass };
   enum class SurfaceInputsPhase : uint8_t { Awaiting, Bound };
+
+  struct ArchiveWork {
+    Generators::GroundRegionRequest::Factory Region;
+    Generators::TerrainDeformationTask::Archive Deformation;
+  };
 
   struct ProductMemory {
     size_t Candidate = 0;
@@ -194,7 +199,10 @@ public:
     TerrainDeformation_ = std::move(pressing);
   }
 
-  void FinishTerrainDeformation() noexcept { TerrainDeformation_.reset(); }
+  void FinishTerrainDeformation(Generators::TerrainDeformationTask::Archive archive) noexcept {
+    TerrainDeformation_.reset();
+    Archive_.Deformation = std::move(archive);
+  }
 
   void RecordTerrainDeformationSlice(double milliseconds) noexcept {
     LongestTerrainDeformationSliceMs_ = std::max(LongestTerrainDeformationSliceMs_, milliseconds);
@@ -258,7 +266,7 @@ public:
     RegionPhase_ = phase;
   }
 
-  [[nodiscard]] bool InstallRegion(GroundRegionAsset region, bool hit);
+  [[nodiscard]] bool InstallRegion(GroundRegionAsset region);
 
   [[nodiscard]] Core::GroundBuildSchedule::SheetPhase CurrentSheetPhase() const noexcept {
     return Schedule_.CurrentSheetPhase();
@@ -335,6 +343,16 @@ public:
   [[nodiscard]] const std::string &SurfaceManifestKey() const noexcept {
     return SurfaceManifestKey_;
   }
+
+  void FinishGeneratedRegion(std::string roadManifestKey,
+                             Generators::GroundRegionRequest::Factory archive) {
+    assert(RegionPhase_ == RegionPhase::Miss);
+    SurfaceManifestKey_ = std::move(roadManifestKey);
+    Archive_.Region = std::move(archive);
+    RegionPhase_ = RegionPhase::Generated;
+  }
+
+  [[nodiscard]] ArchiveWork TakeArchive() noexcept { return std::exchange(Archive_, {}); }
 
   [[nodiscard]] RoadPageRestoration *RoadRestoration() noexcept { return RoadRestoration_.get(); }
 
@@ -519,6 +537,7 @@ private:
   bool RoadsRestored_ = false;
   std::unique_ptr<Generators::Osm::StreetGraphRequest> StreetGraphWorker_;
   std::unique_ptr<Generators::GroundRegionRequest> RegionWorker_;
+  ArchiveWork Archive_;
   std::string RegionKey_;
   std::string RegionRequest_;
   RegionPhase RegionPhase_ = RegionPhase::Lookup;

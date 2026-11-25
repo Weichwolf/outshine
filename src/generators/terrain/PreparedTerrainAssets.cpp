@@ -154,8 +154,13 @@ public:
   FieldRead(std::shared_ptr<PreparedTerrainAssets> owner,
             std::string key,
             Data::TileId at,
-            std::shared_ptr<Request> request)
-      : Owner_(std::move(owner)), Key_(std::move(key)), At_(at), Request_(std::move(request)) {
+            std::shared_ptr<Request> request,
+            ::outshine::Ground::TerrainTiles::Shaped shape)
+      : Owner_(std::move(owner)),
+        Key_(std::move(key)),
+        At_(at),
+        Request_(std::move(request)),
+        Shape_(std::move(shape)) {
     Measure();
   }
 
@@ -182,6 +187,7 @@ private:
   std::string Key_;
   Data::TileId At_;
   std::shared_ptr<Request> Request_;
+  ::outshine::Ground::TerrainTiles::Shaped Shape_;
   std::optional<PreparedAssetWrite> Package_;
   std::weak_ptr<const ::outshine::Ground::TerrainField> Resident_;
   Phase Next_ = Phase::Inspect;
@@ -190,6 +196,7 @@ private:
 
 void PreparedTerrainAssets::FieldRead::Measure() noexcept {
   Bytes_->store(sizeof(FieldRead) + sizeof(Request) + sizeof(std::atomic_size_t) + Key_.capacity() +
+                Shape_.Kind.capacity() +
                 (Package_ ? Package_->CapacityBytes() - sizeof(PreparedAssetWrite) : 0u));
 }
 
@@ -245,13 +252,18 @@ PreparedTerrainAssets::FieldRead::Failed(AssetCacheError error) {
   }
   auto encoded = EncodePreparedTerrain(At_, *field);
   if (!encoded) { return {.Grid = Refused(At_, Data::SourceFailureReason::CorruptPayload)}; }
+  const Data::TileId root{.Zoom = 0, .X = 0, .Y = 0};
+  const Data::TileId parent{.Zoom = At_.Zoom - 1, .X = At_.X / 2, .Y = At_.Y / 2};
   const AssetRecord record{.Key = Key_,
                            .Kind = "terrain-field",
                            .Bounds = Bounds(At_, *field),
                            .Package = {},
                            .ByteCount = encoded->size(),
                            .Level = static_cast<uint32_t>(At_.Zoom),
-                           .Parent = {}};
+                           .Parent = {},
+                           .Tile = AssetTile{.Revision = Key(Owner_->Recipe_, root, Shape_),
+                                             .Coverage = Key_,
+                                             .Coarser = Key(Owner_->Recipe_, parent, Shape_)}};
   if (stop.stop_requested()) { return {.Grid = ::outshine::Ground::TerrainGrid::Deferred()}; }
   auto package = Owner_->Cache_->PreparePublication({record}, std::move(*encoded));
   if (!package) { return Failed(package.error()); }
@@ -310,13 +322,13 @@ PreparedTerrainAssets::RequestField(Data::TileId at,
                                     const ::outshine::Ground::TerrainTiles::Shaped &shape) {
   const auto key = Key(Recipe_, at, shape);
   if (key.empty()) {
-    return std::make_shared<FieldRead>(Self_.lock(), key, at, std::make_shared<Request>());
+    return std::make_shared<FieldRead>(Self_.lock(), key, at, std::make_shared<Request>(), shape);
   }
   const auto owner = RequestFor(key);
   const std::scoped_lock lock(Lock_);
   auto request = owner->Field.lock();
   if (!request) {
-    request = std::make_shared<FieldRead>(Self_.lock(), key, at, owner);
+    request = std::make_shared<FieldRead>(Self_.lock(), key, at, owner, shape);
     owner->Field = request;
   }
   return request;

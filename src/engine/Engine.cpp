@@ -1,6 +1,8 @@
 #include "GroundQuality.h"
 #include "EngineState.h"
+#include "GroundRegionRequest.h"
 #include "BuildingFieldStreaming.h"
+#include "AssetCache.h"
 #include "SourceFailure.h"
 #include "GpuFrameSample.h"
 #include "geo/Mercator.h"
@@ -175,6 +177,13 @@ void Engine::logsTo(LogSink *sink) {
 
 Engine::~Engine() = default;
 
+void Engine::State::SetFrameExtent(Extent extent) {
+  if (Picture.Frame == extent) { return; }
+  Picture.Frame = extent;
+  World.GroundLookup.reset();
+  World.GroundLookupRequest.clear();
+}
+
 Result Engine::setRenderTarget(SDL_Window *window) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
@@ -197,7 +206,7 @@ Result Engine::setRenderTarget(SDL_Window *window) {
     S_->Error = std::string(standing.error());
     return std::unexpected(S_->Error);
   }
-  S_->Picture.Frame = Extent{.WidthPx = widthPx, .HeightPx = heightPx};
+  S_->SetFrameExtent({.WidthPx = widthPx, .HeightPx = heightPx});
   S_->Picture.Targeted = true;
   S_->Error.clear();
   return {};
@@ -216,7 +225,7 @@ Result Engine::setRenderTarget(Extent offscreen) {
     S_->Error = std::string(standing.error());
     return std::unexpected(S_->Error);
   }
-  S_->Picture.Frame = offscreen;
+  S_->SetFrameExtent(offscreen);
   S_->Picture.Targeted = true;
   S_->Error.clear();
   return {};
@@ -282,20 +291,31 @@ bool Engine::State::StructureProductsReady(uint32_t tile) const {
   const auto &footprints = World.Surface().Footprints();
   const auto *accepted = footprints.InputOfTile(tile);
   const auto sourceKey = StructureBuildQueue::QualifiedSourceKey(footprints, tile);
-  if (vectors == nullptr || accepted == nullptr || !sourceKey || !StructureParentsReady(tile)) {
-    return false;
-  }
+  if (vectors == nullptr || accepted == nullptr || !sourceKey) { return false; }
   if (accepted->OccupiedCells == 0) { return true; }
   if (World.BuildingFields &&
       World.BuildingFields->ProductsReady({.Tile = tile, .Key = *sourceKey})) {
     return true;
   }
-  return World.Pieces.HasIntrinsicTile(tile,
+  return StructureParentsReady(tile) &&
+         World.Pieces.HasIntrinsicTile(tile,
                                        {.Key = *sourceKey, .Occupied = accepted->OccupiedCells},
                                        Render::GeometryPasses::Main,
                                        false,
                                        CurrentGeographicEyeEcef(),
                                        footprints.Projection());
+}
+
+std::optional<uint64_t> Engine::State::StructureGeometryCells(uint32_t tile) const {
+  const auto &footprints = World.Surface().Footprints();
+  const auto source = StructureBuildQueue::QualifiedSourceKey(footprints, tile);
+  const auto *accepted = footprints.InputOfTile(tile);
+  if (!source || accepted == nullptr) { return std::nullopt; }
+  if (World.BuildingFields) {
+    const auto missing = World.BuildingFields->OriginalCells({.Tile = tile, .Key = *source});
+    if (missing) { return missing; }
+  }
+  return accepted->OccupiedCells;
 }
 
 bool Engine::State::StructuresReady(const ::outshine::Generators::Osm::BuildingField &footprints,
@@ -593,6 +613,9 @@ Loading Engine::loading() const {
   const size_t missing = native ? S_->World.Pending : S_->World.AskedPending;
   said.GroundArrived = said.GroundWanted >= missing ? said.GroundWanted - missing : 0;
   if (!S_->World.Surface().Opened()) { return said; }
+  if (const auto &cache = S_->World.Surface().AssetStore()) {
+    said.AssetPackageBytesRead = cache->PackageBytesRead();
+  }
   if (const ::outshine::Generators::Osm::OsmField *vectors = S_->World.Surface().Vectors();
       vectors != nullptr && S_->World.Surface().HasVectorSource()) {
     said.VectorArrived = vectors->Tiles().size();
@@ -658,7 +681,6 @@ std::expected<Engine::State::PreloadFlush, std::string> Engine::State::FlushPrel
       return std::unexpected(finished.error());
     }
     if (Readiness(quality).Ready() &&
-        (!World.BuildingFields || World.BuildingFields->Read().Pending == 0) &&
         std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() < bound) {
       if (quality == GroundQuality::Refined) {
         if (const auto uploaded = CompletePreloadResources(began, bound); !uploaded) {

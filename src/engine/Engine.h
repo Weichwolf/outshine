@@ -92,6 +92,7 @@ struct Loading {
   std::uint64_t SourceDeliveries = 0;
   std::uint64_t SourceFromStore = 0;
   std::uint64_t SourceBytes = 0;
+  std::uint64_t AssetPackageBytesRead = 0;
 
   struct UsedSource {
     std::string Kind;

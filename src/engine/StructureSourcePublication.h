@@ -23,7 +23,13 @@ namespace outshine {
                          landing.SourceKey);
   }
   const uint32_t first = static_cast<uint32_t>(std::countr_zero(landing.InitialCells)) + 1u;
-  if (landing.Baked->RequestedCell == first) { pieces.DiscardStagedCells(landing.Tile); }
+  if (landing.Baked->RequestedCell == first) {
+    if (landing.Publish == StructureBuildQueue::Landing::Publication::Products) {
+      pieces.DiscardStagedCells(landing.Tile, landing.SourceKey, landing.InitialCells);
+    } else {
+      pieces.DiscardStagedCells(landing.Tile);
+    }
+  }
   if (!landing.Baked->RequestedCell ||
       !pieces.StageCell(landing.Tile,
                         *landing.Baked->RequestedCell,
@@ -42,8 +48,10 @@ namespace outshine {
   size_t count = 0;
   uint64_t remaining = landing.InitialCells;
   while (remaining != 0) {
-    selected[count++] = {.Cell = static_cast<uint32_t>(std::countr_zero(remaining)) + 1u,
-                         .Detail = landing.Baked->RequestedDetail};
+    const auto at = static_cast<uint32_t>(std::countr_zero(remaining));
+    selected[count++] = {.Cell = at + 1u,
+                         .Detail = landing.CellDetails.empty() ? landing.Baked->RequestedDetail
+                                                               : landing.CellDetails[at]};
     remaining &= remaining - 1u;
   }
   return pieces.ActivateCells(landing.Tile,

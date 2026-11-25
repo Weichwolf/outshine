@@ -842,7 +842,7 @@ void PlotParts(const PartOrder &whole, int plots, BuildingScratch &scratch) {
                  : std::optional<BuildingForm>();
     BuildingShape &part = scratch.Made;
     Finish(scratch.Row[static_cast<size_t>(k)], o, part);
-    if (part.Valid()) { scratch.Parts.Next() = part; }
+    if (part.Valid() && part.AreaM2 > 1.0) { scratch.Parts.Next() = part; }
   }
 }
 

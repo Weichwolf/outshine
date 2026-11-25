@@ -6,7 +6,8 @@ import ctypes.util
 import hashlib
 import json
 import math
-import sys
+import os
+import sqlite3
 from pathlib import Path
 
 import struct
@@ -15,41 +16,49 @@ from contextlib import closing
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "transport"))
-from native_package_storage import open_packages
-
-BYTES_MOST = 64 * 1024**2
+BYTES_MOST = 512 * 1024**2
 
 
-def package(cache, key, *, max_bytes=None):
+def load_zstd():
+    library = os.environ.get("ZSTD_LIBRARY") or ctypes.util.find_library("zstd")
+    if not library:
+        raise ValueError("existing system libzstd required")
+    return ctypes.CDLL(library)
+
+
+def package(cache, key, *, max_bytes=None, kind="ground-region"):
     byte_limit = BYTES_MOST if max_bytes is None else max_bytes
     with closing(
-        open_packages(cache.resolve().as_uri() + "?mode=ro", uri=True)
+        sqlite3.connect(cache.resolve().as_uri() + "?mode=ro", uri=True)
     ) as db:
+        db.execute("BEGIN")
         row = db.execute(
-            "SELECT p.rowid,p.stored_bytes,p.native_bytes,p.codec,p.crc,a.offset,a.bytes,p.body_table "
-            "FROM assets a JOIN native_packages p ON a.package=p.key "
-            "WHERE a.key=? AND a.kind='ground-region'",
-            (key,),
+            "SELECT p.key,coalesce(length(b.bytes),length(p.bytes)),p.native_bytes,"
+            "p.codec,p.crc,a.offset,a.bytes,b.rowid IS NOT NULL "
+            "FROM assets a JOIN packages p ON a.package=p.key "
+            "LEFT JOIN package_bodies b ON b.key=p.key "
+            "WHERE a.key=? AND a.kind=?",
+            (key, kind),
         ).fetchone()
         if row is None:
-            raise ValueError("existing native ground-region key required")
-        rowid, stored_size, native_size, codec, crc, offset, size, body_table = row
+            raise ValueError(f"existing native {kind} key required")
+        product_key, stored_size, native_size, codec, crc, offset, size, separate_body = row
+        if codec == 0 and native_size == 0:
+            native_size = stored_size
         if not 0 < stored_size <= byte_limit or not 0 < native_size <= byte_limit:
             raise ValueError("bounded cached package required before blob read")
         if offset != 0 or size != native_size:
-            raise ValueError("single complete ground-region package required")
-        with db.blobopen(body_table, "bytes", rowid, readonly=True) as blob:
-            stored = blob.read()
+            raise ValueError("a complete native package is required")
+        body_table = "package_bodies" if separate_body else "packages"
+        stored = db.execute(
+            f"SELECT bytes FROM {body_table} WHERE key=?", (product_key,)
+        ).fetchone()[0]
     if len(stored) != stored_size or zlib.crc32(stored) != crc:
         raise ValueError("cached package size/CRC mismatch")
     if codec == 0:
         data = stored
     elif codec == 1:
-        library = ctypes.util.find_library("zstd")
-        if not library:
-            raise ValueError("existing system libzstd required")
-        lib = ctypes.CDLL(library)
+        lib = load_zstd()
         lib.ZSTD_decompress.argtypes = [
             ctypes.c_void_p,
             ctypes.c_size_t,

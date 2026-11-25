@@ -100,7 +100,7 @@ inline constexpr std::array kComputeShaders = {
     ComputeShaderDescriptor{
         .Id = ComputeShaderId::GeometryRootCull,
         .Path = "geometryRootCull.comp.spv",
-        .Shape = {.ReadOnlyBuffers = 2, .ReadWriteBuffers = 3, .UniformBuffers = 2, .GroupX = 64}},
+        .Shape = {.ReadOnlyBuffers = 2, .ReadWriteBuffers = 3, .UniformBuffers = 3, .GroupX = 64}},
     ComputeShaderDescriptor{
         .Id = ComputeShaderId::GeometryLeafCull,
         .Path = "geometryLeafCull.comp.spv",

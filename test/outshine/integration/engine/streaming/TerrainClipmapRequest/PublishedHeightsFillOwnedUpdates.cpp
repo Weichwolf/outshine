@@ -4,10 +4,7 @@
 #include "TerrainSurfacePublication.h"
 #include "ClipmapHeightCache.h"
 #include "TerrainLattice.h"
-#include "RuntimeScene.h"
-#include "SceneRenderer.h"
 #include "Tasks.h"
-#include <SDL3/SDL.h>
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -97,30 +94,17 @@ void CheckWorker(TerrainSurfacePublication &surface, const TangentFrame &frame) 
 }
 
 int main() {
-  CHECK(SDL_Init(SDL_INIT_VIDEO), "native publication fixture initializes video");
-  {
-    Render::SceneRenderer renderer;
-    Core::Declaration declaration;
-    declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
-    declaration.Outputs = {"surface"};
-    std::unique_ptr<Core::RuntimeScene> scene;
-    std::string error;
-    CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error), error.c_str());
-    if (scene) {
-      const auto frame = TangentFrame::At({});
-      TerrainSurfacePublication surface;
-      surface.SetFrame(frame);
-      surface.SetRenderer(&renderer);
-      Patchwork patch;
-      patch.Sheets.push_back({.Tile = {.Zoom = 12, .X = 2048, .Y = 2048},
-                              .Nodes = std::vector<float>(Render::TerrainLattice::kPageNodes, 2),
-                              .Side = Render::TerrainLattice::kSide,
-                              .Postings = Render::TerrainLattice::kSide});
-      CHECK(PublishTerrain(surface, patch, error), error.c_str());
-      CheckSampler(surface, frame);
-      CheckWorker(surface, frame);
-    }
-  }
-  SDL_Quit();
+  const auto frame = TangentFrame::At({});
+  TerrainSurfacePublication surface(TerrainBacking::ClipmapSource);
+  surface.SetFrame(frame);
+  Patchwork patch;
+  patch.Sheets.push_back({.Tile = {.Zoom = 12, .X = 2048, .Y = 2048},
+                          .Nodes = std::vector<float>(Render::TerrainLattice::kPageNodes, 2),
+                          .Side = Render::TerrainLattice::kSide,
+                          .Postings = Render::TerrainLattice::kSide});
+  std::string error;
+  CHECK(PublishTerrain(surface, patch, error), error.c_str());
+  CheckSampler(surface, frame);
+  CheckWorker(surface, frame);
   return Report();
 }

@@ -9,7 +9,7 @@ cubemap, followed by grouped impostors and detailed near geometry. The
 [roadmap](https://github.com/Weichwolf/outshine/issues/1972) defines the rollout
 and acceptance. [Python references](lib/), [literature](doc/references/) and
 [concept examples](doc/images/concept/) support the work. The
-[legacy snapshot](https://github.com/Weichwolf/outshine/tree/legacy/2026-11-25)
+[comparison commit](https://github.com/Weichwolf/outshine/tree/0932b78323ebf23016f723fdfb3fa31da2e28337)
 preserves the previous comparison build's source.
 
 ![Wien rendered in Outshine](doc/images/wien.png)
