@@ -190,6 +190,7 @@ struct WorldRegionState {
   GroundPublication GroundPublished;
   std::optional<Around> PublishedGroundCoverage;
   std::optional<ViewPath> PlannedCameraPath;
+  std::optional<ViewPath> PlannedTravelEcef;
   std::shared_ptr<const TerrainSweep> PlannedTerrainSweep;
   bool CachedCameraSweepPending = false;
   uint64_t NextTerrainSweep = 0;

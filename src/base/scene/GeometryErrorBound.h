@@ -2,6 +2,7 @@
 #define OUTSHINE_BASE_SCENE_GEOMETRYERRORBOUND_H
 #include "Box.h"
 #include "ProjectedErrorBudget.h"
+#include "ViewPath.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -17,7 +18,8 @@ struct GeometryErrorBound {
   [[nodiscard]] bool Allows(uint64_t sourceKey,
                             std::optional<Vec3> eye,
                             ProjectedErrorBudget projection,
-                            double translationM = 0) const noexcept {
+                            double translationM = 0,
+                            const std::optional<ViewPath> &path = std::nullopt) const noexcept {
     if (sourceKey == 0 || SourceKey != sourceKey || !eye || Bounds.Empty() ||
         !std::isfinite(UpperM) || UpperM < 0 || !std::isfinite(translationM) || translationM < 0) {
       return false;
@@ -32,7 +34,9 @@ struct GeometryErrorBound {
           (*eye)[axis] - std::clamp((*eye)[axis], Bounds.Min[axis], Bounds.Max[axis]);
       distanceSquared += delta * delta;
     }
-    return projection.Allows(UpperM, std::sqrt(distanceSquared) - UpperM - translationM);
+    return projection.Allows(UpperM, std::sqrt(distanceSquared) - UpperM - translationM) &&
+           (!path ||
+            projection.Allows(UpperM, std::nextafter(path->DistanceBelow(Bounds) - UpperM, 0.0)));
   }
 };
 }

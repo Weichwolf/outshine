@@ -242,6 +242,10 @@ Result Engine::State::PrepareViewTerrain(std::span<const Around> coverage,
     World.CachedCameraSweepPending = false;
     PlanCameraSourceCoverage(coverage);
     World.PlannedCameraPath = motion.Path;
+    const auto &origin = Session.Declared.Ground.Origin;
+    World.PlannedTravelEcef = ViewPathInEcef(
+        motion.Path,
+        TangentFrame::At({.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg}));
     InstallTerrainSweep(
         PlanMotionTerrain(coverage, motion, std::move(plan.Meshes), FinestTerrainSampleRadiusM()));
     return {};

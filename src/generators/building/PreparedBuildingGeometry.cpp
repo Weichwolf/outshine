@@ -207,7 +207,8 @@ std::expected<std::optional<BakedTile>, StructureBakeError> PreparedBuildingAsse
 
 bool PreparedBuildingAssets::RejectsCachedShell(const std::string &baseKey,
                                                 const RawTile &view,
-                                                uint64_t sourceKey) const {
+                                                uint64_t sourceKey,
+                                                const std::optional<ViewPath> &path) const {
   if (sourceKey == 0 || view.RequestedDetail != LevelOfDetail::Shell || !view.RequestedCell) {
     return false;
   }
@@ -222,7 +223,7 @@ bool PreparedBuildingAssets::RejectsCachedShell(const std::string &baseKey,
   }
   return !FitsTileError(product, [&](const Box &bounds, double error) {
     return GeometryErrorBound{.SourceKey = sourceKey, .Bounds = bounds, .UpperM = error}.Allows(
-        sourceKey, view.EyeEcef, view.Projection, kStructureEyeReuseM);
+        sourceKey, view.EyeEcef, view.Projection, kStructureEyeReuseM, path);
   });
 }
 

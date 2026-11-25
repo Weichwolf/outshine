@@ -19,10 +19,6 @@ struct CameraBasis;
 }
 
 namespace outshine {
-class TangentFrame;
-
-[[nodiscard]] ViewPath ViewPathInEcef(const ViewPath &scene, const TangentFrame &frame);
-
 enum class SourceProductSelectionError { InvalidInput, ForeignRevision, InvalidProduct };
 
 class SourceProductSelection {

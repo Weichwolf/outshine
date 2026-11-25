@@ -472,8 +472,11 @@ struct StructureBuildTask::NativeProducts {
         GeometryErrorBound{.SourceKey = ParentSourceKey,
                            .Bounds = *tile.WorldBounds,
                            .UpperM = tile.SurfaceError->UpperDistanceM()}
-            .Allows(
-                ParentSourceKey, raw.EyeEcef, raw.Projection, Generators::kStructureEyeReuseM)) {
+            .Allows(ParentSourceKey,
+                    raw.EyeEcef,
+                    raw.Projection,
+                    Generators::kStructureEyeReuseM,
+                    Path)) {
       return true;
     }
     output.Tile.reset();
@@ -492,7 +495,7 @@ struct StructureBuildTask::NativeProducts {
         return basis != nullptr ? Cache->LoadTerrainContacts(Key, basis)
                                 : Cache->LoadTerrainContacts(Key, *base);
       }
-      if (Cache->RejectsCachedShell(Key, raw, ParentSourceKey)) {
+      if (Cache->RejectsCachedShell(Key, raw, ParentSourceKey, Path)) {
         raw.RequestedDetail = LevelOfDetail::Fine;
       }
       return basis != nullptr ? Cache->LoadGeometry(Key, basis, raw, ParentSourceKey)
@@ -605,6 +608,7 @@ struct StructureBuildTask::NativeProducts {
   std::string Key;
   std::string RequestKey;
   uint64_t ParentSourceKey = 0;
+  std::optional<ViewPath> Path;
   Phase Current = Phase::Lookup;
   std::optional<uint64_t> Cells;
   std::optional<uint64_t> Selection;
@@ -891,10 +895,12 @@ void StructureBuildTask::UseTerrainContacts() {
   if (Payload_->Native) { Payload_->Native->Kind = Payload_->Requested; }
 }
 
-void StructureBuildTask::UseIntrinsicParents(uint64_t sourceKey) {
+void StructureBuildTask::UseIntrinsicParents(uint64_t sourceKey,
+                                             const std::optional<ViewPath> &path) {
   assert(State_ == State::Ready && Payload_->Native && sourceKey != 0 &&
          Payload_->Raw->RequestedDetail == LevelOfDetail::Shell);
   Payload_->Native->ParentSourceKey = sourceKey;
+  Payload_->Native->Path = path;
   Payload_->SurfaceComparison = std::make_unique<Comparison>(ProofRequest{
       .SourceKey = sourceKey, .Limits = {.TargetUncertaintyM = 0.5}, .UseShellBound = true});
 }

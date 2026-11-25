@@ -124,6 +124,12 @@ void CheckShadowCell(const std::filesystem::path &root) {
   request.EyeEcef = Vec3{{0, 0, kFarM}};
   CHECK(!(*assets)->RejectsCachedShell(parent, request, sourceKey),
         "a distant camera can request the shell when its projected error fits");
+  const ViewPath crossesCell{.Start = *request.EyeEcef, .End = {{0, 0, -kFarM}}};
+  const ViewPath passesFarAway{.Start = *request.EyeEcef, .End = {{kFarM, 0, kFarM}}};
+  CHECK((*assets)->RejectsCachedShell(parent, request, sourceKey, crossesCell),
+        "flight between two distant positions can require detail before the shell body is read");
+  CHECK(!(*assets)->RejectsCachedShell(parent, request, sourceKey, passesFarAway),
+        "flight at sufficient distance still uses the indexed shell");
 
   CheckFineParent(**assets, *cache, parent, source, request, shell, write->Key, legacy);
   BuildingShadowCell::ReadCost cost;

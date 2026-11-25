@@ -9,6 +9,7 @@
 #include "Box.h"
 #include <cstddef>
 #include "TilePool.h"
+#include "ViewPath.h"
 #include <atomic>
 #include <expected>
 #include <memory>
@@ -169,8 +170,10 @@ public:
                uint64_t sourceKey = 0);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError> LoadGeometry(
       const std::string &baseKey, Basis basis, const RawTile &view, uint64_t sourceKey = 0);
-  [[nodiscard]] bool
-  RejectsCachedShell(const std::string &baseKey, const RawTile &view, uint64_t sourceKey) const;
+  [[nodiscard]] bool RejectsCachedShell(const std::string &baseKey,
+                                        const RawTile &view,
+                                        uint64_t sourceKey,
+                                        const std::optional<ViewPath> &path = std::nullopt) const;
   [[nodiscard]] std::expected<ProductWrite, StructureBakeError>
   PrepareGeometry(const std::string &baseKey,
                   const PreparedStructureTile &base,

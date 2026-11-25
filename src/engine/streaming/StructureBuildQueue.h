@@ -28,6 +28,7 @@
 #include "StructureCellAssembly.h"
 #include "StructureMesher.h"
 #include "Tasks.h"
+#include "ViewPath.h"
 
 namespace outshine::Ground {
 class SurfacePreparation;
@@ -180,7 +181,8 @@ public:
                              std::optional<LevelOfDetail> detail = std::nullopt,
                              BuildPurpose purpose = BuildPurpose::ViewDetail,
                              const std::function<bool(uint32_t)> &cellReady = {},
-                             const CellDemand &originalCells = {});
+                             const CellDemand &originalCells = {},
+                             const std::optional<ViewPath> &path = std::nullopt);
 
   [[nodiscard]] static std::optional<uint64_t>
   QualifiedSourceKey(const ::outshine::Generators::Osm::BuildingField &footprints, uint32_t tile);
@@ -288,7 +290,8 @@ private:
                                     std::optional<LevelOfDetail> detail,
                                     BuildPurpose purpose,
                                     const std::function<bool(uint32_t)> &cellReady,
-                                    const CellDemand &originalCells);
+                                    const CellDemand &originalCells,
+                                    const std::optional<ViewPath> &path);
   [[nodiscard]] size_t PostsOriginal(uint32_t tile,
                                      Ground::SurfacePreparation &stack,
                                      ::outshine::Generators::Osm::BuildingField &footprints,
@@ -379,7 +382,8 @@ private:
                                         ::outshine::Generators::Osm::TileAdmission::Next next,
                                         BakeRevision revision,
                                         VectorSelection selected,
-                                        bool replacement);
+                                        bool replacement,
+                                        const std::optional<ViewPath> &path);
 
   [[nodiscard]] std::vector<Landing>
   PrepareLandings(::outshine::Generators::Osm::BuildingField &prints,

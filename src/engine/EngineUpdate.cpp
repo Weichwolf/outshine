@@ -424,7 +424,8 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
       [this](uint32_t tile) {
         return StructureParentsReady(tile) || StructureGeometryCells(tile) == 0;
       },
-      [this](uint32_t tile) { return StructureGeometryCells(tile); });
+      [this](uint32_t tile) { return StructureGeometryCells(tile); },
+      World.PlannedTravelEcef);
   Cost.BakePosting.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - postingAt)
           .count());

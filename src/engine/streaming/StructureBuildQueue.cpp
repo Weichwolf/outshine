@@ -751,7 +751,8 @@ size_t StructureBuildQueue::Posts(Ground::SurfacePreparation &stack,
                                   std::optional<LevelOfDetail> detail,
                                   BuildPurpose purpose,
                                   const std::function<bool(uint32_t)> &cellReady,
-                                  const CellDemand &originalCells) {
+                                  const CellDemand &originalCells,
+                                  const std::optional<ViewPath> &path) {
   if (candidatesMost == 0 || Pool_ == nullptr || Context_.Mesher == nullptr) { return 0; }
   if (!AdmitContext()) { return 0; }
   AdvanceQueuedTasks(stack.Vectors(), prints, eye, heightAt.Revision, requirement, detail, purpose);
@@ -779,7 +780,8 @@ size_t StructureBuildQueue::Posts(Ground::SurfacePreparation &stack,
                       detail,
                       purpose,
                       cellReady,
-                      originalCells);
+                      originalCells,
+                      path);
 }
 
 StructureBuildQueue::QueuedBuild
@@ -789,7 +791,8 @@ StructureBuildQueue::VectorBuild(JobAdmission::Lease admission,
                                  ::outshine::Generators::Osm::TileAdmission::Next next,
                                  BakeRevision revision,
                                  VectorSelection selected,
-                                 bool replacement) {
+                                 bool replacement,
+                                 const std::optional<ViewPath> &path) {
   auto raw = Borrowed(Context_.IdleRaw);
   const auto extractionAt = std::chrono::steady_clock::now();
   if (selected.Basis) {
@@ -852,7 +855,7 @@ StructureBuildQueue::VectorBuild(JobAdmission::Lease admission,
   if (!selected.RequestKey.empty()) { Context_.NativeLookups.erase(selected.RequestKey); }
   if (revision.Purpose == BuildPurpose::StaticParents && !selected.Key.empty() &&
       !revision.FallbackHeights && (task.HeightQualified() || task.Raw().Structures.empty())) {
-    task.UseIntrinsicParents(sourceKey);
+    task.UseIntrinsicParents(sourceKey, path);
   }
   return {.Revision = revision,
           .Task = std::move(task),
@@ -999,7 +1002,8 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
                                          std::optional<LevelOfDetail> detail,
                                          BuildPurpose purpose,
                                          const std::function<bool(uint32_t)> &cellReady,
-                                         const CellDemand &originalCells) {
+                                         const CellDemand &originalCells,
+                                         const std::optional<ViewPath> &path) {
   if (Pool_ == nullptr || Context_.Mesher == nullptr || stack.Vectors() == nullptr ||
       !prints.Anchored()) {
     return 0;
@@ -1062,8 +1066,14 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
                                                                   : selected.Heights->Fallback()};
     if (!replacement) { prints.Take(next->Tile); }
     selected.StreetDigest = *streetDigest;
-    Context_.Queue.push_back(VectorBuild(
-        std::move(*admission), stack, prints, *next, revision, std::move(selected), replacement));
+    Context_.Queue.push_back(VectorBuild(std::move(*admission),
+                                         stack,
+                                         prints,
+                                         *next,
+                                         revision,
+                                         std::move(selected),
+                                         replacement,
+                                         path));
     const auto postingAt = std::chrono::steady_clock::now();
     PostSlice(Context_.Queue.back());
     if (replacement) { prints.AdvanceRefinement(); }
