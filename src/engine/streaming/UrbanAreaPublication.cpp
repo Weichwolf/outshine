@@ -18,6 +18,11 @@
 
 namespace outshine {
 namespace {
+const Material &UrbanWall() {
+  static const auto wall = Generators::AverageHouseWallMaterial();
+  return wall;
+}
+
 double MercatorY(double latitudeDeg) {
   return kWgs84A * std::asinh(std::tan(latitudeDeg * kDeg2Rad));
 }
@@ -121,8 +126,10 @@ UrbanAreaStreaming::Publish(Group &group,
   } else {
     std::vector<Render::PrismInstance> instances;
     instances.reserve(views->Placements.size());
+    const auto &wall = UrbanWall().BaseColour;
     const auto roof = Generators::BuildingRoofCoating(
-        static_cast<float>(Generators::Osm::UrbanAreaRecipe::LowRiseFraction));
+        static_cast<float>(Generators::Osm::UrbanAreaRecipe::LowRiseFraction),
+        {{wall[0], wall[1], wall[2]}});
     for (size_t index = 0; index < views->Placements.size(); ++index) {
       const auto placement = views->Placements[index];
       const auto matrix = RelativePlacement(product.Placements[placement.Patch].EcefFromLocal,
@@ -151,13 +158,7 @@ UrbanAreaStreaming::Upload(Group &group,
                            std::span<const Render::PrismInstance> instances) {
   if (!Material_) {
     Geometry materials;
-    Material surface;
-    for (size_t axis = 0; axis < 3; ++axis) {
-      surface.BaseColour[axis] = Generators::kBuildingWallColour[axis];
-    }
-    constexpr float roughness = 0.8f;
-    surface.Roughness = roughness;
-    if (!materials.addSurface("urban-shell", surface)) {
+    if (!materials.addSurface("urban-shell", UrbanWall())) {
       return std::unexpected("could not declare the urban shell material");
     }
     auto material = Renderer_->RegisterPieceMaterials(std::move(materials));

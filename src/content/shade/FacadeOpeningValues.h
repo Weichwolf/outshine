@@ -5,5 +5,7 @@ const float kOpeningDepthM = 0.16f;
 const float kPaneInset = 0.02f;
 const float kMullionLowU = 0.494f;
 const float kMullionHighU = 0.506f;
+const float kStoreyBandHeightM = 0.16f;
+const float kStoreyBandDarkening = 0.35f;
 
 #endif

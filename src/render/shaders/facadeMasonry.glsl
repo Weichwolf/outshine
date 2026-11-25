@@ -14,7 +14,7 @@ float facadeMasonryBrickBox(vec2 at, vec2 width) {
 }
 
 float facadeMasonryWall(vec3 coverage) {
-  return max(1.0 - coverage.x - 0.35 * coverage.z, 0.0);
+  return max(1.0 - coverage.x - kStoreyBandDarkening * coverage.z, 0.0);
 }
 
 float facadeMasonryField(vec2 fractions, vec2 at, vec2 dx, vec2 dy, float storeysPerM,

@@ -10,6 +10,8 @@ namespace outshine::Generators {
 inline constexpr Vec3f kBuildingWallColour{{0.74f, 0.71f, 0.65f}};
 
 [[nodiscard]] std::array<Material, 3> BuildingSurfaceMaterials();
-[[nodiscard]] Vec4f BuildingRoofCoating(float pitchedFraction);
+[[nodiscard]] Material AverageHouseWallMaterial();
+[[nodiscard]] Vec4f BuildingRoofCoating(float pitchedFraction,
+                                        const Vec3f &wallColour = kBuildingWallColour);
 }
 #endif

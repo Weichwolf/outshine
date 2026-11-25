@@ -19,7 +19,7 @@ vec4 facadeCoatedFootprint(vec2 fractions, vec2 at, vec2 dx, vec2 dy, float stor
       vec2 offset = (vec2(x, y) - 1.0) / 3.0;
       vec3 regions = facadeBoxCoverage(
           fractions, at + offset.x * dx + offset.y * dy, width / 3.0, storeysPerM);
-      float wall = max(1.0 - regions.x - 0.35 * regions.z, 0.0);
+      float wall = max(1.0 - regions.x - kStoreyBandDarkening * regions.z, 0.0);
       vec3 pointM = positionM + offset.x * dxM + offset.y * dyM;
       float variation = surfaceNoise3(pointM / 1.5).w - 0.5;
       result += vec4(regions, wall * variation);
@@ -32,7 +32,7 @@ vec4 facadeCoatedFootprint(vec2 fractions, vec2 at, vec2 dx, vec2 dy, float stor
   result.xyz = clamp(result.xyz, 0.0, 1.0);
   result.y = min(result.y, result.x);
   result.z = min(result.z, 1.0 - result.x);
-  float bound = 0.5 * max(1.0 - result.x - 0.35 * result.z, 0.0);
+  float bound = 0.5 * max(1.0 - result.x - kStoreyBandDarkening * result.z, 0.0);
   result.w = clamp(result.w, -bound, bound) * visibility;
   return result;
 }
