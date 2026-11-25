@@ -65,9 +65,11 @@ private:
   struct ResidentPack {
     std::weak_ptr<const std::vector<Sheet>> Pages;
     std::string Package;
+    std::string BasePackage;
     uint64_t NativeBytes = 0;
   };
 
+  [[nodiscard]] Pages Retain(const AssetCache &cache, const AssetRecord &record, size_t count);
   [[nodiscard]] std::expected<Pages, AssetCacheError> Read(const AssetCache &cache,
                                                            const AssetRecord &record,
                                                            const AssetRecord *base,

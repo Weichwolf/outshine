@@ -96,5 +96,17 @@ int main() {
             "the accepted compact package preserves address and stays within its height bound");
     }
   }
+  auto repeated = (*exact)->LoadProduct(key);
+  CHECK(repeated && *repeated, "a second view can request the same indexed packages");
+  if (near && repeated && *repeated) {
+    const auto before = cache->PackageBytesRead();
+    const auto reused =
+        (*exact)->Restore(std::move(**repeated), {}, [](const Box &) { return 0.0625; });
+    CHECK(reused && *reused && (**reused).CompactTerrainPacks == 0 &&
+              cache->PackageBytesRead() == before &&
+              (**reused).Region.Terrain.Sheets.front().Samples().data() ==
+                  near->Region.Terrain.Sheets.front().Samples().data(),
+          "overlapping views retain exact heights before considering compact payloads");
+  }
   return Report();
 }

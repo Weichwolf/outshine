@@ -187,37 +187,51 @@ std::optional<double> BaseError(const AssetRecord &base, const AssetRecord &deta
 
 struct PlannedPack {
   const AssetRecord *Payload;
-  const AssetRecord *Base;
   const GroundTerrainManifest::Pack *Entry;
+  const AssetRecord *Base = nullptr;
+  std::shared_ptr<const std::vector<Sheet>> Resident;
 };
 
-std::optional<PlannedPack> PlanPack(const AssetRecord &record,
-                                    const GroundTerrainManifest &manifest,
-                                    std::span<const AssetRecord> bases,
-                                    const GroundTerrainErrorLimit &limit,
-                                    size_t &bytesMost) {
-  const auto entry =
-      std::ranges::lower_bound(manifest.Packs, record.Key, {}, &GroundTerrainManifest::Pack::Key);
-  if (entry == manifest.Packs.end() || entry->Key != record.Key) { return std::nullopt; }
-  PlannedPack plan{.Payload = &record, .Base = nullptr, .Entry = &*entry};
+bool ChoosePack(PlannedPack &plan,
+                std::span<const AssetRecord> bases,
+                const GroundTerrainErrorLimit &limit,
+                size_t &bytesMost) {
+  if (plan.Resident) { return true; }
+  const auto &record = *plan.Payload;
   if (record.Kind == kDetailKind) {
-    if (!record.Tile) { return std::nullopt; }
+    if (!record.Tile) { return false; }
     const auto &key = record.Tile->Coarser;
     const auto base = std::ranges::lower_bound(bases, key, {}, &AssetRecord::Key);
-    if (base == bases.end() || base->Key != key) { return std::nullopt; }
+    if (base == bases.end() || base->Key != key) { return false; }
     const auto error = BaseError(*base, record);
-    if (!error) { return std::nullopt; }
+    if (!error) { return false; }
     if (limit && *error <= limit(base->Bounds)) {
       plan.Payload = &*base;
     } else {
-      if (base->ByteCount > bytesMost) { return std::nullopt; }
+      if (base->ByteCount > bytesMost) { return false; }
       bytesMost -= static_cast<size_t>(base->ByteCount);
       plan.Base = &*base;
     }
   }
-  if (plan.Payload->ByteCount > bytesMost) { return std::nullopt; }
+  if (plan.Payload->ByteCount > bytesMost) { return false; }
   bytesMost -= static_cast<size_t>(plan.Payload->ByteCount);
-  return plan;
+  return true;
+}
+
+void AssignTerrainPack(std::span<Sheet> sheets,
+                       std::span<const uint32_t> slots,
+                       const std::shared_ptr<const std::vector<Sheet>> &pages) {
+  for (size_t pageIndex = 0; pageIndex < slots.size(); ++pageIndex) {
+    const auto &page = (*pages)[pageIndex];
+    sheets[slots[pageIndex]] = {.Tile = page.Tile,
+                                .Nodes = {},
+                                .Side = page.Side,
+                                .Postings = page.Postings,
+                                .Virtual = page.Virtual,
+                                .SourceZoom = page.SourceZoom,
+                                .SharedSamples =
+                                    std::shared_ptr<const std::vector<float>>(pages, &page.Nodes)};
+  }
 }
 
 }
@@ -286,6 +300,26 @@ PrepareGroundTerrainPacks(AssetCache &cache,
   return manifest;
 }
 
+GroundTerrainPackReader::Pages
+GroundTerrainPackReader::Retain(const AssetCache &cache, const AssetRecord &record, size_t count) {
+  Pages pages;
+  std::string base;
+  {
+    const std::scoped_lock lock(Lock_);
+    const auto found = Resident_.find(record.Key);
+    if (found == Resident_.end() || found->second.Package != record.Package ||
+        found->second.NativeBytes != record.ByteCount) {
+      return {};
+    }
+    pages = found->second.Pages.lock();
+    if (!pages || pages->size() != count) { return {}; }
+    base = found->second.BasePackage;
+  }
+  cache.UsePackage(record.Package);
+  if (!base.empty()) { cache.UsePackage(base); }
+  return pages;
+}
+
 std::expected<GroundTerrainPackReader::Pages, AssetCacheError>
 GroundTerrainPackReader::Read(const AssetCache &cache,
                               const AssetRecord &record,
@@ -293,20 +327,7 @@ GroundTerrainPackReader::Read(const AssetCache &cache,
                               size_t count,
                               size_t &readBytes) {
   if (record.OffsetBytes != 0) { return Pages{}; }
-  Pages resident;
-  {
-    const std::scoped_lock lock(Lock_);
-    const auto found = Resident_.find(record.Key);
-    if (found != Resident_.end() && found->second.Package == record.Package &&
-        found->second.NativeBytes == record.ByteCount) {
-      resident = found->second.Pages.lock();
-    }
-  }
-  if (resident) {
-    cache.UsePackage(record.Package);
-    if (base != nullptr) { cache.UsePackage(base->Package); }
-    return resident->size() == count ? std::move(resident) : nullptr;
-  }
+  if (auto resident = Retain(cache, record, count); resident) { return resident; }
   const auto pack = cache.Load(record.Key, static_cast<size_t>(record.ByteCount));
   if (!pack) { return std::unexpected(pack.error()); }
   if (!*pack || (**pack).Record().Package != record.Package ||
@@ -326,7 +347,10 @@ GroundTerrainPackReader::Read(const AssetCache &cache,
                                              published->size() == count) {
       return published;
     }
-    entry = {.Pages = *decoded, .Package = record.Package, .NativeBytes = record.ByteCount};
+    entry = {.Pages = *decoded,
+             .Package = record.Package,
+             .BasePackage = base != nullptr ? base->Package : std::string{},
+             .NativeBytes = record.ByteCount};
   }
   return decoded;
 }
@@ -368,43 +392,42 @@ GroundTerrainPackReader::Restore(const AssetCache &cache,
   if (!index) { return std::unexpected(index.error()); }
   if (index->size() != manifest.Packs.size()) { return false; }
   keys.clear();
-  for (const auto &pack : *index) {
-    if (!IsCanonical(pack, region)) { return false; }
-    if (pack.Kind == kDetailKind && pack.Tile) { keys.push_back(pack.Tile->Coarser); }
+  std::vector<PlannedPack> selected;
+  selected.reserve(index->size());
+  for (const auto &record : *index) {
+    const auto entry =
+        std::ranges::lower_bound(manifest.Packs, record.Key, {}, &GroundTerrainManifest::Pack::Key);
+    if (entry == manifest.Packs.end() || entry->Key != record.Key || !IsCanonical(record, region)) {
+      return false;
+    }
+    auto resident = Retain(cache, record, entry->Slots.size());
+    if (!resident && record.Kind == kDetailKind && record.Tile) {
+      keys.push_back(record.Tile->Coarser);
+    }
+    selected.push_back({.Payload = &record, .Entry = &*entry, .Resident = std::move(resident)});
   }
   auto bases = cache.FindTiles(keys);
   if (!bases) { return std::unexpected(bases.error()); }
-  if (bases->size() != keys.size()) { return false; }
   std::ranges::sort(*bases, {}, &AssetRecord::Key);
-  std::vector<PlannedPack> selected;
-  selected.reserve(manifest.Packs.size());
-  for (const auto &record : *index) {
-    auto plan = PlanPack(record, manifest, *bases, limit, bytesMost);
-    if (!plan) { return false; }
-    selected.push_back(*plan);
+  for (auto &plan : selected) {
+    if (!ChoosePack(plan, *bases, limit, bytesMost)) { return false; }
   }
   {
     const std::scoped_lock lock(Lock_);
     std::erase_if(Resident_, [](const auto &entry) { return entry.second.Pages.expired(); });
   }
   sheets.resize(manifest.Sheets);
-  for (const auto &[record, base, entry] : selected) {
+  for (const auto &[record, entry, base, resident] : selected) {
     if (stop.stop_requested()) { return false; }
+    if (resident) {
+      AssignTerrainPack(sheets, entry->Slots, resident);
+      continue;
+    }
     const auto pages = Read(cache, *record, base, entry->Slots.size(), read.Bytes);
     if (!pages) { return std::unexpected(pages.error()); }
     if (!*pages) { return false; }
     read.CompactPacks += static_cast<size_t>(record->Kind == kBaseKind);
-    for (size_t pageIndex = 0; pageIndex < entry->Slots.size(); ++pageIndex) {
-      const auto &page = (**pages)[pageIndex];
-      sheets[entry->Slots[pageIndex]] = {
-          .Tile = page.Tile,
-          .Nodes = {},
-          .Side = page.Side,
-          .Postings = page.Postings,
-          .Virtual = page.Virtual,
-          .SourceZoom = page.SourceZoom,
-          .SharedSamples = std::shared_ptr<const std::vector<float>>(*pages, &page.Nodes)};
-    }
+    AssignTerrainPack(sheets, entry->Slots, *pages);
   }
   return true;
 }
