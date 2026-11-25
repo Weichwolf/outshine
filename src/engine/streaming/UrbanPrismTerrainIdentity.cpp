@@ -15,10 +15,11 @@
 
 namespace outshine {
 namespace {
-constexpr int kIdentityZoom = 14;
+constexpr int kReferenceIdentityZoom = 14;
 
 std::expected<void, TerrainIdentityError> AppendRegions(const Generators::Osm::UrbanArea &area,
                                                         Generators::Osm::UrbanPatchRange patch,
+                                                        int zoom,
                                                         std::vector<Data::TileId> &regions,
                                                         size_t most) {
   if (patch.Columns == 0 || patch.Rows == 0 || patch.Column >= area.Columns ||
@@ -33,10 +34,10 @@ std::expected<void, TerrainIdentityError> AppendRegions(const Generators::Osm::U
   const double north = (static_cast<double>(area.FirstCell[1]) - patch.Row + .5) * pitch;
   const double south =
       (static_cast<double>(area.FirstCell[1]) - patch.Row - patch.Rows + 1.5) * pitch;
-  const auto at = [](double x, double y) {
+  const auto at = [zoom](double x, double y) {
     return Ground::TileIndex::Of({.LongitudeDeg = x / kWgs84A * kRad2Deg,
                                   .LatitudeDeg = std::atan(std::sinh(y / kWgs84A)) * kRad2Deg},
-                                 kIdentityZoom)
+                                 zoom)
         .Tile();
   };
   const auto first = at(west, north);
@@ -46,7 +47,7 @@ std::expected<void, TerrainIdentityError> AppendRegions(const Generators::Osm::U
   }
   for (uint32_t row = first->Y; row <= last->Y; ++row) {
     for (uint32_t column = first->X; column <= last->X; ++column) {
-      const Data::TileId region{.Zoom = kIdentityZoom, .X = column, .Y = row};
+      const Data::TileId region{.Zoom = zoom, .X = column, .Y = row};
       if (std::ranges::find(regions, region) != regions.end()) { continue; }
       if (regions.size() == most) { return std::unexpected(TerrainIdentityError::OverBudget); }
       regions.push_back(region);
@@ -67,9 +68,13 @@ UrbanPrismTerrainIdentity(const Generators::Osm::UrbanArea &area,
   if (patches.size() > limits.PatchesMost) {
     return std::unexpected(TerrainIdentityError::OverBudget);
   }
+  constexpr double referencePitch = Generators::Osm::UrbanAreaRecipe{}.ProjectedPitchM;
+  const int zoom =
+      kReferenceIdentityZoom -
+      static_cast<int>(std::ceil(std::log2(area.Recipe.ProjectedPitchM / referencePitch)));
   std::vector<Data::TileId> regions;
   for (const auto patch : patches) {
-    const auto appended = AppendRegions(area, patch, regions, limits.RegionsMost);
+    const auto appended = AppendRegions(area, patch, zoom, regions, limits.RegionsMost);
     if (!appended) { return std::unexpected(appended.error()); }
   }
   std::ranges::sort(regions, [](Data::TileId left, Data::TileId right) {
@@ -78,7 +83,7 @@ UrbanPrismTerrainIdentity(const Generators::Osm::UrbanArea &area,
   BlockedDigest digest;
   constexpr uint32_t format = 1;
   (void)digest.Number(format);
-  (void)digest.Number(kIdentityZoom);
+  (void)digest.Number(zoom);
   (void)digest.Number(static_cast<uint64_t>(regions.size()));
   for (const auto region : regions) {
     const auto identity = terrain.SurfaceIdentity(region, limits.PagesMost);
