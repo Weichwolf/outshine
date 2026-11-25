@@ -5,9 +5,11 @@
 #include "DiagnosticLedger.h"
 #include "SourceProductSelection.h"
 #include "WaterSurfaceBuilder.h"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <format>
 #include <memory>
@@ -21,6 +23,32 @@ namespace outshine {
 namespace {
 constexpr size_t kCorridorLanesPerFrame = 128;
 constexpr size_t kCorridorNodesPerFrame = 64;
+
+std::optional<std::vector<std::string>> RoofKeys(WorldRegionBuildState &state) {
+  const auto &sources = state.Candidate().Sources();
+  const auto *vectors = sources.Vectors.get();
+  std::vector<std::string> keys;
+  if (vectors == nullptr) { return keys; }
+  const int buildingLayer = vectors->Layer(Generators::Osm::OsmLayer::Buildings);
+  if (buildingLayer < 0) { return keys; }
+  const auto &prints = state.Footprints();
+  for (uint32_t index = 0; index < vectors->Tiles().size(); ++index) {
+    if (std::ranges::none_of(sources.Ways.OfTile(static_cast<int>(index)),
+                             [](const auto &way) { return way.Floor.value_or(0) > 0; }) ||
+        std::ranges::none_of(vectors->OfTile(static_cast<int>(index)), [&](const auto &feature) {
+          return feature.Type == 3 && std::cmp_equal(feature.Layer, buildingLayer);
+        })) {
+      continue;
+    }
+    const auto *accepted = prints.InputOfTile(index);
+    if (accepted == nullptr || !accepted->Qualified) {
+      if (state.Revision().Quality == GroundQuality::Refined) { return std::nullopt; }
+      continue;
+    }
+    if (accepted->Bake.PreparedAssetKey) { keys.push_back(*accepted->Bake.PreparedAssetKey); }
+  }
+  return keys;
+}
 
 std::optional<RoadPageRestoration::DisplayView> RoadDisplayView(const ViewPath &path,
                                                                 const TangentFrame &frame,
@@ -42,10 +70,13 @@ AdvanceRoadPlan(EngineServices &services,
                 const Around &coverage,
                 WorldRegionBuildState &state,
                 const std::shared_ptr<Generators::PreparedRoadPages> &assets,
+                const std::shared_ptr<Generators::PreparedBuildingAssets> &buildings,
                 Core::DiagnosticLedger &published) {
   auto *pool = services.Compute.get();
   if (state.RoadPlanning() == nullptr) {
     if (pool == nullptr) { return std::unexpected("road planning has no worker pool"); }
+    auto roofs = buildings ? RoofKeys(state) : std::vector<std::string>{};
+    if (!roofs) { return {}; }
     const auto began = std::chrono::steady_clock::now();
     state.BeginRoadPlanning(std::make_unique<RoadPlanTask>(
         *pool,
@@ -60,7 +91,9 @@ AdvanceRoadPlan(EngineServices &services,
                             .Began = site.CensusAt,
                             .Eye = {.LongitudeDeg = site.EyeLonDeg, .LatitudeDeg = site.EyeLatDeg},
                             .SheetZoom = coverage.Zoom,
-                            .DemZoom = site.Ground->BlockZoom()}));
+                            .DemZoom = site.Ground->BlockZoom(),
+                            .Buildings = buildings,
+                            .RoofKeys = std::move(*roofs)}));
     published.RecordMetric(
         "ground candidate: corridor job admission",
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
@@ -202,8 +235,13 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
       .EyeLonDeg = coverage.LongitudeDeg,
       .Projection = build.Footprints.Projection()};
   if (!state.CorridorsPlanned()) {
-    const auto plan =
-        AdvanceRoadPlan(Services, site, coverage, state, World.Surface().RoadAssets(), Published);
+    const auto plan = AdvanceRoadPlan(Services,
+                                      site,
+                                      coverage,
+                                      state,
+                                      World.Surface().RoadAssets(),
+                                      World.Surface().BuildingAssets(),
+                                      Published);
     if (!plan) {
       Error = plan.error();
       return false;

@@ -69,6 +69,8 @@ SurfacePreparation::BindRegionCache(const ContentDirectories &under,
   materials->insert(0, "ground-palette-layers-1\n");
   materials->push_back('\0');
   materials->append(*vegetation);
+  materials->push_back('\0');
+  materials->append(PreparedBuildings_->Recipe());
   auto regions = Generators::Osm::PreparedGroundRegions::Open(AssetStore_, sources, *materials);
   if (!regions) { return std::unexpected(std::move(regions.error())); }
   PreparedRegions_ = std::move(*regions);

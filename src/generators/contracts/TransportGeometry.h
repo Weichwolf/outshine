@@ -1,7 +1,10 @@
 #ifndef OUTSHINE_GENERATORS_CONTRACTS_TRANSPORTGEOMETRY_H
 #define OUTSHINE_GENERATORS_CONTRACTS_TRANSPORTGEOMETRY_H
 
+#include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <span>
 
 namespace outshine {
 inline constexpr double kCrossfall = 0.025;
@@ -16,6 +19,10 @@ struct RoadStation {
   double GradeM = 0.0;
   uint64_t Node = 0;
 };
+
+enum class RoadDeckSupport : uint8_t { Terrain, Interior, Roof };
+
+using RoadDeckProfile = std::function<RoadDeckSupport(size_t, std::span<RoadStation>, double)>;
 
 struct RoadGate {
   double EastM = 0.0;

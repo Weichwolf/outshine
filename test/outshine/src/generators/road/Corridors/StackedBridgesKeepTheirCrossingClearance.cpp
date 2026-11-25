@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -96,11 +97,33 @@ enum class Crossing {
   ObliqueStack,
   BridgeBelowElevatedPath,
   SameBuildingFloor,
-  StackedBuildingFloors
+  StackedBuildingFloors,
+  RoofSupportedFloor,
+  RooftopOverInterior
 };
 
 bool UsesBuildingFloors(Crossing kind) {
-  return kind == Crossing::SameBuildingFloor || kind == Crossing::StackedBuildingFloors;
+  return kind == Crossing::SameBuildingFloor || kind == Crossing::StackedBuildingFloors ||
+         kind == Crossing::RoofSupportedFloor || kind == Crossing::RooftopOverInterior;
+}
+
+bool StackedBuildingFloors(Crossing kind) {
+  return kind == Crossing::StackedBuildingFloors || kind == Crossing::RooftopOverInterior;
+}
+
+constexpr double kTestRoofM = 12.0;
+
+outshine::RoadDeckProfile DeckProfile(Crossing kind,
+                                      const outshine::Generators::Osm::StreetField &ways) {
+  using namespace outshine;
+  if (kind != Crossing::RoofSupportedFloor && kind != Crossing::RooftopOverInterior) { return {}; }
+  return [&ways, kind](size_t lane, std::span<RoadStation> stations, double) {
+    if (kind == Crossing::RooftopOverInterior && ways.Ways()[lane].Floor == 2) {
+      return RoadDeckSupport::Interior;
+    }
+    for (auto &station : stations) { station.GradeM = kTestRoofM; }
+    return RoadDeckSupport::Roof;
+  };
 }
 
 outshine::Test::MvtTransportWire::Bytes FloorCrossingTile(Crossing kind, bool reversed) {
@@ -115,7 +138,7 @@ outshine::Test::MvtTransportWire::Bytes FloorCrossingTile(Crossing kind, bool re
     Text(value, 0x0a, text);
     Message(layer, kLayerValue, value);
   }
-  const bool stacked = kind == Crossing::StackedBuildingFloors;
+  const bool stacked = StackedBuildingFloors(kind);
   const auto axis = [](bool eastward) {
     Bytes geometry{9};
     Varint(geometry, eastward ? 3072u : 4096u);
@@ -141,6 +164,23 @@ void CheckHeights(Crossing kind,
                   const outshine::Generators::Osm::StreetField::Way &lower) {
   using namespace outshine;
   using namespace outshine::Test;
+  if (kind == Crossing::RoofSupportedFloor) {
+    CHECK(!mesher.Top[0].Triangles.empty() && !mesher.Top[1].Triangles.empty(),
+          "both roof paths still emit a surface");
+    for (const double elevation : mesher.CrossingHeightM) {
+      CHECK(std::abs(elevation - (kTestRoofM + kPavementLipM)) < 1e-6,
+            "both paths follow the supported roof height through their projected crossing");
+    }
+    return;
+  }
+  if (kind == Crossing::RooftopOverInterior) {
+    CHECK(std::abs(mesher.CrossingHeightM[1] - (kTestRoofM + kPavementLipM)) < 1e-6,
+          "the upper path stays on the roof above an interior crossing");
+    CHECK(mesher.CrossingHeightM[1] - kSealedDepthM >=
+              mesher.CrossingHeightM[0] + lower.ClearanceM - 1e-6,
+          "the interior path preserves clearance below the roof deck");
+    return;
+  }
   if (kind == Crossing::BridgeBelowElevatedPath) {
     CHECK(mesher.CrossingHeightM[0] < lower.ClearanceM,
           "a bridge below an elevated path does not inherit that path's ground clearance");
@@ -284,7 +324,7 @@ void CheckStack(bool reversed, bool duplicate, Crossing kind = Crossing::Stack) 
   if (ways.Ways().size() != declared.size()) { return; }
   const auto &lower = ways.Ways()[reversed ? 1 : 0];
   if (UsesBuildingFloors(kind)) {
-    CHECK(lower.Floor == (kind == Crossing::SameBuildingFloor ? 3 : 2) &&
+    CHECK(lower.Floor == (StackedBuildingFloors(kind) ? 2 : 3) &&
               ways.Ways()[reversed ? 0 : 1].Floor == 3,
           "ingestion retains the floor of both paths");
   }
@@ -302,7 +342,10 @@ void CheckStack(bool reversed, bool duplicate, Crossing kind = Crossing::Stack) 
   }
   const TangentFrame standing = TangentFrame::At(origin);
   const TriangleBvh empty = TriangleBvh::Over({}, {});
-  const Drape drape{.Surface = empty, .Field = [](EastNorth) { return std::optional<double>{0}; }};
+  const Drape drape{.Surface = empty, .Field = [kind](EastNorth) {
+                      return std::optional{kind == Crossing::RooftopOverInterior ? kTestRoofM
+                                                                                 : 0.0};
+                    }};
   const std::shared_ptr<const TerrainClassificationMap> noClasses;
   const RecordingMesher mesher;
   const Generators::Corridors corridors(mesher);
@@ -318,7 +361,8 @@ void CheckStack(bool reversed, bool duplicate, Crossing kind = Crossing::Stack) 
                                          .CensusAt = {},
                                          .EyeLatDeg = origin.LatitudeDeg,
                                          .EyeLonDeg = origin.LongitudeDeg,
-                                         .Projection = {.FocalPx = 800}};
+                                         .Projection = {.FocalPx = 800},
+                                         .RoofDeck = DeckProfile(kind, ways)};
   Geometry geometry;
   std::vector<EarthworkStamp> contacts;
   std::vector<DiagnosticSample> notes;
@@ -348,7 +392,9 @@ int main() {
                           Crossing::ObliqueStack,
                           Crossing::BridgeBelowElevatedPath,
                           Crossing::SameBuildingFloor,
-                          Crossing::StackedBuildingFloors}) {
+                          Crossing::StackedBuildingFloors,
+                          Crossing::RoofSupportedFloor,
+                          Crossing::RooftopOverInterior}) {
     CheckStack(false, false, kind);
     CheckStack(true, false, kind);
   }

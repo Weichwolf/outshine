@@ -19,6 +19,7 @@
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace outshine::Generators {
@@ -35,7 +36,9 @@ enum class CrossingCoreRecipe { Flat, Profiled };
 struct ProfileLimits {
   double MaxGradient = 0.0;
   double MinimumM = 0.0;
+  double InferredMinimumM = -std::numeric_limits<double>::infinity();
   CrossingCoreRecipe Core = CrossingCoreRecipe::Flat;
+  bool Roof = false;
 };
 
 struct SlopeAttachment {
@@ -47,6 +50,8 @@ struct SlopeAttachment {
 
 struct Corridors::HeightGraph {
   std::vector<RoadHeightNode> Nodes;
+  size_t RoofSections = 0;
+  std::vector<std::pair<uint32_t, double>> RoofContacts;
   std::vector<RoadHeightLink> Links;
   std::vector<RoadHeightClearance> Clearances;
   std::vector<std::array<size_t, 2>> ClearanceLanes;
@@ -118,6 +123,28 @@ bool SeparatedCrossing(const auto &on, const auto &crossing) {
   const auto &first = on.Ways.Ways()[crossing.Lanes[0]];
   const auto &second = on.Ways.Ways()[crossing.Lanes[1]];
   return UpperIsFirst(first, second).has_value();
+}
+
+RoadDeckSupport ApplyBuildingProfile(const auto &on, size_t lane, std::span<RoadStation> along) {
+  const auto &way = on.Ways.Ways()[lane];
+  if (!on.RoofDeck || way.Floor.value_or(0) <= 0) { return RoadDeckSupport::Terrain; }
+  const auto support = on.RoofDeck(lane, along, way.HalfWidthM);
+  if (support == RoadDeckSupport::Roof) {
+    for (RoadStation &station : along) { station.GradeM += kPavementLipM; }
+  }
+  return support;
+}
+
+double JunctionGrade(const auto &on, const auto &into, const auto &junction) {
+  for (const auto &leg : junction.Legs) {
+    const auto &edge = into.Edges[leg.Edge];
+    if (edge.DeckSupport != RoadDeckSupport::Roof) { continue; }
+    RoadStation centre{.EastM = junction.EastM, .NorthM = junction.NorthM};
+    if (on.RoofDeck(edge.Lane, std::span(&centre, 1), 0) == RoadDeckSupport::Roof) {
+      return centre.GradeM + kPavementLipM;
+    }
+  }
+  return junction.GradeM;
 }
 
 void PrepareCrossingCores(const auto &on, const auto &into, auto &graph, const auto &halfWidth) {
@@ -281,6 +308,59 @@ HeightNode(const RoadStation &station, HeightAttachment attachment, double minim
   return node;
 }
 
+void SetContact(uint32_t node,
+                const RoadStation &station,
+                HeightAttachment attachment,
+                ProfileLimits limits,
+                auto &graph) {
+  auto &held = graph.Nodes[node];
+  held.InferredMinimumM =
+      std::max(held.InferredMinimumM, limits.InferredMinimumM - attachment.OffsetM);
+  if (limits.Roof) { graph.RoofContacts.emplace_back(node, station.GradeM - attachment.OffsetM); }
+}
+
+ProfileLimits BridgeProfile(
+    const auto &work, const auto &edge, const auto &way, bool isolated, double unraisedDeckM) {
+  const double noMinimumM = -std::numeric_limits<double>::infinity();
+  const double inferredM = edge.DeckSupport == RoadDeckSupport::Terrain && way.Bridge &&
+                                   work.DeckM[edge.Lane] > unraisedDeckM
+                               ? work.DeckM[edge.Lane]
+                               : noMinimumM;
+  const bool buildingFloor = way.Floor.value_or(0) > 0;
+  const auto water = work.WaterDeckM.find(edge.Lane);
+  const double waterM = water != work.WaterDeckM.end() ? water->second : noMinimumM;
+  return {.MinimumM = buildingFloor ? waterM : std::max(waterM, inferredM),
+          .InferredMinimumM = buildingFloor ? inferredM : noMinimumM,
+          .Core = isolated ? CrossingCoreRecipe::Flat : CrossingCoreRecipe::Profiled,
+          .Roof = edge.DeckSupport == RoadDeckSupport::Roof};
+}
+
+auto FitHeights(auto &graph) {
+  const auto solve = [&] {
+    return PlanRoadHeights(graph.Nodes, graph.Links, graph.Clearances, RoadHeightFit::PreferCuts);
+  };
+  if (graph.RoofContacts.empty()) { return solve(); }
+
+  using Bounds = std::pair<double, double>;
+  std::vector<Bounds> saved;
+  saved.reserve(graph.RoofContacts.size());
+  for (const auto &[index, height] : graph.RoofContacts) {
+    auto &node = graph.Nodes[index];
+    saved.emplace_back(node.MinimumM, node.MaximumM);
+    node.MinimumM = std::max(node.MinimumM, height);
+    node.MaximumM = std::min(node.MaximumM, height + kSealedDepthM);
+  }
+  auto fitted = solve();
+  for (size_t at = saved.size(); at > 0; --at) {
+    auto &node = graph.Nodes[graph.RoofContacts[at - 1].first];
+    const auto &[minimum, maximum] = saved[at - 1];
+    node.MinimumM = minimum;
+    node.MaximumM = maximum;
+  }
+  if (fitted || !fitted.error().CycleNodes.empty()) { return fitted; }
+  return solve();
+}
+
 void AppendProfile(std::span<const RoadStation> along,
                    const std::array<HeightAttachment, 2> &ends,
                    ProfileLimits limits,
@@ -298,6 +378,7 @@ void AppendProfile(std::span<const RoadStation> along,
       attachment = ends[1];
     }
     const uint32_t node = HeightNode(along[at], attachment, limits.MinimumM, graph);
+    SetContact(node, along[at], attachment, limits, graph);
     graph.Stations.push_back(node);
     graph.OffsetsM.push_back(attachment.OffsetM);
     graph.StationPlanes.push_back(attachment.Junction);
@@ -449,6 +530,7 @@ void Corridors::PrepareProfile(size_t edgeAt, const Paving &on, Paved &into) {
     into.Along.front().GradeM = firstM;
     into.Along.back().GradeM = lastM;
   }
+  edge.DeckSupport = ApplyBuildingProfile(on, edge.Lane, into.Along);
   edge.PlannedFirst = static_cast<uint32_t>(into.Planned.size());
   edge.PlannedCount = static_cast<uint32_t>(into.Along.size());
   into.Planned.insert(into.Planned.end(), into.Along.begin(), into.Along.end());
@@ -478,9 +560,13 @@ void Corridors::CrossingClearances(const Paving &on, const Paved &into, HeightGr
     };
     const double lowerBankM = bankExtent(lower);
     const double upperBankM = bankExtent(upper);
-    if (lowerWay.Bridge) {
-      auto &node = graph.Nodes[below->second];
-      node.MinimumM = std::max(node.MinimumM, crossing.GradeM + kSealedDepthM + lowerBankM);
+    if (lowerWay.Bridge &&
+        DeckAt(on, crossing.Lanes[lower], {.EastM = crossing.EastM, .NorthM = crossing.NorthM}) ==
+            RoadDeckSupport::Terrain) {
+      const auto bound = lowerWay.Floor.value_or(0) > 0 ? &RoadHeightNode::InferredMinimumM
+                                                        : &RoadHeightNode::MinimumM;
+      double &minimumM = graph.Nodes[below->second].*bound;
+      minimumM = std::max(minimumM, crossing.GradeM + kSealedDepthM + lowerBankM);
     }
     graph.Clearances.push_back({.Lower = below->second,
                                 .Upper = above->second,
@@ -507,14 +593,21 @@ void Corridors::HeightConstraints(const Paving &on, Paved &into, HeightGraph &gr
   graph.OffsetsM.clear();
   graph.StationPlanes.clear();
   graph.LinkStations.clear();
+  graph.RoofSections = 0;
+  graph.RoofContacts.clear();
   for (const auto &junction : into.Junctions) {
-    const RoadStation centre{.GradeM = junction.GradeM, .Node = junction.Node};
+    const RoadStation centre{.GradeM = JunctionGrade(on, into, junction), .Node = junction.Node};
     (void)HeightNode(
         centre, {.Node = junction.Node}, -std::numeric_limits<double>::infinity(), graph);
   }
   for (const auto &edge : into.Edges) {
     if (edge.PlannedCount < 2) { continue; }
     const auto along = std::span(into.Planned).subspan(edge.PlannedFirst, edge.PlannedCount);
+    const bool onRoof = edge.DeckSupport == RoadDeckSupport::Roof;
+    if (onRoof) {
+      ++graph.RoofSections;
+      into.UnbankedWays.insert(edge.Lane);
+    }
     std::array<HeightAttachment, 2> ends{{{.Node = edge.NodeAt[0]}, {.Node = edge.NodeAt[1]}}};
     for (size_t end = 0; end < 2; ++end) {
       const auto found = graph.JunctionAt.find(ends[end].Node);
@@ -524,7 +617,7 @@ void Corridors::HeightConstraints(const Paving &on, Paved &into, HeightGraph &gr
       auto &at = end == 0 ? along.front() : along.back();
       ends[end].OffsetM = junction.SlopeE * (at.EastM - junction.EastM) +
                           junction.SlopeN * (at.NorthM - junction.NorthM);
-      at.GradeM = junction.GradeM + ends[end].OffsetM;
+      if (!onRoof) { at.GradeM = junction.GradeM + ends[end].OffsetM; }
     }
     const auto &way = on.Ways.Ways()[edge.Lane];
     const bool isolated = std::ranges::all_of(
@@ -532,15 +625,9 @@ void Corridors::HeightConstraints(const Paving &on, Paved &into, HeightGraph &gr
     if (!isolated && !CrossingCoreIntervals(along, ends, graph).empty()) {
       into.UnbankedWays.insert(edge.Lane);
     }
-    const double minimumM = way.Bridge && into.DeckM[edge.Lane] > kUnraisedDeckM
-                                ? into.DeckM[edge.Lane]
-                                : -std::numeric_limits<double>::infinity();
-    AppendProfile(along,
-                  ends,
-                  {.MaxGradient = RoadGradient(way),
-                   .MinimumM = minimumM,
-                   .Core = isolated ? CrossingCoreRecipe::Flat : CrossingCoreRecipe::Profiled},
-                  graph);
+    auto limits = BridgeProfile(into, edge, way, isolated, kUnraisedDeckM);
+    limits.MaxGradient = RoadGradient(way);
+    AppendProfile(along, ends, limits, graph);
   }
   CrossingClearances(on, into, graph);
 }
@@ -567,8 +654,7 @@ std::expected<void, std::string_view> Corridors::PlanHeights(const Paving &on, P
   graph.Adjusted.resize(into.Junctions.size());
   BindCrossingHeights(on, into, graph);
   HeightConstraints(on, into, graph);
-  auto plan =
-      PlanRoadHeights(graph.Nodes, graph.Links, graph.Clearances, RoadHeightFit::PreferCuts);
+  auto plan = FitHeights(graph);
   for (size_t attempt = 0; !plan; ++attempt) {
     const auto &failure = plan.error();
     if (failure.CycleNodes.empty()) { return std::unexpected(failure.Reason); }
@@ -586,7 +672,7 @@ std::expected<void, std::string_view> Corridors::PlanHeights(const Paving &on, P
       }
     }
     HeightConstraints(on, into, graph);
-    plan = PlanRoadHeights(graph.Nodes, graph.Links, graph.Clearances, RoadHeightFit::PreferCuts);
+    plan = FitHeights(graph);
   }
   size_t changedStations = 0;
   for (size_t at = 0; at < into.Planned.size(); ++at) {
@@ -617,6 +703,10 @@ std::expected<void, std::string_view> Corridors::PlanHeights(const Paving &on, P
   Notes(
       into, "streets: level crossing decks", static_cast<double>(into.UnbankedWays.size()), "ways");
   Notes(into, "streets: joint height nodes", static_cast<double>(graph.Nodes.size()), "nodes");
+  Notes(into,
+        "streets: roof-supported sections",
+        static_cast<double>(graph.RoofSections),
+        "sections");
   Notes(into,
         "streets: planned level clearances",
         static_cast<double>(graph.Clearances.size()),
