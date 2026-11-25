@@ -26,13 +26,13 @@ using Generators::BuildingRoofAssets;
 using Generators::PreparedBuildingAssets;
 
 double DiameterLimit(const Box &bounds,
-                     const Vec3 &eye,
+                     const ViewPath &path,
                      const Vec2 &viewport,
                      ProjectedErrorBudget projection) {
   constexpr double calibratedSupportPx = 16;
   const double support = std::min(calibratedSupportPx, 8 * projection.AllowedErrorPx);
   return SourceProductSelection::ProjectedSupportLimitM(
-      bounds, {.Start = eye, .End = eye}, viewport, projection.FocalPx, support);
+      bounds, path, viewport, projection.FocalPx, support);
 }
 
 struct Split {
@@ -152,11 +152,12 @@ bool LoadRemainder(BuildingRoofTile &product,
 bool BuildingRoofTile::Support::Allows(const Vec3 &eye,
                                        const Vec2 &viewport,
                                        ProjectedErrorBudget projection) const {
-  if (!(DiameterM > 0) || DiameterM > DiameterLimit(Bounds, eye, viewport, projection)) {
+  const ViewPath point{.Start = eye, .End = eye};
+  if (!(DiameterM > 0) || DiameterM > DiameterLimit(Bounds, point, viewport, projection)) {
     return false;
   }
-  return ShellErrorM <= SourceProductSelection::GeometryErrorLimitM(
-                            Bounds, {.Start = eye, .End = eye}, viewport, projection);
+  return ShellErrorM <=
+         SourceProductSelection::GeometryErrorLimitM(Bounds, point, viewport, projection);
 }
 
 std::optional<BuildingRoofTile>
@@ -165,10 +166,10 @@ BuildingRoofTile::Load(AssetCache &cache,
                        const std::string &key,
                        const Box &bounds,
                        const PreparedBuildingAssets::SourceGroups &groups,
-                       const Vec3 &eye,
+                       const ViewPath &path,
                        const Vec2 &viewport,
                        ProjectedErrorBudget projection) {
-  const double broadLimit = DiameterLimit(bounds, eye, viewport, projection);
+  const double broadLimit = DiameterLimit(bounds, path, viewport, projection);
   if (!(broadLimit > 0) || groups.Members.empty()) { return std::nullopt; }
   const auto directory = BuildingRoofAssets::Resolve(cache, &assets, key);
   if (!directory || directory->SourceCount() != groups.Members.size()) { return std::nullopt; }
@@ -187,8 +188,8 @@ BuildingRoofTile::Load(AssetCache &cache,
     if (!block || !*block) { return std::nullopt; }
     product.Roofs.insert(product.Roofs.end(), (**block).begin(), (**block).end());
   }
-  const double shellErrorM = SourceProductSelection::GeometryErrorLimitM(
-      bounds, {.Start = eye, .End = eye}, viewport, projection);
+  const double shellErrorM =
+      SourceProductSelection::GeometryErrorLimitM(bounds, path, viewport, projection);
   const auto split = SplitSources(product, groups, key, shellErrorM);
   if (!split || !LoadRemainder(product, cache, assets, *split)) { return std::nullopt; }
   product.Projected.ShellErrorM = split->ShellErrorM;

@@ -1,5 +1,6 @@
 #include "SourceProductSelection.h"
 #include "DistanceInterval.h"
+#include "TangentFrame.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -140,6 +141,19 @@ bool ValidPath(const Box &bounds, const ViewPath &path) {
          finite(path.RadiusM) && path.RadiusM >= 0 && std::ranges::all_of(bounds.Min, finite) &&
          std::ranges::all_of(bounds.Max, finite) && bounds.Holds(bounds.Max);
 }
+}
+
+ViewPath ViewPathInEcef(const ViewPath &scene, const TangentFrame &frame) {
+  const auto ecef = [&frame](const Vec3 &position) {
+    return frame.ToEcefPosition({.EastM = position[0], .NorthM = -position[2], .UpM = position[1]});
+  };
+  const Vec3 start = ecef(scene.Start);
+  const Vec3 end = ecef(scene.End);
+  const double guard = (Length(start) + Length(end)) * (8 * std::numeric_limits<double>::epsilon());
+  return {.Start = start,
+          .End = end,
+          .RadiusM =
+              std::nextafter(scene.RadiusM + guard, std::numeric_limits<double>::infinity())};
 }
 
 double SourceProductSelection::GeometryErrorLimitM(const Box &bounds,

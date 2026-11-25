@@ -3,13 +3,13 @@
 #include "WorldRegionBuildState.h"
 #include "GroundWorldCandidate.h"
 #include "DiagnosticLedger.h"
+#include "SourceProductSelection.h"
 #include "WaterSurfaceBuilder.h"
 #include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <expected>
 #include <format>
-#include <limits>
 #include <memory>
 #include <optional>
 #include <ratio>
@@ -27,21 +27,13 @@ std::optional<RoadPageRestoration::DisplayView> RoadDisplayView(const ViewPath &
                                                                 const Render::Viewpoint &camera,
                                                                 Vec2 viewport) {
   if (camera.Kind == Render::CameraKind::Orthographic) { return std::nullopt; }
-  const auto toEcef = [&frame](const Vec3 &eye) {
-    return frame.ToEcefPosition({.EastM = eye[0], .NorthM = -eye[2], .UpM = eye[1]});
-  };
-  const Vec3 start = toEcef(path.Start);
-  const Vec3 finish = toEcef(path.End);
+  const auto world = ViewPathInEcef(path, frame);
   const double focal = viewport[1] / (2.0 * std::tan(camera.YfovRad * 0.5));
-  const double roundingM =
-      (Length(start) + Length(finish)) * (8 * std::numeric_limits<double>::epsilon());
-  return RoadPageRestoration::DisplayView{
-      .Eye = start,
-      .ViewportPx = viewport,
-      .Projection = {.FocalPx = focal},
-      .TranslationM =
-          std::nextafter(path.RadiusM + roundingM, std::numeric_limits<double>::infinity()),
-      .PathEnd = finish};
+  return RoadPageRestoration::DisplayView{.Eye = world.Start,
+                                          .ViewportPx = viewport,
+                                          .Projection = {.FocalPx = focal},
+                                          .TranslationM = world.RadiusM,
+                                          .PathEnd = world.End};
 }
 
 std::expected<void, std::string>

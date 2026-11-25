@@ -20,6 +20,14 @@
 
 namespace outshine {
 namespace {
+ViewPath ProductView(const BuildingFieldStreaming::Context &context, const Vec3 &eye) {
+  if (!context.PlannedView ||
+      !(context.PlannedView->DistanceTo(context.Camera.EyeM) <= context.PlannedView->RadiusM)) {
+    return {.Start = eye, .End = eye};
+  }
+  return ViewPathInEcef(*context.PlannedView, context.Frame);
+}
+
 uint64_t SupportedCells(const Generators::PreparedBuildingAssets::SourceGroups &groups) {
   uint64_t supported = 0;
   for (const auto &cell : groups.Cells) {
@@ -180,16 +188,17 @@ void BuildingFieldStreaming::State::StartMetadata(Context &context) {
   const auto bounds = tile.Source.Bounds;
   const auto cells = tile.Source.Cells;
   const auto eye = WorldCamera(context).EyeM;
+  const auto path = ProductView(context, eye);
   const auto projection = context.Surface.Footprints().Projection();
   const Vec2 viewport{{context.Renderer.PictureW(), context.Renderer.PictureH()}};
   if (!context.Workers.PostDetached(
-          [assets, cache, key, cells, bounds, result, bytes, eye, viewport, projection] {
+          [assets, cache, key, cells, bounds, result, bytes, eye, path, viewport, projection] {
             auto groups =
                 assets->DescribeSourceGroups(key, {.Occupied = cells, .IndexBytesMost = *bytes});
             if (groups && *groups) {
               if (cache) {
                 result->Roof = BuildingRoofTile::Load(
-                    *cache, *assets, key, bounds, **groups, eye, viewport, projection);
+                    *cache, *assets, key, bounds, **groups, path, viewport, projection);
               }
               std::vector<SourceProductSelection::Source> traits;
               traits.reserve((**groups).Members.size());

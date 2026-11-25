@@ -8,6 +8,7 @@
 #include "SourceCoverage.h"
 #include <cstdint>
 #include "Vec2.h"
+#include "ViewPath.h"
 #include <optional>
 #include <string>
 #include <vector>
@@ -36,7 +37,7 @@ struct BuildingRoofTile {
        const std::string &key,
        const Box &bounds,
        const Generators::PreparedBuildingAssets::SourceGroups &groups,
-       const Vec3 &eye,
+       const ViewPath &path,
        const Vec2 &viewport,
        ProjectedErrorBudget projection);
 };

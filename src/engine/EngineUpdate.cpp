@@ -449,6 +449,8 @@ bool Engine::State::AdvanceBuildingFields() {
   const auto pipeline = Services.AssetPublications();
   if (!pipeline) { return true; }
   if (!World.BuildingFields) { World.BuildingFields = std::make_unique<BuildingFieldStreaming>(); }
+  const auto &coverage = World.PublishedGroundCoverage;
+  const auto path = coverage && coverage->Sweep ? coverage->Sweep->EyePath : std::nullopt;
   BuildingFieldStreaming::Context context{
       .Workers = *Services.Compute,
       .Pipeline = *pipeline,
@@ -458,7 +460,8 @@ bool Engine::State::AdvanceBuildingFields() {
       .Renderer = Picture.Device,
       .Camera = Picture.Standing->Watching(),
       .Frame = TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
-                                 .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg})};
+                                 .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg}),
+      .PlannedView = path};
   if (!World.BuildingFields->Advance(context, Error)) { return false; }
   const auto counts = World.BuildingFields->Read();
   Published.RecordMetric(

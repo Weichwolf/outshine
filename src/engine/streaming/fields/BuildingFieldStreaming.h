@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_STREAMING_FIELDS_BUILDINGFIELDSTREAMING_H
 #include "TangentFrame.h"
 #include "Viewing.h"
+#include "ViewPath.h"
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -35,6 +36,7 @@ public:
     Render::SceneRenderer &Renderer;
     Render::Viewpoint Camera;
     TangentFrame Frame;
+    std::optional<ViewPath> PlannedView = std::nullopt;
   };
 
   struct Counts {
