@@ -23,6 +23,12 @@ public:
     uint32_t Rows = 0;
   };
 
+  struct Cohort {
+    uint32_t Cell = 0;
+    uint32_t Rows = 0;
+    double ShellErrorM = 0;
+  };
+
   [[nodiscard]] static std::expected<std::optional<BuildingRoofAssets>, AssetCacheError>
   Open(const AssetCache &cache, std::string_view baseKey);
 
@@ -44,6 +50,17 @@ public:
 
   [[nodiscard]] std::expected<std::optional<std::vector<BuildingRoofProxy>>, AssetCacheError>
   LoadBlock(const AssetCache &cache, size_t index) const;
+
+  [[nodiscard]] std::optional<std::vector<Cohort>> ReadCohorts(const AssetCache &cache,
+                                                               size_t prefix) const;
+  [[nodiscard]] std::optional<std::vector<BuildingRoofProxy>>
+  ReadCohort(const AssetCache &cache, size_t prefix, const Cohort &cohort) const;
+  [[nodiscard]] std::expected<void, AssetCacheError>
+  PublishCohort(AssetCache &cache,
+                size_t prefix,
+                std::span<const Cohort> directory,
+                const Cohort &selected,
+                std::span<const BuildingRoofProxy> rows) const;
 
 private:
   static constexpr uint32_t kRowsPerBlock = 128;

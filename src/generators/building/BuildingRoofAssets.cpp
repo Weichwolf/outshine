@@ -3,7 +3,9 @@
 #include "PreparedBuildingAssets.h"
 #include "PreparedStructureTile.h"
 #include "Sha256.h"
+#include "StructureArtifact.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -23,8 +25,15 @@ constexpr uint64_t kIndexFormat = 0x32584449464f4f52ULL;
 constexpr uint64_t kBlockFormat = 0x324b4c42464f4f52ULL;
 constexpr std::string_view kIndexKind = "building-roof-index";
 constexpr std::string_view kBlockKind = "building-roof-block";
+constexpr std::string_view kCohortIndexKind = "building-roof-cohorts";
+constexpr std::string_view kCohortKind = "building-roof-cohort";
+constexpr uint64_t kCohortFormat = 0x3154524843464f52ULL;
+constexpr size_t kCohortBytes = 2 * sizeof(uint32_t) + sizeof(double);
+constexpr size_t kCohortIndexBytesMost =
+    sizeof(uint64_t) + sizeof(uint32_t) + kCohortBytes * kStructureCellsPerTile;
 constexpr size_t kRowBytes = sizeof(uint32_t) + (6 + 28 + 3) * sizeof(float);
 constexpr size_t kBlockPrefix = sizeof(uint64_t) + sizeof(uint32_t);
+constexpr size_t kPackedRowsMost = (kStructureArtifactBytesMost - kBlockPrefix) / kRowBytes;
 constexpr size_t kIndexPrefix = sizeof(uint64_t) + 3 * sizeof(double) + 2 * sizeof(uint32_t);
 constexpr size_t kChunkBytes = sizeof(uint32_t) + sizeof(double);
 constexpr size_t kIndexBytesMost = 4u << 20;
@@ -35,6 +44,14 @@ std::string IndexKey(std::string_view baseKey) {
 
 std::string BlockKey(const std::string &index, size_t block) {
   return Sha256Hex("building-roof-block-2/" + index + "/" + std::to_string(block));
+}
+
+std::string CohortIndexKey(const std::string &index, size_t prefix) {
+  return Sha256Hex("building-roof-cohorts-1/" + index + "/" + std::to_string(prefix));
+}
+
+std::string CohortKey(const std::string &index, uint32_t cell) {
+  return Sha256Hex("building-roof-cohort-1/" + index + "/" + std::to_string(cell));
 }
 
 template <class Archive, class T> bool Fields(Archive &io, T &row) {
@@ -109,11 +126,13 @@ Box WorldBounds(const Vec3 &anchor, std::span<const BuildingRoofProxy> rows) {
 }
 
 std::expected<PreparedAssetWrite, AssetCacheError>
-PackBlock(AssetCache &cache,
-          const std::string &parent,
-          size_t index,
-          const Vec3 &anchor,
-          std::span<const BuildingRoofProxy> rows) {
+PackRows(AssetCache &cache,
+         const std::string &parent,
+         std::string key,
+         std::string_view kind,
+         const Vec3 &anchor,
+         std::span<const BuildingRoofProxy> rows) {
+  if (rows.size() > kPackedRowsMost) { return std::unexpected(AssetCacheError::CapacityExceeded); }
   ByteWriter bytes(kBlockPrefix + kRowBytes * rows.size());
   if (!bytes.Number(kBlockFormat) || !bytes.Number(static_cast<uint32_t>(rows.size()))) {
     return std::unexpected(AssetCacheError::CapacityExceeded);
@@ -121,12 +140,44 @@ PackBlock(AssetCache &cache,
   for (const auto &row : rows) {
     if (!Fields(bytes, row)) { return std::unexpected(AssetCacheError::CapacityExceeded); }
   }
-  return Package(cache,
-                 BlockKey(parent, index),
-                 kBlockKind,
-                 parent,
-                 WorldBounds(anchor, rows),
-                 std::move(bytes).TakeBytes());
+  return Package(
+      cache, std::move(key), kind, parent, WorldBounds(anchor, rows), std::move(bytes).TakeBytes());
+}
+
+std::expected<std::optional<std::vector<BuildingRoofProxy>>, AssetCacheError>
+ReadRows(const AssetCache &cache,
+         const std::string &key,
+         std::string_view kind,
+         const std::string &parent,
+         BuildingRoofAssets::Block block,
+         uint32_t sources) {
+  const auto rows = static_cast<size_t>(block.Rows);
+  if (rows > kPackedRowsMost) { return std::unexpected(AssetCacheError::CapacityExceeded); }
+  const auto loaded = cache.Load(key, kBlockPrefix + rows * kRowBytes);
+  if (!loaded) { return std::unexpected(loaded.error()); }
+  if (!*loaded) { return std::nullopt; }
+  const auto &entry = (**loaded).Record();
+  ByteReader bytes((**loaded).Bytes());
+  uint64_t format = 0;
+  uint32_t count = 0;
+  if (entry.Kind != kind || entry.Parent != parent || entry.Level != 1 || !bytes.Number(format) ||
+      format != kBlockFormat || !bytes.Number(count) || count != rows ||
+      bytes.Remaining() != rows * kRowBytes) {
+    return std::unexpected(AssetCacheError::Storage);
+  }
+  std::vector<BuildingRoofProxy> result(count);
+  for (auto &row : result) {
+    if (!Fields(bytes, row) || !row.Valid() || row.Source >= sources ||
+        row.DiameterM() > block.MaximumDiameterM) {
+      return std::unexpected(AssetCacheError::Storage);
+    }
+  }
+  return result;
+}
+
+bool ValidCohort(const BuildingRoofAssets::Cohort &cohort, uint32_t sources) {
+  return cohort.Cell != 0 && cohort.Cell <= kStructureCellsPerTile && cohort.Rows != 0 &&
+         cohort.Rows <= sources && std::isfinite(cohort.ShellErrorM) && cohort.ShellErrorM >= 0;
 }
 }
 
@@ -197,8 +248,12 @@ BuildingRoofAssets::Resolve(AssetCache &cache,
   for (size_t begin = 0; begin < rows.size(); begin += kRowsPerBlock) {
     if (stop.stop_requested()) { return std::unexpected(AssetCacheError::Busy); }
     const auto group = rows.subspan(begin, std::min<size_t>(kRowsPerBlock, rows.size() - begin));
-    auto package =
-        PackBlock(cache, product.Key_, product.Blocks_.size(), product.AnchorEcef_, group);
+    auto package = PackRows(cache,
+                            product.Key_,
+                            BlockKey(product.Key_, product.Blocks_.size()),
+                            kBlockKind,
+                            product.AnchorEcef_,
+                            group);
     if (!package) { return std::unexpected(package.error()); }
     packages.push_back(std::move(*package));
     product.Blocks_.push_back({.MaximumDiameterM = group.back().DiameterM(),
@@ -237,25 +292,80 @@ std::expected<std::optional<std::vector<BuildingRoofProxy>>, AssetCacheError>
 BuildingRoofAssets::LoadBlock(const AssetCache &cache, size_t index) const {
   if (index >= Blocks_.size()) { return std::unexpected(AssetCacheError::InvalidInput); }
   const auto &block = Blocks_[index];
-  const auto loaded = cache.Load(BlockKey(Key_, index), kBlockPrefix + block.Rows * kRowBytes);
-  if (!loaded) { return std::unexpected(loaded.error()); }
-  if (!*loaded) { return std::nullopt; }
-  const auto &entry = (**loaded).Record();
+  return ReadRows(cache, BlockKey(Key_, index), kBlockKind, Key_, block, SourceCount_);
+}
+
+std::optional<std::vector<BuildingRoofAssets::Cohort>>
+BuildingRoofAssets::ReadCohorts(const AssetCache &cache, size_t prefix) const {
+  if (prefix == 0 || prefix > Blocks_.size()) { return std::nullopt; }
+  const auto loaded = cache.Load(CohortIndexKey(Key_, prefix), kCohortIndexBytesMost);
+  if (!loaded || !*loaded) { return std::nullopt; }
+  const auto &record = (**loaded).Record();
   ByteReader bytes((**loaded).Bytes());
   uint64_t format = 0;
   uint32_t count = 0;
-  if (entry.Kind != kBlockKind || entry.Parent != Key_ || entry.Level != 1 ||
-      !bytes.Number(format) || format != kBlockFormat || !bytes.Number(count) ||
-      count != block.Rows || bytes.Remaining() != block.Rows * kRowBytes) {
-    return std::unexpected(AssetCacheError::Storage);
+  if (record.Kind != kCohortIndexKind || record.Parent != Key_ || !bytes.Number(format) ||
+      format != kCohortFormat || !bytes.Number(count) || count > kStructureCellsPerTile ||
+      bytes.Remaining() != count * kCohortBytes) {
+    return std::nullopt;
   }
-  std::vector<BuildingRoofProxy> result(count);
-  for (auto &row : result) {
-    if (!Fields(bytes, row) || !row.Valid() || row.Source >= SourceCount_ ||
-        row.DiameterM() > block.MaximumDiameterM) {
-      return std::unexpected(AssetCacheError::Storage);
+  std::vector<Cohort> result(count);
+  uint32_t previous = 0;
+  for (auto &entry : result) {
+    if (!bytes.Number(entry.Cell) || !bytes.Number(entry.Rows) ||
+        !bytes.Number(entry.ShellErrorM) || entry.Cell <= previous ||
+        !ValidCohort(entry, SourceCount_)) {
+      return std::nullopt;
     }
+    previous = entry.Cell;
   }
   return result;
+}
+
+std::optional<std::vector<BuildingRoofProxy>>
+BuildingRoofAssets::ReadCohort(const AssetCache &cache, size_t prefix, const Cohort &cohort) const {
+  if (prefix == 0 || prefix > Blocks_.size() || !ValidCohort(cohort, SourceCount_)) {
+    return std::nullopt;
+  }
+  const auto index = CohortIndexKey(Key_, prefix);
+  auto rows =
+      ReadRows(cache,
+               CohortKey(index, cohort.Cell),
+               kCohortKind,
+               index,
+               {.MaximumDiameterM = Blocks_[prefix - 1].MaximumDiameterM, .Rows = cohort.Rows},
+               SourceCount_);
+  return rows ? std::move(*rows) : std::nullopt;
+}
+
+std::expected<void, AssetCacheError>
+BuildingRoofAssets::PublishCohort(AssetCache &cache,
+                                  size_t prefix,
+                                  std::span<const Cohort> directory,
+                                  const Cohort &selected,
+                                  std::span<const BuildingRoofProxy> rows) const {
+  if (prefix == 0 || prefix > Blocks_.size() || selected.Rows != rows.size() ||
+      directory.size() > kStructureCellsPerTile || !ValidCohort(selected, SourceCount_)) {
+    return std::unexpected(AssetCacheError::InvalidInput);
+  }
+  ByteWriter bytes(kCohortIndexBytesMost);
+  if (!bytes.Number(kCohortFormat) || !bytes.Number(static_cast<uint32_t>(directory.size()))) {
+    return std::unexpected(AssetCacheError::CapacityExceeded);
+  }
+  for (const auto &entry : directory) {
+    if (!ValidCohort(entry, SourceCount_) || !bytes.Number(entry.Cell) ||
+        !bytes.Number(entry.Rows) || !bytes.Number(entry.ShellErrorM)) {
+      return std::unexpected(AssetCacheError::InvalidInput);
+    }
+  }
+  const auto index = CohortIndexKey(Key_, prefix);
+  auto catalog =
+      Package(cache, index, kCohortIndexKind, Key_, Bounds_, std::move(bytes).TakeBytes());
+  if (!catalog) { return std::unexpected(catalog.error()); }
+  auto payload =
+      PackRows(cache, index, CohortKey(index, selected.Cell), kCohortKind, AnchorEcef_, rows);
+  if (!payload) { return std::unexpected(payload.error()); }
+  const std::array packages{std::move(*catalog), std::move(*payload)};
+  return cache.PublishBatch(packages);
 }
 }

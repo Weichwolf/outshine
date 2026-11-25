@@ -500,6 +500,9 @@ bool Engine::State::AdvanceBuildingFields() {
   Published.RecordMetric("building roof volumes: shapes decoded",
                          static_cast<double>(counts.RoofRowsDecoded),
                          "shapes");
+  Published.RecordMetric("building roof volumes: cached cells read",
+                         static_cast<double>(counts.RoofCohortsRead),
+                         "cells");
   Published.RecordMetric(
       "building caster packets: data read", static_cast<double>(counts.CasterPacketBytes), "bytes");
   Published.RecordMetric("building caster packets: conversion source data read",

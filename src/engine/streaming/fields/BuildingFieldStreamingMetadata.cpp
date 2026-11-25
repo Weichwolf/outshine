@@ -142,6 +142,7 @@ void BuildingFieldStreaming::State::PollMetadata() {
   if (!Reading || !Reading->Done.load(std::memory_order_acquire)) { return; }
   Statistics.RoofBlocksRead += Reading->RoofRead.Blocks;
   Statistics.RoofRowsDecoded += Reading->RoofRead.DecodedRows;
+  Statistics.RoofCohortsRead += Reading->RoofRead.Cohorts;
   Statistics.CasterPacketBytes += Reading->RoofRead.Caster.PacketBytes;
   Statistics.CasterOriginalBytes += Reading->RoofRead.Caster.OriginalBytes;
   if (ReadingTile) {

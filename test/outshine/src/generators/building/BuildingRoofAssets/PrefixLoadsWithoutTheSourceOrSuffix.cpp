@@ -6,10 +6,12 @@
 #include "RawSourceCache.h"
 #include "SourceSet.h"
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <limits>
+#include <span>
 #include <string>
 
 namespace {
@@ -74,6 +76,23 @@ void CheckPrefix(const std::filesystem::path &root) {
     CHECK(row.WiderBounds().Holds(original.Min) && row.WiderBounds().Holds(original.Max),
           "rounding the proxy record keeps the original spatial bounds inside");
   }
+  const auto &selected = (**prefix).front();
+  const std::array cells{BuildingRoofAssets::Cohort{.Cell = 1, .Rows = 1, .ShellErrorM = 0.25},
+                         BuildingRoofAssets::Cohort{.Cell = 2, .Rows = 1, .ShellErrorM = 0.5}};
+  CHECK(cached->PublishCohort(*output, 1, cells, cells[0], std::span(&selected, 1)),
+        "full candidates and the selected body can be committed together");
+  const auto first = std::ranges::max_element(*entries, {}, &AssetRecord::ByteCount);
+  CHECK(output->Remove(first->Key), "the original diameter blocks can be discarded independently");
+  const auto alternatives = cached->ReadCohorts(*output, 1);
+  CHECK(alternatives && alternatives->size() == cells.size() &&
+            alternatives->front().ShellErrorM == cells.front().ShellErrorM,
+        "the small catalog retains candidate coverage and errors without the blocks");
+  const auto compact = cached->ReadCohort(*output, 1, cells[0]);
+  CHECK(compact && compact->size() == 1 && compact->front().Source == selected.Source &&
+            compact->front().Planes == selected.Planes,
+        "the independent selected body preserves the source and roof geometry");
+  CHECK(!cached->ReadCohort(*output, 1, cells[1]),
+        "a candidate in the catalog is unavailable until its body is ready");
 }
 }
 

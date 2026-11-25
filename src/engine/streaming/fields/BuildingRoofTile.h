@@ -17,7 +17,7 @@
 namespace outshine {
 struct BuildingRoofTile {
   struct ReadCost {
-    size_t Blocks = 0, DecodedRows = 0;
+    size_t Blocks = 0, DecodedRows = 0, Cohorts = 0;
     Generators::BuildingShadowCell::ReadCost Caster;
   };
 
