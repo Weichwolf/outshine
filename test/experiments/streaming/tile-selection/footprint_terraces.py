@@ -116,18 +116,23 @@ class Quads:
         )
 
 
-def surface(start, spacing, floor, roof, region):
+def surface(start, spacing, floor, roof, region, closed=False):
     left, north, right, south = region
     domain = np.s_[north + 1 : south + 1, left + 1 : right + 1]
     lower, upper = floor[domain], roof[domain]
     walls, roofs = Quads(), Quads()
-    levels = np.where(upper == NO_ROOF, 0, upper.astype(np.int32) - NO_ROOF)
     x_offset, z_offset = start + (left, north)
-    for xmin, zmin, xmax, zmax, level in rectangles(levels):
-        x0, x1 = (xmin + x_offset) * spacing, (xmax + x_offset) * spacing
-        z0, z1 = (zmin + z_offset) * spacing, (zmax + z_offset) * spacing
-        y = (level + NO_ROOF) * HEIGHT_STEP_M
-        roofs.emit(((x0, y, z0), (x0, y, z1), (x1, y, z1), (x1, y, z0)), (0, 1, 0))
+    caps = [(upper, roofs, 1)]
+    if closed:
+        caps.append((lower, walls, -1))
+    for height, section, normal in caps:
+        levels = np.where(upper == NO_ROOF, 0, height.astype(np.int32) - NO_ROOF)
+        for xmin, zmin, xmax, zmax, level in rectangles(levels):
+            x0, x1 = (xmin + x_offset) * spacing, (xmax + x_offset) * spacing
+            z0, z1 = (zmin + z_offset) * spacing, (zmax + z_offset) * spacing
+            y = (level + NO_ROOF) * HEIGHT_STEP_M
+            corners = ((x0, y, z0), (x0, y, z1), (x1, y, z1), (x1, y, z0))
+            section.emit(corners if normal > 0 else corners[::-1], (0, normal, 0))
     for axis in (0, 2):
         if axis == 0:
             source = lower.T, upper.T
@@ -179,14 +184,18 @@ def occupied_tiles(grid, spacing):
 
 
 def terraces(grounded, spacing):
-    padded = None
-    for start, lower, upper, region in terrace_tiles(grounded, spacing):
-        if padded is None:
-            padded = (
-                np.pad(lower, 1, constant_values=NO_FLOOR),
-                np.pad(upper, 1, constant_values=NO_ROOF),
-            )
-        yield surface(start, spacing, *padded, region)
+    if grounded:
+        yield from mesh_grid_tiles(raster(grounded, spacing), spacing)
+
+
+def mesh_grid_tiles(grid, spacing, *, closed=False):
+    start, lower, upper = grid
+    padded = (
+        np.pad(lower, 1, constant_values=NO_FLOOR),
+        np.pad(upper, 1, constant_values=NO_ROOF),
+    )
+    for _, _, _, region in occupied_tiles(grid, spacing):
+        yield surface(start, spacing, *padded, region, closed=closed)
 
 
 def prism_tiles(grounded, spacing):

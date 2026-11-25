@@ -6,6 +6,7 @@ import json
 import math
 import struct
 from collections import defaultdict
+from itertools import chain
 from pathlib import Path
 from time import perf_counter
 
@@ -18,6 +19,7 @@ from footprint_terraces import (
     GROUP_METRES,
     NO_ROOF,
     footprint_support,
+    mesh_grid_tiles,
     prism_grid_tiles,
     raster,
 )
@@ -74,7 +76,7 @@ def replace_sources(parts, terrain, spacing, support, rounds):
         if sum(spans.nbytes + 164 for _, spans in patches) >= saved_indices:
             continue
         raster_parts.update(selected)
-        grids.extend(patches)
+        grids.append(grid)
     remain = [part for index, part in enumerate(seated) if index not in raster_parts]
     return seated, remain, grids
 
@@ -107,6 +109,11 @@ def main():
     parser.add_argument("--flight-m", type=float, default=0)
     parser.add_argument("--spacing-m", type=int, choices=(4, 8, 16), default=8)
     parser.add_argument("--support-m", type=float)
+    parser.add_argument(
+        "--mesh-terraces",
+        action="store_true",
+        help="also export the same closed terrace cells as merged mesh faces",
+    )
     parser.add_argument("--rounds", type=int, default=2, choices=range(4))
     args = parser.parse_args()
     view = (args.distance_m, args.extent_m, args.eye_height_m)
@@ -140,12 +147,23 @@ def main():
     if grids:
         raw_mesh, raw_grid = (args.output / "remainder.mesh", args.output / "grid.prisms")
         _, faces = write_products(raw_mesh, header, mesh_groups(remain))
-        patch_count = write_prisms(raw_grid, header, grids, spacing, terrain)
+        patches = (patch for grid in grids for patch in prism_grid_tiles(grid, spacing))
+        patch_count = write_prisms(raw_grid, header, patches, spacing, terrain)
         with (args.output / "hybrid.product").open("wb") as output:
             output.write(struct.pack("<Q", raw_mesh.stat().st_size))
             output.write(raw_mesh.read_bytes())
             output.write(raw_grid.read_bytes())
         counts.update(grid_patches=patch_count, triangles=faces + 2 * patch_count)
+        if args.mesh_terraces:
+            surfaces = (
+                product
+                for grid in grids
+                for product in mesh_grid_tiles(grid, spacing, closed=True)
+            )
+            _, faces = write_products(
+                args.output / "hybrid.mesh", header, chain(mesh_groups(remain), surfaces)
+            )
+            counts["mesh_triangles"] = faces
     print(json.dumps(dict(counts, preparation_s=cooked)))
 
 
