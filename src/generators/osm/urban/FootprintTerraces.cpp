@@ -18,7 +18,7 @@
 
 namespace outshine::Generators::Osm {
 namespace {
-constexpr unsigned kTileMetres = 256, kSamplesPerEdge = 4, kHeightStepM = 2;
+constexpr unsigned kSamplesPerEdge = 4, kHeightStepM = 2;
 constexpr unsigned kSamplesPerCell = kSamplesPerEdge * kSamplesPerEdge;
 constexpr auto kNoRoof = std::numeric_limits<int16_t>::min();
 constexpr auto kNoFloor = std::numeric_limits<int16_t>::max();
@@ -184,7 +184,7 @@ std::expected<UrbanPrisms, std::string> Pack(const Grid &grid, const TerraceRequ
   auto samples = std::make_shared<std::vector<PrismSpan>>();
   const unsigned rows = grid.Rows / kSamplesPerEdge;
   const unsigned columns = grid.Columns / kSamplesPerEdge;
-  const unsigned side = kTileMetres / request.SpacingM;
+  const unsigned side = kTerracePatchSpanM / request.SpacingM;
   for (unsigned row = 0; row < rows; row += side) {
     for (unsigned column = 0; column < columns; column += side) {
       if (request.Stop.stop_requested()) { return std::unexpected("terrace generation cancelled"); }
@@ -220,7 +220,7 @@ std::expected<UrbanPrisms, std::string> Pack(const Grid &grid, const TerraceRequ
 std::expected<UrbanPrisms, std::string>
 BuildFootprintTerraces(std::span<const TerraceFootprint> footprints,
                        const TerraceRequest &request) {
-  if (footprints.empty() || request.SpacingM == 0 || kTileMetres % request.SpacingM != 0 ||
+  if (footprints.empty() || !ValidTerraceSpacing(request.SpacingM) ||
       !(std::abs(request.Anchor.LatitudeDeg) <= kDegPerHalfTurn / 2) ||
       !(std::abs(request.Anchor.LongitudeDeg) <= kDegPerHalfTurn)) {
     return std::unexpected("invalid footprint terrace request");

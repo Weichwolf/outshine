@@ -10,6 +10,12 @@
 #include <string>
 
 namespace outshine::Generators::Osm {
+inline constexpr unsigned kTerracePatchSpanM = 256;
+
+[[nodiscard]] constexpr bool ValidTerraceSpacing(unsigned spacingM) noexcept {
+  return spacingM != 0 && kTerracePatchSpanM % spacingM == 0;
+}
+
 struct TerraceFootprint {
   std::span<const PolygonRing> Rings;
   double BottomM = 0, TopM = 0;

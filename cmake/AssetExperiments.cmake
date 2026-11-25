@@ -54,11 +54,16 @@ add_executable(outshine_experiment_footprint_cards EXCLUDE_FROM_ALL
   "${PROJECT_SOURCE_DIR}/test/experiments/streaming/tile-selection/NativeFootprintCards.cpp")
 target_link_libraries(outshine_experiment_footprint_cards PRIVATE outshine_app_capture outshine_engine)
 
+add_executable(outshine_experiment_prepared_terraces EXCLUDE_FROM_ALL
+  "${PROJECT_SOURCE_DIR}/test/experiments/streaming/tile-selection/NativePreparedTerraces.cpp")
+target_link_libraries(outshine_experiment_prepared_terraces PRIVATE outshine_generators_osm)
+
 foreach(probe IN ITEMS outshine_experiment_urban_bake outshine_experiment_plant_prepare
     outshine_experiment_urban_control outshine_experiment_source_geometry outshine_experiment_building_geometry_cache
     outshine_experiment_source_group_bake outshine_experiment_building_geometry_asset
     outshine_experiment_source_inputs outshine_experiment_road_display
     outshine_experiment_building_shell_metadata outshine_experiment_prepared_roof_forms
-    outshine_experiment_native_roof_prefix outshine_experiment_footprint_cards)
+    outshine_experiment_native_roof_prefix outshine_experiment_footprint_cards
+    outshine_experiment_prepared_terraces)
   target_compile_options(${probe} PRIVATE -fno-exceptions)
 endforeach()
