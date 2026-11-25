@@ -6,15 +6,20 @@
 #include "PreparedBuildingAssets.h"
 #include "ProjectedErrorBudget.h"
 #include "SourceCoverage.h"
-#include <cstdint>
 #include "Vec2.h"
 #include "ViewPath.h"
+#include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
 
 namespace outshine {
 struct BuildingRoofTile {
+  struct ReadCost {
+    size_t Blocks = 0, DecodedRows = 0;
+  };
+
   struct Support {
     Box Bounds;
     double DiameterM = 0;
@@ -39,7 +44,8 @@ struct BuildingRoofTile {
        const Generators::PreparedBuildingAssets::SourceGroups &groups,
        const ViewPath &path,
        const Vec2 &viewport,
-       ProjectedErrorBudget projection);
+       ProjectedErrorBudget projection,
+       ReadCost &cost);
 };
 }
 #endif

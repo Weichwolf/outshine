@@ -168,7 +168,8 @@ BuildingRoofTile::Load(AssetCache &cache,
                        const PreparedBuildingAssets::SourceGroups &groups,
                        const ViewPath &path,
                        const Vec2 &viewport,
-                       ProjectedErrorBudget projection) {
+                       ProjectedErrorBudget projection,
+                       ReadCost &cost) {
   const double broadLimit = DiameterLimit(bounds, path, viewport, projection);
   if (!(broadLimit > 0) || groups.Members.empty()) { return std::nullopt; }
   const auto directory = BuildingRoofAssets::Resolve(cache, &assets, key);
@@ -186,6 +187,8 @@ BuildingRoofTile::Load(AssetCache &cache,
   for (size_t at = 0; at < prefix; ++at) {
     const auto block = directory->LoadBlock(cache, at);
     if (!block || !*block) { return std::nullopt; }
+    ++cost.Blocks;
+    cost.DecodedRows += (**block).size();
     product.Roofs.insert(product.Roofs.end(), (**block).begin(), (**block).end());
   }
   const double shellErrorM =

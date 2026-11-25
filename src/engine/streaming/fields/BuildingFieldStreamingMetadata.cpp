@@ -140,6 +140,8 @@ bool BuildingFieldStreaming::State::PrepareCells(
 
 void BuildingFieldStreaming::State::PollMetadata() {
   if (!Reading || !Reading->Done.load(std::memory_order_acquire)) { return; }
+  Statistics.RoofBlocksRead += Reading->RoofRead.Blocks;
+  Statistics.RoofRowsDecoded += Reading->RoofRead.DecodedRows;
   if (ReadingTile) {
     if (!Reading->Groups || !Reading->Selection || !Reading->Cut ||
         !PrepareCells(*ReadingTile, *Reading->Groups, *Reading->Selection, *Reading->Cut)) {
@@ -197,8 +199,15 @@ void BuildingFieldStreaming::State::StartMetadata(Context &context) {
                 assets->DescribeSourceGroups(key, {.Occupied = cells, .IndexBytesMost = *bytes});
             if (groups && *groups) {
               if (cache) {
-                result->Roof = BuildingRoofTile::Load(
-                    *cache, *assets, key, bounds, **groups, path, viewport, projection);
+                result->Roof = BuildingRoofTile::Load(*cache,
+                                                      *assets,
+                                                      key,
+                                                      bounds,
+                                                      **groups,
+                                                      path,
+                                                      viewport,
+                                                      projection,
+                                                      result->RoofRead);
               }
               std::vector<SourceProductSelection::Source> traits;
               traits.reserve((**groups).Members.size());

@@ -99,6 +99,7 @@ struct BuildingFieldStreaming::State {
 
   struct Metadata {
     std::atomic_bool Done{false};
+    BuildingRoofTile::ReadCost RoofRead;
     std::optional<Generators::PreparedBuildingAssets::SourceGroups> Groups;
     std::optional<SourceProductSelection> Selection;
     std::optional<SourceProductSelection::Cut> Cut;
