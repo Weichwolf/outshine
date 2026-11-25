@@ -57,7 +57,7 @@ std::optional<BakedTile> Produce(BuildingSources::Fixture &fixture,
   work.UseNativeAssets(fixture.Stack.BuildingAssets(), key);
   const auto cell = base->Structures.front().Layout.Cell.Index;
   work.UseInitialCells(uint64_t{1} << (cell - 1u));
-  work.UseIntrinsicParents(kSource);
+  work.UseIntrinsicParents(kSource, std::nullopt);
   work.Start(fixture.Worker, mesher);
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
   for (;;) {
