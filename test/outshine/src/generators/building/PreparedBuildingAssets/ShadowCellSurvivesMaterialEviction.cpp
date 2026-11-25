@@ -1,9 +1,11 @@
 #include "PreparedBuildingAssets.h"
 #include "PreparedStructureTile.h"
+#include "ByteArchive.h"
 #include "ClusterCook.h"
 #include "Check.h"
 #include "OpenAssetStore.h"
 #include "RawSourceCache.h"
+#include "Sha256.h"
 #include "SourceSet.h"
 #include "StructureArtifact.h"
 #include <chrono>
@@ -12,6 +14,7 @@
 #include <filesystem>
 #include <span>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <vector>
 
@@ -19,6 +22,47 @@ namespace {
 using namespace outshine;
 using namespace outshine::Generators;
 using namespace outshine::Test;
+
+std::string LegacyShellKey(std::string_view base) {
+  ByteWriter bytes(512);
+  for (const std::string_view tag : {std::string_view{"building-static-lod-6"}, base}) {
+    if (!bytes.Number(tag.size()) ||
+        !bytes.Put({reinterpret_cast<const uint8_t *>(tag.data()), tag.size()})) {
+      return {};
+    }
+  }
+  if (!bytes.Number(static_cast<int>(LevelOfDetail::Shell)) || !bytes.Number(uint32_t{1}) ||
+      !bytes.Number(kClusterTriangles)) {
+    return {};
+  }
+  return Sha256Hex(bytes.Bytes().data(), bytes.Bytes().size());
+}
+
+void CheckFineParent(PreparedBuildingAssets &assets,
+                     AssetCache &cache,
+                     const std::string &base,
+                     const PreparedStructureTile &source,
+                     RawTile request,
+                     BakedTile exact,
+                     const std::string &primary,
+                     const std::string &legacy) {
+  request.RequestedDetail = LevelOfDetail::Fine;
+  exact.RequestedDetail = LevelOfDetail::Fine;
+  const auto fine = assets.PrepareGeometry(base, source, request, exact);
+  CHECK(fine && assets.PublishProduct(*fine), "the detail product can be published");
+  if (!fine) { return; }
+  const auto indexed = cache.FindTile(fine->Key);
+  CHECK(indexed && *indexed && (**indexed).Tile && (**indexed).Tile->Coarser == legacy,
+        "the manifest points to the stored compatible shell");
+  if (!indexed || !*indexed || !(**indexed).Tile) { return; }
+  auto old = **indexed;
+  old.Tile->Coarser = primary;
+  CHECK(cache.IndexTile(old), "an older manifest can cite the unpublished directional shell");
+  const auto restored = assets.LoadGeometry(base, source, request, 1);
+  const auto repaired = cache.FindTile(fine->Key);
+  CHECK(restored && *restored && repaired && *repaired && **repaired == **indexed,
+        "restoration repairs the parent link while retaining the payload and certificate");
+}
 
 void CheckShadowCell(const std::filesystem::path &root) {
   const auto cache = OpenAssetStore(root.string());
@@ -50,12 +94,13 @@ void CheckShadowCell(const std::filesystem::path &root) {
   const auto write = (*assets)->PrepareGeometry(parent, source, request, shell);
   CHECK(write, "the opaque geometry is serializable");
   if (!write) { return; }
-  const auto archive = EncodeStructureArtifact(shell, write->Key);
+  const auto legacy = LegacyShellKey(parent);
+  const auto archive = EncodeStructureArtifact(shell, legacy);
   if (!archive) {
     CHECK(false, "the legacy archive can be written");
     return;
   }
-  const AssetRecord unindexed{.Key = write->Key,
+  const AssetRecord unindexed{.Key = legacy,
                               .Kind = "building-static-lod",
                               .Bounds = shell.BoundsAt(source.AnchorEcef),
                               .Package = {},
@@ -65,7 +110,7 @@ void CheckShadowCell(const std::filesystem::path &root) {
   CHECK(cache->Publish(std::span(&unindexed, 1), *archive),
         "an old product exists without tile metadata");
   const auto loaded = (*assets)->LoadGeometry(parent, source, request, sourceKey);
-  const auto indexed = cache->FindTile(write->Key);
+  const auto indexed = cache->FindTile(legacy);
   CHECK(loaded && *loaded && indexed && *indexed && (**indexed).Tile &&
             (**indexed).Tile->ErrorM == 1.0 && (**indexed).Tile->Revision == parent,
         "loading the old product publishes its error certificate without replacing its body");
@@ -80,11 +125,12 @@ void CheckShadowCell(const std::filesystem::path &root) {
   CHECK(!(*assets)->RejectsCachedShell(parent, request, sourceKey),
         "a distant camera can request the shell when its projected error fits");
 
+  CheckFineParent(**assets, *cache, parent, source, request, shell, write->Key, legacy);
   BuildingShadowCell::ReadCost cost;
   const auto initial = (*assets)->LoadShadowCell(parent, 1, cost);
   CHECK(initial, "the exact opaque shadow geometry is prepared on demand");
   if (!initial) { return; }
-  CHECK(cache->Remove(write->Key), "the material geometry may expire independently");
+  CHECK(cache->Remove(legacy), "the material geometry may expire independently");
   const auto hit = (*assets)->LoadShadowCell(parent, 1, cost);
   CHECK(hit && hit->Parts[0].Indices == shell.Built.WallRun &&
             hit->Parts[0].Vertices.size() == positions.size(),

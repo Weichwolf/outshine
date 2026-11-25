@@ -3,6 +3,7 @@
 #include "BinaryValueArchive.h"
 #include "GroundRegionAsset.h"
 #include "Sha256.h"
+#include "TileProductSelection.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -170,19 +171,10 @@ bool IsCanonical(const AssetRecord &pack, const AssetRecord &region) {
                              : pack.Parent == region.Key && revision == region.Key;
 }
 
-std::optional<double> BaseError(const AssetRecord &base, const AssetRecord &detail) {
-  if (base.Kind != kBaseKind || base.OffsetBytes != 0 || !base.Parent.empty() ||
-      base.Bounds != detail.Bounds || base.Level != detail.Level || !base.Tile || !detail.Tile) {
-    return std::nullopt;
-  }
-  const auto &source = *base.Tile;
-  const auto &exact = *detail.Tile;
-  const double error = source.ErrorM.value_or(-1);
-  if (source.Revision != exact.Revision || source.Coverage != exact.Coverage ||
-      !source.Coarser.empty() || !std::isfinite(error) || error < 0) {
-    return std::nullopt;
-  }
-  return error;
+bool CanDecodeDetail(const AssetRecord &base, const AssetRecord &detail) {
+  return base.Kind == kBaseKind && base.OffsetBytes == 0 && base.Parent.empty() &&
+         base.Bounds == detail.Bounds && base.Level == detail.Level && base.Tile &&
+         base.Tile->Coarser.empty() && CertifiedTileError(base).has_value();
 }
 
 struct PlannedPack {
@@ -200,17 +192,20 @@ bool ChoosePack(PlannedPack &plan,
   const auto &record = *plan.Payload;
   if (record.Kind == kDetailKind) {
     if (!record.Tile) { return false; }
-    const auto &key = record.Tile->Coarser;
-    const auto base = std::ranges::lower_bound(bases, key, {}, &AssetRecord::Key);
-    if (base == bases.end() || base->Key != key) { return false; }
-    const auto error = BaseError(*base, record);
-    if (!error) { return false; }
-    if (limit && *error <= limit(base->Bounds)) {
-      plan.Payload = &*base;
+    const std::string_view key = record.Tile->Coarser;
+    const auto *base =
+        FindTileProduct(bases,
+                        std::span(&key, 1),
+                        {.Revision = record.Tile->Revision, .Coverage = record.Tile->Coverage});
+    if (base == nullptr || !CanDecodeDetail(*base, record)) { return false; }
+    if (limit && FitsTileError(*base, [&](const Box &bounds, double error) {
+          return error <= limit(bounds);
+        })) {
+      plan.Payload = base;
     } else {
       if (base->ByteCount > bytesMost) { return false; }
       bytesMost -= static_cast<size_t>(base->ByteCount);
-      plan.Base = &*base;
+      plan.Base = base;
     }
   }
   if (plan.Payload->ByteCount > bytesMost) { return false; }

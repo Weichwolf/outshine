@@ -384,7 +384,11 @@ std::expected<void, AssetCacheError> AssetCache::IndexTile(const AssetRecord &re
       State_->Database,
       "INSERT INTO asset_tiles(asset_id,package,revision,coverage,coarser,error_m) "
       "SELECT id,package,?,?,?,? FROM assets WHERE key=? AND package=? AND kind=? AND parent=? "
-      "AND offset=? AND bytes=? AND level=? ON CONFLICT(asset_id) DO NOTHING",
+      "AND offset=? AND bytes=? AND level=? "
+      "ON CONFLICT(asset_id) DO UPDATE SET coarser=excluded.coarser "
+      "WHERE asset_tiles.package=excluded.package AND asset_tiles.revision=excluded.revision "
+      "AND asset_tiles.coverage=excluded.coverage AND asset_tiles.error_m IS excluded.error_m "
+      "AND asset_tiles.coarser<>excluded.coarser",
       statement);
   if (!prepared) { return prepared; }
   if (!AssetSql::Text(statement.Value, 6, record.Package) ||

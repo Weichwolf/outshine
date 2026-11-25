@@ -151,6 +151,18 @@ void TileProducts(AssetCache &cache, const AssetRecord &region, std::span<const 
   CHECK(cache.IndexTile(fine), "checked data can be indexed in place");
   const auto live = cache.FindTile(fine.Key);
   CHECK(live && *live && **live == fine, "the index exposes the validated current native page");
+  fine.Tile->Coarser = Key("alternate parent for the same render tile");
+  CHECK(cache.IndexTile(fine), "a resolved parent can be attached without copying the body");
+  const auto rebound = cache.FindTile(fine.Key);
+  CHECK(rebound && *rebound && **rebound == fine,
+        "the native tile retains its revision and bound with the new parent");
+  auto foreign = fine;
+  foreign.Tile->Coverage = Key("foreign coverage");
+  foreign.Tile->Coarser = other.Key;
+  CHECK(cache.IndexTile(foreign), "an old or foreign metadata update is harmless");
+  const auto retained = cache.FindTile(fine.Key);
+  CHECK(retained && *retained && **retained == fine,
+        "rebinding cannot change a native tile's coverage");
   CHECK(cache.Remove(fine.Key) && cache.Remove(other.Key), "remove the temporary render variants");
 }
 

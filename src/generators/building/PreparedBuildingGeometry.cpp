@@ -5,6 +5,7 @@
 #include "GeometryErrorBound.h"
 #include "Log.h"
 #include "Sha256.h"
+#include "TileProductSelection.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -19,6 +20,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace outshine::Generators {
 namespace {
@@ -64,6 +66,31 @@ bool ValidCeilings(const BakedTile &tile, size_t points) {
   return std::ranges::all_of(tile.Prints, [points](const auto &print) {
     return !print.TerrainCeiling || print.TerrainCeiling->OriginPoint < points;
   });
+}
+
+struct IndexedShell {
+  std::string Primary;
+  std::optional<AssetRecord> Product;
+};
+
+std::expected<IndexedShell, AssetCacheError> FindIndexedShell(const AssetCache &cache,
+                                                              const std::string &baseKey,
+                                                              const RawTile &view,
+                                                              TileProductDomain domain) {
+  auto primary = GeometryKey(baseKey, view);
+  const auto legacy = view.ClusterTriangles > 0 ? GeometryKey(baseKey, view, true) : std::string{};
+  const std::array<std::string_view, 2> addresses{primary, legacy};
+  const auto keys = std::span(addresses).first(legacy.empty() ? 1u : 2u);
+  auto products = cache.FindTiles(keys);
+  if (!products) { return std::unexpected(products.error()); }
+  std::erase_if(*products, [&](const AssetRecord &product) {
+    return product.Kind != "building-static-lod" || product.Parent != domain.Revision ||
+           product.Level != static_cast<uint32_t>(LevelOfDetail::Shell);
+  });
+  std::ranges::sort(*products, {}, &AssetRecord::Key);
+  const auto *selected = FindTileProduct(*products, keys, domain);
+  return IndexedShell{.Primary = std::move(primary),
+                      .Product = selected != nullptr ? std::optional{*selected} : std::nullopt};
 }
 
 }
@@ -184,32 +211,24 @@ bool PreparedBuildingAssets::RejectsCachedShell(const std::string &baseKey,
   if (sourceKey == 0 || view.RequestedDetail != LevelOfDetail::Shell || !view.RequestedCell) {
     return false;
   }
-  const auto primary = GeometryKey(baseKey, view);
-  auto record = Cache_->FindTile(primary);
-  if (record && !*record && view.ClusterTriangles > 0) {
-    record = Cache_->FindTile(GeometryKey(baseKey, view, true));
-    if (record && *record) {
-      const auto preferred = Cache_->Find(primary);
-      if (!preferred || *preferred) { return false; }
-    }
+  const auto coverage = SurfaceKey(baseKey, *view.RequestedCell);
+  const auto indexed =
+      FindIndexedShell(*Cache_, baseKey, view, {.Revision = baseKey, .Coverage = coverage});
+  if (!indexed || !indexed->Product) { return false; }
+  const auto &product = *indexed->Product;
+  if (product.Key != indexed->Primary) {
+    const auto preferred = Cache_->Find(indexed->Primary);
+    if (!preferred || *preferred) { return false; }
   }
-  if (!record || !*record || (**record).Kind != "building-static-lod") { return false; }
-  const auto &asset = **record;
-  if (!asset.Tile || asset.Parent != baseKey ||
-      asset.Level != static_cast<uint32_t>(LevelOfDetail::Shell)) {
-    return false;
-  }
-  const auto &tile = *asset.Tile;
-  return tile.Revision == baseKey && tile.Coverage == SurfaceKey(baseKey, *view.RequestedCell) &&
-         (!tile.ErrorM ||
-          !GeometryErrorBound{
-              .SourceKey = sourceKey, .Bounds = asset.Bounds, .UpperM = *tile.ErrorM}
-               .Allows(sourceKey, view.EyeEcef, view.Projection, kStructureEyeReuseM));
+  return !FitsTileError(product, [&](const Box &bounds, double error) {
+    return GeometryErrorBound{.SourceKey = sourceKey, .Bounds = bounds, .UpperM = error}.Allows(
+        sourceKey, view.EyeEcef, view.Projection, kStructureEyeReuseM);
+  });
 }
 
 std::optional<AssetTile> PreparedBuildingAssets::GeometryManifest(const std::string &baseKey,
                                                                   const RawTile &view,
-                                                                  const BakedTile &tile) {
+                                                                  const BakedTile &tile) const {
   if (!view.RequestedCell || *view.RequestedCell == 0 ||
       *view.RequestedCell > kStructureCellsPerTile || tile.FallbackHeights || tile.SelectedView ||
       tile.UnsupportedMeshes != 0 || tile.RequestedDetail != view.RequestedDetail ||
@@ -224,7 +243,10 @@ std::optional<AssetTile> PreparedBuildingAssets::GeometryManifest(const std::str
     shell.RequestedCell = view.RequestedCell;
     shell.RequestedDetail = LevelOfDetail::Shell;
     shell.ClusterTriangles = view.ClusterTriangles;
-    manifest.Coarser = GeometryKey(baseKey, shell);
+    const auto parent = FindIndexedShell(
+        *Cache_, baseKey, shell, {.Revision = baseKey, .Coverage = manifest.Coverage});
+    if (!parent) { return std::nullopt; }
+    manifest.Coarser = parent->Product ? parent->Product->Key : parent->Primary;
     manifest.ErrorM = 0.0;
   } else if (view.RequestedDetail == LevelOfDetail::Shell) {
     if (!tile.SurfaceFailure && tile.SurfaceError) {
@@ -241,9 +263,9 @@ void PreparedBuildingAssets::IndexGeometryManifest(const AssetRecord &record,
                                                    const BakedTile &tile) {
   if (!view.RequestedDetail || !view.RequestedCell) { return; }
   const auto previous = Cache_->FindTile(record.Key);
-  if (!previous || *previous) { return; }
+  if (!previous || (*previous && *view.RequestedDetail != LevelOfDetail::Fine)) { return; }
   auto manifest = GeometryManifest(record.Parent, view, tile);
-  if (!manifest) { return; }
+  if (!manifest || (*previous && (**previous).Tile == manifest)) { return; }
   auto indexed = record;
   indexed.Tile = std::move(manifest);
   const auto saved = Cache_->IndexTile(indexed);
