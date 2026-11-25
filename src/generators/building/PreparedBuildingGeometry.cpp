@@ -3,6 +3,7 @@
 #include "ByteArchive.h"
 #include "ClusterCook.h"
 #include "GeometryErrorBound.h"
+#include "Log.h"
 #include "Sha256.h"
 #include <algorithm>
 #include <array>
@@ -127,7 +128,9 @@ PreparedBuildingAssets::LoadGeometryArtifact(const std::string &baseKey,
     }
     auto tile = DecodeStructureArtifact((**loaded).Bytes(), from, sourceKey);
     if (!tile || !ValidCeilings(*tile, coordinatePoints)) { return std::nullopt; }
-    tile->WorldBounds = (**loaded).Record().Bounds;
+    const auto &record = (**loaded).Record();
+    tile->WorldBounds = record.Bounds;
+    IndexGeometryManifest(record, view, *tile);
     ++GeometryHits_;
     GeometryReadBytes_ += (**loaded).Bytes().size();
     return tile;
@@ -181,15 +184,72 @@ bool PreparedBuildingAssets::RejectsCachedShell(const std::string &baseKey,
   if (sourceKey == 0 || view.RequestedDetail != LevelOfDetail::Shell || !view.RequestedCell) {
     return false;
   }
-  const auto record = Cache_->FindTile(GeometryKey(baseKey, view));
+  const auto primary = GeometryKey(baseKey, view);
+  auto record = Cache_->FindTile(primary);
+  if (record && !*record && view.ClusterTriangles > 0) {
+    record = Cache_->FindTile(GeometryKey(baseKey, view, true));
+    if (record && *record) {
+      const auto preferred = Cache_->Find(primary);
+      if (!preferred || *preferred) { return false; }
+    }
+  }
   if (!record || !*record || (**record).Kind != "building-static-lod") { return false; }
   const auto &asset = **record;
-  if (!asset.Tile) { return false; }
+  if (!asset.Tile || asset.Parent != baseKey ||
+      asset.Level != static_cast<uint32_t>(LevelOfDetail::Shell)) {
+    return false;
+  }
   const auto &tile = *asset.Tile;
   return tile.Revision == baseKey && tile.Coverage == SurfaceKey(baseKey, *view.RequestedCell) &&
-         tile.ErrorM &&
-         !GeometryErrorBound{.SourceKey = sourceKey, .Bounds = asset.Bounds, .UpperM = *tile.ErrorM}
-              .Allows(sourceKey, view.EyeEcef, view.Projection, kStructureEyeReuseM);
+         (!tile.ErrorM ||
+          !GeometryErrorBound{
+              .SourceKey = sourceKey, .Bounds = asset.Bounds, .UpperM = *tile.ErrorM}
+               .Allows(sourceKey, view.EyeEcef, view.Projection, kStructureEyeReuseM));
+}
+
+std::optional<AssetTile> PreparedBuildingAssets::GeometryManifest(const std::string &baseKey,
+                                                                  const RawTile &view,
+                                                                  const BakedTile &tile) {
+  if (!view.RequestedCell || *view.RequestedCell == 0 ||
+      *view.RequestedCell > kStructureCellsPerTile || tile.FallbackHeights || tile.SelectedView ||
+      tile.UnsupportedMeshes != 0 || tile.RequestedDetail != view.RequestedDetail ||
+      tile.RequestedCell != view.RequestedCell ||
+      tile.OccupiedCells != (uint64_t{1} << (*view.RequestedCell - 1u))) {
+    return std::nullopt;
+  }
+  AssetTile manifest{
+      .Revision = baseKey, .Coverage = SurfaceKey(baseKey, *view.RequestedCell), .Coarser = {}};
+  if (view.RequestedDetail == LevelOfDetail::Fine) {
+    RawTile shell;
+    shell.RequestedCell = view.RequestedCell;
+    shell.RequestedDetail = LevelOfDetail::Shell;
+    shell.ClusterTriangles = view.ClusterTriangles;
+    manifest.Coarser = GeometryKey(baseKey, shell);
+    manifest.ErrorM = 0.0;
+  } else if (view.RequestedDetail == LevelOfDetail::Shell) {
+    if (!tile.SurfaceFailure && tile.SurfaceError) {
+      manifest.ErrorM = tile.SurfaceError->UpperDistanceM();
+    }
+  } else {
+    return std::nullopt;
+  }
+  return manifest;
+}
+
+void PreparedBuildingAssets::IndexGeometryManifest(const AssetRecord &record,
+                                                   const RawTile &view,
+                                                   const BakedTile &tile) {
+  if (!view.RequestedDetail || !view.RequestedCell) { return; }
+  const auto previous = Cache_->FindTile(record.Key);
+  if (!previous || *previous) { return; }
+  auto manifest = GeometryManifest(record.Parent, view, tile);
+  if (!manifest) { return; }
+  auto indexed = record;
+  indexed.Tile = std::move(manifest);
+  const auto saved = Cache_->IndexTile(indexed);
+  if (!saved && saved.error() != AssetCacheError::Busy) {
+    Log::Debug(LogTag::World, "building_tile_index_deferred", {{"key", record.Key}});
+  }
 }
 
 std::expected<PreparedBuildingAssets::ProductWrite, StructureBakeError>
@@ -202,24 +262,6 @@ PreparedBuildingAssets::PrepareGeometry(const std::string &baseKey,
     return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
   }
   ++GeometryPreparations_;
-  std::optional<AssetTile> manifest;
-  if (view.RequestedCell &&
-      (view.RequestedDetail == LevelOfDetail::Fine ||
-       view.RequestedDetail == LevelOfDetail::Shell) &&
-      !tile.FallbackHeights && tile.UnsupportedMeshes == 0 && tile.OccupiedCells != 0) {
-    manifest = AssetTile{
-        .Revision = baseKey, .Coverage = SurfaceKey(baseKey, *view.RequestedCell), .Coarser = {}};
-    if (view.RequestedDetail == LevelOfDetail::Fine) {
-      RawTile shell;
-      shell.RequestedCell = view.RequestedCell;
-      shell.RequestedDetail = LevelOfDetail::Shell;
-      shell.ClusterTriangles = view.ClusterTriangles;
-      manifest->Coarser = GeometryKey(baseKey, shell);
-      manifest->ErrorM = 0.0;
-    } else if (!tile.SurfaceFailure && tile.SurfaceError) {
-      manifest->ErrorM = tile.SurfaceError->UpperDistanceM();
-    }
-  }
   return PrepareProduct(
       {.Key = std::move(key),
        .Kind = view.RequestedDetail ? "building-static-lod" : "building-lod",
@@ -227,7 +269,7 @@ PreparedBuildingAssets::PrepareGeometry(const std::string &baseKey,
        .Package = {},
        .Level = static_cast<uint32_t>(view.RequestedDetail.value_or(LevelOfDetail::Fine)),
        .Parent = baseKey,
-       .Tile = std::move(manifest)},
+       .Tile = GeometryManifest(baseKey, view, tile)},
       tile,
       ProductKind::Geometry);
 }

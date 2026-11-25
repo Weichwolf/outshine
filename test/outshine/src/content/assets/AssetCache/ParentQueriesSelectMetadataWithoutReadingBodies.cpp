@@ -137,10 +137,20 @@ void TileProducts(AssetCache &cache, const AssetRecord &region, std::span<const 
   const auto inherited = cache.FindTile(other.Key);
   CHECK(inherited && *inherited && (**inherited).Tile == other.Tile,
         "unproven error and the fallback address survive metadata reads");
+  const auto observed = fine;
   fine.Tile.reset();
   CHECK(cache.Publish(std::span(&fine, 1), payload), "legacy publication can replace a tile");
   const auto replaced = cache.FindTile(fine.Key);
   CHECK(replaced && !*replaced, "republication cannot keep old coverage or error metadata");
+  fine.OffsetBytes += fine.ByteCount;
+  CHECK(cache.Publish(std::span(&fine, 1), payload) && cache.IndexTile(observed),
+        "an old index observation can race a new stored range");
+  const auto stale = cache.FindTile(fine.Key);
+  CHECK(stale && !*stale, "a different range does not acquire the old certificate");
+  fine.Tile = observed.Tile;
+  CHECK(cache.IndexTile(fine), "checked data can be indexed in place");
+  const auto live = cache.FindTile(fine.Key);
+  CHECK(live && *live && **live == fine, "the index exposes the validated current native page");
   CHECK(cache.Remove(fine.Key) && cache.Remove(other.Key), "remove the temporary render variants");
 }
 

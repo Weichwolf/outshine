@@ -5,10 +5,12 @@
 #include "OpenAssetStore.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
+#include "StructureArtifact.h"
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <span>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -46,8 +48,27 @@ void CheckShadowCell(const std::filesystem::path &root) {
   }
   shell.Built.WallRun = {2, 0, 1};
   const auto write = (*assets)->PrepareGeometry(parent, source, request, shell);
-  CHECK(write && (*assets)->PublishProduct(*write), "certified opaque geometry is available");
+  CHECK(write, "the opaque geometry is serializable");
   if (!write) { return; }
+  const auto archive = EncodeStructureArtifact(shell, write->Key);
+  if (!archive) {
+    CHECK(false, "the legacy archive can be written");
+    return;
+  }
+  const AssetRecord unindexed{.Key = write->Key,
+                              .Kind = "building-static-lod",
+                              .Bounds = shell.BoundsAt(source.AnchorEcef),
+                              .Package = {},
+                              .ByteCount = archive->size(),
+                              .Level = static_cast<uint32_t>(LevelOfDetail::Shell),
+                              .Parent = parent};
+  CHECK(cache->Publish(std::span(&unindexed, 1), *archive),
+        "an old product exists without tile metadata");
+  const auto loaded = (*assets)->LoadGeometry(parent, source, request, sourceKey);
+  const auto indexed = cache->FindTile(write->Key);
+  CHECK(loaded && *loaded && indexed && *indexed && (**indexed).Tile &&
+            (**indexed).Tile->ErrorM == 1.0 && (**indexed).Tile->Revision == parent,
+        "loading the old product publishes its error certificate without replacing its body");
   constexpr double kFocalPx = 720;
   constexpr double kCloseM = 20;
   constexpr double kFarM = 10000;

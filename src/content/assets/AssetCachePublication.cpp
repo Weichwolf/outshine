@@ -373,6 +373,33 @@ std::expected<void, AssetCacheError> StoreRecords(const RecordStatements &statem
 }
 }
 
+std::expected<void, AssetCacheError> AssetCache::IndexTile(const AssetRecord &record) {
+  if (!record.Tile || !AssetSql::Valid(record)) {
+    return std::unexpected(AssetCacheError::InvalidInput);
+  }
+  if (const auto opened = State_->EnsureOpen(); !opened) { return std::unexpected(opened.error()); }
+  const std::scoped_lock lock(*State_->Mutex);
+  AssetSql::Statement statement;
+  const auto prepared = AssetSql::Prepare(
+      State_->Database,
+      "INSERT INTO asset_tiles(asset_id,package,revision,coverage,coarser,error_m) "
+      "SELECT id,package,?,?,?,? FROM assets WHERE key=? AND package=? AND kind=? AND parent=? "
+      "AND offset=? AND bytes=? AND level=? ON CONFLICT(asset_id) DO NOTHING",
+      statement);
+  if (!prepared) { return prepared; }
+  if (!AssetSql::Text(statement.Value, 6, record.Package) ||
+      !AssetSql::Text(statement.Value, 7, record.Kind) ||
+      !AssetSql::Text(statement.Value, 8, record.Parent) ||
+      sqlite3_bind_int64(statement.Value, 9, static_cast<sqlite3_int64>(record.OffsetBytes)) !=
+          SQLITE_OK ||
+      sqlite3_bind_int64(statement.Value, 10, static_cast<sqlite3_int64>(record.ByteCount)) !=
+          SQLITE_OK ||
+      sqlite3_bind_int64(statement.Value, 11, record.Level) != SQLITE_OK) {
+    return std::unexpected(AssetCacheError::Storage);
+  }
+  return StoreTile(statement.Value, record);
+}
+
 std::expected<void, AssetCacheError>
 AssetCache::State::StorePublications(std::span<const Publication> publications,
                                      size_t storedBytes) {

@@ -121,6 +121,9 @@ public:
   [[nodiscard]] std::expected<std::vector<AssetRecord>, AssetCacheError>
   FindTiles(std::span<const std::string_view> keys) const;
 
+  // Attach validated metadata only while the observed package is still current.
+  [[nodiscard]] std::expected<void, AssetCacheError> IndexTile(const AssetRecord &record);
+
   [[nodiscard]] std::expected<std::optional<AssetRecord>, AssetCacheError>
   FindRequest(std::string_view requestKey) const;
 

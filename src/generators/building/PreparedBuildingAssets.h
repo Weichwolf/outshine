@@ -203,6 +203,9 @@ private:
   LoadCachedBasis(const std::string &key, const std::string &requestKey);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError> LoadGeometryArtifact(
       const std::string &baseKey, uint64_t sourceKey, const RawTile &view, size_t coordinatePoints);
+  [[nodiscard]] static std::optional<AssetTile>
+  GeometryManifest(const std::string &baseKey, const RawTile &view, const BakedTile &tile);
+  void IndexGeometryManifest(const AssetRecord &record, const RawTile &view, const BakedTile &tile);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
   LoadContactArtifact(const std::string &baseKey,
                       std::span<const double> coordinates,
