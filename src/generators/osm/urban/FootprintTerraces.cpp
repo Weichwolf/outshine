@@ -39,6 +39,12 @@ struct ReleasePrepared {
   }
 };
 
+struct ReleaseGeometry {
+  GEOSContextHandle_t Context;
+
+  void operator()(GEOSGeometry *geometry) const { GEOSGeom_destroy_r(Context, geometry); }
+};
+
 struct Bounds {
   static constexpr double Infinity = std::numeric_limits<double>::infinity();
   std::array<double, 2> Least{Infinity, Infinity}, Most{-Infinity, -Infinity};
@@ -99,7 +105,8 @@ std::expected<void, std::string> Rasterize(Grid &grid,
                                            const TerraceFootprint &footprint,
                                            const Bounds &bounds,
                                            const TerraceRequest &request,
-                                           size_t &testsLeft) {
+                                           size_t &testsLeft,
+                                           std::array<double, 2> *witness) {
   const double step = static_cast<double>(request.SpacingM) / kSamplesPerEdge;
   const auto first = [&](size_t axis, unsigned most) {
     return static_cast<unsigned>(
@@ -127,6 +134,14 @@ std::expected<void, std::string> Rasterize(Grid &grid,
   const Heights heights{.Bottom = static_cast<int16_t>(lower), .Top = static_cast<int16_t>(upper)};
   const auto polygon = Spatial::MakeGeosPolygon(context, footprint.Rings);
   if (!polygon) { return std::unexpected("could not construct terrace footprint"); }
+  if (witness != nullptr) {
+    const std::unique_ptr<GEOSGeometry, ReleaseGeometry> point(
+        GEOSPointOnSurface_r(context, polygon.get()), ReleaseGeometry{context});
+    if (!point || GEOSGeomGetX_r(context, point.get(), witness->data()) == 0 ||
+        GEOSGeomGetY_r(context, point.get(), &witness->back()) == 0) {
+      return std::unexpected("could not sample terrace interior");
+    }
+  }
   const std::unique_ptr<const GEOSPreparedGeometry, ReleasePrepared> prepared(
       GEOSPrepare_r(context, polygon.get()), ReleasePrepared{context});
   if (!prepared) { return std::unexpected("could not prepare terrace footprint"); }
@@ -162,6 +177,29 @@ PrismSpan Cell(const Grid &grid, unsigned row, unsigned column) {
   if (occupied < kSamplesPerCell / 2) { return {}; }
   return {.Lower = static_cast<float>(combined.Bottom) * kHeightStepM,
           .Upper = static_cast<float>(combined.Top) * kHeightStepM};
+}
+
+bool Supported(const Grid &grid,
+               const TerraceFootprint &footprint,
+               const Bounds &bounds,
+               const std::array<double, 2> &witness,
+               const TerraceRequest &request) {
+  const double column = std::floor((witness[0] - grid.Origin[0]) / request.SpacingM);
+  const double row = std::floor((witness[1] - grid.Origin[1]) / request.SpacingM);
+  if (!std::isfinite(column) || !std::isfinite(row) || column < 0 || row < 0 ||
+      column >= static_cast<double>(grid.Columns) / kSamplesPerEdge ||
+      row >= static_cast<double>(grid.Rows) / kSamplesPerEdge) {
+    return false;
+  }
+  const auto represented = Cell(grid, static_cast<unsigned>(row), static_cast<unsigned>(column));
+  if (represented.Upper <= represented.Lower) {
+    return std::hypot(bounds.Most[0] - bounds.Least[0],
+                      bounds.Most[1] - bounds.Least[1],
+                      footprint.TopM - footprint.BottomM) <= request.SupportMostM;
+  }
+  const double vertical = std::max(std::abs(footprint.BottomM - represented.Lower),
+                                   std::abs(footprint.TopM - represented.Upper));
+  return std::hypot(request.SpacingM, request.SpacingM, vertical) <= request.SupportMostM;
 }
 
 Mat4 Placement(const Grid &grid, const TerraceRequest &request, unsigned row, unsigned column) {
@@ -221,6 +259,8 @@ std::expected<UrbanPrisms, std::string>
 BuildFootprintTerraces(std::span<const TerraceFootprint> footprints,
                        const TerraceRequest &request) {
   if (footprints.empty() || !ValidTerraceSpacing(request.SpacingM) ||
+      (request.SupportMostM != 0 &&
+       request.SupportMostM < std::hypot(request.SpacingM, request.SpacingM)) ||
       !(std::abs(request.Anchor.LatitudeDeg) <= kDegPerHalfTurn / 2) ||
       !(std::abs(request.Anchor.LongitudeDeg) <= kDegPerHalfTurn)) {
     return std::unexpected("invalid footprint terrace request");
@@ -244,10 +284,22 @@ BuildFootprintTerraces(std::span<const TerraceFootprint> footprints,
     return std::unexpected("could not initialize terrace rasterizer");
   }
   size_t testsLeft = request.PointTestsMost;
+  std::vector<std::array<double, 2>> witnesses(request.SupportMostM != 0 ? footprints.size() : 0);
   for (size_t at = 0; at < footprints.size(); ++at) {
-    const auto ready =
-        Rasterize(*grid, context.Handle, footprints[at], bounds[at], request, testsLeft);
+    const auto ready = Rasterize(*grid,
+                                 context.Handle,
+                                 footprints[at],
+                                 bounds[at],
+                                 request,
+                                 testsLeft,
+                                 witnesses.empty() ? nullptr : &witnesses[at]);
     if (!ready) { return std::unexpected(ready.error()); }
+  }
+  for (size_t at = 0; at < witnesses.size(); ++at) {
+    if (request.Stop.stop_requested()) { return std::unexpected("terrace generation cancelled"); }
+    if (!Supported(*grid, footprints[at], bounds[at], witnesses[at], request)) {
+      return std::unexpected("terrace exceeds its source support limit");
+    }
   }
   return Pack(*grid, request);
 }

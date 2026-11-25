@@ -115,7 +115,8 @@ std::expected<UrbanPrisms, std::string> Build(const PreparedStructureTile &tile,
                                  .SpacingM = request.SpacingM,
                                  .SamplesMost = budget.SamplesMost,
                                  .PointTestsMost = budget.PointTestsMost,
-                                 .Stop = stop});
+                                 .Stop = stop,
+                                 .SupportMostM = request.SupportMostM});
 }
 }
 
@@ -129,7 +130,7 @@ std::expected<std::string, std::string> TerraceAssetRequest::Key() const {
   }
   BinaryValueWriter bytes(identityBytesMost);
   if (!bytes.Text("prepared-building-terraces-1") || !bytes.Text(BaseKey) ||
-      !bytes(SpacingM, Cells)) {
+      !bytes(SpacingM, Cells) || (SupportMostM != 0 && !bytes(SupportMostM))) {
     return std::unexpected("could not encode terrace demand identity");
   }
   return Sha256Hex(bytes.Out.Bytes().data(), bytes.Out.Bytes().size());
@@ -143,24 +144,34 @@ CapturePreparedTerraces(std::shared_ptr<PreparedBuildingAssets> assets,
   if (!assets || budget.SamplesMost == 0 || budget.PointTestsMost == 0 || stop.stop_requested()) {
     return std::unexpected("terrace build is unavailable or has no work admission");
   }
-  auto key = request.Key();
+  const auto key = request.Key();
   if (!key) { return std::unexpected(key.error()); }
-  return AssetPackageFactory{
-      [assets = std::move(assets), request, key = std::move(*key), budget, stop](
-          size_t bytesMost) -> std::expected<AssetPackage, std::string> {
-        if (stop.stop_requested()) { return std::unexpected("terrace generation cancelled"); }
-        const auto base = assets->Load(request.BaseKey);
-        if (!base || !*base) { return std::unexpected("prepared terrace source is unavailable"); }
-        auto product = Build(**base, request, budget, stop);
-        if (!product) { return std::unexpected(product.error()); }
-        if (product->Placements.empty()) {
-          return std::unexpected("prepared source leaves no terrace coverage at this spacing");
-        }
-        if (stop.stop_requested()) { return std::unexpected("terrace generation cancelled"); }
-        auto package =
-            PackageUrbanPrisms(*product, key, {.Level = request.SpacingM, .BytesMost = bytesMost});
-        if (package) { package->Records.front().Parent = request.BaseKey; }
-        return package;
-      }};
+  return AssetPackageFactory{[assets = std::move(assets), request, budget, stop](
+                                 size_t bytesMost) -> std::expected<AssetPackage, std::string> {
+    if (stop.stop_requested()) { return std::unexpected("terrace generation cancelled"); }
+    const auto base = assets->Load(request.BaseKey);
+    if (!base || !*base) { return std::unexpected("prepared terrace source is unavailable"); }
+    return PackagePreparedTerraces(**base, request, budget, bytesMost, stop);
+  }};
+}
+
+std::expected<AssetPackage, std::string>
+PackagePreparedTerraces(const PreparedStructureTile &source,
+                        const TerraceAssetRequest &request,
+                        TerraceAssetBudget budget,
+                        size_t bytesMost,
+                        const std::stop_token &stop) {
+  const auto key = request.Key();
+  if (!key) { return std::unexpected(key.error()); }
+  auto product = Build(source, request, budget, stop);
+  if (!product) { return std::unexpected(product.error()); }
+  if (product->Placements.empty()) {
+    return std::unexpected("prepared source leaves no terrace coverage at this spacing");
+  }
+  if (stop.stop_requested()) { return std::unexpected("terrace generation cancelled"); }
+  auto package =
+      PackageUrbanPrisms(*product, *key, {.Level = request.SpacingM, .BytesMost = bytesMost});
+  if (package) { package->Records.front().Parent = request.BaseKey; }
+  return package;
 }
 }

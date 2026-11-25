@@ -27,6 +27,7 @@ struct TerraceRequest {
   size_t SamplesMost = 0;
   size_t PointTestsMost = 0;
   std::stop_token Stop;
+  unsigned SupportMostM = 0;
 };
 
 [[nodiscard]] std::expected<UrbanPrisms, std::string>

@@ -1,8 +1,10 @@
 """Build camera-neutral roof terraces from seated source footprints."""
 
+import math
+
 import numpy as np
 from grid_building_masses import rectangles
-from shapely import contains_xy
+from shapely import contains_xy, point_on_surface
 
 GROUP_METRES = 256
 HEIGHT_STEP_M = 2
@@ -47,6 +49,30 @@ def raster(parts, spacing):
     upper[vacant] = NO_ROOF
     lower[vacant] = NO_FLOOR
     return start, lower, upper
+
+
+def support_diameter(parts, spacing, grid):
+    """Estimate the image support lost when the raster replaces these footprints."""
+    start, lower, upper = grid
+    support = math.hypot(spacing, spacing)
+    for part in parts:
+        point = point_on_surface(part.footprint)
+        column, row = (
+            np.floor(np.asarray((point.x, point.y)) / spacing).astype(int) - start
+        )
+        if upper[row, column] == NO_ROOF:
+            left, top, right, bottom = part.footprint.bounds
+            diameter = math.hypot(
+                right - left, bottom - top, part.top_m - part.bottom_m
+            )
+        else:
+            drift = max(
+                abs(part.top_m - upper[row, column] * HEIGHT_STEP_M),
+                abs(part.bottom_m - lower[row, column] * HEIGHT_STEP_M),
+            )
+            diameter = math.hypot(spacing, spacing, drift)
+        support = max(support, diameter)
+    return support
 
 
 def wall_runs(lower, upper, neighbour_lower, neighbour_upper):

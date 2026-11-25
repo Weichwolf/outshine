@@ -45,6 +45,12 @@ int main() {
     CHECK(cells[5].Upper == 0 && cells[5].Lower == 0,
           "a point-sized source remains outside this coarse representation");
   }
+  demand.SupportMostM = 16;
+  CHECK(Osm::BuildFootprintTerraces(std::span(footprints).first(3), demand),
+        "the occupied street block qualifies within the supported footprint size");
+  CHECK(!Osm::BuildFootprintTerraces(footprints, demand),
+        "losing the taller thin building would remove a visible part of the skyline");
+  demand.SupportMostM = 0;
   --demand.SamplesMost;
   CHECK(!Osm::BuildFootprintTerraces(footprints, demand),
         "an over-budget raster cannot become a replacement asset");
