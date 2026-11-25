@@ -1141,6 +1141,15 @@ bool StructureBuildQueue::RetryMissingNativeInputs(
   return true;
 }
 
+bool StructureBuildQueue::NeedsLanding(const Ground::SurfacePreparation &stack,
+                                       const HeightSource &heightAt,
+                                       const QueuedBuild &bake,
+                                       HeightRequirement heights,
+                                       const LandingCoverage &coverage) const {
+  return (!coverage.Complete || !coverage.Complete(bake.Task.Tile(), bake.SourceKey)) &&
+         WholeTileSourceCurrent(stack, heightAt, bake, heights);
+}
+
 std::expected<std::vector<StructureBuildQueue::Landing>, Generators::StructureBakeError>
 StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
                                   ::outshine::Generators::Osm::BuildingField &prints,
@@ -1150,7 +1159,7 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
                                   HeightRequirement heights,
                                   std::optional<LevelOfDetail> detail,
                                   BuildPurpose purpose,
-                                  const CellCoverage &replacementCells) {
+                                  const LandingCoverage &coverage) {
   if (Context_.NativeFailure) { return std::unexpected(*Context_.NativeFailure); }
   std::vector<Landing> landings;
   if (Pool_ == nullptr || most == 0) { return landings; }
@@ -1186,13 +1195,12 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
     }
     const auto &completed = bake.Task.Result().Tile;
     if (!completed) { break; }
-    const bool current = WholeTileSourceCurrent(stack, heightAt, bake, heights);
-    if (!current) {
+    if (!NeedsLanding(stack, heightAt, bake, heights, coverage)) {
       if (count != 0) { break; }
       DiscardFront(prints);
       continue;
     }
-    CollectInitialCell(bake, prints, replacementCells);
+    CollectInitialCell(bake, prints, coverage.Replaced);
 
     ++count;
     if (bake.InitialCells) { break; }

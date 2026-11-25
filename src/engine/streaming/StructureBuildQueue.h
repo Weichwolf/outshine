@@ -172,6 +172,12 @@ public:
 
   using CellDemand = std::function<std::optional<uint64_t>(uint32_t)>;
   using CellCoverage = std::function<uint64_t(uint32_t, uint64_t)>;
+
+  struct LandingCoverage {
+    CellCoverage Replaced;
+    std::function<bool(uint32_t, uint64_t)> Complete;
+  };
+
   [[nodiscard]] size_t Posts(Ground::SurfacePreparation &stack,
                              ::outshine::Generators::Osm::BuildingField &footprints,
                              LongitudeLatitude eye,
@@ -209,7 +215,7 @@ public:
                HeightRequirement heights = HeightRequirement::AllowFallback,
                std::optional<LevelOfDetail> detail = std::nullopt,
                BuildPurpose purpose = BuildPurpose::ViewDetail,
-               const CellCoverage &replacementCells = {});
+               const LandingCoverage &coverage = {});
   void PollCompletedTasks();
   void CommitsLandings(::outshine::Generators::Osm::BuildingField &footprints,
                        std::span<Landing> landings) noexcept;
@@ -419,6 +425,11 @@ private:
                              BuildPurpose purpose,
                              const std::function<bool(uint32_t)> &cellReady) const;
   void PostSlice(QueuedBuild &build);
+  [[nodiscard]] bool NeedsLanding(const Ground::SurfacePreparation &stack,
+                                  const HeightSource &heightAt,
+                                  const QueuedBuild &bake,
+                                  HeightRequirement heights,
+                                  const LandingCoverage &coverage) const;
   [[nodiscard]] bool WholeTileSourceCurrent(const Ground::SurfacePreparation &stack,
                                             const HeightSource &heightAt,
                                             const QueuedBuild &bake,
