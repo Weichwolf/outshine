@@ -26,7 +26,7 @@ def load_zstd():
     return ctypes.CDLL(library)
 
 
-def package(cache, key, *, max_bytes=None):
+def package(cache, key, *, max_bytes=None, kind="ground-region"):
     byte_limit = BYTES_MOST if max_bytes is None else max_bytes
     with closing(
         sqlite3.connect(cache.resolve().as_uri() + "?mode=ro", uri=True)
@@ -37,18 +37,18 @@ def package(cache, key, *, max_bytes=None):
             "p.codec,p.crc,a.offset,a.bytes,b.rowid IS NOT NULL "
             "FROM assets a JOIN packages p ON a.package=p.key "
             "LEFT JOIN package_bodies b ON b.key=p.key "
-            "WHERE a.key=? AND a.kind='ground-region'",
-            (key,),
+            "WHERE a.key=? AND a.kind=?",
+            (key, kind),
         ).fetchone()
         if row is None:
-            raise ValueError("existing native ground-region key required")
+            raise ValueError(f"existing native {kind} key required")
         product_key, stored_size, native_size, codec, crc, offset, size, separate_body = row
         if codec == 0 and native_size == 0:
             native_size = stored_size
         if not 0 < stored_size <= byte_limit or not 0 < native_size <= byte_limit:
             raise ValueError("bounded cached package required before blob read")
         if offset != 0 or size != native_size:
-            raise ValueError("single complete ground-region package required")
+            raise ValueError("a complete native package is required")
         body_table = "package_bodies" if separate_body else "packages"
         stored = db.execute(
             f"SELECT bytes FROM {body_table} WHERE key=?", (product_key,)
