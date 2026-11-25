@@ -23,7 +23,7 @@ struct alignas(16) GpuPrismPatch {
 
   [[nodiscard]] Boxf LocalBounds() const noexcept {
     const Vec3f lower =
-        Samples[3] == 0 ? Vec3f{{0, Shape[3], 0}} : Vec3f{{Shape[0], Shape[1], Shape[2]}};
+        Samples[3] == 1 ? Vec3f{{Shape[0], Shape[1], Shape[2]}} : Vec3f{{0, Shape[3], 0}};
     return {.Min = lower, .Max = {{Bounds[1], Bounds[0], Bounds[2]}}};
   }
 };

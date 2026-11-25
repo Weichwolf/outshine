@@ -65,19 +65,22 @@ std::expected<std::vector<GpuPrismPatch>, PrismInstanceError> PackPrismPlacement
     const auto &patch = grid.Patches[instance.Patch];
     const auto &bounds = info.Patches[instance.Patch];
     constexpr uint64_t sampleMost = uint64_t{std::numeric_limits<uint32_t>::max()} + 1;
-    if (patch.FirstSample >= sampleMost || bounds.Samples > sampleMost - patch.FirstSample) {
+    if (patch.FirstSample >= sampleMost || patch.SampleExtent() > sampleMost - patch.FirstSample ||
+        patch.Stride() > std::numeric_limits<uint32_t>::max() / 2) {
       return std::unexpected(PrismInstanceError::SampleRange);
     }
     if (bounds.Occupied == 0) { continue; }
     const auto coat = PackCoating(instance.TopCoating);
     if (!coat) { return std::unexpected(coat.error()); }
-    records.push_back(
-        {.Current = instance.Current,
-         .Previous = instance.Previous,
-         .Samples = {static_cast<uint32_t>(patch.FirstSample), patch.Columns, patch.Rows, 0},
-         .Shape = {patch.PitchX, patch.PitchZ, patch.FillFraction, bounds.Lower},
-         .Bounds = {bounds.Upper, bounds.Width, bounds.Depth},
-         .TopCoating = *coat});
+    records.push_back({.Current = instance.Current,
+                       .Previous = instance.Previous,
+                       .Samples = {static_cast<uint32_t>(patch.FirstSample),
+                                   patch.Columns,
+                                   patch.Rows,
+                                   patch.RowStride << 1u},
+                       .Shape = {patch.PitchX, patch.PitchZ, patch.FillFraction, bounds.Lower},
+                       .Bounds = {bounds.Upper, bounds.Width, bounds.Depth},
+                       .TopCoating = *coat});
   }
   return records;
 }

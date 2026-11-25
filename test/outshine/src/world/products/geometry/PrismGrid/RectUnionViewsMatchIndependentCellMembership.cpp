@@ -28,7 +28,7 @@ bool Matches(const PrismGrid &source,
       for (uint32_t column = 0; column < patch.Columns; ++column) {
         const size_t cell =
             static_cast<size_t>(row + where.Row) * original.Columns + column + where.Column;
-        if (patch.FirstSample + static_cast<size_t>(row) * patch.Columns + column !=
+        if (patch.FirstSample + static_cast<size_t>(row) * patch.Stride() + column !=
             original.FirstSample + cell) {
           return false;
         }

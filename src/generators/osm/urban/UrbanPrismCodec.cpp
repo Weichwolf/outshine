@@ -52,14 +52,14 @@ bool Valid(const UrbanPrisms &product) {
 bool WritePatch(BinaryValueWriter &writer,
                 const PrismPatch &patch,
                 const UrbanPrismPlacement &placement) {
-  return writer(patch.FirstSample,
-                patch.Columns,
-                patch.Rows,
-                patch.PitchX,
-                patch.PitchZ,
-                patch.FillFraction,
-                placement.EcefFromLocal.Column,
-                placement.MaxCornerErrorM);
+  return patch.RowStride == 0 && writer(patch.FirstSample,
+                                        patch.Columns,
+                                        patch.Rows,
+                                        patch.PitchX,
+                                        patch.PitchZ,
+                                        patch.FillFraction,
+                                        placement.EcefFromLocal.Column,
+                                        placement.MaxCornerErrorM);
 }
 
 bool ReadPatch(BinaryValueReader &reader, PrismPatch &patch, UrbanPrismPlacement &placement) {

@@ -18,16 +18,12 @@ bool Intersects(const PrismCellRect &cut, const PrismPatch &patch) {
          cut.Top < patch.Rows;
 }
 
-bool Fits(const PrismPatch &patch, size_t samples) {
-  return patch.Columns != 0 && patch.Rows != 0 && patch.FirstSample <= samples &&
-         uint64_t{patch.Columns} * patch.Rows <= samples - patch.FirstSample;
-}
-
 void Append(PrismGridViews &out, const PrismPatch &source, PrismCellRect region) {
   auto shape = source;
-  shape.FirstSample += uint64_t{region.Top} * source.Columns + region.Left;
+  shape.FirstSample += uint64_t{region.Top} * source.Stride() + region.Left;
   shape.Columns = region.Right - region.Left;
   shape.Rows = region.Bottom - region.Top;
+  shape.RowStride = shape.Columns == source.Stride() ? 0 : source.Stride();
   out.Geometry.Patches.push_back(shape);
   out.Placements.push_back({.Patch = region.Patch, .Column = region.Left, .Row = region.Top});
 }
@@ -38,34 +34,17 @@ std::expected<void, PrismViewError> Emit(PrismGridViews &out,
                                          Interval rows,
                                          std::span<const Interval> visible,
                                          size_t viewsMost) {
-  if (visible.empty()) { return {}; }
-  const bool fullWidth =
-      visible.size() == 1 && visible.front().Begin == 0 && visible.front().End == source.Columns;
-  const uint64_t copies = fullWidth ? 1 : rows.End - rows.Begin;
-  if (copies != 0 && visible.size() > (viewsMost - out.Geometry.Patches.size()) / copies) {
+  if (visible.size() > viewsMost - out.Geometry.Patches.size()) {
     return std::unexpected(PrismViewError::OverBudget);
   }
-  if (fullWidth) {
+  for (const auto columns : visible) {
     Append(out,
            source,
            {.Patch = index,
-            .Left = 0,
+            .Left = columns.Begin,
             .Top = rows.Begin,
-            .Right = source.Columns,
+            .Right = columns.End,
             .Bottom = rows.End});
-  } else {
-    for (uint64_t row = rows.Begin; row < rows.End; ++row) {
-      const auto begin = static_cast<uint32_t>(row);
-      for (const auto columns : visible) {
-        Append(out,
-               source,
-               {.Patch = index,
-                .Left = columns.Begin,
-                .Top = begin,
-                .Right = columns.End,
-                .Bottom = begin + 1});
-      }
-    }
   }
   return {};
 }
@@ -146,7 +125,7 @@ std::expected<PrismGridViews, PrismViewError> ExcludePrismCells(
   }
   const size_t samples = source.Samples ? source.Samples->size() : 0;
   for (const auto &patch : source.Patches) {
-    if (!Fits(patch, samples)) { return std::unexpected(PrismViewError::InvalidSource); }
+    if (!patch.Fits(samples)) { return std::unexpected(PrismViewError::InvalidSource); }
   }
   std::vector<size_t> offsets(source.Patches.size() + 1);
   for (const auto &cut : exclusions) {

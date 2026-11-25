@@ -52,7 +52,7 @@ bool readPrismSurface() {
   prismRoughnessOverride = -1.0;
   normal = transformedSurfaceNormal(mat3(gridPatch.current), localNormal);
   vec3 u, v, localDx, localDy;
-  if (gridPatch.samples.w == 0u) {
+  if (!prismIsConvex(gridPatch)) {
     if (localNormal.y > 0.0 && gridPatch.topCoating != 0u) {
       vec4 tint = unpackUnorm4x8(gridPatch.topCoating);
       colour.rgb = tint.rgb;

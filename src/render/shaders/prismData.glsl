@@ -8,6 +8,14 @@ struct PrismPatch {
   vec3 bounds;
   uint topCoating;
 };
+bool prismIsConvex(PrismPatch gridPatch) {
+  return gridPatch.samples.w == 1u;
+}
+
+uint prismRowStride(PrismPatch gridPatch) {
+  uint stride = gridPatch.samples.w >> 1u;
+  return stride == 0u ? gridPatch.samples.y : stride;
+}
 #if PRISM_VERTEX
 layout(std430, set = 0, binding = 0) readonly buffer PrismPatches {
   PrismPatch prismPatches[];

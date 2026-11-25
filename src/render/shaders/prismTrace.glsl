@@ -61,7 +61,7 @@ bool tracePrism(PrismPatch gridPatch, vec2 ndc, out vec3 point, out vec3 normal,
     ray /= largest;
   }
   vec3 direction = normalize(ray);
-  if (gridPatch.samples.w != 0u) {
+  if (prismIsConvex(gridPatch)) {
     return traceConvexPrism(gridPatch.samples.x, origin, direction, point, normal, height, surface);
   }
   vec3 inverseDirection = 1.0 / direction;
@@ -86,8 +86,9 @@ bool tracePrism(PrismPatch gridPatch, vec2 ndc, out vec3 point, out vec3 normal,
   if (isinf(inverseDirection.z)) { next.y = prismInfinity(); }
   vec2 inset = (1.0 - gridPatch.shape.z) * pitch * 0.5;
   uint most = gridPatch.samples.y + gridPatch.samples.z + 2u;
+  uint stride = prismRowStride(gridPatch);
   for (uint iteration = 0u; iteration < most; ++iteration) {
-    uint address = gridPatch.samples.x + uint(cell.y) * gridPatch.samples.y + uint(cell.x);
+    uint address = gridPatch.samples.x + uint(cell.y) * stride + uint(cell.x);
     vec2 span = prismSamples[address];
     if (span.y > span.x) {
       vec2 low = vec2(cell) * pitch + inset;

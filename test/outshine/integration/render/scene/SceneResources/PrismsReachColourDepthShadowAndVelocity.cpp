@@ -514,6 +514,27 @@ void CheckScene() {
   const auto dark = Draw(*scene, renderer);
   CHECK(dark.Colour.size() > kCentre * 4 && dark.Colour[kCentre * 4] < moved.Colour[kCentre * 4],
         "the prism responds to a changed light through the common PBR implementation");
+  const PrismSpan nearCell{.Lower = -1, .Upper = 1};
+  const PrismSpan farCell{.Lower = -1, .Upper = 2};
+  const PrismSpan excluded{.Lower = -1, .Upper = 9};
+  const auto dense = std::make_shared<const PrismGrid>(
+      PrismGrid{.Samples = std::make_shared<const std::vector<PrismSpan>>(
+                    std::initializer_list<PrismSpan>{nearCell, farCell}),
+                .Patches = {{.Columns = 1, .Rows = 2, .PitchX = 2, .PitchZ = 1}}});
+  const auto strided = std::make_shared<const PrismGrid>(PrismGrid{
+      .Samples = std::make_shared<const std::vector<PrismSpan>>(
+          std::initializer_list<PrismSpan>{excluded, nearCell, excluded, farCell}),
+      .Patches = {
+          {.FirstSample = 1, .Columns = 1, .Rows = 2, .PitchX = 2, .PitchZ = 1, .RowStride = 2}}});
+  CHECK(renderer.ReplacePrismGrid(*handle, dense, instances, *slot),
+        "both rows are available as a dense control");
+  const auto beforeStride = Draw(*scene, renderer);
+  CHECK(renderer.ReplacePrismGrid(*handle, strided, instances, *slot),
+        "the same rows use a cropped view of a wider immutable source");
+  const auto afterStride = Draw(*scene, renderer);
+  CHECK(beforeStride.Depth == afterStride.Depth && beforeStride.Normal == afterStride.Normal &&
+            beforeStride.Shadow == afterStride.Shadow,
+        "the native trace skips the excluded columns in colour and shadow");
   CheckMappedNormal(*scene, renderer, *handle, instances);
   CheckMipFiltering(*scene, renderer, *handle, instances);
   CheckFacadePartitioning(*scene, renderer, *handle, instances);
