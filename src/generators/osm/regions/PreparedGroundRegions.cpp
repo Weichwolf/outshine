@@ -163,7 +163,9 @@ PreparedGroundRegions::ReadResult PreparedGroundRegions::LoadProduct(const std::
 }
 
 std::expected<std::optional<PreparedGroundRegions::Loaded>, PreparedGroundRegions::Failure>
-PreparedGroundRegions::Restore(CachedAsset product, const std::stop_token &stop) {
+PreparedGroundRegions::Restore(CachedAsset product,
+                               const std::stop_token &stop,
+                               const GroundTerrainErrorLimit &limit) {
   if (product.Record().Kind != "ground-region" || product.Bytes().size() > PackageBytesMost) {
     return std::nullopt;
   }
@@ -172,18 +174,20 @@ PreparedGroundRegions::Restore(CachedAsset product, const std::stop_token &stop)
   auto decoded = DecodePackage(product.Bytes(), terrain);
   if (!decoded) { return std::nullopt; }
   if (terrain.Sheets != 0) {
-    size_t terrainBytes = 0;
+    GroundTerrainRead read;
     const auto restored = TerrainPacks_->Restore(*Cache_,
                                                  product.Record(),
                                                  terrain,
                                                  PackageBytesMost - product.Bytes().size(),
                                                  decoded->Region.Terrain.Sheets,
-                                                 terrainBytes,
-                                                 stop);
-    ReadBytes_ += terrainBytes;
+                                                 read,
+                                                 stop,
+                                                 limit);
+    ReadBytes_ += read.Bytes;
     if (!restored) { return std::unexpected(restored.error()); }
     if (!*restored) { return std::nullopt; }
-    decoded->ReadBytes += terrainBytes;
+    decoded->ReadBytes += read.Bytes;
+    decoded->CompactTerrainPacks = read.CompactPacks;
   }
   decoded->Key = product.Record().Key;
   return std::move(*decoded);

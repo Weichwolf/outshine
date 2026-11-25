@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <span>
@@ -20,6 +21,8 @@ class BinaryValueWriter;
 }
 
 namespace outshine::Generators::Osm {
+
+using GroundTerrainErrorLimit = std::function<double(const Box &)>;
 
 struct GroundTerrainManifest {
   struct Pack {
@@ -40,6 +43,11 @@ PrepareGroundTerrainPacks(AssetCache &cache,
                           size_t bytesMost,
                           std::vector<PreparedAssetWrite> &into);
 
+struct GroundTerrainRead {
+  size_t Bytes = 0;
+  size_t CompactPacks = 0;
+};
+
 class GroundTerrainPackReader {
 public:
   [[nodiscard]] std::expected<bool, AssetCacheError> Restore(const AssetCache &cache,
@@ -47,19 +55,30 @@ public:
                                                              const GroundTerrainManifest &manifest,
                                                              size_t bytesMost,
                                                              std::vector<Sheet> &sheets,
-                                                             size_t &readBytes,
-                                                             const std::stop_token &stop);
+                                                             GroundTerrainRead &read,
+                                                             const std::stop_token &stop,
+                                                             const GroundTerrainErrorLimit &limit);
 
 private:
   using Pages = std::shared_ptr<const std::vector<Sheet>>;
 
   struct ResidentPack {
     std::weak_ptr<const std::vector<Sheet>> Pages;
+    std::string Package;
     uint64_t NativeBytes = 0;
   };
 
-  [[nodiscard]] std::expected<Pages, AssetCacheError>
-  Read(const AssetCache &cache, const AssetRecord &record, size_t count, size_t &readBytes);
+  [[nodiscard]] std::expected<Pages, AssetCacheError> Read(const AssetCache &cache,
+                                                           const AssetRecord &record,
+                                                           const AssetRecord *base,
+                                                           size_t count,
+                                                           size_t &readBytes);
+  [[nodiscard]] std::expected<Pages, AssetCacheError> Materialize(const AssetCache &cache,
+                                                                  const AssetRecord &record,
+                                                                  const AssetRecord *base,
+                                                                  std::span<const uint8_t> bytes,
+                                                                  size_t count,
+                                                                  size_t &readBytes);
   std::mutex Lock_;
   std::unordered_map<std::string, ResidentPack> Resident_;
 };

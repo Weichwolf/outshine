@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_OSM_REGIONS_PREPAREDGROUNDREGIONS_H
 
 #include "GroundRegionAsset.h"
+#include "GroundTerrainPacks.h"
 #include "Sha256.h"
 #include "WaterAsset.h"
 #include "AssetCache.h"
@@ -29,7 +30,6 @@ struct TileSpot;
 
 namespace outshine::Generators::Osm {
 class OsmField;
-class GroundTerrainPackReader;
 struct OsmTileWindow;
 enum class MvtSchema : uint8_t;
 
@@ -43,6 +43,7 @@ public:
     WaterAsset Water;
     size_t ReadBytes = 0;
     std::string Key;
+    size_t CompactTerrainPacks = 0;
   };
 
   struct Counters {
@@ -109,7 +110,9 @@ public:
   [[nodiscard]] ReadResult LoadProduct(const std::string &key);
   [[nodiscard]] ReadResult LoadRequestProduct(const std::string &requestKey);
   [[nodiscard]] std::expected<std::optional<Loaded>, Failure>
-  Restore(CachedAsset product, const std::stop_token &stop = {});
+  Restore(CachedAsset product,
+          const std::stop_token &stop = {},
+          const GroundTerrainErrorLimit &limit = {});
   [[nodiscard]] std::expected<void, Failure> BindRequest(const std::string &key,
                                                          const std::string &requestKey);
   [[nodiscard]] std::expected<StoreWork, Failure> PrepareStore(const std::string &key,

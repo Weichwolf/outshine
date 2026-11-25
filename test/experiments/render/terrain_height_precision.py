@@ -49,14 +49,15 @@ def page_bounds(address, nodes):
 
 def quantize(nodes, step):
     # A common zero origin rounds coincident samples equally across pack boundaries.
-    rounded = np.rint(nodes.astype(np.float64) / step)
+    ticks = nodes.astype(np.float64) / step
+    rounded = np.copysign(np.floor(abs(ticks) + 0.5), ticks)
     offset, end = float(rounded.min()), float(rounded.max())
     if not (-(2**31) <= offset <= end < 2**31) or end - offset > 65535:
         return None
     offset = int(offset)
     relative = rounded - offset
     most = int(end) - offset
-    restored = (rounded * step).astype("<f4")
+    restored = ((relative + offset) * step).astype("<f4")
     error = float(np.max(abs(restored.astype(np.float64) - nodes)))
     dtype = np.dtype("<u1" if most <= 255 else "<u2")
     encoded = bytes((dtype.itemsize,)) + offset.to_bytes(4, "little", signed=True)
