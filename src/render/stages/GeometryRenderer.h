@@ -402,7 +402,8 @@ private:
   [[nodiscard]] Native::Result<void> EncodeGround(const PassRecording &into,
                                                   const FrameUniforms &uniforms) const;
   [[nodiscard]] Native::Result<void> EncodePrisms(const PassRecording &into,
-                                                  const FrameUniforms &uniforms);
+                                                  const FrameUniforms &uniforms,
+                                                  const BatchFrustum &visible);
   [[nodiscard]] Native::Result<void> ValidatePrismMaterial(uint32_t material) const;
   [[nodiscard]] Native::Result<void> DrawBatchRange(const PassRecording &into,
                                                     size_t first,

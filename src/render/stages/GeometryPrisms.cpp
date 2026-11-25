@@ -64,10 +64,14 @@ void GeometryRenderer::ReleasePrism(uint64_t id) {
 }
 
 Native::Result<void> GeometryRenderer::EncodePrisms(const PassRecording &into,
-                                                    const FrameUniforms &uniforms) {
+                                                    const FrameUniforms &uniforms,
+                                                    const BatchFrustum &visible) {
   if (IsTransmission() || Binding().Behind != nullptr) { return {}; }
   for (const auto &product : Prisms_->Products()) {
-    if (!product.Draws(GeometryPasses::Main) || product.Records.empty()) { continue; }
+    if (!product.Draws(GeometryPasses::Main) || product.Records.empty() ||
+        visible.Outside(product.WorldSphere)) {
+      continue;
+    }
     if (into.Commands == nullptr || Binding().Prisms.Colour() == nullptr ||
         product.Material >= RegisteredSlotOf_.size() ||
         RegisteredSlotOf_[product.Material] >= Slots.size()) {

@@ -498,6 +498,18 @@ void CheckScene() {
         "a stationary prism and camera have zero motion");
   CHECK(std::ranges::any_of(first.Shadow, [](float depth) { return depth > 0; }),
         "the native prism enters the shared sun caster pass");
+  auto offscreen = instances;
+  offscreen[0].Current[12] += 100;
+  CHECK(renderer.SetPrismGridInstances(*handle, offscreen),
+        "an existing prism can move outside the camera");
+  const auto outside = Draw(*scene, renderer);
+  CHECK(outside.Depth.size() > kCentre && outside.Depth[kCentre] == 0,
+        "the moved prism stops covering its previous pixels");
+  CHECK(renderer.SetPrismGridInstances(*handle, instances),
+        "a resident prism can re-enter the camera");
+  const auto returned = Draw(*scene, renderer);
+  CHECK(returned.Depth == first.Depth && returned.Shadow == first.Shadow,
+        "camera culling follows current placements and preserves independent caster coverage");
   CheckNativeMaterialRemap(*scene, renderer, light);
   instances[0].Previous = instances[0].Current;
   instances[0].Current[12] += .5f;

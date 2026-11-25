@@ -27,6 +27,7 @@ struct PrismProduct {
   std::vector<GpuPrismPatch> Records;
   std::array<std::shared_ptr<Native::Buffer>, 2> Buffers;
   std::optional<GeometryPasses> Passes = GeometryPasses::MainAndShadow;
+  std::optional<std::array<float, 4>> WorldSphere = std::nullopt;
 
   [[nodiscard]] bool Draws(GeometryPasses pass) const noexcept {
     return Passes == GeometryPasses::MainAndShadow || Passes == pass;
@@ -77,6 +78,8 @@ private:
                                                       std::span<const PrismInstance> instances);
   void RecordShadowChanges(std::span<const GpuPrismPatch> previous,
                            std::span<const GpuPrismPatch> records) noexcept;
+  [[nodiscard]] static std::optional<std::array<float, 4>>
+  ComputeWorldSphere(std::span<const GpuPrismPatch> records) noexcept;
 
   Native::Device *Device_ = nullptr;
   UploadQueue *Queue_ = nullptr;

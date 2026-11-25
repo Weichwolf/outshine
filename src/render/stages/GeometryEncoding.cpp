@@ -286,7 +286,7 @@ Native::Result<void> GeometryRenderer::Encode(const FrameContext &ctx,
     if (!recorded) { return recorded; }
     at = end - 1;
   }
-  return EncodePrisms(into, uniforms);
+  return EncodePrisms(into, uniforms, visible);
 }
 
 Native::Result<void> GeometryRenderer::EncodeGround(const FrameContext &ctx,

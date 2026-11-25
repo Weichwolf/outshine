@@ -96,6 +96,7 @@ Native::Result<uint64_t> PrismResidency::PlaceConvex(std::span<const ConvexPrism
                        .Passes = passes};
   if (product.Draws(GeometryPasses::Shadow)) { RecordShadowChanges({}, packed->Patches); }
   product.Records = std::move(packed->Patches);
+  product.WorldSphere = ComputeWorldSphere(product.Records);
   Products_.push_back(std::move(product));
   Costs_.SampleBytes += samples.size();
   Costs_.PatchBytes += patches.size();
@@ -133,6 +134,7 @@ Native::Result<void> PrismResidency::ReplaceInstances(PrismProduct &product,
   if (records->empty()) {
     RecordShadowChanges(product.Records, *records);
     product.Records.clear();
+    product.WorldSphere.reset();
     product.Buffers[1].reset();
     ++Generation_;
     return {};
@@ -146,6 +148,7 @@ Native::Result<void> PrismResidency::ReplaceInstances(PrismProduct &product,
   product.Buffers[1] = std::move((*uploaded)[1]);
   RecordShadowChanges(product.Records, *records);
   product.Records = std::move(*records);
+  product.WorldSphere = ComputeWorldSphere(product.Records);
   Costs_.SampleBytes += samples.size();
   Costs_.PatchBytes += patches.size();
   ++Costs_.Submissions;

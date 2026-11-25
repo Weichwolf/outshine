@@ -1,4 +1,5 @@
 #include "PrismDrawing.h"
+#include "BatchVisibility.h"
 #include <array>
 #include <cstdint>
 #include <expected>
@@ -43,8 +44,13 @@ Native::Result<void> EncodePrismDepth(const PrismResidency &residency,
                                       Native::Scissor clip) {
   const std::array viewport{area.X, area.Y, area.Width, area.Height};
   const auto viewportBytes = std::as_bytes(std::span(viewport));
+  const BatchFrustum visible(
+      view.ClipFromWorld, Vec3{{view.Shift[0], view.Shift[1], view.Shift[2]}}, {});
   for (const auto &product : residency.Products()) {
-    if (!product.Draws(GeometryPasses::Shadow) || product.Records.empty()) { continue; }
+    if (!product.Draws(GeometryPasses::Shadow) || product.Records.empty() ||
+        visible.Outside(product.WorldSphere)) {
+      continue;
+    }
     const auto viewBytes = std::as_bytes(std::span(&view, 1));
     const std::array bindings{
         Storage(0, 0, *product.Buffers[1]),

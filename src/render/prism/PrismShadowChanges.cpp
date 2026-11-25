@@ -26,8 +26,7 @@ bool SameDepth(const GpuPrismPatch &before, const GpuPrismPatch &after) noexcept
          SameBits(before.Shape, after.Shape) && SameBits(before.Bounds, after.Bounds);
 }
 
-std::optional<Boxf> BoundsOf(const GpuPrismPatch &record) noexcept {
-  const auto bounds = record.LocalBounds();
+std::optional<BatchSphere> SphereOf(const Boxf &bounds) noexcept {
   std::array<double, 3> centre{};
   std::array<double, 3> half{};
   for (size_t axis = 0; axis < 3; ++axis) {
@@ -36,13 +35,28 @@ std::optional<Boxf> BoundsOf(const GpuPrismPatch &record) noexcept {
     centre[axis] = (high + low) / 2;
     half[axis] = (high - low) / 2;
   }
-  const auto local = PackSphere(centre, std::hypot(half[0], half[1], half[2]));
+  return PackSphere(centre, std::hypot(half[0], half[1], half[2]));
+}
+
+std::optional<Boxf> BoundsOf(const GpuPrismPatch &record) noexcept {
+  const auto local = SphereOf(record.LocalBounds());
   if (!local) { return std::nullopt; }
   Mat4 row{};
   for (size_t at = 0; at < row.Column.size(); ++at) { row[at] = record.Current[at]; }
   const auto world = TransformedSphere(*local, row);
   return world ? CasterChanges::SphereBounds(*world) : std::nullopt;
 }
+}
+
+std::optional<BatchSphere>
+PrismResidency::ComputeWorldSphere(std::span<const GpuPrismPatch> records) noexcept {
+  Boxf world;
+  for (const auto &record : records) {
+    const auto bounds = BoundsOf(record);
+    if (!bounds) { return std::nullopt; }
+    world.Cover(*bounds);
+  }
+  return world.Empty() ? std::nullopt : SphereOf(world);
 }
 
 void PrismResidency::RecordShadowChanges(std::span<const GpuPrismPatch> previous,
