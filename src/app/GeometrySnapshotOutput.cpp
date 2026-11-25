@@ -44,6 +44,7 @@ std::expected<void, std::string> WriteGeometrySnapshot(Renderer &renderer,
       {"eye_from_anchor_m", snapshot.EyeFromAnchorM.Axis},
       {"camera_axes",
        {snapshot.CameraAxes[0].Axis, snapshot.CameraAxes[1].Axis, snapshot.CameraAxes[2].Axis}},
+      {"depth_clip_from_eye", snapshot.DepthClipFromEye},
       {"viewport_px", snapshot.ViewportPx},
       {"byte_order", std::endian::native == std::endian::little ? "little" : "big"},
       {"measurement_excludes_snapshot", true}};
@@ -60,6 +61,7 @@ std::expected<void, std::string> WriteGeometrySnapshot(Renderer &renderer,
       !save("placements", snapshot.Placements, 16) || !save("batches", snapshot.Batches, 12) ||
       !save("source_indices", snapshot.SourceIndices, 1) || !save("kept", snapshot.Kept, 1) ||
       !save("visible", snapshot.Visible, 1) || !save("arguments", snapshot.Arguments, 1) ||
+      !save("depth", snapshot.Depth, 1) ||
       !Write(root / "benchmark.json", std::as_bytes(std::span(report)))) {
     return std::unexpected("geometry snapshot stream write failed");
   }

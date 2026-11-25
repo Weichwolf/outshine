@@ -14,6 +14,7 @@ struct GeometrySnapshot {
   bool SelectionReady = false;
   Vec3 EyeFromAnchorM{};
   std::array<Vec3, 3> CameraAxes;
+  std::array<float, 16> DepthClipFromEye{};
   std::array<double, 2> ViewportPx{};
   std::vector<GeometryRoot> Roots;
   std::vector<GeometryClusterTemplate> Templates;
@@ -24,6 +25,7 @@ struct GeometrySnapshot {
   std::vector<uint32_t> Kept;
   std::vector<uint32_t> Visible;
   std::vector<uint32_t> Arguments;
+  std::vector<float> Depth;
 };
 }
 #endif

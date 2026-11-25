@@ -1,4 +1,5 @@
 #include "GeometrySnapshot.h"
+#include "FrameContext.h"
 #include "GpuPlacement.h"
 #include "SceneRenderer.h"
 #include <algorithm>
@@ -72,6 +73,12 @@ ReadState SceneRenderer::ReadGeometrySnapshot(GeometrySnapshot &into) {
   const auto &camera = LastSubmittedCamera_.Basis;
   snapshot.EyeFromAnchorM = camera.EyeM - draw.AnchorM();
   snapshot.CameraAxes = {camera.Right, camera.Up, camera.Forward * -1.0};
+  if (ActiveState().History.HasSubmittedFrame() && ReadDepth(snapshot.Depth) == ReadState::Ready) {
+    FrameContext submitted{};
+    ActiveState().History.ApplyPrevious(submitted);
+    std::ranges::copy(submitted.PrevMvp, snapshot.DepthClipFromEye.begin());
+    snapshot.ReadbackBytes += snapshot.Depth.size() * sizeof(float);
+  }
   const auto lens = Through();
   snapshot.ViewportPx = {lens.WidePx, lens.HighPx};
   snapshot.SelectionReady = ActiveFrame().Cull.HasAcceptedSelection();
