@@ -1,5 +1,6 @@
 #ifndef OUTSHINE_GENERATORS_BUILDING_PREPAREDBUILDINGASSETS_H
 #define OUTSHINE_GENERATORS_BUILDING_PREPAREDBUILDINGASSETS_H
+#include "BuildingShadowCell.h"
 
 #include "AssetCache.h"
 #include "PreparedStructureTile.h"
@@ -176,6 +177,8 @@ public:
   LoadTerrainContacts(const std::string &baseKey, const PreparedStructureTile &base);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
   LoadTerrainContacts(const std::string &baseKey, Basis basis);
+  [[nodiscard]] std::optional<BuildingShadowCell>
+  LoadShadowCell(const std::string &baseKey, uint32_t cell, BuildingShadowCell::ReadCost &cost);
   [[nodiscard]] std::expected<ProductWrite, StructureBakeError> PrepareTerrainContacts(
       const std::string &baseKey, const PreparedStructureTile &base, const BakedTile &tile);
   [[nodiscard]] Counters Costs() const noexcept;

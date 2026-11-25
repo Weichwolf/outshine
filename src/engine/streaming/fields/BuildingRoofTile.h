@@ -18,6 +18,7 @@ namespace outshine {
 struct BuildingRoofTile {
   struct ReadCost {
     size_t Blocks = 0, DecodedRows = 0;
+    Generators::BuildingShadowCell::ReadCost Caster;
   };
 
   struct Support {
@@ -35,6 +36,7 @@ struct BuildingRoofTile {
   std::optional<SourceCoverage> Coverage;
   uint64_t Cells = 0;
   std::optional<GeometryAsset::Product> Remainder;
+  std::optional<Generators::BuildingShadowCell> Caster;
 
   [[nodiscard]] static std::optional<BuildingRoofTile>
   Load(AssetCache &cache,

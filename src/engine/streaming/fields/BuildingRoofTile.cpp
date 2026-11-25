@@ -9,6 +9,7 @@
 #include "ViewPath.h"
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <iterator>
 #include <cstddef>
 #include <cstdint>
@@ -183,7 +184,8 @@ BuildingRoofTile::Load(AssetCache &cache,
       .Anchor = directory->AnchorEcef(),
       .Roofs = {},
       .Coverage = std::nullopt,
-      .Remainder = std::nullopt};
+      .Remainder = std::nullopt,
+      .Caster = std::nullopt};
   for (size_t at = 0; at < prefix; ++at) {
     const auto block = directory->LoadBlock(cache, at);
     if (!block || !*block) { return std::nullopt; }
@@ -197,6 +199,12 @@ BuildingRoofTile::Load(AssetCache &cache,
   if (!split || !LoadRemainder(product, cache, assets, *split)) { return std::nullopt; }
   product.Projected.ShellErrorM = split->ShellErrorM;
   product.Key = Sha256Hex(product.Key + "/" + std::to_string(product.Cells));
+  const auto cell = static_cast<uint32_t>(std::countr_zero(product.Cells)) + 1u;
+  auto caster = assets.LoadShadowCell(key, cell, cost.Caster);
+  if (caster && caster->ErrorM <= SourceProductSelection::GeometryErrorLimitM(
+                                      caster->Bounds, path, viewport, projection)) {
+    product.Caster = std::move(caster);
+  }
   return product;
 }
 }

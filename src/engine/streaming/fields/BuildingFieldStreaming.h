@@ -46,7 +46,9 @@ public:
     size_t FieldOnlyCells = 0;
     size_t AvoidedRasterRequests = 0;
     size_t ReadyRoofTiles = 0, ActiveRoofTiles = 0, ActiveRoofVolumes = 0;
+    size_t ActiveRoofCasters = 0;
     size_t RoofBlocksRead = 0, RoofRowsDecoded = 0;
+    size_t CasterPacketBytes = 0, CasterOriginalBytes = 0;
   };
 
   BuildingFieldStreaming();

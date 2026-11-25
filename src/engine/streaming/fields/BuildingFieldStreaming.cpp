@@ -59,6 +59,10 @@ bool BuildingFieldStreaming::ProductsReady(SourceAddress source) const noexcept 
 }
 
 std::optional<uint64_t> BuildingFieldStreaming::OriginalCells(SourceAddress source) const noexcept {
+  if (State_->ReadingTile && State_->ReadingTile->Index == source.Tile &&
+      State_->ReadingTile->SourceKey == source.Key) {
+    return uint64_t{0};
+  }
   const auto found = std::ranges::find(State_->Tiles, source.Tile, &State::Tile::Index);
   if (found == State_->Tiles.end() || found->SourceKey != source.Key || !found->Coverage) {
     return std::nullopt;
@@ -67,7 +71,7 @@ std::optional<uint64_t> BuildingFieldStreaming::OriginalCells(SourceAddress sour
   for (const auto &cell : found->Cells) {
     if (!cell.Qualified || cell.ShadowNeeded) { needed |= uint64_t{1} << (cell.Source.Cell - 1u); }
   }
-  needed &= ~found->ResidentOriginals;
+  needed &= ~(found->ResidentOriginals | found->RoofOriginalsReplaced);
   return needed;
 }
 
@@ -275,11 +279,13 @@ bool BuildingFieldStreaming::Advance(Context &context, std::string &error) {
     counts.Pending += entry.Where == BuildingSourceDemand::Phase::Pending ? 1 : 0;
   }
   counts.Ready = counts.Rejected = counts.ReadyGroups = 0;
-  counts.ReadyRoofTiles = counts.ActiveRoofTiles = counts.ActiveRoofVolumes = 0;
+  counts.ReadyRoofTiles = counts.ActiveRoofTiles = counts.ActiveRoofVolumes =
+      counts.ActiveRoofCasters = 0;
   for (const auto &tile : State_->Tiles) {
     counts.Pending += static_cast<size_t>(tile.RoofUpload.has_value());
     counts.ReadyRoofTiles += static_cast<size_t>(tile.ResidentRoof.has_value());
     counts.ActiveRoofTiles += static_cast<size_t>(tile.RoofActive);
+    counts.ActiveRoofCasters += static_cast<size_t>(tile.RoofCasterActive);
     counts.ActiveRoofVolumes +=
         tile.RoofActive && tile.ResidentRoof ? tile.ResidentRoof->Count : 0u;
     for (const auto &cell : tile.Cells) {

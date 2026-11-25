@@ -1,8 +1,10 @@
 #include "PreparedBuildingAssets.h"
 #include "StructureArtifact.h"
 #include "ByteArchive.h"
+#include "ClusterCook.h"
 #include "Sha256.h"
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -62,6 +64,17 @@ bool ValidCeilings(const BakedTile &tile, size_t points) {
   });
 }
 
+}
+
+std::optional<BuildingShadowCell> PreparedBuildingAssets::LoadShadowCell(
+    const std::string &baseKey, uint32_t cell, BuildingShadowCell::ReadCost &cost) {
+  if (cell == 0 || cell > kStructureCellsPerTile) { return std::nullopt; }
+  RawTile view;
+  view.RequestedDetail = LevelOfDetail::Shell;
+  view.RequestedCell = cell;
+  view.ClusterTriangles = kClusterTriangles;
+  const std::array keys{GeometryKey(baseKey, view), GeometryKey(baseKey, view, true)};
+  return BuildingShadowCell::Resolve(*Cache_, baseKey, cell, keys, cost);
 }
 
 void PreparedBuildingAssets::RestoreCoordinates(BakedTile &tile,

@@ -121,8 +121,15 @@ BuildingFieldStreaming::State::SelectReplacements(const SourceCoverage &domain,
                                                   std::span<const OriginalProduct> originals,
                                                   std::span<const Cell *const> candidates,
                                                   uint64_t shadowCells,
-                                                  const Tile::RoofProduct *roof) {
+                                                  const Tile::RoofProduct *roof,
+                                                  bool roofCaster) {
   ProductCut result;
+  if (roofCaster && roof != nullptr && roof->Caster) {
+    result.Shadow.push_back(roof->Caster->Key);
+    result.ShadowSources.push_back(&roof->Coverage);
+    result.RoofCasterActive = true;
+    shadowCells &= ~roof->Cells;
+  }
   for (const auto &original : originals) {
     if ((original.Legacy.Mask() & shadowCells) != 0) {
       result.Shadow.push_back(original.Key);
@@ -210,6 +217,7 @@ BuildingFieldStreaming::State::EvaluateCells(Context &context, Tile &tile) {
 bool BuildingFieldStreaming::State::SelectTile(Context &context, Tile &tile, std::string &error) {
   tile.Complete = false;
   tile.ResidentOriginals = 0;
+  tile.RoofOriginalsReplaced = 0;
   if (!tile.Coverage.has_value()) { return true; }
   const auto &expected = tile.Coverage.value();
   const auto qualified =
@@ -240,6 +248,7 @@ bool BuildingFieldStreaming::State::SelectTile(Context &context, Tile &tile, std
     tile.Active = 0;
     tile.ActiveGroups = 0;
     tile.RoofActive = tile.RoofQualified = false;
+    tile.RoofCasterActive = false;
     return true;
   }
   auto candidates = EvaluateCells(context, tile);
@@ -257,11 +266,19 @@ bool BuildingFieldStreaming::State::SelectTile(Context &context, Tile &tile, std
       tile.ShadowCells |= original.Legacy.Mask();
     }
   }
+  const bool roofCaster =
+      roof != nullptr && roof->Caster && (tile.ShadowCells & roof->Cells) != 0 &&
+      roof->Caster->Error.Allows(
+          tile.SourceKey, WorldCamera(context).EyeM, context.Surface.Footprints().Projection()) &&
+      std::ranges::none_of(*originals, [roof](const OriginalProduct &original) {
+        return (original.Legacy.Mask() & roof->Cells) != 0 && original.Legacy.Mask() != roof->Cells;
+      });
+  if (roofCaster) { tile.RoofOriginalsReplaced = roof->Cells; }
   const auto candidateKeys = candidates | std::views::transform([](const Cell *cell) {
                                return std::string_view(cell->AssetKey);
                              });
   if (!tile.MainProducts.empty() && tile.ShadowCells == tile.PublishedShadowCells &&
-      tile.RoofQualified == (roof != nullptr) &&
+      tile.RoofQualified == (roof != nullptr) && tile.RoofCasterActive == roofCaster &&
       std::ranges::equal(shadowKeys, tile.OriginalProducts) &&
       std::ranges::equal(candidateKeys, tile.CandidateProducts)) {
     tile.Complete = true;
@@ -272,7 +289,7 @@ bool BuildingFieldStreaming::State::SelectTile(Context &context, Tile &tile, std
   }
   tile.Originals = std::move(legacy);
   const auto selected =
-      SelectReplacements(expected, *originals, candidates, tile.ShadowCells, roof);
+      SelectReplacements(expected, *originals, candidates, tile.ShadowCells, roof, roofCaster);
   const auto shadowExpected = OriginalCoverage(tile, tile.ShadowCells);
   if (!selected || !shadowExpected || !SourceCoverage::Partition(expected, selected->MainSources) ||
       !SourceCoverage::Partition(*shadowExpected, selected->ShadowSources)) {
@@ -303,6 +320,7 @@ bool BuildingFieldStreaming::State::SelectTile(Context &context, Tile &tile, std
   tile.ActiveGroups = selected->ActiveGroups;
   tile.RoofActive = selected->RoofActive;
   tile.RoofQualified = roof != nullptr;
+  tile.RoofCasterActive = selected->RoofCasterActive;
   return true;
 }
 }

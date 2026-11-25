@@ -64,11 +64,17 @@ struct BuildingFieldStreaming::State {
 
   struct Tile {
     struct RoofProduct {
+      struct Shadow {
+        std::string Key;
+        GeometryErrorBound Error;
+      };
+
       BuildingRoofTile::Support Projected;
       std::string Key;
       SourceCoverage Coverage;
       uint64_t Cells;
       size_t Count;
+      std::optional<Shadow> Caster = std::nullopt;
     };
 
     uint32_t Index = 0;
@@ -82,13 +88,14 @@ struct BuildingFieldStreaming::State {
     std::vector<std::string> OriginalProducts;
     size_t ActiveGroups = 0;
     uint64_t Active = 0;
-    uint64_t ShadowCells = 0, ResidentOriginals = 0;
+    uint64_t ShadowCells = 0, ResidentOriginals = 0, RoofOriginalsReplaced = 0;
     uint64_t PublishedShadowCells = 0;
     bool Complete = false;
     std::optional<BuildingRoofTile> RoofUpload = std::nullopt;
     std::optional<RoofProduct> ResidentRoof = std::nullopt;
     bool RoofActive = false;
     bool RoofQualified = false;
+    bool RoofCasterActive = false;
   };
 
   struct OriginalProduct {
@@ -112,6 +119,7 @@ struct BuildingFieldStreaming::State {
     uint64_t ActiveCells = 0;
     size_t ActiveGroups = 0;
     bool RoofActive = false;
+    bool RoofCasterActive = false;
     std::vector<const SourceCoverage *> MainSources, ShadowSources;
   };
 
@@ -155,7 +163,8 @@ struct BuildingFieldStreaming::State {
                      std::span<const OriginalProduct> originals,
                      std::span<const Cell *const> candidates,
                      uint64_t shadowCells,
-                     const Tile::RoofProduct *roof);
+                     const Tile::RoofProduct *roof,
+                     bool roofCaster);
   [[nodiscard]] static const Tile::RoofProduct *EligibleRoof(
       const Context &context, const Tile &tile, std::span<const OriginalProduct> originals);
   [[nodiscard]] static std::expected<SourceCoverage, std::string> OriginalCoverage(const Tile &tile,

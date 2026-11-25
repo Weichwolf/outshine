@@ -116,6 +116,36 @@ RegisterPaint(Render::SceneRenderer &renderer, const std::array<Material, 3> &su
   }
   return renderer.RegisterPieceMaterials(std::move(palette));
 }
+
+bool StageCaster(BuildingFieldStreaming::Context &context,
+                 const BuildingRoofTile &product,
+                 const Generators::BuildingShadowCell &caster,
+                 const Render::MaterialRegistration &materials,
+                 uint32_t tile,
+                 uint64_t sourceKey) {
+  const auto surface = Render::PieceSurface::Registered(materials, 1u);
+  std::array<Render::GeometryPagePartView, 2> parts{};
+  for (size_t at = 0; at < parts.size(); ++at) {
+    parts[at] = {.Tangents = {},
+                 .Verts = caster.Parts[at].Vertices,
+                 .Indices = caster.Parts[at].Indices,
+                 .Clusters = {},
+                 .Colours = {},
+                 .Uv1 = {},
+                 .Surface = surface,
+                 .Passes = Render::GeometryPasses::Shadow};
+  }
+  const auto cell = static_cast<uint32_t>(std::countr_zero(product.Cells)) + 1u;
+  const Render::GeometryPageView view{.Parts = parts,
+                                      .Digest = caster.Digest,
+                                      .AssetKey = caster.Key,
+                                      .SelectedView = std::nullopt,
+                                      .RequestedDetail = LevelOfDetail::Skyline,
+                                      .RequestedCell = cell,
+                                      .OccupiedCells = product.Cells,
+                                      .Coverage = product.Coverage};
+  return context.Pages.StageProduct(tile, view, product.Anchor, sourceKey).has_value();
+}
 }
 
 void BuildingFieldStreaming::State::PollRoof(Context &context, Tile &tile) {
@@ -157,11 +187,21 @@ void BuildingFieldStreaming::State::PollRoof(Context &context, Tile &tile) {
   const auto staged = context.Pages.StageProduct(tile.Index, page, product.Anchor, tile.SourceKey);
   if (!staged && staged.error().Kind == Render::Native::ErrorKind::Busy) { return; }
   if (staged) {
+    std::optional<Tile::RoofProduct::Shadow> shadow;
+    if (product.Caster &&
+        StageCaster(context, product, *product.Caster, *palette, tile.Index, tile.SourceKey)) {
+      auto &caster = *product.Caster;
+      shadow.emplace(Tile::RoofProduct::Shadow{.Key = std::move(caster.Key),
+                                               .Error = {.SourceKey = tile.SourceKey,
+                                                         .Bounds = caster.Bounds,
+                                                         .UpperM = caster.ErrorM}});
+    }
     tile.ResidentRoof.emplace(Tile::RoofProduct{.Projected = product.Projected,
                                                 .Key = std::move(product.Key),
                                                 .Coverage = std::move(*product.Coverage),
                                                 .Cells = product.Cells,
-                                                .Count = product.Roofs.size()});
+                                                .Count = product.Roofs.size(),
+                                                .Caster = std::move(shadow)});
   } else {
     Log::Warn(
         LogTag::World, "building_roof_product_rejected", {{"reason", staged.error().Message}});

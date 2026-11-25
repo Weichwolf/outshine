@@ -494,11 +494,19 @@ bool Engine::State::AdvanceBuildingFields() {
   Published.RecordMetric("building roof volumes: active shapes",
                          static_cast<double>(counts.ActiveRoofVolumes),
                          "shapes");
+  Published.RecordMetric("building roof volumes: active casters",
+                         static_cast<double>(counts.ActiveRoofCasters),
+                         "cells");
   Published.RecordMetric(
       "building roof volumes: blocks read", static_cast<double>(counts.RoofBlocksRead), "blocks");
   Published.RecordMetric("building roof volumes: shapes decoded",
                          static_cast<double>(counts.RoofRowsDecoded),
                          "shapes");
+  Published.RecordMetric(
+      "building caster packets: data read", static_cast<double>(counts.CasterPacketBytes), "bytes");
+  Published.RecordMetric("building caster packets: conversion source data read",
+                         static_cast<double>(counts.CasterOriginalBytes),
+                         "bytes");
   return true;
 }
 
