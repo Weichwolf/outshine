@@ -1,5 +1,6 @@
 #include "BinaryValueArchive.h"
 #include "Box.h"
+#include "FootprintTerraces.h"
 #include "Geometry.h"
 #include "ImageCapture.h"
 #include "ImpostorBaker.h"
@@ -56,6 +57,11 @@ struct FootprintGroup {
 struct PrismRows {
   std::shared_ptr<PrismGrid> Grid;
   std::vector<PrismInstance> Instances;
+};
+
+struct Replay {
+  Geometry Mesh;
+  std::optional<PrismRows> Prisms;
 };
 
 struct Counts {
@@ -211,8 +217,63 @@ std::expected<Geometry, std::string> Prepare(const std::vector<uint8_t> &bytes,
   return geometry;
 }
 
-std::expected<PrismRows, std::string>
-PreparePrisms(const std::vector<uint8_t> &bytes, Flight &flight, Counts &counts) {
+std::expected<Generators::Osm::UrbanPrisms, std::string>
+GeneratePrisms(BinaryValueReader &in, LongitudeLatitude anchor, std::string_view output) {
+  uint32_t spacing = 0;
+  uint32_t count = 0;
+  constexpr size_t footprintHeaderBytes = 2 * sizeof(double) + sizeof(uint32_t);
+  if (!in(spacing, count) || count == 0 || count > in.In.Remaining() / footprintHeaderBytes) {
+    return std::unexpected("invalid terrace source header");
+  }
+  std::vector<std::vector<PolygonRing>> rings(count);
+  std::vector<Generators::Osm::TerraceFootprint> inputs;
+  inputs.reserve(count);
+  for (auto &polygon : rings) {
+    double bottom = 0;
+    double top = 0;
+    uint32_t ringCount = 0;
+    if (!in(bottom, top, ringCount) || ringCount == 0 ||
+        ringCount > in.In.Remaining() / sizeof(uint32_t)) {
+      return std::unexpected("invalid terrace footprint header");
+    }
+    polygon.resize(ringCount);
+    for (auto &ring : polygon) {
+      uint32_t points = 0;
+      if (!in(points) || points < 3 || points > in.In.Remaining() / (2 * sizeof(double))) {
+        return std::unexpected("invalid terrace footprint ring");
+      }
+      ring.resize(points);
+      for (auto &point : ring) {
+        if (!in(point)) { return std::unexpected("invalid terrace coordinate"); }
+      }
+    }
+    inputs.push_back({.Rings = polygon, .BottomM = bottom, .TopM = top});
+  }
+  if (in.In.Remaining() != 0) { return std::unexpected("trailing terrace source bytes"); }
+  constexpr size_t samplesMost = 8 * (size_t{1} << 20);
+  const auto began = Clock::now();
+  auto result = Generators::Osm::BuildFootprintTerraces(inputs,
+                                                        {.Anchor = anchor,
+                                                         .SpacingM = spacing,
+                                                         .SamplesMost = samplesMost,
+                                                         .PointTestsMost = 4 * samplesMost,
+                                                         .Stop = {}});
+  const auto ms = std::chrono::duration<double, std::milli>(Clock::now() - began).count();
+  if (!result) { return result; }
+  std::cout << "native terrace generation " << ms << " ms\n";
+  const auto encoded = Generators::Osm::EncodeUrbanPrisms(*result);
+  if (!encoded) { return std::unexpected(encoded.error()); }
+  std::ofstream asset(std::string(output) + ".asset", std::ios::binary);
+  asset.write(reinterpret_cast<const char *>(encoded->data()),
+              static_cast<std::streamsize>(encoded->size()));
+  if (!asset) { return std::unexpected("could not write native terrace asset"); }
+  return result;
+}
+
+std::expected<PrismRows, std::string> PreparePrisms(const std::vector<uint8_t> &bytes,
+                                                    Flight &flight,
+                                                    Counts &counts,
+                                                    std::optional<std::string_view> generate) {
   BinaryValueReader in(bytes);
   LongitudeLatitude anchor;
   if (!ReadFlight(in, flight) || !in(anchor.LatitudeDeg, anchor.LongitudeDeg) ||
@@ -220,9 +281,12 @@ PreparePrisms(const std::vector<uint8_t> &bytes, Flight &flight, Counts &counts)
     return std::unexpected("invalid prism flight header");
   }
   const auto frame = TangentFrame::At(anchor);
-  const auto payload = in.In.Take(in.In.Remaining());
-  if (!payload) { return std::unexpected("missing prism product"); }
-  auto product = Generators::Osm::DecodeUrbanPrisms(*payload);
+  auto product = [&] -> std::expected<Generators::Osm::UrbanPrisms, std::string> {
+    if (generate) { return GeneratePrisms(in, anchor, *generate); }
+    const auto payload = in.In.Take(in.In.Remaining());
+    if (!payload) { return std::unexpected("missing prism product"); }
+    return Generators::Osm::DecodeUrbanPrisms(*payload);
+  }();
   if (!product) { return std::unexpected(product.error()); }
   PrismRows rows{.Grid = std::make_shared<PrismGrid>(std::move(product->Geometry)),
                  .Instances = {}};
@@ -262,6 +326,23 @@ std::expected<void, std::string> PlacePrisms(SceneRenderer &renderer, const Pris
   const auto placed = renderer.PlacePrismGrid(rows.Grid, rows.Instances, *material);
   if (!placed) { return std::unexpected(placed.error().Message); }
   return {};
+}
+
+std::expected<Replay, std::string> PrepareReplay(const std::vector<uint8_t> &bytes,
+                                                 std::string_view mode,
+                                                 double texelMetres,
+                                                 Flight &flight,
+                                                 Counts &counts,
+                                                 std::string_view output) {
+  if (mode == "prisms" || mode == "terraces") {
+    const auto generate = mode == "terraces" ? std::optional(output) : std::nullopt;
+    auto rows = PreparePrisms(bytes, flight, counts, generate);
+    if (!rows) { return std::unexpected(rows.error()); }
+    return Replay{.Mesh = {}, .Prisms = std::move(*rows)};
+  }
+  auto mesh = Prepare(bytes, mode, texelMetres, flight, counts);
+  if (!mesh) { return std::unexpected(mesh.error()); }
+  return Replay{.Mesh = std::move(*mesh), .Prisms = std::nullopt};
 }
 
 bool RenderAt(Core::RuntimeScene &scene, const Flight &flight, double t, std::string &error) {
@@ -333,11 +414,14 @@ std::expected<double, std::string> Measure(const Geometry &geometry,
 
 int main(int argc, const char *const *argv) {
   if (argc < 4 || argc > 5) {
-    std::cerr << "usage: footprint_cards PRODUCT geometry|flat|depth|prisms OUTPUT [4|8|16]\n";
+    std::cerr
+        << "usage: footprint_cards PRODUCT geometry|flat|depth|prisms|terraces OUTPUT [4|8|16]\n";
     return 2;
   }
   const std::string_view mode = argv[2];
-  if (mode != "geometry" && mode != "flat" && mode != "depth" && mode != "prisms") { return 2; }
+  constexpr std::array<std::string_view, 5> modes{
+      "geometry", "flat", "depth", "prisms", "terraces"};
+  if (!std::ranges::contains(modes, mode)) { return 2; }
   const std::string_view pitch = argc == 5 ? argv[4] : "4";
   int texelMetres = 0;
   const auto parsed = std::from_chars(pitch.begin(), pitch.end(), texelMetres);
@@ -353,28 +437,12 @@ int main(int argc, const char *const *argv) {
   Flight flight;
   Counts counts;
   const auto data = Read(argv[1]);
-  Geometry geometry;
-  std::optional<PrismRows> prisms;
-  std::expected<double, std::string> p99;
-  if (!data) {
-    p99 = std::unexpected(data.error());
-  } else if (mode == "prisms") {
-    auto rows = PreparePrisms(*data, flight, counts);
-    if (rows) {
-      prisms.emplace(std::move(*rows));
-    } else {
-      p99 = std::unexpected(rows.error());
-    }
-  } else {
-    auto loaded = Prepare(*data, mode, texelMetres, flight, counts);
-    if (loaded) {
-      geometry = std::move(*loaded);
-    } else {
-      p99 = std::unexpected(loaded.error());
-    }
-  }
+  const auto replay = data ? PrepareReplay(*data, mode, texelMetres, flight, counts, argv[3])
+                           : std::expected<Replay, std::string>{std::unexpect, data.error()};
   const auto preparation = std::chrono::duration<double, std::milli>(Clock::now() - began).count();
-  if (p99) { p99 = Measure(geometry, flight, argv[3], prisms ? &*prisms : nullptr); }
+  const auto p99 =
+      replay ? Measure(replay->Mesh, flight, argv[3], replay->Prisms ? &*replay->Prisms : nullptr)
+             : std::expected<double, std::string>{std::unexpect, replay.error()};
   SDL_Quit();
   if (!p99) {
     std::cerr << p99.error() << '\n';
@@ -383,7 +451,7 @@ int main(int argc, const char *const *argv) {
   std::cout << mode << ' ';
   if (mode == "flat" || mode == "depth") { std::cout << texelMetres << " m/texel "; }
   std::cout << counts.Groups << " groups " << counts.Cards << " cards " << counts.Triangles
-            << (mode == "prisms" ? " proxy triangles " : " triangles ") << counts.AtlasBytes
+            << (replay->Prisms ? " proxy triangles " : " triangles ") << counts.AtlasBytes
             << " atlas bytes upper bound " << counts.BytesRejected << " byte rejects "
             << counts.PoseRejected << " pose rejects " << preparation << " ms preparation " << *p99
             << " ms GPU p99\n";

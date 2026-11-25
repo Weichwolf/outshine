@@ -130,13 +130,30 @@ def write_prisms(path, header, groups, spacing, terrain):
     return len(patches)
 
 
+def write_terrace_sources(path, header, seated, spacing, terrain):
+    latitude, longitude = map(math.degrees, (terrain.latitude, terrain.longitude))
+    with path.open("wb") as output:
+        output.write(header)
+        output.write(struct.pack("<ddII", latitude, longitude, spacing, len(seated)))
+        for part in seated:
+            polygon = part.footprint
+            rings = (polygon.exterior, *polygon.interiors)
+            output.write(struct.pack("<ddI", part.bottom_m, part.top_m, len(rings)))
+            for ring in rings:
+                points = np.asarray(ring.coords, dtype="<f8")
+                output.write(struct.pack("<I", len(points)))
+                output.write(points.tobytes())
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for field in ("source", "dem", "scene", "benchmark", "export"):
         parser.add_argument(field, type=Path)
     parser.add_argument("--extent-m", type=float, default=1200)
     parser.add_argument("--terrace-m", type=int, choices=(4, 8, 16, 32))
-    parser.add_argument("--prisms", action="store_true")
+    format_group = parser.add_mutually_exclusive_group()
+    format_group.add_argument("--prisms", action="store_true")
+    format_group.add_argument("--terrace-sources", action="store_true")
     args = parser.parse_args()
     if not math.isfinite(args.extent_m) or args.extent_m <= 0:
         parser.error("the source half extent must be positive and finite")
@@ -151,7 +168,9 @@ def main():
     ]
     if not parts:
         parser.error("the selected window has no source footprints")
-    if args.prisms and (args.terrace_m is None or any(p.bottom_m > 0 for p in parts)):
+    if (args.prisms or args.terrace_sources) and (
+        args.terrace_m is None or any(p.bottom_m > 0 for p in parts)
+    ):
         parser.error("the prism replay needs terrace spacing and grounded footprints")
     start, end = render_poses(
         json.loads(args.benchmark.read_text()), args.scene, terrain, 2
@@ -165,7 +184,12 @@ def main():
         2 * math.atan(HEIGHT / (2 * start.focal)),
     )
     triangles = None
-    if args.prisms:
+    if args.terrace_sources:
+        write_terrace_sources(
+            args.export, header, seat(parts, terrain), args.terrace_m, terrain
+        )
+        groups = None
+    elif args.prisms:
         groups = write_prisms(
             args.export,
             header,
