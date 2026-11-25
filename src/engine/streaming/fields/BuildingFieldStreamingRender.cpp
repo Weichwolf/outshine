@@ -56,7 +56,10 @@ std::expected<void, std::string> BuildingFieldStreaming::State::PrepareCellMetad
     if (group.Where != Phase::Pending || !group.Request) { continue; }
     const auto ready = group.Request->PollMetadata();
     if (!ready) { return std::unexpected(ready.error()); }
-    if (*ready) { group.Where = Phase::Prepared; }
+    if (!*ready) { continue; }
+    group.Metadata = (**ready).Metadata->Metadata();
+    group.Support = (**ready).GeometricSupport;
+    group.Where = Phase::Prepared;
   }
   if (std::ranges::all_of(cell.Groups, [](const Group &g) { return g.Where == Phase::Prepared; })) {
     cell.Where = Phase::Prepared;
@@ -66,6 +69,20 @@ std::expected<void, std::string> BuildingFieldStreaming::State::PrepareCellMetad
 
 std::expected<void, std::string>
 BuildingFieldStreaming::State::LoadCellFields(Context &context, Tile &tile, Cell &cell) {
+  if (!std::ranges::all_of(cell.Groups, [&](Group &group) { return ValidPose(context, group); })) {
+    for (auto &group : cell.Groups) {
+      group.Request.reset();
+      group.Metadata.reset();
+      group.Support.reset();
+      group.Surface.reset();
+      group.AssetKey.clear();
+      group.SceneBounds.reset();
+      group.Where = Phase::Waiting;
+    }
+    cell.Where = Phase::Waiting;
+    cell.Consumer.reset();
+    return {};
+  }
   std::string error;
   for (auto &group : cell.Groups) {
     if (group.Where != Phase::Pending || !group.Request) { continue; }
@@ -77,8 +94,6 @@ BuildingFieldStreaming::State::LoadCellFields(Context &context, Tile &tile, Cell
     if (!StageGroup(context, tile, group, **ready, std::move(*surface), error)) {
       return std::unexpected(error);
     }
-    group.Metadata = (**ready).Metadata->Metadata();
-    group.Support = (**ready).GeometricSupport;
     group.Request.reset();
     group.Where = Phase::Ready;
   }

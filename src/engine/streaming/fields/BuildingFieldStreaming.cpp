@@ -185,7 +185,6 @@ bool BuildingFieldStreaming::State::RequestGroup(Context &context,
   if (cell.Where == Phase::Prepared && group.Where == Phase::Prepared) {
     assert(group.Request.has_value());
     group.Where = Phase::Pending;
-    PollCell(context, tile, cell);
     return true;
   }
   if (group.Where != Phase::Waiting) { return false; }
@@ -233,9 +232,7 @@ bool BuildingFieldStreaming::State::RequestGroup(Context &context,
   cell.Consumer = std::move(consumer);
   group.Request.emplace(std::move(*request));
   group.Where = Phase::Pending;
-  if (cell.Where != Phase::Prepared) {
-    cell.Where = cell.Groups.size() == 1 ? Phase::Prepared : Phase::Pending;
-  }
+  cell.Where = Phase::Pending;
   return true;
 }
 

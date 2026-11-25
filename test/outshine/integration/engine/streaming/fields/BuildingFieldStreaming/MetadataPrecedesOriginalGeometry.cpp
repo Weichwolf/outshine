@@ -102,8 +102,21 @@ void PrepareWithoutOriginals(BuildingFieldStreaming &fields,
   context.Camera.YfovRad = 1;
   context.Camera.ZNearM = .1;
   context.Camera.ZFarM = 240000;
-  const auto before = context.Surface.BuildingAssets()->Costs();
+  const auto distantEye = context.Camera.EyeM;
   std::string error;
+  CHECK(fields.Advance(context, error) && fields.Read().Pending == 1,
+        "the distant view requests a field");
+  context.Camera.EyeM = {{0, 5, 0}};
+  const auto nearbyDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  do {
+    CHECK(fields.Advance(context, error), "the field can be reconsidered after moving nearby");
+    if (!error.empty() || fields.Read().Pending == 0) { break; }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  } while (std::chrono::steady_clock::now() < nearbyDeadline);
+  CHECK(error.empty() && fields.Read().Pending == 0 && fields.Read().Ready == 0,
+        "an out-of-budget field does not become resident after moving nearby");
+  context.Camera.EyeM = distantEye;
+  const auto before = context.Surface.BuildingAssets()->Costs();
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   do {
     CHECK(fields.Advance(context, error), "field preparation proceeds without original pages");
