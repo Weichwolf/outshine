@@ -21,13 +21,15 @@ bool SceneResources::HasPrism(PrismHandle which) const noexcept {
 Native::Result<PrismHandle> SceneResources::PlacePrismGrid(GeometryRenderer &geometry,
                                                            std::shared_ptr<const PrismGrid> source,
                                                            std::span<const PrismInstance> instances,
-                                                           const MaterialRegistration &material) {
+                                                           const MaterialRegistration &material,
+                                                           std::optional<GeometryPasses> passes) {
   return RegisterPrism(geometry,
                        {.State = {.Occupied = true},
                         .Source = std::move(source),
                         .Instances = {instances.begin(), instances.end()},
                         .Material = material,
-                        .Convex = {}});
+                        .Convex = {},
+                        .Passes = passes});
 }
 
 Native::Result<PrismHandle>
@@ -74,9 +76,10 @@ Native::Result<PrismHandle> SceneResources::RegisterPrism(GeometryRenderer &geom
 }
 
 Native::Result<void> SceneResources::RestorePrism(GeometryRenderer &geometry, PrismSource &held) {
-  auto placed = held.Convex
-                    ? geometry.PlaceConvexPrisms(*held.Convex, held.Material.First, held.Passes)
-                    : geometry.PlacePrismGrid(held.Source, held.Instances, held.Material.First);
+  auto placed =
+      held.Convex
+          ? geometry.PlaceConvexPrisms(*held.Convex, held.Material.First, held.Passes)
+          : geometry.PlacePrismGrid(held.Source, held.Instances, held.Material.First, held.Passes);
   if (!placed) { return std::unexpected(std::move(placed.error())); }
   held.Resident = *placed;
   return {};
@@ -100,7 +103,7 @@ Native::Result<void> SceneResources::ReplacePrismGrid(GeometryRenderer &geometry
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "prism material has no matching live source"});
   }
-  auto placed = geometry.PlacePrismGrid(source, instances, material.First);
+  auto placed = geometry.PlacePrismGrid(source, instances, material.First, held.Passes);
   if (!placed) { return std::unexpected(placed.error()); }
   if (held.Resident != 0) { geometry.ReleasePrism(held.Resident); }
   held.Resident = *placed;
@@ -132,7 +135,7 @@ void SceneResources::SetPrismPasses(GeometryRenderer &geometry,
                                     std::optional<GeometryPasses> passes) noexcept {
   if (!HasPrism(which)) { return; }
   auto &held = PrismSources_[which.Slot];
-  if (!held.Convex || held.Passes == passes) { return; }
+  if (held.Passes == passes) { return; }
   held.Passes = passes;
   if (held.Resident != 0) { geometry.SetPrismPasses(held.Resident, passes); }
 }

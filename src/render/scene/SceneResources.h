@@ -101,10 +101,12 @@ public:
   [[nodiscard]] size_t PieceSourceCount() const noexcept;
   [[nodiscard]] bool HasPiece(PieceHandle handle) const noexcept;
 
-  [[nodiscard]] Native::Result<PrismHandle> PlacePrismGrid(GeometryRenderer &geometry,
-                                                           std::shared_ptr<const PrismGrid> source,
-                                                           std::span<const PrismInstance> instances,
-                                                           const MaterialRegistration &material);
+  [[nodiscard]] Native::Result<PrismHandle>
+  PlacePrismGrid(GeometryRenderer &geometry,
+                 std::shared_ptr<const PrismGrid> source,
+                 std::span<const PrismInstance> instances,
+                 const MaterialRegistration &material,
+                 std::optional<GeometryPasses> passes = GeometryPasses::MainAndShadow);
   [[nodiscard]] Native::Result<PrismHandle>
   PlaceConvexPrisms(GeometryRenderer &geometry,
                     std::shared_ptr<const std::vector<ConvexPrism>> source,

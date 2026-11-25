@@ -44,9 +44,11 @@ class PrismResidency {
 public:
   [[nodiscard]] Native::Result<void> Uses(Native::Device &device, UploadQueue *queue);
   [[nodiscard]] bool ReuseFrom(const PrismResidency &source);
-  [[nodiscard]] Native::Result<uint64_t> Place(std::shared_ptr<const PrismGrid> source,
-                                               std::span<const PrismInstance> instances,
-                                               uint32_t material);
+  [[nodiscard]] Native::Result<uint64_t>
+  Place(std::shared_ptr<const PrismGrid> source,
+        std::span<const PrismInstance> instances,
+        uint32_t material,
+        std::optional<GeometryPasses> passes = GeometryPasses::MainAndShadow);
   [[nodiscard]] Native::Result<uint64_t> PlaceConvex(std::span<const ConvexPrism> shapes,
                                                      uint32_t material,
                                                      std::optional<GeometryPasses> passes);

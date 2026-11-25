@@ -38,11 +38,12 @@ Native::Result<void> GeometryRenderer::ValidatePrismMaterial(uint32_t material) 
 
 Native::Result<uint64_t> GeometryRenderer::PlacePrismGrid(std::shared_ptr<const PrismGrid> source,
                                                           std::span<const PrismInstance> instances,
-                                                          uint32_t material) {
+                                                          uint32_t material,
+                                                          std::optional<GeometryPasses> passes) {
   if (const auto valid = ValidatePrismMaterial(material); !valid) {
     return std::unexpected(valid.error());
   }
-  return Prisms_->Place(std::move(source), instances, material);
+  return Prisms_->Place(std::move(source), instances, material, passes);
 }
 
 Native::Result<uint64_t> GeometryRenderer::PlaceConvexPrisms(std::span<const ConvexPrism> shapes,

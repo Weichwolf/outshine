@@ -390,12 +390,14 @@ public:
         ActiveContent().Geometry(), pieces, error);
   }
 
-  [[nodiscard]] Native::Result<PrismHandle> PlacePrismGrid(std::shared_ptr<const PrismGrid> source,
-                                                           std::span<const PrismInstance> instances,
-                                                           const MaterialRegistration &material) {
+  [[nodiscard]] Native::Result<PrismHandle>
+  PlacePrismGrid(std::shared_ptr<const PrismGrid> source,
+                 std::span<const PrismInstance> instances,
+                 const MaterialRegistration &material,
+                 std::optional<GeometryPasses> passes = GeometryPasses::MainAndShadow) {
     auto &content = ActiveContent();
     return content.Scene().Resources().PlacePrismGrid(
-        content.Geometry(), std::move(source), instances, material);
+        content.Geometry(), std::move(source), instances, material, passes);
   }
 
   [[nodiscard]] Native::Result<PrismHandle>

@@ -46,7 +46,8 @@ uint64_t PrismResidency::HeldBytes() const noexcept {
 
 Native::Result<uint64_t> PrismResidency::Place(std::shared_ptr<const PrismGrid> source,
                                                std::span<const PrismInstance> instances,
-                                               uint32_t material) {
+                                               uint32_t material,
+                                               std::optional<GeometryPasses> passes) {
   if (Device_ == nullptr || !source || Next_ == std::numeric_limits<uint64_t>::max()) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,
@@ -62,7 +63,8 @@ Native::Result<uint64_t> PrismResidency::Place(std::shared_ptr<const PrismGrid> 
                        .Source = std::move(source),
                        .Info = std::move(*info),
                        .Records = {},
-                       .Buffers = {}};
+                       .Buffers = {},
+                       .Passes = passes};
   if (auto replaced = ReplaceInstances(product, instances); !replaced) {
     return std::unexpected(replaced.error());
   }
@@ -107,9 +109,7 @@ Native::Result<uint64_t> PrismResidency::PlaceConvex(std::span<const ConvexPrism
 
 void PrismResidency::SetPasses(uint64_t id, std::optional<GeometryPasses> passes) noexcept {
   const auto found = std::ranges::lower_bound(Products_, id, {}, &PrismProduct::Id);
-  if (found == Products_.end() || found->Id != id || found->Source || found->Passes == passes) {
-    return;
-  }
+  if (found == Products_.end() || found->Id != id || found->Passes == passes) { return; }
   const bool wasCaster = found->Draws(GeometryPasses::Shadow);
   found->Passes = passes;
   const bool isCaster = found->Draws(GeometryPasses::Shadow);
@@ -132,7 +132,7 @@ Native::Result<void> PrismResidency::ReplaceInstances(PrismProduct &product,
   }
   if (*records == product.Records) { return {}; }
   if (records->empty()) {
-    RecordShadowChanges(product.Records, *records);
+    if (product.Draws(GeometryPasses::Shadow)) { RecordShadowChanges(product.Records, *records); }
     product.Records.clear();
     product.WorldSphere.reset();
     product.Buffers[1].reset();
@@ -146,7 +146,7 @@ Native::Result<void> PrismResidency::ReplaceInstances(PrismProduct &product,
   if (!uploaded) { return std::unexpected(uploaded.error()); }
   if ((*uploaded)[0]) { product.Buffers[0] = std::move((*uploaded)[0]); }
   product.Buffers[1] = std::move((*uploaded)[1]);
-  RecordShadowChanges(product.Records, *records);
+  if (product.Draws(GeometryPasses::Shadow)) { RecordShadowChanges(product.Records, *records); }
   product.Records = std::move(*records);
   product.WorldSphere = ComputeWorldSphere(product.Records);
   Costs_.SampleBytes += samples.size();

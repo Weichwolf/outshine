@@ -211,6 +211,10 @@ Native::Result<void> GeometryPageResidency::StageProduct(uint32_t tile,
   if (baked.Prism && (baked.Prism->Shapes.empty() || !ValidGeometryPasses(baked.Prism->Passes))) {
     return InvalidPage("staged geometry product needs a valid prism batch");
   }
+  if (baked.Grid && (!baked.Grid->Grid || baked.Grid->SceneInstances.empty() ||
+                     !ValidGeometryPasses(baked.Grid->Passes))) {
+    return InvalidPage("staged geometry product needs a valid prism grid");
+  }
   if (std::ranges::any_of(Pages_, [&](const ResidentGeometryPage &held) {
         return held.Tile == tile && held.SourceKey == sourceKey && held.AssetKey == baked.AssetKey;
       })) {
@@ -326,9 +330,8 @@ Native::Result<void> GeometryPageResidency::UploadGeometry(ResidentGeometryPage 
     }
     if (*uploaded) { stood.Parts.push_back({.Handle = *uploaded, .Passes = part.Passes}); }
   }
-  if (baked.Prism) {
-    const auto &part = *baked.Prism;
-    auto uploaded = UploadPrisms(*Renderer_, part, stood.Row);
+  const auto retainPrism = [&](Native::Result<PrismHandle> uploaded,
+                               GeometryPasses passes) -> Native::Result<void> {
     if (!uploaded) {
       if (uploaded.error().Kind != Native::ErrorKind::Busy) {
         ++Refused_;
@@ -336,7 +339,19 @@ Native::Result<void> GeometryPageResidency::UploadGeometry(ResidentGeometryPage 
       }
       return std::unexpected(std::move(uploaded.error()));
     }
-    stood.Prisms.push_back({.Handle = *uploaded, .Passes = part.Passes});
+    stood.Prisms.push_back({.Handle = *uploaded, .Passes = passes});
+    return {};
+  };
+  if (baked.Prism) {
+    auto retained =
+        retainPrism(UploadPrisms(*Renderer_, *baked.Prism, stood.Row), baked.Prism->Passes);
+    if (!retained) { return retained; }
+  }
+  if (baked.Grid) {
+    const auto &part = *baked.Grid;
+    return retainPrism(
+        Renderer_->PlacePrismGrid(part.Grid, part.SceneInstances, part.Material, std::nullopt),
+        part.Passes);
   }
   return {};
 }
@@ -400,7 +415,7 @@ bool GeometryPageResidency::ValidateStore(TileCell address,
                                           std::string &error) const {
   const bool staged = publication != Publication::Immediate;
   if (publication == Publication::Product) { return true; }
-  if (Renderer_ == nullptr || address.Cell > kGeometryPageCellsMost || baked.Prism) {
+  if (Renderer_ == nullptr || address.Cell > kGeometryPageCellsMost || baked.Prism || baked.Grid) {
     error = "legacy tile geometry requires a live world, a valid cell and mesh parts";
     return false;
   }

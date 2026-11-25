@@ -173,7 +173,8 @@ public:
 
   [[nodiscard]] Native::Result<uint64_t> PlacePrismGrid(std::shared_ptr<const PrismGrid> source,
                                                         std::span<const PrismInstance> instances,
-                                                        uint32_t material);
+                                                        uint32_t material,
+                                                        std::optional<GeometryPasses> passes);
   [[nodiscard]] Native::Result<uint64_t> PlaceConvexPrisms(std::span<const ConvexPrism> shapes,
                                                            uint32_t material,
                                                            std::optional<GeometryPasses> passes);

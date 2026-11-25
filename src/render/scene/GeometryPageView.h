@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_SCENE_GEOMETRYPAGEVIEW_H
 #define OUTSHINE_RENDER_SCENE_GEOMETRYPAGEVIEW_H
 #include "PieceMesh.h"
+#include "PrismInstance.h"
 #include "GeometryErrorBound.h"
 #include "SourceCoverage.h"
 #include "GeometryPasses.h"
@@ -13,12 +14,23 @@
 #include <span>
 #include <string_view>
 
+namespace outshine {
+struct PrismGrid;
+}
+
 namespace outshine::Render {
 struct ConvexPrism;
 
 struct GeometryPagePrismView {
   // Placements are relative to the page, like mesh vertices.
   std::span<const ConvexPrism> Shapes;
+  MaterialRegistration Material;
+  GeometryPasses Passes = GeometryPasses::MainAndShadow;
+};
+
+struct GeometryPageGridView {
+  std::shared_ptr<const PrismGrid> Grid;
+  std::span<const PrismInstance> SceneInstances;
   MaterialRegistration Material;
   GeometryPasses Passes = GeometryPasses::MainAndShadow;
 };
@@ -49,6 +61,7 @@ struct GeometryPageView {
   std::shared_ptr<const Mat4> Placement = nullptr;
   std::optional<uint64_t> DrawOrderGroup = std::nullopt;
   std::optional<GeometryPagePrismView> Prism = std::nullopt;
+  std::optional<GeometryPageGridView> Grid = std::nullopt;
 };
 }
 #endif
