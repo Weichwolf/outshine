@@ -84,6 +84,9 @@ public:
                                                   ProjectedErrorBudget projection,
                                                   double translationM = 0,
                                                   bool orthographic = false);
+  [[nodiscard]] static double GeometryErrorLimitM(double distanceLowerM,
+                                                  const Vec2 &viewportPx,
+                                                  ProjectedErrorBudget projection);
   // All rotations; includes source-bound expansion by the geometric error.
   [[nodiscard]] static double GeometryErrorLimitM(const Box &bounds,
                                                   const Vec3 &eye,

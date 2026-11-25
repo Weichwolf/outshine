@@ -1,10 +1,12 @@
 #ifndef OUTSHINE_GENERATORS_TERRAIN_GROUNDPATCHWORK_H
 #define OUTSHINE_GENERATORS_TERRAIN_GROUNDPATCHWORK_H
 
+#include "TileGeodesy.h"
 #include "Vec3.h"
 #include <array>
 #include <cstdint>
 #include <expected>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -30,6 +32,8 @@ RemoveCoveredPatchworkTiles(std::span<const Data::TileId> requested);
 
 [[nodiscard]] bool
 SweptPatchworkCovers(const TerrainSweep &sweep, const Around &request, const Vec3 &eyeM);
+
+[[nodiscard]] std::optional<Ground::GeoBounds> PatchworkFocusWindow(const Around &coverage);
 
 [[nodiscard]] bool PatchworkIncludesContactTile(const Around &coverage,
                                                 const Around &request) noexcept;

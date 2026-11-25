@@ -156,6 +156,13 @@ ViewPath ViewPathInEcef(const ViewPath &scene, const TangentFrame &frame) {
               std::nextafter(scene.RadiusM + guard, std::numeric_limits<double>::infinity())};
 }
 
+double SourceProductSelection::GeometryErrorLimitM(double distanceLowerM,
+                                                   const Vec2 &viewportPx,
+                                                   ProjectedErrorBudget projection) {
+  if (!ValidPanoramicProjection(viewportPx, projection)) { return 0; }
+  return Envelope(viewportPx, projection.FocalPx).Limit(distanceLowerM, projection.AllowedErrorPx);
+}
+
 double SourceProductSelection::GeometryErrorLimitM(const Box &bounds,
                                                    const Vec3 &eye,
                                                    const Vec2 &viewportPx,

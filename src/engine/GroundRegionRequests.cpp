@@ -6,9 +6,6 @@
 #include "GroundRegionDefinition.h"
 #include "BinaryValueArchive.h"
 #include "TerrainRefinement.h"
-#include "SourceProductSelection.h"
-#include "TangentFrame.h"
-#include <cmath>
 #include <expected>
 #include <cstdint>
 #include <memory>
@@ -47,44 +44,6 @@ bool AppendClassificationMotion(const Ground::ClassificationPreparation &classif
   parameters.append_range(writer.Out.Bytes());
   return true;
 }
-}
-
-namespace {
-bool IntersectsNearTerrain(const Box &bounds,
-                           const TangentFrame &frame,
-                           const Box &eyes,
-                           double reachM) {
-  Box local;
-  for (unsigned corner = 0; corner < 8; ++corner) {
-    const auto point = frame.ToLocalPosition(bounds.Corner(corner));
-    local.Cover(Vec3{{point.EastM, point.UpM, -point.NorthM}});
-  }
-  return local.Min[0] <= eyes.Max[0] + reachM && local.Max[0] >= eyes.Min[0] - reachM &&
-         local.Min[2] <= eyes.Max[2] + reachM && local.Max[2] >= eyes.Min[2] - reachM;
-}
-}
-
-Generators::Osm::GroundTerrainErrorLimit
-Engine::State::TerrainPackErrorLimit(const Around &coverage) const {
-  if (!coverage.Sweep || !coverage.Sweep->EyePath || !Picture.Standing) { return {}; }
-  const auto &eye =
-      Picture.Standing->Watched() ? Picture.Standing->Watching() : Picture.Standing->Aimed();
-  if (eye.Kind != Render::CameraKind::Perspective) { return {}; }
-  const auto anchor = Session.Declared.Ground.Origin;
-  const TangentFrame frame =
-      TangentFrame::At({.LongitudeDeg = anchor.LongitudeDeg, .LatitudeDeg = anchor.LatitudeDeg});
-  const auto path = ViewPathInEcef(*coverage.Sweep->EyePath, frame);
-  const Vec2 viewport{
-      {static_cast<double>(Picture.Frame.WidthPx), static_cast<double>(Picture.Frame.HeightPx)}};
-  const ProjectedErrorBudget allowed{.FocalPx = viewport[1] / (2 * std::tan(eye.YfovRad * 0.5)),
-                                     .AllowedErrorPx =
-                                         Generators::TerrainRefinementDetail{}.ErrorPx};
-  const auto eyes = coverage.Sweep->Eyes;
-  const double exactReachM = FinestTerrainSampleRadiusM();
-  return [frame, path, viewport, allowed, eyes, exactReachM](const Box &bounds) {
-    if (IntersectsNearTerrain(bounds, frame, eyes, exactReachM)) { return -1.0; }
-    return SourceProductSelection::GeometryErrorLimitM(bounds, path, viewport, allowed);
-  };
 }
 
 Holds<std::vector<uint8_t>> Engine::State::GroundRegionParameters(const Around &coverage,

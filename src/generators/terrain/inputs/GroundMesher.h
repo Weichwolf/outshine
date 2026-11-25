@@ -53,7 +53,7 @@ struct Around {
   int Grid = kPatchGrid;
   TerrainTileAccess Access = TerrainTileAccess::Mesh;
   bool PlayableOnly = false;
-  std::shared_ptr<const TerrainSweep> Sweep;
+  std::shared_ptr<const TerrainSweep> Sweep = nullptr;
 };
 
 class GroundMesher {

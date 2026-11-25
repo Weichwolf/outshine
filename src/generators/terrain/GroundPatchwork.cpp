@@ -1,5 +1,6 @@
 #include "GroundPatchwork.h"
 #include "TileGeodesy.h"
+#include "Units.h"
 
 #include <algorithm>
 #include <array>
@@ -8,6 +9,7 @@
 #include <cstdint>
 #include <expected>
 #include <map>
+#include <optional>
 #include <span>
 #include <string>
 #include <tuple>
@@ -92,6 +94,21 @@ TileBlock BlockAt(const Around &over, int level) {
           .ContactX = static_cast<long>(std::floor(at.X)),
           .ContactY = static_cast<long>(std::floor(at.Y)),
           .Span = 1L << static_cast<unsigned>(level)};
+}
+
+Ground::GeoBounds FinestBlockBounds(const TileBlock &block) {
+  const double tiles = std::ldexp(1.0, block.Zoom);
+  const auto northwest = Ground::TileFracToGeo(
+      {.X = static_cast<double>(block.X), .Y = static_cast<double>(std::max(0L, block.Y))},
+      block.Zoom);
+  const auto southeast =
+      Ground::TileFracToGeo({.X = static_cast<double>(block.X + kBlockTiles),
+                             .Y = std::min(tiles, static_cast<double>(block.Y + kBlockTiles))},
+                            block.Zoom);
+  return {.MinLonDeg = northwest.LongitudeDeg,
+          .MinLatDeg = southeast.LatitudeDeg,
+          .MaxLonDeg = southeast.LongitudeDeg,
+          .MaxLatDeg = northwest.LatitudeDeg};
 }
 
 template <typename Visit> void ForEachBlockTile(const TileBlock &block, Visit visit) {
@@ -261,6 +278,17 @@ bool SweptPatchworkCovers(const TerrainSweep &sweep, const Around &request, cons
   return wanted && std::ranges::includes(sweep.Requested, *wanted, {}, TileAddress, TileAddress);
 }
 
+std::optional<Ground::GeoBounds> PatchworkFocusWindow(const Around &coverage) {
+  if (!ValidCoverage(coverage) || coverage.Sweep) { return std::nullopt; }
+  const auto block = BlockAt(coverage, 0);
+  auto bounds = FinestBlockBounds(block);
+  if (block.Y <= 0) { bounds.MaxLatDeg = kDegPerHalfTurn * 0.5; }
+  if (static_cast<double>(block.Y + kBlockTiles) >= std::ldexp(1.0, block.Zoom)) {
+    bounds.MinLatDeg = -kDegPerHalfTurn * 0.5;
+  }
+  return bounds;
+}
+
 bool PatchworkIncludesContactTile(const Around &coverage, const Around &request) noexcept {
   if (!ValidCoverage(coverage) || !ValidCoverage(request) || coverage.Zoom != request.Zoom ||
       coverage.Levels != request.Levels || coverage.Grid != request.Grid) {
@@ -286,26 +314,19 @@ bool PatchworkCoversFocus(const Around &coverage, const Around &request, double 
     if (held.X != wanted.X || held.Y != wanted.Y) { return false; }
   }
   const auto block = BlockAt(coverage, 0);
-  const double tiles = std::ldexp(1.0, coverage.Zoom);
-  const auto northwest = Ground::TileFracToGeo(
-      {.X = static_cast<double>(block.X), .Y = static_cast<double>(std::max(0L, block.Y))},
-      coverage.Zoom);
-  const auto southeast =
-      Ground::TileFracToGeo({.X = static_cast<double>(block.X + kBlockTiles),
-                             .Y = std::min(tiles, static_cast<double>(block.Y + kBlockTiles))},
-                            coverage.Zoom);
+  const auto bounds = FinestBlockBounds(block);
   constexpr double minimumRadiusM = kWgs84A * (1.0 - kWgs84E2);
   const double radiusRad = radiusM / minimumRadiusM;
   const double latSpan = radiusRad * kRad2Deg;
   const double latitude = request.LatitudeDeg;
-  if (latitude - latSpan <= southeast.LatitudeDeg || latitude + latSpan >= northwest.LatitudeDeg) {
+  if (latitude - latSpan <= bounds.MinLatDeg || latitude + latSpan >= bounds.MaxLatDeg) {
     return false;
   }
-  if (tiles <= kBlockTiles) { return true; }
+  if (std::ldexp(1.0, coverage.Zoom) <= kBlockTiles) { return true; }
   const double lonSpan = radiusRad * kRad2Deg / std::cos((std::abs(latitude) + latSpan) * kDeg2Rad);
-  const double offset = request.LongitudeDeg - northwest.LongitudeDeg;
+  const double offset = request.LongitudeDeg - bounds.MinLonDeg;
   const double eastward = offset - kDegPerTurn * std::floor(offset / kDegPerTurn);
-  const double width = southeast.LongitudeDeg - northwest.LongitudeDeg;
+  const double width = bounds.MaxLonDeg - bounds.MinLonDeg;
   return lonSpan < eastward && eastward + lonSpan < width;
 }
 
