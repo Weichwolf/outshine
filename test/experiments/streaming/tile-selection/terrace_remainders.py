@@ -79,15 +79,16 @@ def replace_sources(parts, terrain, spacing, support, rounds):
     return seated, remain, grids
 
 
-def view_header(radius, yaw):
+def view_header(radius, yaw, height, flight):
     yaw = math.radians(yaw)
-    forward = np.asarray((-math.sin(yaw) * radius, -1100, -math.cos(yaw) * radius))
+    forward = np.asarray((-math.sin(yaw) * radius, -height, -math.cos(yaw) * radius))
     eye = -forward
     forward /= np.linalg.norm(forward)
     right = np.cross(forward, (0, 1, 0))
     right /= np.linalg.norm(right)
     up = np.cross(right, forward)
-    return struct.pack("<13d", *eye, *eye, *forward, *up, math.radians(50))
+    end = eye + right * flight
+    return struct.pack("<13d", *eye, *end, *forward, *up, math.radians(50))
 
 
 def mesh_groups(parts):
@@ -101,11 +102,18 @@ def main():
         parser.add_argument(name, type=Path)
     parser.add_argument("--extent-m", type=float, default=1600)
     parser.add_argument("--distance-m", type=float, default=16000)
+    parser.add_argument("--eye-height-m", type=float, default=1100)
     parser.add_argument("--heading", type=float, default=0)
+    parser.add_argument("--flight-m", type=float, default=0)
+    parser.add_argument("--spacing-m", type=int, choices=(4, 8, 16), default=8)
+    parser.add_argument("--support-m", type=float)
     parser.add_argument("--rounds", type=int, default=2, choices=range(4))
     args = parser.parse_args()
-    if min(args.distance_m, args.extent_m) <= 0:
-        parser.error("distance and extent must be positive")
+    view = (args.distance_m, args.extent_m, args.eye_height_m)
+    if not all(math.isfinite(metres) and metres > 0 for metres in view):
+        parser.error("distance, extent and eye height must be positive and finite")
+    if not math.isfinite(args.heading) or not math.isfinite(args.flight_m):
+        parser.error("heading and flight length must be finite")
     started = perf_counter()
     with gzip.open(args.source, "rt") as source:
         terrain = Terrain(args.dem, json.load(source))
@@ -117,10 +125,13 @@ def main():
     ]
     if not parts:
         parser.error("the selected window has no source footprints")
-    spacing, support = 8, 16
+    spacing = args.spacing_m
+    support = args.support_m if args.support_m is not None else 2 * spacing
+    if not math.isfinite(support) or support < math.hypot(spacing, spacing):
+        parser.error("support must cover the raster cell diagonal")
     seated, remain, grids = replace_sources(parts, terrain, spacing, support, args.rounds)
     cooked = perf_counter() - started
-    header = view_header(args.distance_m, args.heading)
+    header = view_header(args.distance_m, args.heading, args.eye_height_m, args.flight_m)
     args.output.mkdir(parents=True, exist_ok=True)
     _, full_faces = write_products(
         args.output / "reference.mesh", header, mesh_groups(seated)
