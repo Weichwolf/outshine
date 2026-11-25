@@ -113,6 +113,37 @@ void Indexed(const AssetCache &cache, const std::array<AssetRecord, 8> &records)
                QuerySteps);
 }
 
+void TileProducts(AssetCache &cache, const AssetRecord &region, std::span<const uint8_t> payload) {
+  auto fine = region;
+  fine.Key = Key("fine render tile");
+  fine.Tile = AssetTile{.Revision = Key("terrain revision"),
+                        .Coverage = Key("footprint"),
+                        .Coarser = region.Key,
+                        .ErrorM = 0.25};
+  auto other = fine;
+  other.Key = Key("other render tile");
+  other.Tile->Revision = Key("older revision");
+  other.Tile->ErrorM.reset();
+  const std::array products{fine, other};
+  CHECK(cache.Publish(products, payload), "two spatially overlapping revisions can coexist");
+  const auto selected = cache.Select({.Bounds = region.Bounds,
+                                      .Kind = region.Kind,
+                                      .Level = region.Level,
+                                      .Radius = {},
+                                      .Planes = {},
+                                      .TileRevision = fine.Tile->Revision});
+  CHECK(selected && selected->size() == 1 && selected->front() == fine,
+        "the spatial index exposes the selection manifest for the current revision alone");
+  const auto inherited = cache.FindTile(other.Key);
+  CHECK(inherited && *inherited && (**inherited).Tile == other.Tile,
+        "unproven error and the fallback address survive metadata reads");
+  fine.Tile.reset();
+  CHECK(cache.Publish(std::span(&fine, 1), payload), "legacy publication can replace a tile");
+  const auto replaced = cache.FindTile(fine.Key);
+  CHECK(replaced && !*replaced, "republication cannot keep old coverage or error metadata");
+  CHECK(cache.Remove(fine.Key) && cache.Remove(other.Key), "remove the temporary render variants");
+}
+
 void Exercise(const std::string &path) {
   auto opened = AssetCache::Open(path);
   CHECK(opened, "the renderer's native asset database opens");
@@ -144,6 +175,7 @@ void Exercise(const std::string &path) {
   Unrelated(*cache, records, payload);
   Queries(*cache, bounds, records);
   Indexed(*cache, records);
+  TileProducts(*cache, records[0], payload);
   const auto ready = cache->Load(records[1].Key, payload.size());
   CHECK(ready && *ready, "the native page body is valid before the corruption control");
   cache.reset();

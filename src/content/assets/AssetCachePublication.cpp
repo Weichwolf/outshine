@@ -36,6 +36,11 @@ size_t PreparedAssetWrite::CapacityBytes() const noexcept {
     text(record.Package);
     text(record.Parent);
     if (record.RequestKey) { text(*record.RequestKey); }
+    if (record.Tile) {
+      text(record.Tile->Revision);
+      text(record.Tile->Coverage);
+      text(record.Tile->Coarser);
+    }
   }
   return bytes;
 }
@@ -325,7 +330,24 @@ struct RecordStatements {
   AssetSql::Statement Asset;
   AssetSql::Statement Bounds;
   AssetSql::Statement Request;
+  AssetSql::Statement Tile;
 };
+
+std::expected<void, AssetCacheError> StoreTile(sqlite3_stmt *statement, const AssetRecord &record) {
+  if (!record.Tile) { return {}; }
+  const auto &tile = *record.Tile;
+  sqlite3_reset(statement);
+  const int error = tile.ErrorM ? sqlite3_bind_double(statement, 4, *tile.ErrorM)
+                                : sqlite3_bind_null(statement, 4);
+  if (error != SQLITE_OK || !AssetSql::Text(statement, 1, tile.Revision) ||
+      !AssetSql::Text(statement, 2, tile.Coverage) || !AssetSql::Text(statement, 3, tile.Coarser) ||
+      !AssetSql::Text(statement, 5, record.Key)) {
+    return std::unexpected(AssetCacheError::Storage);
+  }
+  const int result = sqlite3_step(statement);
+  if (result != SQLITE_DONE) { return std::unexpected(AssetSql::Error(result)); }
+  return {};
+}
 
 std::expected<void, AssetCacheError> StoreRecords(const RecordStatements &statements,
                                                   std::span<const AssetRecord> records) {
@@ -344,6 +366,8 @@ std::expected<void, AssetCacheError> StoreRecords(const RecordStatements &statem
     if (code != SQLITE_DONE) { return std::unexpected(AssetSql::Error(code)); }
     const auto rebound = RebindRequest(request, record);
     if (!rebound) { return rebound; }
+    const auto tiled = StoreTile(statements.Tile.Value, record);
+    if (!tiled) { return tiled; }
   }
   return {};
 }
@@ -375,6 +399,14 @@ AssetCache::State::StorePublications(std::span<const Publication> publications,
                         statements.Bounds);
   if (!prepared) { return prepared; }
   prepared = AssetSql::Prepare(Database, kBindRequest, statements.Request);
+  if (!prepared) { return prepared; }
+  prepared = AssetSql::Prepare(
+      Database,
+      "INSERT INTO asset_tiles(asset_id,package,revision,coverage,coarser,error_m) "
+      "SELECT id,package,?,?,?,? FROM assets WHERE key=? "
+      "ON CONFLICT(asset_id) DO UPDATE SET package=excluded.package,revision=excluded.revision,"
+      "coverage=excluded.coverage,coarser=excluded.coarser,error_m=excluded.error_m",
+      statements.Tile);
   if (!prepared) { return prepared; }
   for (const auto &publication : publications) {
     const auto stored = StorePackage(Database,

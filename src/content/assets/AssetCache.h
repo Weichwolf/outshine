@@ -33,6 +33,7 @@ struct AssetQuery {
   std::span<const std::array<double, 4>> Planes;
   // nullopt selects any parent; an empty address selects roots.
   std::optional<std::string_view> Parent = std::nullopt;
+  std::optional<std::string_view> TileRevision = std::nullopt;
 };
 
 enum class AssetCacheError { InvalidInput, Storage, Busy, UnsupportedVersion, CapacityExceeded };
@@ -112,6 +113,9 @@ public:
 
   [[nodiscard]] std::expected<std::optional<AssetRecord>, AssetCacheError>
   Find(std::string_view key) const;
+
+  [[nodiscard]] std::expected<std::optional<AssetRecord>, AssetCacheError>
+  FindTile(std::string_view key) const;
 
   [[nodiscard]] std::expected<std::optional<AssetRecord>, AssetCacheError>
   FindRequest(std::string_view requestKey) const;

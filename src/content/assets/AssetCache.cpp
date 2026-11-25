@@ -185,6 +185,17 @@ std::expected<void, AssetCacheError> PrepareHierarchyIndex(sqlite3 *database) {
   return {};
 }
 
+std::expected<void, AssetCacheError> PrepareTileIndex(sqlite3 *database) {
+  return AssetSql::Exec(
+      database,
+      "CREATE TABLE IF NOT EXISTS asset_tiles(asset_id INTEGER PRIMARY KEY "
+      "REFERENCES assets(id) ON DELETE CASCADE,package TEXT NOT NULL,revision TEXT NOT NULL,"
+      "coverage TEXT NOT NULL,coarser TEXT NOT NULL,error_m REAL);"
+      "CREATE INDEX IF NOT EXISTS asset_tiles_revision ON asset_tiles(revision,coverage);"
+      "CREATE TRIGGER IF NOT EXISTS invalidate_asset_tile AFTER UPDATE ON assets BEGIN "
+      "DELETE FROM asset_tiles WHERE asset_id=old.id; END;");
+}
+
 std::expected<void, AssetCacheError> PrepareUsageIndex(sqlite3 *db) {
   AssetSql::Statement index;
   const auto checked = AssetSql::Prepare(
@@ -251,6 +262,7 @@ std::expected<void, AssetCacheError> AssetCache::State::Initialize() {
     const auto migrated = MigrateSchema(Database);
     if (!migrated) { return std::unexpected(migrated.error()); }
   }
+  if (const auto tiled = PrepareTileIndex(Database); !tiled) { return tiled; }
   auto usage = CacheUsageIndex::Open(path, Budget, Execution.Workers);
   if (usage) { Usage = std::move(*usage); }
   if (!Usage) {
@@ -371,8 +383,13 @@ bool Valid(const AssetRecord &record) {
   constexpr auto most = static_cast<uint64_t>(std::numeric_limits<sqlite3_int64>::max());
   return ValidKey(record.Key) && !record.Kind.empty() && Valid(record.Bounds) &&
          ValidKey(record.Package) && (record.Parent.empty() || ValidKey(record.Parent)) &&
-         (!record.RequestKey || ValidKey(*record.RequestKey)) && record.OffsetBytes <= most &&
-         record.ByteCount <= most - record.OffsetBytes;
+         (!record.RequestKey || ValidKey(*record.RequestKey)) &&
+         (!record.Tile || (ValidKey(record.Tile->Revision) && ValidKey(record.Tile->Coverage) &&
+                           (record.Tile->Coarser.empty() || ValidKey(record.Tile->Coarser)) &&
+                           record.Tile->Coarser != record.Key &&
+                           (!record.Tile->ErrorM ||
+                            (std::isfinite(*record.Tile->ErrorM) && *record.Tile->ErrorM >= 0)))) &&
+         record.OffsetBytes <= most && record.ByteCount <= most - record.OffsetBytes;
 }
 
 }

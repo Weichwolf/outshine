@@ -46,6 +46,18 @@ std::optional<AssetRecord> Read(sqlite3_stmt *statement) {
   record.ByteCount = static_cast<uint64_t>(bytes);
   record.Level = static_cast<uint32_t>(level);
   record.Parent = Column(statement, 12);
+  if (sqlite3_column_count(statement) > 13) {
+    const int type = sqlite3_column_type(statement, 16);
+    if (type != SQLITE_NULL && type != SQLITE_FLOAT && type != SQLITE_INTEGER) {
+      return std::nullopt;
+    }
+    record.Tile = AssetTile{.Revision = Column(statement, 13),
+                            .Coverage = Column(statement, 14),
+                            .Coarser = Column(statement, 15),
+                            .ErrorM = type == SQLITE_NULL
+                                          ? std::nullopt
+                                          : std::optional(sqlite3_column_double(statement, 16))};
+  }
   return Valid(record) ? std::optional(std::move(record)) : std::nullopt;
 }
 
@@ -55,7 +67,8 @@ namespace {
 
 bool Valid(const AssetQuery &query) {
   if (!AssetSql::Valid(query.Bounds) ||
-      (query.Parent && !query.Parent->empty() && !AssetSql::ValidKey(*query.Parent))) {
+      (query.Parent && !query.Parent->empty() && !AssetSql::ValidKey(*query.Parent)) ||
+      (query.TileRevision && !AssetSql::ValidKey(*query.TileRevision))) {
     return false;
   }
   if (query.Radius) {
@@ -121,23 +134,33 @@ std::expected<void, AssetCacheError> BindSelection(sqlite3_stmt *statement,
     }
     ++parameter;
   }
-  if (query.Parent && !AssetSql::Text(statement, parameter, *query.Parent)) {
+  if (query.Parent) {
+    if (!AssetSql::Text(statement, parameter, *query.Parent)) {
+      return std::unexpected(AssetCacheError::Storage);
+    }
+    ++parameter;
+  }
+  if (query.TileRevision && !AssetSql::Text(statement, parameter, *query.TileRevision)) {
     return std::unexpected(AssetCacheError::Storage);
   }
   return {};
 }
 
-enum class Lookup { Product, Request };
+enum class Lookup { Product, Request, Tile };
 
 std::expected<std::optional<AssetRecord>, AssetCacheError>
 FindRecord(sqlite3 *database, Lookup lookup, std::string_view key) {
   if (!AssetSql::ValidKey(key)) { return std::unexpected(AssetCacheError::InvalidInput); }
   AssetSql::Statement statement;
-  const auto *source =
-      lookup == Lookup::Product
-          ? " FROM assets a WHERE a.key=?"
-          : " FROM asset_requests r JOIN assets a ON a.id=r.asset_id WHERE r.request_key=?";
-  const std::string sql = std::string("SELECT ") + AssetSql::kColumns + source;
+  std::string sql = std::string("SELECT ") + AssetSql::kColumns;
+  if (lookup == Lookup::Request) {
+    sql += " FROM asset_requests r JOIN assets a ON a.id=r.asset_id WHERE r.request_key=?";
+  } else {
+    if (lookup == Lookup::Tile) { sql += AssetSql::kTileColumns; }
+    sql += " FROM assets a";
+    if (lookup == Lookup::Tile) { sql += AssetSql::kTileJoin; }
+    sql += " WHERE a.key=?";
+  }
   auto prepared = AssetSql::Prepare(database, sql.c_str(), statement);
   if (!prepared) { return std::unexpected(prepared.error()); }
   if (!AssetSql::Text(statement.Value, 1, key)) {
@@ -161,6 +184,13 @@ AssetCache::Find(std::string_view key) const {
 }
 
 std::expected<std::optional<AssetRecord>, AssetCacheError>
+AssetCache::FindTile(std::string_view key) const {
+  if (const auto opened = State_->EnsureOpen(); !opened) { return std::unexpected(opened.error()); }
+  const std::scoped_lock lock(*State_->Mutex);
+  return FindRecord(State_->Database, Lookup::Tile, key);
+}
+
+std::expected<std::optional<AssetRecord>, AssetCacheError>
 AssetCache::FindRequest(std::string_view requestKey) const {
   if (const auto opened = State_->EnsureOpen(); !opened) { return std::unexpected(opened.error()); }
   const std::scoped_lock lock(*State_->Mutex);
@@ -173,13 +203,15 @@ AssetCache::Select(const AssetQuery &query) const {
   const std::scoped_lock lock(*State_->Mutex);
   if (!Valid(query)) { return std::unexpected(AssetCacheError::InvalidInput); }
   AssetSql::Statement statement;
-  std::string sql =
-      std::string("SELECT ") + AssetSql::kColumns +
-      " FROM bounds r JOIN assets a ON a.id=r.id WHERE "
-      "r.minx<=? AND r.maxx>=? AND r.miny<=? AND r.maxy>=? AND r.minz<=? AND r.maxz>=?";
+  std::string sql = std::string("SELECT ") + AssetSql::kColumns;
+  if (query.TileRevision) { sql += AssetSql::kTileColumns; }
+  sql += " FROM bounds r JOIN assets a ON a.id=r.id";
+  if (query.TileRevision) { sql += AssetSql::kTileJoin; }
+  sql += " WHERE r.minx<=? AND r.maxx>=? AND r.miny<=? AND r.maxy>=? AND r.minz<=? AND r.maxz>=?";
   if (!query.Kind.empty()) { sql += " AND a.kind=?"; }
   if (query.Level) { sql += " AND a.level=?"; }
   if (query.Parent) { sql += " AND a.parent=?"; }
+  if (query.TileRevision) { sql += " AND t.revision=?"; }
   auto prepared = AssetSql::Prepare(State_->Database, sql.c_str(), statement);
   if (!prepared) { return std::unexpected(prepared.error()); }
   const auto bound = BindSelection(statement.Value, query);

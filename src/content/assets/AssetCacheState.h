@@ -60,6 +60,8 @@ Prepare(sqlite3 *database, const char *sql, Statement &statement);
 
 inline constexpr auto kColumns = "a.key,a.kind,a.minx,a.miny,a.minz,a.maxx,a.maxy,a.maxz,a.package,"
                                  "a.offset,a.bytes,a.level,a.parent";
+inline constexpr auto kTileColumns = ",t.revision,t.coverage,t.coarser,t.error_m";
+inline constexpr auto kTileJoin = " JOIN asset_tiles t ON t.asset_id=a.id AND t.package=a.package";
 
 }
 }
