@@ -416,6 +416,8 @@ struct Engine::State {
 
   [[nodiscard]] LogThreadSinkScope Logs() const { return LogThreadSinkScope(Diagnostics); }
 
+  void SetFrameExtent(Extent extent);
+
   [[nodiscard]] Result MutationPermission() {
     if (!Capturing) { return {}; }
     Error = Says::kCaptureMutation;

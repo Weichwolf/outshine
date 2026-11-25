@@ -1,5 +1,6 @@
 #include "GroundQuality.h"
 #include "EngineState.h"
+#include "GroundRegionRequest.h"
 #include "BuildingFieldStreaming.h"
 #include "AssetCache.h"
 #include "SourceFailure.h"
@@ -176,6 +177,13 @@ void Engine::logsTo(LogSink *sink) {
 
 Engine::~Engine() = default;
 
+void Engine::State::SetFrameExtent(Extent extent) {
+  if (Picture.Frame == extent) { return; }
+  Picture.Frame = extent;
+  World.GroundLookup.reset();
+  World.GroundLookupRequest.clear();
+}
+
 Result Engine::setRenderTarget(SDL_Window *window) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
@@ -198,7 +206,7 @@ Result Engine::setRenderTarget(SDL_Window *window) {
     S_->Error = std::string(standing.error());
     return std::unexpected(S_->Error);
   }
-  S_->Picture.Frame = Extent{.WidthPx = widthPx, .HeightPx = heightPx};
+  S_->SetFrameExtent({.WidthPx = widthPx, .HeightPx = heightPx});
   S_->Picture.Targeted = true;
   S_->Error.clear();
   return {};
@@ -217,7 +225,7 @@ Result Engine::setRenderTarget(Extent offscreen) {
     S_->Error = std::string(standing.error());
     return std::unexpected(S_->Error);
   }
-  S_->Picture.Frame = offscreen;
+  S_->SetFrameExtent(offscreen);
   S_->Picture.Targeted = true;
   S_->Error.clear();
   return {};
