@@ -52,6 +52,22 @@ std::expected<Camera, std::string> TileCamera(const Scenario::Document &document
   return camera;
 }
 
+BenchmarkMotionInput RebaseMotion(BenchmarkMotionInput motion,
+                                  const Scenario::Georeference &world,
+                                  const SurfaceTile &tile) {
+  const auto from =
+      TangentFrame::At({.LongitudeDeg = world.LongitudeDeg, .LatitudeDeg = world.LatitudeDeg});
+  const auto into = TangentFrame::At(tile.Origin);
+  const auto apply = [&](const Vec3 &direction) {
+    const Vec3 ecef = from.EastEcef() * direction[0] + from.UpEcef() * direction[1] -
+                      from.NorthEcef() * direction[2];
+    return Vec3{RenderFrame::Of(into.ToLocalDirection(ecef))};
+  };
+  motion.LinearVelocityMps = apply(motion.LinearVelocityMps);
+  motion.AngularVelocityDegS = apply(motion.AngularVelocityDegS);
+  return motion;
+}
+
 std::expected<std::vector<Camera>, std::string> TileCameraFrames(const Camera &initial,
                                                                  BenchmarkMotionInput input) {
   const auto motion = BenchmarkMotion::Make(initial, input);
@@ -93,7 +109,7 @@ std::expected<std::string, std::string> RunTileBenchmark(const ScenarioBenchmark
   if (!tile) { return std::unexpected(tile.error()); }
   const auto camera = TileCamera(*document, options.View, tile->Origin);
   if (!camera) { return std::unexpected(camera.error()); }
-  auto motion = options.Motion;
+  auto motion = RebaseMotion(options.Motion, document->Ground.Origin, *tile);
   motion.RateHz = document->Render.FrameRateHz;
   const auto cameras = TileCameraFrames(*camera, motion);
   if (!cameras) { return std::unexpected(cameras.error()); }
@@ -112,6 +128,8 @@ std::expected<std::string, std::string> RunTileBenchmark(const ScenarioBenchmark
       {"device", frames->Device},
       {"frame_px", {kFrame.WidthPx, kFrame.HeightPx}},
       {"rate_hz", motion.RateHz},
+      {"linear_velocity_mps", options.Motion.LinearVelocityMps.Axis},
+      {"angular_velocity_deg_s", options.Motion.AngularVelocityDegS.Axis},
       {"frames", samples.size()},
       {"declaration_sha256", Sha256Hex(*declaration)},
       {"coverage", {tile->Coverage.Zoom, tile->Coverage.X, tile->Coverage.Y}},
