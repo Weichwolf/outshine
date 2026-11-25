@@ -18,7 +18,7 @@ def runs(values):
     stops = np.r_[starts[1:], len(values)]
     return (
         (int(a), int(b), int(values[a]))
-        for a, b in zip(starts, stops, strict=True)
+        for a, b in zip(starts, stops)
         if values[a] != 0
     )
 
