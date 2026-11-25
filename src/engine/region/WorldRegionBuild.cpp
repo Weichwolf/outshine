@@ -235,6 +235,12 @@ void RecordEarthworkDigest(Core::DiagnosticLedger &ledger,
 
 }
 
+class GroundRegionArchive {
+public:
+  Generators::GroundRegionRequest::Factory Pending;
+  std::unique_ptr<Generators::GroundRegionRequest> Writing;
+};
+
 WorldRegionState::WorldRegionState(TerrainBacking backing)
     : SurfaceOwner(std::make_unique<Ground::SurfacePreparation>()), TerrainSurface(backing) {}
 
@@ -545,7 +551,7 @@ Engine::State::RingWanted(bool alsoWhenTilesLanded, GroundQuality quality) {
       request, {.LongitudeDeg = atLon, .LatitudeDeg = atLat}, alsoWhenTilesLanded, quality)) {
     case Laid::Refused: return std::unexpected(Laid::Refused);
     case Laid::Pending: return std::unexpected(Laid::Pending);
-    case Laid::Unchanged: return std::unexpected(Laid::Unchanged);
+    case Laid::Unchanged: AdvanceGroundArchive(true); return std::unexpected(Laid::Unchanged);
     case Laid::Wanted: break;
   }
   return request;
@@ -1448,15 +1454,12 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
   WorldRegionBuildState &state = *World.GroundBuild;
   using Phase = WorldRegionBuildState::RegionPhase;
   if (state.RegionStatus() == Phase::Lookup) { return BeginGroundRegionLookup(state); }
-  if (state.RegionStatus() != Phase::Loading && state.RegionStatus() != Phase::Storing) {
-    return GroundBuildProgress::Ready;
-  }
+  if (state.RegionStatus() != Phase::Loading) { return GroundBuildProgress::Ready; }
   auto &worker = *state.RegionWorker();
   worker.Advance();
   const auto *available = worker.Peek();
   if (available == nullptr) { return GroundBuildProgress::Pending; }
-  const bool hit =
-      state.RegionStatus() == Phase::Loading && *available && available->value().Loaded;
+  const bool hit = *available && available->value().Loaded;
   if (hit && !World.Surface().ClassificationReady()) { return GroundBuildProgress::Pending; }
   auto completed = worker.Collect();
   assert(completed);
@@ -1465,36 +1468,26 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
     return GroundBuildProgress::Failed;
   }
   auto result = std::move(completed->value());
-  if (state.RegionStatus() == Phase::Storing && !result.Loaded) {
-    RetryGroundWithStreetSources();
-    return GroundBuildProgress::Pending;
-  }
-  if (state.RegionStatus() == Phase::Loading) {
-    Published.RecordMetric(
-        "ground region: request cache hit", result.RequestHit ? 1.0 : 0.0, "hit");
-  }
+  Published.RecordMetric("ground region: request cache hit", result.RequestHit ? 1.0 : 0.0, "hit");
   Published.RecordMetric("ground region: native cache hit", hit ? 1.0 : 0.0, "hit");
   Published.RecordMetric("ground region: worker elapsed", result.WorkerMs, "ms");
   RecordGroundRegionRead(Published, result.Loaded);
-  if (state.RegionStatus() == Phase::Loading && !hit && World.Surface().UsesCachedRegionNetwork()) {
-    RequestGroundStreetSources();
-  }
-  if (result.Loaded && !state.InstallRegion(std::move(result.Loaded->Region), hit)) {
-    Error = "ground region cannot replace the current candidate stage";
-    return GroundBuildProgress::Failed;
-  }
-  if (hit && result.Loaded) {
+  if (!hit && World.Surface().UsesCachedRegionNetwork()) { RequestGroundStreetSources(); }
+  if (result.Loaded) {
+    if (!state.InstallRegion(std::move(result.Loaded->Region))) {
+      Error = "ground region cannot replace the current candidate stage";
+      return GroundBuildProgress::Failed;
+    }
     const auto classes = World.Surface().Classes().Read();
     state.BindClassRevision(classes.get());
     World.RetiredTerrainFields.reset();
     World.Surface().RestoreWater(std::move(result.Loaded->Water));
     state.BindSurfaceInputs(World.Surface().Ways(), World.Surface().WaterBodies());
     RecordWaterSurfaceState(Published, World.Surface().WaterBodies());
+    state.HoldRoadManifest(std::move(result.SurfacePages));
   }
-  auto phase = state.RegionStatus() == Phase::Storing ? Phase::Stored : Phase::Miss;
-  if (hit) { phase = Phase::Hit; }
-  if (result.Loaded) { state.HoldRoadManifest(std::move(result.SurfacePages)); }
-  state.FinishRegion(std::move(result.Key), phase, std::move(result.RequestKey));
+  state.FinishRegion(
+      std::move(result.Key), hit ? Phase::Hit : Phase::Miss, std::move(result.RequestKey));
   return GroundBuildProgress::Ready;
 }
 
@@ -1631,24 +1624,33 @@ bool Engine::State::BuildGroundResidency(Patchwork &patchwork, WorldRegionBuildS
   return true;
 }
 
-Engine::State::GroundBuildProgress
-Engine::State::StoreGroundRegion(WorldRegionBuildState &state) const {
+void Engine::State::PrepareGroundArchive(WorldRegionBuildState &state) const {
   using Phase = WorldRegionBuildState::RegionPhase;
-  if (state.RegionStatus() != Phase::Miss) { return GroundBuildProgress::Ready; }
-  auto &build = state.Candidate().Products();
-  const Patchwork &terrain = *state.Laid();
+  if (state.RegionStatus() != Phase::Miss) { return; }
+  const auto &build = state.Candidate().Products();
+  Patchwork &terrain = *state.Laid();
+  const auto &roadManifest = state.RoadManifest();
+  auto surfaceManifest = roadManifest
+                             ? Generators::RoadPageManifestKey(
+                                   *roadManifest, Generators::PreparedRoadPages::ManifestBytesMost)
+                             : std::string{};
   if (terrain.Pending != 0 || terrain.ContactPending != 0 || terrain.Refused != 0 ||
       !build.StreetGraphComplete || !build.RoadAlignments.empty() ||
-      !state.Candidate().Sources().WaterBodies.Complete()) {
-    state.FinishRegion({}, Phase::Bypass);
-    return GroundBuildProgress::Ready;
+      !state.Candidate().Sources().WaterBodies.Complete() ||
+      (roadManifest && surfaceManifest.empty())) {
+    state.FinishGeneratedRegion(std::move(surfaceManifest), {});
+    return;
   }
-  const auto assets = World.Surface().RegionAssets();
+  for (auto &sheet : terrain.Sheets) {
+    if (!sheet.SharedSamples) {
+      sheet.SharedSamples = std::make_shared<const std::vector<float>>(std::move(sheet.Nodes));
+    }
+  }
   const auto origin = Session.Declared.Ground.Origin;
-  const auto region = std::make_shared<GroundRegionAsset>(GroundRegionAsset{
+  auto region = std::make_shared<const GroundRegionAsset>(GroundRegionAsset{
       .Anchor = {.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg},
-      .Terrain = std::move(*state.Laid()),
-      .Surfaces = std::move(build.Ground),
+      .Terrain = terrain,
+      .Surfaces = build.Ground.clone(),
       .Classes = build.TerrainClassificationMap,
       .ClassPalette = build.ClassPalette,
       .Network = build.StreetGraph,
@@ -1656,33 +1658,42 @@ Engine::State::StoreGroundRegion(WorldRegionBuildState &state) const {
       .GroundSurface = build.GroundSurface.index(),
       .GroundAlbedo = state.Candidate().GroundAlbedo(),
       .MissingRims = build.RimsMissing,
-      .SurfaceManifest =
-          state.RoadManifest()
-              ? Generators::RoadPageManifestKey(*state.RoadManifest(),
-                                                Generators::PreparedRoadPages::ManifestBytesMost)
-              : std::string{}});
-  const auto key = state.RegionKey();
-  const auto request = state.RegionRequest();
-  const auto roadManifest = state.RoadManifest();
-  const auto roadAssets = World.Surface().RoadAssets();
-  const auto water =
-      std::make_shared<const Generators::WaterAsset>(state.Candidate().Sources().WaterBodies);
-  state.BeginRegion(*Services.Compute,
-                    Generators::GroundRegionRequest::PrepareStore({.Assets = assets,
-                                                                   .Key = key,
-                                                                   .RequestKey = request,
-                                                                   .Region = region,
-                                                                   .Water = water,
-                                                                   .Manifest = roadManifest,
-                                                                   .Pages = roadAssets}),
-                    Phase::Storing,
-                    roadAssets);
-  return GroundBuildProgress::Pending;
+      .SurfaceManifest = surfaceManifest});
+  auto archive = Generators::GroundRegionRequest::PrepareStore(
+      {.Assets = World.Surface().RegionAssets(),
+       .Key = state.RegionKey(),
+       .RequestKey = state.RegionRequest(),
+       .Region = std::move(region),
+       .Water =
+           std::make_shared<const Generators::WaterAsset>(state.Candidate().Sources().WaterBodies),
+       .Manifest = roadManifest,
+       .Pages = World.Surface().RoadAssets()});
+  state.FinishGeneratedRegion(std::move(surfaceManifest), std::move(archive));
+}
+
+void Engine::State::AdvanceGroundArchive(bool canWrite) {
+  if (!World.GroundArchive || !Services.Compute) { return; }
+  canWrite = canWrite && !World.GroundBuild;
+  auto &archive = *World.GroundArchive;
+  if (archive.Writing) {
+    if (!canWrite && archive.Writing->Peek() == nullptr) { return; }
+    auto completed = archive.Writing->Collect();
+    if (!completed) { return; }
+    if (*completed) {
+      Published.RecordMetric("ground archive: worker elapsed", completed->value().WorkerMs, "ms");
+    } else {
+      Log::Warn(LogTag::World, "ground_archive_failed", {{"reason", completed->error()}});
+    }
+    archive.Writing.reset();
+  }
+  if (canWrite && archive.Pending) {
+    archive.Writing = std::make_unique<Generators::GroundRegionRequest>(
+        *Services.Compute, std::exchange(archive.Pending, {}), World.Surface().RoadAssets());
+  }
 }
 
 bool Engine::State::PublishGroundGeometry(WorldRegionBuildState &state) {
-  const GroundBuildProgress stored = StoreGroundRegion(state);
-  if (stored != GroundBuildProgress::Ready) { return stored != GroundBuildProgress::Failed; }
+  PrepareGroundArchive(state);
   const auto roadPages = RestoreGroundRoadPages(state);
   if (roadPages != GroundBuildProgress::Ready) { return roadPages != GroundBuildProgress::Failed; }
   const auto sliceBegan = std::chrono::steady_clock::now();
@@ -1945,6 +1956,10 @@ bool Engine::State::PublishGroundCandidate(WorldRegionBuildState &state) {
   }
   World.TerrainClipmaps = std::move(state.StagedClipmaps());
   World.PublishedGroundCoverage = state.Coverage();
+  if (auto archive = state.TakeArchive(); archive) {
+    if (!World.GroundArchive) { World.GroundArchive = std::make_unique<GroundRegionArchive>(); }
+    World.GroundArchive->Pending = std::move(archive);
+  }
   Published.RecordMetric(
       "ground candidate: publication",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
@@ -1960,6 +1975,7 @@ bool Engine::State::PublishGroundCandidate(WorldRegionBuildState &state) {
 bool Engine::State::AdvanceWorldRegionBuild(bool alsoWhenTilesLanded, GroundQuality quality) {
   static const Heap::Tag kGroundBuildTag("world-ground");
   const Heap::Tagged groundBuildScope(kGroundBuildTag);
+  AdvanceGroundArchive(false);
   if (Services.Compute) {
     World.RoadAlignmentBuilds.Poll(*Services.Compute,
                                    World.GroundBuild ? World.GroundBuild->Id() : 0);

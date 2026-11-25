@@ -19,9 +19,6 @@ std::string GroundGeometryDiagnostic(WorldRegionBuildState &state) {
     return ", publication awaiting terrain clipmaps";
   }
   if (state.CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsGeometry) { return {}; }
-  if (state.RegionStatus() == WorldRegionBuildState::RegionPhase::Storing) {
-    return ", geometry waiting for region storage";
-  }
   if (!state.RoadsRestored()) {
     if (const auto *publication = state.RoadPublication()) {
       const auto *roads = state.RoadRestoration();

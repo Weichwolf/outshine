@@ -88,6 +88,7 @@ namespace outshine {
 struct GroundBuildProducts;
 struct TerrainPathPlan;
 class WorldRegionBuildState;
+class GroundRegionArchive;
 class BuildingFieldStreaming;
 class GroundWorldCandidate;
 class TerrainClipmapPreparation;
@@ -201,6 +202,7 @@ struct WorldRegionState {
   std::shared_ptr<Generators::TerrainHaloCache> TerrainHalos;
   std::string GroundLookupRequest;
   std::unique_ptr<Generators::GroundRegionRequest> GroundLookup;
+  std::unique_ptr<GroundRegionArchive> GroundArchive;
   std::unique_ptr<GroundPatchPreparation> PlacementGround;
   size_t GroundCandidates = 0;
 
@@ -518,7 +520,8 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress BeginGroundRegionLookup(WorldRegionBuildState &state);
   [[nodiscard]] GroundBuildProgress AdvanceReadyGroundSheets(Patchwork &patchwork,
                                                              WorldRegionBuildState &state);
-  [[nodiscard]] GroundBuildProgress StoreGroundRegion(WorldRegionBuildState &state) const;
+  void PrepareGroundArchive(WorldRegionBuildState &state) const;
+  void AdvanceGroundArchive(bool canWrite);
   [[nodiscard]] GroundBuildProgress RestoreGroundRoadPages(WorldRegionBuildState &state);
   [[nodiscard]] GroundBuildProgress
   AdvanceGroundSheets(const TangentFrame &standing, Patchwork &patchwork, const Around &coverage);
