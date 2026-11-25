@@ -16,6 +16,7 @@ struct RoadHeightNode {
   double HighSampleM = 0.0;
   double MinimumM = -std::numeric_limits<double>::infinity();
   double MaximumM = std::numeric_limits<double>::infinity();
+  double InferredMinimumM = -std::numeric_limits<double>::infinity();
 };
 
 struct RoadHeightLink {

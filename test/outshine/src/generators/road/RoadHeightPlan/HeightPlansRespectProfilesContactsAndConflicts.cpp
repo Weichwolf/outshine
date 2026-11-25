@@ -158,6 +158,15 @@ void ClearancesPreserveHardContactsAndLevelOrder() {
   }
   nodes[1].MaximumM = 2;
   CHECK(!PlanRoadHeights(nodes, {}, clearances), "incompatible fixed clearance is refused");
+  nodes = {RoadHeightNode{},
+           RoadHeightNode{.LowSampleM = 5, .HighSampleM = 5, .MinimumM = 5, .MaximumM = 5}};
+  nodes[0].InferredMinimumM = 3;
+  plan = PlanRoadHeights(nodes, {}, clearances, RoadHeightFit::PreferCuts);
+  CHECK(plan && std::abs(plan->HeightM[0]) < 1e-9 && std::abs(plan->HeightM[1] - 5) < 1e-9,
+        "the inferred approach yields to a roof contact while preserving physical clearance");
+  nodes[0].MinimumM = 3;
+  CHECK(!PlanRoadHeights(nodes, {}, clearances, RoadHeightFit::PreferCuts),
+        "the same approach stays mandatory when it is a physical contact");
   constexpr std::array cycle{RoadHeightClearance{0, 1, 1}, RoadHeightClearance{1, 0, 1}};
   nodes = {RoadHeightNode{0, 0}, RoadHeightNode{0, 0}};
   const auto conflict = PlanRoadHeights(nodes, {}, cycle);

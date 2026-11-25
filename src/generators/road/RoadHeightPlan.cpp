@@ -48,7 +48,8 @@ bool ValidNode(const RoadHeightNode &node) noexcept {
          node.LowSampleM <= node.HighSampleM && !std::isnan(node.MinimumM) &&
          !std::isnan(node.MaximumM) && node.MinimumM <= node.MaximumM &&
          node.MinimumM < std::numeric_limits<double>::infinity() &&
-         node.MaximumM > -std::numeric_limits<double>::infinity();
+         node.MaximumM > -std::numeric_limits<double>::infinity() &&
+         node.InferredMinimumM < std::numeric_limits<double>::infinity();
 }
 
 Neighbors Connect(size_t nodes,
@@ -289,12 +290,18 @@ PlanRoadHeights(std::span<const RoadHeightNode> nodes,
     return Failure("invalid road height constraints");
   }
   const auto neighbors = Connect(nodes.size(), links, clearances);
-  const auto floor =
-      Envelope(nodes, neighbors, [&](uint32_t at) { return -nodes[at].MinimumM; }, true);
-  if (!floor) { return std::unexpected(floor.error()); }
   const auto ceiling =
       Envelope(nodes, neighbors, [&](uint32_t at) { return nodes[at].MaximumM; }, false);
   if (!ceiling) { return std::unexpected(ceiling.error()); }
+  const auto floor = Envelope(
+      nodes,
+      neighbors,
+      [&](uint32_t at) {
+        const auto &node = nodes[at];
+        return -std::max(node.MinimumM, std::min(node.InferredMinimumM, (*ceiling)[at]));
+      },
+      true);
+  if (!floor) { return std::unexpected(floor.error()); }
   if (fit == RoadHeightFit::PreferCuts) { return CutHeights(nodes, neighbors, *floor, *ceiling); }
   const auto upper =
       Envelope(nodes, neighbors, [&](uint32_t at) { return nodes[at].LowSampleM; }, false);
