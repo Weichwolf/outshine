@@ -11,7 +11,6 @@
 #include <span>
 #include <stop_token>
 #include <string>
-#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -37,7 +36,6 @@ struct GroundTerrainManifest {
 
 [[nodiscard]] std::expected<GroundTerrainManifest, AssetCacheError>
 PrepareGroundTerrainPacks(AssetCache &cache,
-                          std::string_view revision,
                           std::span<const Sheet> sheets,
                           size_t bytesMost,
                           std::vector<PreparedAssetWrite> &into);

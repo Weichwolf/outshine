@@ -37,8 +37,13 @@ bool ValidKey(std::string_view key) {
          });
 }
 
+std::string PackKey(std::string_view revision) {
+  std::string key("ground-terrain-pack:");
+  key += revision;
+  return Sha256Hex(key);
+}
+
 std::expected<PreparedAssetWrite, AssetCacheError> PreparePack(AssetCache &cache,
-                                                               std::string_view revision,
                                                                const Address &address,
                                                                std::span<const Sheet> sheets,
                                                                size_t bytesMost,
@@ -72,16 +77,16 @@ std::expected<PreparedAssetWrite, AssetCacheError> PreparePack(AssetCache &cache
   const auto byteCount = bytes.size();
   const auto footprint = coverageId.Out.Bytes();
   auto coverage = Sha256Hex(footprint.data(), footprint.size());
-  const auto digest = Sha256Hex(bytes.data(), byteCount);
-  pack.Key = Sha256Hex(std::string(revision) + coverage + digest);
+  auto revision = Sha256Hex(bytes.data(), byteCount);
+  pack.Key = PackKey(revision);
   return cache.PreparePublication({{.Key = pack.Key,
                                     .Kind = std::string(kKind),
                                     .Bounds = bounds,
                                     .Package = {},
                                     .ByteCount = byteCount,
                                     .Level = static_cast<uint32_t>(zoom),
-                                    .Parent = std::string(revision),
-                                    .Tile = AssetTile{.Revision = std::string(revision),
+                                    .Parent = {},
+                                    .Tile = AssetTile{.Revision = std::move(revision),
                                                       .Coverage = std::move(coverage),
                                                       .Coarser = {}}}},
                                   std::move(bytes));
@@ -142,7 +147,6 @@ bool GroundTerrainManifest::Read(BinaryValueReader &in) {
 
 std::expected<GroundTerrainManifest, AssetCacheError>
 PrepareGroundTerrainPacks(AssetCache &cache,
-                          std::string_view revision,
                           std::span<const Sheet> sheets,
                           size_t bytesMost,
                           std::vector<PreparedAssetWrite> &into) {
@@ -159,7 +163,7 @@ PrepareGroundTerrainPacks(AssetCache &cache,
   for (auto &[address, indices] : slots) {
     auto &entry = manifest.Packs.emplace_back(
         GroundTerrainManifest::Pack{.Key = {}, .Slots = std::move(indices)});
-    auto pack = PreparePack(cache, revision, address, sheets, bytesMost, entry);
+    auto pack = PreparePack(cache, address, sheets, bytesMost, entry);
     if (!pack) { return std::unexpected(pack.error()); }
     bytesMost -= pack->NativeBytes();
     into.push_back(std::move(*pack));
@@ -212,18 +216,24 @@ GroundTerrainPackReader::Restore(const AssetCache &cache,
                                  std::vector<Sheet> &sheets,
                                  size_t &readBytes,
                                  const std::stop_token &stop) {
-  const auto index = cache.Select({.Bounds = region.Bounds,
-                                   .Kind = kKind,
-                                   .Level = {},
-                                   .Radius = {},
-                                   .Planes = {},
-                                   .Parent = region.Key,
-                                   .TileRevision = region.Key});
+  if (stop.stop_requested()) { return false; }
+  std::vector<std::string_view> keys;
+  keys.reserve(manifest.Packs.size());
+  for (const auto &pack : manifest.Packs) { keys.push_back(pack.Key); }
+  const auto index = cache.FindTiles(keys);
   if (!index) { return std::unexpected(index.error()); }
+  if (index->size() != manifest.Packs.size()) { return false; }
   using Entry = GroundTerrainManifest::Pack;
   std::vector<std::pair<const AssetRecord *, const Entry *>> selected;
   selected.reserve(manifest.Packs.size());
   for (const auto &pack : *index) {
+    if (pack.Kind != kKind || !pack.Tile || pack.OffsetBytes != 0 || pack.ByteCount > bytesMost ||
+        (pack.Parent.empty()
+             ? pack.Tile->Revision != pack.Package || PackKey(pack.Tile->Revision) != pack.Key
+             : pack.Parent != region.Key || pack.Tile->Revision != region.Key)) {
+      return false;
+    }
+    bytesMost -= static_cast<size_t>(pack.ByteCount);
     const auto entry = std::ranges::lower_bound(manifest.Packs, pack.Key, {}, &Entry::Key);
     if (entry != manifest.Packs.end() && entry->Key == pack.Key) {
       selected.emplace_back(&pack, &*entry);
@@ -236,11 +246,10 @@ GroundTerrainPackReader::Restore(const AssetCache &cache,
   }
   sheets.resize(manifest.Sheets);
   for (const auto &[record, entry] : selected) {
-    if (stop.stop_requested() || record->ByteCount > bytesMost) { return false; }
+    if (stop.stop_requested()) { return false; }
     const auto pages = Read(cache, *record, entry->Slots.size(), readBytes);
     if (!pages) { return std::unexpected(pages.error()); }
     if (!*pages) { return false; }
-    bytesMost -= static_cast<size_t>(record->ByteCount);
     for (size_t pageIndex = 0; pageIndex < entry->Slots.size(); ++pageIndex) {
       const auto &page = (**pages)[pageIndex];
       sheets[entry->Slots[pageIndex]] = {

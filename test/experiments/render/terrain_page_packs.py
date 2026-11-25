@@ -3,6 +3,7 @@
 import argparse
 from collections import defaultdict
 from ctypes import c_int, c_size_t, c_uint, c_void_p, create_string_buffer
+from hashlib import sha256
 import json
 from pathlib import Path
 from time import perf_counter
@@ -42,14 +43,19 @@ def pages(data):
     return result
 
 
+def spatial_packs(records, side):
+    packs = defaultdict(list)
+    for (zoom, x, y), page in sorted(records.items()):
+        packs[zoom, x // side, y // side].append(page)
+    return packs.values()
+
+
 def measure(records, side, compress):
     start = perf_counter()
-    packs = defaultdict(list)
-    for (zoom, x, y), page in records.items():
-        packs[zoom, x // side, y // side].append(page)
-    sizes = [compress(b"".join(batch)) for batch in packs.values()]
+    packs = spatial_packs(records, side)
+    sizes = [compress(b"".join(batch)) for batch in packs]
     return {"side": side, "packs": len(packs), "stored_bytes": sum(sizes),
-            "max_read_bytes": max(sizes), "max_pages": max(map(len, packs.values())),
+            "max_read_bytes": max(sizes), "max_pages": max(map(len, packs)),
             "preparation_ms": (perf_counter() - start) * 1000}
 
 
@@ -59,6 +65,8 @@ def main():
     parser.add_argument("keys", nargs="+")
     args = parser.parse_args()
     compress = compressor()
+    referenced_packs = 0
+    unique_packs = set()
     for key in args.keys:
         data, provenance = package(args.cache, key)
         records = pages(data)
@@ -67,6 +75,11 @@ def main():
                           "monolithic_page_bytes": compress(b"".join(records.values())),
                           "spatial_packs": [measure(records, side, compress)
                                             for side in (1, 2, 4, 8, 16)]}))
+        packs = spatial_packs(records, 8)
+        referenced_packs += len(packs)
+        unique_packs.update(sha256(b"".join(batch)).digest() for batch in packs)
+    print(json.dumps({"pack_side": 8, "region_pack_references": referenced_packs,
+                      "distinct_pack_payloads": len(unique_packs)}))
 
 
 if __name__ == "__main__":

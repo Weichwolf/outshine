@@ -7,6 +7,7 @@
 #include <limits>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -188,6 +189,46 @@ AssetCache::FindTile(std::string_view key) const {
   if (const auto opened = State_->EnsureOpen(); !opened) { return std::unexpected(opened.error()); }
   const std::scoped_lock lock(*State_->Mutex);
   return FindRecord(State_->Database, Lookup::Tile, key);
+}
+
+std::expected<std::vector<AssetRecord>, AssetCacheError>
+AssetCache::FindTiles(std::span<const std::string_view> keys) const {
+  if (keys.empty()) { return std::vector<AssetRecord>{}; }
+  if (!std::ranges::all_of(keys, AssetSql::ValidKey)) {
+    return std::unexpected(AssetCacheError::InvalidInput);
+  }
+  if (const auto opened = State_->EnsureOpen(); !opened) { return std::unexpected(opened.error()); }
+  const std::scoped_lock lock(*State_->Mutex);
+  constexpr size_t kKeysPerBatch = 128;
+  const size_t width = std::min(kKeysPerBatch, keys.size());
+  std::string sql = std::string("SELECT ") + AssetSql::kColumns + AssetSql::kTileColumns +
+                    " FROM assets a" + AssetSql::kTileJoin + " WHERE a.key IN (?";
+  for (size_t at = 1; at < width; ++at) { sql += ",?"; }
+  sql += ')';
+  AssetSql::Statement statement;
+  const auto prepared = AssetSql::Prepare(State_->Database, sql.c_str(), statement);
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  std::vector<AssetRecord> records;
+  records.reserve(keys.size());
+  while (!keys.empty()) {
+    const auto batch = keys.first(std::min(width, keys.size()));
+    for (size_t at = 0; at < batch.size(); ++at) {
+      if (!AssetSql::Text(statement.Value, static_cast<int>(at + 1), batch[at])) {
+        return std::unexpected(AssetCacheError::Storage);
+      }
+    }
+    int code = SQLITE_ROW;
+    while ((code = sqlite3_step(statement.Value)) == SQLITE_ROW) {
+      auto record = AssetSql::Read(statement.Value);
+      if (!record) { return std::unexpected(AssetCacheError::Storage); }
+      records.push_back(std::move(*record));
+    }
+    if (code != SQLITE_DONE) { return std::unexpected(AssetSql::Error(code)); }
+    sqlite3_reset(statement.Value);
+    sqlite3_clear_bindings(statement.Value);
+    keys = keys.subspan(batch.size());
+  }
+  return records;
 }
 
 std::expected<std::optional<AssetRecord>, AssetCacheError>

@@ -117,6 +117,10 @@ public:
   [[nodiscard]] std::expected<std::optional<AssetRecord>, AssetCacheError>
   FindTile(std::string_view key) const;
 
+  // Keys are unique. Absent tiles are omitted; result order is unspecified.
+  [[nodiscard]] std::expected<std::vector<AssetRecord>, AssetCacheError>
+  FindTiles(std::span<const std::string_view> keys) const;
+
   [[nodiscard]] std::expected<std::optional<AssetRecord>, AssetCacheError>
   FindRequest(std::string_view requestKey) const;
 

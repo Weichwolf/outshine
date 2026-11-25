@@ -305,7 +305,7 @@ PreparedGroundRegions::PrepareStore(const std::string &key,
   size_t bytesMost = PackageBytesMost;
   if (!region.Terrain.Sheets.empty()) {
     auto packed =
-        PrepareGroundTerrainPacks(*Cache_, key, region.Terrain.Sheets, bytesMost, work.Packages_);
+        PrepareGroundTerrainPacks(*Cache_, region.Terrain.Sheets, bytesMost, work.Packages_);
     if (!packed) { return std::unexpected(packed.error()); }
     terrain = std::move(*packed);
     for (const auto &pack : work.Packages_) { bytesMost -= pack.NativeBytes(); }

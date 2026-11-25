@@ -26,16 +26,14 @@ void CheckTerrainPacks(AssetCache &store,
                        std::span<const Sheet> resident,
                        const std::string &key,
                        const std::string &request) {
-  const auto index = [&](const std::string &revision) {
+  const auto index = [&] {
     return store.Select({.Bounds = GroundRegionBoundsEcef(region),
                          .Kind = "ground-terrain-pack",
                          .Level = {},
                          .Radius = {},
-                         .Planes = {},
-                         .Parent = revision,
-                         .TileRevision = revision});
+                         .Planes = {}});
   };
-  const auto packs = index(key);
+  const auto packs = index();
   CHECK(packs && packs->size() == 2 && (*packs)[0].Package != (*packs)[1].Package,
         "different spatial groups can be found and read independently");
   if (packs && packs->size() == 2) {
@@ -44,15 +42,15 @@ void CheckTerrainPacks(AssetCache &store,
     const auto other = StoreGroundRegion(
         regions, otherKey, GroundRegionBoundsEcef(region), region, Generators::WaterAsset{});
     const auto root = store.Find(otherKey);
-    const auto shared = index(otherKey);
+    const auto shared = index();
     CHECK(other && other->Region.Terrain.Sheets == region.Terrain.Sheets && shared &&
               shared->size() == packs->size() &&
               std::ranges::all_of(*packs,
                                   [&](const auto &pack) {
                                     return std::ranges::contains(
-                                        *shared, pack.Package, &AssetRecord::Package);
+                                        *shared, pack.Key, &AssetRecord::Key);
                                   }),
-          "reordered regions share the compressed terrain without changing draw order");
+          "reordered regions share the indexed terrain products without changing draw order");
     CHECK(other && root && *root && other->ReadBytes == (**root).ByteCount &&
               other->Region.Terrain.Sheets.front().Samples().data() ==
                   resident.back().Samples().data(),
@@ -64,13 +62,21 @@ void CheckTerrainPacks(AssetCache &store,
     if (partial && *partial) {
       const auto missingTerrain = regions.Restore(std::move(**partial));
       CHECK(missingTerrain && !*missingTerrain, "incomplete terrain does not publish holes");
-      CHECK(StoreGroundRegion(regions,
-                              key,
-                              GroundRegionBoundsEcef(region),
-                              region,
-                              Generators::WaterAsset{},
-                              request),
-            "a miss can restore complete coverage under the same request");
+      auto missingOther = regions.LoadProduct(otherKey);
+      CHECK(missingOther && *missingOther, "the second region header is independent too");
+      if (missingOther && *missingOther) {
+        const auto missingShared = regions.Restore(std::move(**missingOther));
+        CHECK(missingShared && !*missingShared, "both regions need the evicted shared product");
+      }
+      const auto repaired = StoreGroundRegion(
+          regions, key, GroundRegionBoundsEcef(region), region, Generators::WaterAsset{}, request);
+      auto sharedRoot = regions.LoadProduct(otherKey);
+      CHECK(repaired && sharedRoot && *sharedRoot, "the missing product can be regenerated");
+      if (sharedRoot && *sharedRoot) {
+        const auto restored = regions.Restore(std::move(**sharedRoot));
+        CHECK(restored && *restored,
+              "regenerating the shared product also repairs the other region");
+      }
     }
   }
 }
