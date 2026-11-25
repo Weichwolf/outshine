@@ -40,6 +40,7 @@ set(OUTSHINE_COMPONENT_ROOTS
   render/pipelines
   render/plan
   render/temporal
+  render/tile
   render/view
   scenario
   scripting
@@ -93,7 +94,7 @@ target_include_directories(outshine_world_contracts INTERFACE
   "${PROJECT_SOURCE_DIR}/src/world/contracts")
 
 foreach(root IN LISTS OUTSHINE_COMPONENT_ROOTS)
-  if(root STREQUAL "world/contracts")
+  if(root STREQUAL "world/contracts" OR (root STREQUAL "render/tile" AND NOT APPLE))
     continue()
   endif()
   string(REPLACE "/" "_" name "outshine_${root}")
@@ -156,11 +157,14 @@ target_link_libraries(outshine_ui PUBLIC outshine_base outshine_ui_paint
   PRIVATE SDL3::SDL3 SDL3_ttf::SDL3_ttf)
 target_link_libraries(outshine_world PUBLIC outshine_world_contracts outshine_base outshine_world_products outshine_world_entity)
 target_link_libraries(outshine_world_entity PUBLIC outshine_base)
-target_link_libraries(outshine_world_products PUBLIC outshine_base)
+target_link_libraries(outshine_world_products PUBLIC outshine_base PRIVATE PkgConfig::nlohmann_json)
 
 target_link_libraries(outshine_base PUBLIC PkgConfig::geos ZLIB::ZLIB Threads::Threads)
 target_link_libraries(outshine_render PUBLIC SDL3::SDL3)
 if(APPLE)
+  target_link_libraries(outshine_app PRIVATE outshine_render_tile)
+  target_link_libraries(outshine_render_tile PUBLIC outshine_base outshine_world_products
+    PRIVATE "-framework Foundation" "-framework Metal")
   target_link_libraries(outshine_render_device_native PRIVATE "-framework Foundation" "-framework Metal"
     "-framework QuartzCore" "-framework CoreGraphics")
 else()
