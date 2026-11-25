@@ -2,6 +2,7 @@
 #include "StructureArtifact.h"
 #include "ByteArchive.h"
 #include "ClusterCook.h"
+#include "GeometryErrorBound.h"
 #include "Sha256.h"
 #include <algorithm>
 #include <array>
@@ -174,6 +175,23 @@ std::expected<std::optional<BakedTile>, StructureBakeError> PreparedBuildingAsse
   return loaded;
 }
 
+bool PreparedBuildingAssets::RejectsCachedShell(const std::string &baseKey,
+                                                const RawTile &view,
+                                                uint64_t sourceKey) const {
+  if (sourceKey == 0 || view.RequestedDetail != LevelOfDetail::Shell || !view.RequestedCell) {
+    return false;
+  }
+  const auto record = Cache_->FindTile(GeometryKey(baseKey, view));
+  if (!record || !*record || (**record).Kind != "building-static-lod") { return false; }
+  const auto &asset = **record;
+  if (!asset.Tile) { return false; }
+  const auto &tile = *asset.Tile;
+  return tile.Revision == baseKey && tile.Coverage == SurfaceKey(baseKey, *view.RequestedCell) &&
+         tile.ErrorM &&
+         !GeometryErrorBound{.SourceKey = sourceKey, .Bounds = asset.Bounds, .UpperM = *tile.ErrorM}
+              .Allows(sourceKey, view.EyeEcef, view.Projection, kStructureEyeReuseM);
+}
+
 std::expected<PreparedBuildingAssets::ProductWrite, StructureBakeError>
 PreparedBuildingAssets::PrepareGeometry(const std::string &baseKey,
                                         const PreparedStructureTile &base,
@@ -184,13 +202,32 @@ PreparedBuildingAssets::PrepareGeometry(const std::string &baseKey,
     return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
   }
   ++GeometryPreparations_;
+  std::optional<AssetTile> manifest;
+  if (view.RequestedCell &&
+      (view.RequestedDetail == LevelOfDetail::Fine ||
+       view.RequestedDetail == LevelOfDetail::Shell) &&
+      !tile.FallbackHeights && tile.UnsupportedMeshes == 0 && tile.OccupiedCells != 0) {
+    manifest = AssetTile{
+        .Revision = baseKey, .Coverage = SurfaceKey(baseKey, *view.RequestedCell), .Coarser = {}};
+    if (view.RequestedDetail == LevelOfDetail::Fine) {
+      RawTile shell;
+      shell.RequestedCell = view.RequestedCell;
+      shell.RequestedDetail = LevelOfDetail::Shell;
+      shell.ClusterTriangles = view.ClusterTriangles;
+      manifest->Coarser = GeometryKey(baseKey, shell);
+      manifest->ErrorM = 0.0;
+    } else if (!tile.SurfaceFailure && tile.SurfaceError) {
+      manifest->ErrorM = tile.SurfaceError->UpperDistanceM();
+    }
+  }
   return PrepareProduct(
       {.Key = std::move(key),
        .Kind = view.RequestedDetail ? "building-static-lod" : "building-lod",
        .Bounds = view.RequestedDetail ? tile.BoundsAt(base.AnchorEcef) : Bounds(base),
        .Package = {},
        .Level = static_cast<uint32_t>(view.RequestedDetail.value_or(LevelOfDetail::Fine)),
-       .Parent = baseKey},
+       .Parent = baseKey,
+       .Tile = std::move(manifest)},
       tile,
       ProductKind::Geometry);
 }

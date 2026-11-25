@@ -166,6 +166,8 @@ public:
                uint64_t sourceKey = 0);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError> LoadGeometry(
       const std::string &baseKey, Basis basis, const RawTile &view, uint64_t sourceKey = 0);
+  [[nodiscard]] bool
+  RejectsCachedShell(const std::string &baseKey, const RawTile &view, uint64_t sourceKey) const;
   [[nodiscard]] std::expected<ProductWrite, StructureBakeError>
   PrepareGeometry(const std::string &baseKey,
                   const PreparedStructureTile &base,

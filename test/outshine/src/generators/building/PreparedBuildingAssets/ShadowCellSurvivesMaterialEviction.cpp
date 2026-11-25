@@ -6,8 +6,11 @@
 #include "RawSourceCache.h"
 #include "SourceSet.h"
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <string>
+#include <system_error>
 #include <vector>
 
 namespace {
@@ -28,12 +31,14 @@ void CheckShadowCell(const std::filesystem::path &root) {
   request.RequestedCell = 1;
   request.ClusterTriangles = kClusterTriangles;
   const auto parent = (*assets)->Key({.Zoom = 0, .X = 0, .Y = 0}, 0, {}, 1000);
-  PreparedStructureTile source;
+  const PreparedStructureTile source;
   BakedTile shell;
   shell.RequestedCell = request.RequestedCell;
   shell.RequestedDetail = request.RequestedDetail;
   shell.OccupiedCells = 1;
+  constexpr uint64_t sourceKey = 1;
   shell.SurfaceError.emplace();
+  shell.SurfaceError->Upper = {.SourceKey = sourceKey, .ReferenceToVariantM = 1};
   const Vec3f normal{{0, 0, 1}};
   const std::vector<Vec3f> positions{{{0, 0, 0}}, {{10, 0, 0}}, {{10, 5, 0}}};
   for (const auto &position : positions) {
@@ -43,6 +48,16 @@ void CheckShadowCell(const std::filesystem::path &root) {
   const auto write = (*assets)->PrepareGeometry(parent, source, request, shell);
   CHECK(write && (*assets)->PublishProduct(*write), "certified opaque geometry is available");
   if (!write) { return; }
+  constexpr double kFocalPx = 720;
+  constexpr double kCloseM = 20;
+  constexpr double kFarM = 10000;
+  request.Projection = {.FocalPx = kFocalPx, .AllowedErrorPx = 1};
+  request.EyeEcef = Vec3{{0, 0, kCloseM}};
+  CHECK((*assets)->RejectsCachedShell(parent, request, sourceKey),
+        "a near camera rejects a cached shell using spatial metadata");
+  request.EyeEcef = Vec3{{0, 0, kFarM}};
+  CHECK(!(*assets)->RejectsCachedShell(parent, request, sourceKey),
+        "a distant camera can request the shell when its projected error fits");
 
   BuildingShadowCell::ReadCost cost;
   const auto initial = (*assets)->LoadShadowCell(parent, 1, cost);

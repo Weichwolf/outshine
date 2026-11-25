@@ -492,6 +492,9 @@ struct StructureBuildTask::NativeProducts {
         return basis != nullptr ? Cache->LoadTerrainContacts(Key, basis)
                                 : Cache->LoadTerrainContacts(Key, *base);
       }
+      if (Cache->RejectsCachedShell(Key, raw, ParentSourceKey)) {
+        raw.RequestedDetail = LevelOfDetail::Fine;
+      }
       return basis != nullptr ? Cache->LoadGeometry(Key, basis, raw, ParentSourceKey)
                               : Cache->LoadGeometry(Key, *base, raw, ParentSourceKey);
     }();
