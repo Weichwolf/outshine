@@ -1,0 +1,301 @@
+#include "BinaryValueArchive.h"
+#include "Box.h"
+#include "Geometry.h"
+#include "ImageCapture.h"
+#include "ImpostorBaker.h"
+#include "ImpostorPoseBounds.h"
+#include "ImpostorSurface.h"
+#include "RuntimeScene.h"
+#include "SceneRenderer.h"
+#include "Viewing.h"
+#include <SDL3/SDL.h>
+#include <algorithm>
+#include <array>
+#include <charconv>
+#include <chrono>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
+#include <fstream>
+#include <iostream>
+#include <memory>
+#include <numbers>
+#include <optional>
+#include <ratio>
+#include <span>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <utility>
+#include <vector>
+
+namespace {
+using namespace outshine;
+using namespace outshine::Render;
+using Clock = std::chrono::steady_clock;
+constexpr Extent kFrame{.WidthPx = 1280, .HeightPx = 720};
+constexpr size_t kFrames = 120, kInputBytesMost = size_t{128} * 1024 * 1024;
+constexpr size_t kP99Index = (99 * kFrames + 99) / 100 - 1;
+constexpr double kErrorPx = 4;
+
+struct Flight {
+  Vec3 Start, End, Forward, Up;
+  double Fov = 0;
+};
+
+struct FootprintGroup {
+  Geometry Mesh;
+  Box Bounds;
+};
+
+struct Counts {
+  size_t Groups = 0, Cards = 0, AtlasBytes = 0, Triangles = 0;
+  size_t BytesRejected = 0, PoseRejected = 0;
+};
+
+std::expected<std::vector<uint8_t>, std::string> Read(const char *path) {
+  std::ifstream in(path, std::ios::binary | std::ios::ate);
+  const auto size = static_cast<std::streamoff>(in.tellg());
+  if (size <= 0 || std::cmp_greater(size, kInputBytesMost)) {
+    return std::unexpected("footprint mesh input is missing or too large");
+  }
+  std::vector<uint8_t> bytes(static_cast<size_t>(size));
+  in.seekg(0);
+  in.read(reinterpret_cast<char *>(bytes.data()), size);
+  if (!in) { return std::unexpected("footprint mesh cannot be read"); }
+  return bytes;
+}
+
+bool ReadPart(BinaryValueReader &in, FootprintGroup &group, std::string_view name, Vec4f colour) {
+  Geometry::Mesh mesh;
+  if (!in.Array(mesh.PositionsM) || !in.Array(mesh.Normals) || !in.Array(mesh.Indices) ||
+      mesh.PositionsM.size() % 3 != 0 || mesh.Normals.size() != mesh.PositionsM.size()) {
+    return false;
+  }
+  if (mesh.Indices.empty()) { return true; }
+  for (size_t i = 0; i < mesh.PositionsM.size(); i += 3) {
+    group.Bounds.Cover(Vec3{{mesh.PositionsM[i], mesh.PositionsM[i + 1], mesh.PositionsM[i + 2]}});
+  }
+  Material material;
+  material.BaseColour = colour;
+  material.Roughness = .85f;
+  const auto surface = group.Mesh.addSurface(name, material);
+  const auto part = surface ? group.Mesh.addPart(name, *surface)
+                            : std::expected<int, GeometryPartError>{
+                                  std::unexpect, GeometryPartError::CapacityExceeded};
+  return part && group.Mesh.adoptMesh(*part, mesh).has_value();
+}
+
+Vec3 QuantizedDirection(Vec3 eyeOffset) {
+  if (!Normalise(eyeOffset)) { return {}; }
+  constexpr double yawStep = std::numbers::pi / 8;
+  constexpr double pitchStep = std::numbers::pi * 8 / 180;
+  const double yaw = std::round(std::atan2(eyeOffset[0], eyeOffset[2]) / yawStep) * yawStep;
+  const double pitch = std::clamp(
+      (std::floor(std::asin(std::clamp(eyeOffset[1], -1., 1.)) / pitchStep) + .5) * pitchStep,
+      -std::numbers::pi / 2,
+      std::numbers::pi / 2);
+  const double horizontal = std::cos(pitch);
+  return {{std::sin(yaw) * horizontal, std::sin(pitch), std::cos(yaw) * horizontal}};
+}
+
+std::optional<Geometry> Card(ImpostorBaker &baker,
+                             const FootprintGroup &group,
+                             const Flight &flight,
+                             ImpostorSurfaceDetail detail,
+                             double texelMetres,
+                             Counts &counts) {
+  const auto direction =
+      QuantizedDirection((flight.Start + flight.End) * .5 - group.Bounds.Middle());
+  ImpostorCapture capture;
+  capture.LeastM = group.Bounds.Min;
+  capture.MostM = group.Bounds.Max;
+  capture.ViewDirections = {direction};
+  std::string error;
+  const auto layout = ImpostorBaker::ProjectionFor(capture, {.Pixels = 256, .Views = 1}, error);
+  if (!layout) { return std::nullopt; }
+  const int pixels =
+      std::max(4, static_cast<int>(std::ceil(2 * layout->HalfExtentM / texelMetres)) + 2);
+  const ImpostorAtlasShape shape{.Pixels = pixels, .Views = 1};
+  const auto bytes = ImpostorAtlas::EncodedBytesMost(shape);
+  if (!bytes || *bytes >= group.Mesh.storageBytes()) {
+    ++counts.BytesRejected;
+    return std::nullopt;
+  }
+  const auto projection = ImpostorBaker::ProjectionFor(capture, shape, error);
+  if (!projection) { return std::nullopt; }
+  const auto hull =
+      ImpostorPoseBounds::From(projection->Centre, direction, projection->HalfExtentM);
+  if (!hull) { return std::nullopt; }
+  const Lens lens{.WidePx = kFrame.WidthPx,
+                  .HighPx = kFrame.HeightPx,
+                  .FovDeg = static_cast<float>(flight.Fov * 180 / std::numbers::pi),
+                  .NearM = .05,
+                  .FarM = 240000};
+  for (const auto eye : {flight.Start, flight.End}) {
+    const auto support = hull->ProjectPanoramic(eye, lens);
+    if (!support || !support->DepthInside || support->L1UpperPx > kErrorPx) {
+      ++counts.PoseRejected;
+      return std::nullopt;
+    }
+  }
+  capture.Sources.push_back({.Mesh = group.Mesh.clone(), .Instances = {Mat4{}}});
+  const auto atlas = baker.Capture(std::move(capture), shape, error);
+  if (!atlas) {
+    std::cerr << error << '\n';
+    return std::nullopt;
+  }
+  auto card = BuildImpostorSurface(*atlas, 0, detail);
+  if (card) {
+    ++counts.Cards;
+    counts.AtlasBytes += *bytes;
+  }
+  return card;
+}
+
+std::expected<Geometry, std::string> Prepare(const std::vector<uint8_t> &bytes,
+                                             std::string_view mode,
+                                             double texelMetres,
+                                             Flight &flight,
+                                             Counts &counts) {
+  BinaryValueReader in(bytes);
+  uint32_t groups = 0;
+  if (!in(flight.Start.Axis,
+          flight.End.Axis,
+          flight.Forward.Axis,
+          flight.Up.Axis,
+          flight.Fov,
+          groups) ||
+      groups == 0 || groups > 4096 || !std::isfinite(flight.Fov) || flight.Fov <= 0 ||
+      flight.Fov >= std::numbers::pi) {
+    return std::unexpected("invalid footprint flight header");
+  }
+  Geometry geometry;
+  ImpostorBaker baker;
+  for (uint32_t i = 0; i < groups; ++i) {
+    FootprintGroup group;
+    if (!ReadPart(in, group, "walls", {{.74f, .71f, .65f, 1}}) ||
+        !ReadPart(in, group, "roofs", {{.42f, .20f, .14f, 1}}) || group.Bounds.Empty()) {
+      return std::unexpected("invalid footprint group");
+    }
+    auto card = mode == "geometry" ? std::optional<Geometry>{}
+                                   : Card(baker,
+                                          group,
+                                          flight,
+                                          mode == "flat" ? ImpostorSurfaceDetail::Flat
+                                                         : ImpostorSurfaceDetail::Depth,
+                                          texelMetres,
+                                          counts);
+    const auto &asset = card ? *card : group.Mesh;
+    if (!geometry.append(asset)) {
+      return std::unexpected("footprint scene exceeds geometry limits");
+    }
+  }
+  if (in.In.Remaining() != 0) { return std::unexpected("trailing footprint mesh bytes"); }
+  counts.Groups = groups;
+  for (int part = 0; part < geometry.parts(); ++part) {
+    counts.Triangles += geometry.trianglesOf(part).size() / 3;
+  }
+  return geometry;
+}
+
+bool RenderAt(Core::RuntimeScene &scene, const Flight &flight, double t, std::string &error) {
+  const Vec3 at = flight.Start + (flight.End - flight.Start) * t;
+  auto camera = Viewpoint::LookAt({.EyeM = at, .AimM = at + flight.Forward}, flight.Up);
+  if (!camera) {
+    error = "invalid flight pose";
+    return false;
+  }
+  camera->YfovRad = flight.Fov;
+  camera->ZNearM = .05;
+  camera->ZFarM = 240000;
+  scene.Eye(*camera);
+  return scene.Draw(error);
+}
+
+std::expected<double, std::string>
+Measure(const Geometry &geometry, const Flight &flight, std::string_view output) {
+  SceneRenderer renderer;
+  Core::Declaration declaration;
+  declaration.InitialGeometry = &geometry;
+  declaration.SurfaceWidthPx = kFrame.WidthPx;
+  declaration.SurfaceHeightPx = kFrame.HeightPx;
+  declaration.Outputs = {"surface", "sceneDepth"};
+  declaration.KeyLux = 50000;
+  declaration.KeyBearingDeg = 210;
+  declaration.KeyElevationDeg = 35;
+  declaration.IndirectLight = {1000, 1200, 1440};
+  std::unique_ptr<Core::RuntimeScene> scene;
+  std::string error;
+  if (!Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error)) {
+    return std::unexpected(error);
+  }
+  if (!RenderAt(*scene, flight, 0, error)) { return std::unexpected(error); }
+  renderer.WaitForGpu();
+  const auto start = App::SaveImage(renderer, kFrame, std::string(output) + "-start.png");
+  if (!start) { return std::unexpected(start.error()); }
+  renderer.ResetMeasurements();
+  renderer.KeepGpuSamples(kFrames);
+  for (size_t i = 1; i <= kFrames; ++i) {
+    if (!RenderAt(*scene, flight, static_cast<double>(i) / kFrames, error)) {
+      return std::unexpected(error);
+    }
+  }
+  renderer.WaitForGpu();
+  std::vector<double> frameMs;
+  for (const auto &sample : renderer.GpuSamples()) { frameMs.push_back(sample.ElapsedMs); }
+  if (frameMs.size() != kFrames) { return std::unexpected("incomplete GPU timing samples"); }
+  std::ranges::sort(frameMs);
+  auto end = App::SaveImage(renderer, kFrame, std::string(output) + "-finish.png");
+  if (!end) { return std::unexpected(end.error()); }
+  std::vector<float> depth;
+  if (renderer.ReadDepth(depth) != ReadState::Ready) {
+    return std::unexpected("depth unavailable");
+  }
+  std::ofstream raw(std::string(output) + ".depth", std::ios::binary);
+  raw.write(reinterpret_cast<const char *>(depth.data()),
+            static_cast<std::streamsize>(depth.size() * sizeof(float)));
+  if (!raw) { return std::unexpected("depth cannot be saved"); }
+  return frameMs[kP99Index];
+}
+}
+
+int main(int argc, const char *const *argv) {
+  if (argc < 4 || argc > 5) {
+    std::cerr << "usage: footprint_cards MESH geometry|flat|depth OUTPUT [4|8|16]\n";
+    return 2;
+  }
+  const std::string_view mode = argv[2];
+  if (mode != "geometry" && mode != "flat" && mode != "depth") { return 2; }
+  const std::string_view pitch = argc == 5 ? argv[4] : "4";
+  int texelMetres = 0;
+  const auto parsed = std::from_chars(pitch.begin(), pitch.end(), texelMetres);
+  if (parsed.ec != std::errc{} || parsed.ptr != pitch.end() ||
+      (texelMetres != 4 && texelMetres != 8 && texelMetres != 16)) {
+    return 2;
+  }
+  if (!SDL_Init(SDL_INIT_VIDEO)) {
+    std::cerr << SDL_GetError() << '\n';
+    return 1;
+  }
+  const auto began = Clock::now();
+  Flight flight;
+  Counts counts;
+  const auto data = Read(argv[1]);
+  auto geometry = data ? Prepare(*data, mode, texelMetres, flight, counts)
+                       : std::expected<Geometry, std::string>{std::unexpect, data.error()};
+  const auto preparation = std::chrono::duration<double, std::milli>(Clock::now() - began).count();
+  auto p99 = geometry ? Measure(*geometry, flight, argv[3])
+                      : std::expected<double, std::string>{std::unexpect, geometry.error()};
+  SDL_Quit();
+  if (!p99) {
+    std::cerr << p99.error() << '\n';
+    return 1;
+  }
+  std::cout << mode << ' ' << texelMetres << " m/texel " << counts.Groups << " groups "
+            << counts.Cards << " cards " << counts.Triangles << " triangles " << counts.AtlasBytes
+            << " atlas bytes upper bound " << counts.BytesRejected << " byte rejects "
+            << counts.PoseRejected << " pose rejects " << preparation << " ms preparation " << *p99
+            << " ms GPU p99\n";
+}
