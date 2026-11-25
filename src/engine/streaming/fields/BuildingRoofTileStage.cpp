@@ -20,8 +20,7 @@
 #include <vector>
 
 namespace outshine {
-namespace {
-Mat4 ToScene(const TangentFrame &frame, const Mat4 &world) {
+Mat4 BuildingFieldStreaming::State::ToScene(const TangentFrame &frame, const Mat4 &world) {
   Mat4 result;
   for (size_t axis = 0; axis < 3; ++axis) {
     const auto d =
@@ -35,6 +34,7 @@ Mat4 ToScene(const TangentFrame &frame, const Mat4 &world) {
   return result;
 }
 
+namespace {
 Render::ConvexPrism ToPrism(const Generators::BuildingRoofProxy &roof,
                             const Vec3 &relativeAnchor,
                             const Mat4 &world,

@@ -251,7 +251,7 @@ void BuildingFieldStreaming::State::RequestOne(Context &context) {
         StructureBuildQueue::QualifiedSourceKey(context.Surface.Footprints(), tile.Index);
     if (source != tile.SourceKey || tile.RoofUpload) { continue; }
     for (auto &cell : tile.Cells) {
-      if (cell.Where == Phase::Rejected || cell.Where == Phase::Ready ||
+      if (cell.Where == Phase::Rejected || cell.Where == Phase::Ready || cell.TerraceQualified ||
           (tile.RoofActive && tile.ResidentRoof &&
            (tile.ResidentRoof->Cells & (uint64_t{1} << (cell.Source.Cell - 1u))) != 0)) {
         continue;
@@ -271,17 +271,24 @@ bool BuildingFieldStreaming::Advance(Context &context, std::string &error) {
   State_->PollFields(context);
   State_->Shadows = context.Renderer.DeclaredShadowDemand();
   if (!State_->Select(context, error)) { return false; }
+  State_->AdvanceTerrace(context);
   State_->RequestOne(context);
-  auto &counts = State_->Statistics;
-  counts.Sources = State_->Tiles.size();
-  counts.Pending = State_->Reading ? 1 : 0;
-  for (const auto &entry : State_->Sources.Entries()) {
+  State_->CollectCounts();
+  return true;
+}
+
+void BuildingFieldStreaming::State::CollectCounts() {
+  auto &counts = Statistics;
+  counts.Sources = Tiles.size();
+  counts.Pending = Reading ? 1 : 0;
+  for (const auto &entry : Sources.Entries()) {
     counts.Pending += entry.Where == BuildingSourceDemand::Phase::Pending ? 1 : 0;
   }
   counts.Ready = counts.Rejected = counts.ReadyGroups = 0;
   counts.ReadyRoofTiles = counts.ActiveRoofTiles = counts.ActiveRoofVolumes =
       counts.ActiveRoofCasters = 0;
-  for (const auto &tile : State_->Tiles) {
+  counts.ReadyTerraces = counts.ActiveTerraces = counts.RejectedTerraces = 0;
+  for (const auto &tile : Tiles) {
     counts.Pending += static_cast<size_t>(tile.RoofUpload.has_value());
     counts.ReadyRoofTiles += static_cast<size_t>(tile.ResidentRoof.has_value());
     counts.ActiveRoofTiles += static_cast<size_t>(tile.RoofActive);
@@ -289,6 +296,11 @@ bool BuildingFieldStreaming::Advance(Context &context, std::string &error) {
     counts.ActiveRoofVolumes +=
         tile.RoofActive && tile.ResidentRoof ? tile.ResidentRoof->Count : 0u;
     for (const auto &cell : tile.Cells) {
+      const uint64_t cellMask = uint64_t{1} << (cell.Source.Cell - 1);
+      counts.ReadyTerraces += static_cast<size_t>(!cell.TerraceKey.empty());
+      counts.RejectedTerraces += static_cast<size_t>(cell.TerraceRejected);
+      counts.ActiveTerraces +=
+          static_cast<size_t>(cell.TerraceQualified && (tile.Active & cellMask) != 0);
       const auto pending = static_cast<size_t>(std::ranges::count_if(
           cell.Groups, [](const State::Group &g) { return g.Where == State::Phase::Pending; }));
       counts.Pending += pending + (pending == 0 && cell.Where == State::Phase::Prepared ? 1u : 0u);
@@ -298,6 +310,5 @@ bool BuildingFieldStreaming::Advance(Context &context, std::string &error) {
       counts.Rejected += cell.Where == State::Phase::Rejected ? 1 : 0;
     }
   }
-  return true;
 }
 }

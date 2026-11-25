@@ -12,6 +12,8 @@
 #include "MaterialRegistration.h"
 #include "StoredVertex.h"
 #include "ShadowDemand.h"
+#include "PreparedTerraceAsset.h"
+#include "UrbanPrismPreparation.h"
 #include <atomic>
 #include <cstdint>
 #include <expected>
@@ -56,10 +58,17 @@ struct BuildingFieldStreaming::State {
     std::vector<Group> Groups;
     std::vector<Group> Alternatives;
     std::string AssetKey;
+    std::string TerraceKey;
+    bool TerraceRejected = false;
+    bool TerraceQualified = false;
     bool Staged = false;
     bool Qualified = false;
     bool ShadowNeeded = true;
     std::shared_ptr<AssetPipeline::Consumer> Consumer;
+
+    [[nodiscard]] std::string_view SelectedKey() const noexcept {
+      return TerraceQualified ? TerraceKey : AssetKey;
+    }
   };
 
   struct Tile {
@@ -113,6 +122,15 @@ struct BuildingFieldStreaming::State {
     std::optional<BuildingRoofTile> Roof;
   };
 
+  struct TerraceWork {
+    uint32_t Tile;
+    uint64_t Revision;
+    uint32_t Cell;
+    Generators::Osm::TerraceAssetRequest Request;
+    std::unique_ptr<Generators::Osm::UrbanPrismPreparation> Job;
+    bool Retiring = false;
+  };
+
   struct ProductCut {
     std::vector<std::string_view> Main;
     std::vector<std::string_view> Shadow;
@@ -133,6 +151,9 @@ struct BuildingFieldStreaming::State {
   Counts Statistics;
   std::string LastRejection;
   std::optional<Render::ShadowDemand> Shadows;
+  std::optional<TerraceWork> Terrace;
+  std::shared_ptr<BuildingSourceRead> TerraceSourceRead;
+  std::optional<Render::MaterialRegistration> TerraceMaterial;
 
   void Discover(Context &context);
   void PollMetadata();
@@ -145,6 +166,18 @@ struct BuildingFieldStreaming::State {
                const SourceProductSelection::Cut &cut);
   void StartMetadata(Context &context);
   void RequestOne(Context &context);
+  void CollectCounts();
+  void AdvanceTerrace(Context &context);
+  void PollTerrace(Context &context, const Vec3 &eye, TerraceWork &work);
+  void RequestTerrace(Context &context, const Vec3 &eye);
+  [[nodiscard]] static bool
+  AllowsTerrace(const Context &context, const Tile &tile, const Cell &cell, const Vec3 &eye);
+  [[nodiscard]] bool StageTerrace(Context &context,
+                                  const Tile &tile,
+                                  Cell &cell,
+                                  const Generators::Osm::UrbanPrismPreparation::Product &ready,
+                                  const std::string &key);
+  [[nodiscard]] static Mat4 ToScene(const TangentFrame &frame, const Mat4 &world);
   bool RequestGroup(Context &context, Tile &tile, Cell &cell, Group &group);
   [[nodiscard]] static std::expected<void, std::string> PrepareCellMetadata(Cell &cell);
   void RecordAbortedPreflight(const Cell &cell);

@@ -507,6 +507,12 @@ bool Engine::State::AdvanceBuildingFields() {
   Published.RecordMetric("building caster packets: conversion source data read",
                          static_cast<double>(counts.CasterOriginalBytes),
                          "bytes");
+  Published.RecordMetric(
+      "building terraces: resident cells", static_cast<double>(counts.ReadyTerraces), "cells");
+  Published.RecordMetric(
+      "building terraces: active cells", static_cast<double>(counts.ActiveTerraces), "cells");
+  Published.RecordMetric(
+      "building terraces: rejected cells", static_cast<double>(counts.RejectedTerraces), "cells");
   return true;
 }
 

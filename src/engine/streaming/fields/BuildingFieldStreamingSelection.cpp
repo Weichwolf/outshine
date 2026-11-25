@@ -156,10 +156,10 @@ BuildingFieldStreaming::State::SelectReplacements(const SourceCoverage &domain,
       result.RoofActive = true;
     } else {
       const auto *cell = candidates[at];
-      result.Main.push_back(cell->AssetKey);
+      result.Main.push_back(cell->SelectedKey());
       result.MainSources.push_back(&cell->Coverage);
       result.ActiveCells |= uint64_t{1} << (cell->Source.Cell - 1u);
-      result.ActiveGroups += cell->Groups.size();
+      result.ActiveGroups += cell->TerraceQualified ? 1 : cell->Groups.size();
     }
   }
   std::ranges::sort(result.Main);
@@ -194,10 +194,13 @@ std::vector<const BuildingFieldStreaming::State::Cell *>
 BuildingFieldStreaming::State::EvaluateCells(Context &context, Tile &tile) {
   std::vector<const Cell *> candidates;
   tile.ShadowCells = 0;
+  const Vec3 eye = WorldCamera(context).EyeM;
   for (auto &cell : tile.Cells) {
-    cell.Qualified =
+    cell.TerraceQualified = !cell.TerraceKey.empty() && AllowsTerrace(context, tile, cell, eye);
+    const bool field =
         cell.Where == Phase::Ready && cell.Staged &&
         std::ranges::all_of(cell.Groups, [&](Group &g) { return ValidPose(context, g); });
+    cell.Qualified = cell.TerraceQualified || field;
     cell.ShadowNeeded = !Shadows || cell.Where != Phase::Ready ||
                         std::ranges::any_of(cell.Groups, [&](const Group &g) {
                           return !g.SceneBounds || Shadows->MayContain(*g.SceneBounds);
@@ -274,9 +277,8 @@ bool BuildingFieldStreaming::State::SelectTile(Context &context, Tile &tile, std
         return (original.Legacy.Mask() & roof->Cells) != 0 && original.Legacy.Mask() != roof->Cells;
       });
   if (roofCaster) { tile.RoofOriginalsReplaced = roof->Cells; }
-  const auto candidateKeys = candidates | std::views::transform([](const Cell *cell) {
-                               return std::string_view(cell->AssetKey);
-                             });
+  const auto candidateKeys =
+      candidates | std::views::transform([](const Cell *cell) { return cell->SelectedKey(); });
   if (!tile.MainProducts.empty() && tile.ShadowCells == tile.PublishedShadowCells &&
       tile.RoofQualified == (roof != nullptr) && tile.RoofCasterActive == roofCaster &&
       std::ranges::equal(shadowKeys, tile.OriginalProducts) &&
