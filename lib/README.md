@@ -1,17 +1,24 @@
-# Outshine Python-Referenzen
+# Outshine Python reference
 
-Python-Referenzverfahren des Researchers (`outshine_ref`): Transport, Gebäude, Vegetation,
-Geometrie, Wasser, Materialien. Sie entscheiden Verfahren an echten Daten und liefern
-Rezepte; die native Umsetzung liegt unter `src/`.
+`outshine_ref` preserves the procedural research for the native rebuild. It is
+a reference and experiment library. The target application is implemented in C++.
+
+| Modules | Preserved methods |
+|---|---|
+| `transport` | Canonical ports, corridor and junction geometry, grades, layered connections and rail hardware |
+| `buildings` | Footprints, roofing, facade rules, entrances and interior placement |
+| `geometry`, `water` | Surface topology and patches, water levels, profiles and contacts |
+| `vegetation`, `materials` | Habitat, morphology, leaf optics and surface composition |
+| `places`, `rendering` | Reference data loading and Blender comparison helpers |
+
+With Python 3.11 or newer, install in a virtual environment.
 
 ```sh
-.venv/bin/python -m pip install -e ./lib
-.venv/bin/python -m unittest discover -s lib/tests -v
+python -m pip install -e './lib[transport,water,roofs,solids,places,assets]'
+python -m unittest discover -s lib/tests
 ```
 
-Regeln:
-- Ein Modul bleibt nur, solange ein offenes Issue es braucht oder der native Code noch
-  dagegen geprüft wird. Nach der nativen Übernahme wird es gelöscht.
-- Ergebnisse stehen als Kommentar im Issue, nicht als Markdown-Protokoll hier.
-- Der Produktbuild liest genau eine Datei aus diesem Baum:
-  `src/outshine_ref/vegetation/data/leaf-optics-table-1.json`.
+Use the bundled tests and real-world fixtures as comparisons for native
+algorithms. Keep tractable counterexamples, compare picture and cost on holdouts,
+and remeasure when assumptions change. Research and remaining gaps are indexed in
+[Outshine generation methods](../doc/references/procedural/outshine-generation.md).

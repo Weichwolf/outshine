@@ -16,6 +16,8 @@ Alle zwölf Szenarien bleiben vorerst ohne Vegetation. So sind Transport, Gebäu
 Bodenmaterialien und ihre Kontakte frei sichtbar. Das ist ein Diagnoseprofil;
 die vollständige Welt einschließlich Vegetation bleibt das Ausbau- und Budgetziel.
 `references.json` erhält Webcam-Herkunft und Archivvergleiche, auch für archivierte Orte.
+Datierte Webcam-Aufnahmen sind die erste Bildreferenz. Vergleiche wiederholte Ansichten
+über Tageszeiten, Wetter und Jahreszeiten und gleiche die Kamera vor einem Geometrievergleich ab.
 Referenzen bleiben unter build/shots/reference/webcams/, aktuelle Kontrollbilder lokal
 unter build/shots/places/. In doc/ und README werden vorerst keine Bilder veröffentlicht.
 
