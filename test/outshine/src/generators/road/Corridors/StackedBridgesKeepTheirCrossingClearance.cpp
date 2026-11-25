@@ -94,6 +94,7 @@ enum class Crossing {
   SameBridgeTier,
   DenseStack,
   ObliqueStack,
+  BridgeBelowElevatedPath,
   SameBuildingFloor,
   StackedBuildingFloors
 };
@@ -140,6 +141,13 @@ void CheckHeights(Crossing kind,
                   const outshine::Generators::Osm::StreetField::Way &lower) {
   using namespace outshine;
   using namespace outshine::Test;
+  if (kind == Crossing::BridgeBelowElevatedPath) {
+    CHECK(mesher.CrossingHeightM[0] < lower.ClearanceM,
+          "a bridge below an elevated path does not inherit that path's ground clearance");
+    CHECK(mesher.CrossingHeightM[1] >= mesher.CrossingHeightM[0] + lower.ClearanceM - 1e-6,
+          "the elevated path still clears the lower bridge");
+    return;
+  }
   if (kind == Crossing::SameBridgeTier || kind == Crossing::SameBuildingFloor) {
     CHECK(std::abs(mesher.CrossingHeightM[0] - mesher.CrossingHeightM[1]) < 1e-6,
           "coincident tiers do not introduce an artificial clearance");
@@ -193,6 +201,13 @@ std::vector<outshine::Generators::Osm::OsmField::Declared> DeclaredCrossing(Cros
   if (kind == Crossing::SameBridgeTier) {
     declared[0].Value = "rail";
     declared[1].Level = declared[0].Level;
+  }
+  if (kind == Crossing::BridgeBelowElevatedPath) {
+    declared[0].Value = "footway";
+    declared[1].Value = "footway";
+    declared[0].Level = 0;
+    declared[1].Level = 1;
+    declared[1].Bridge = false;
   }
   if (kind == Crossing::GroundEnds || kind == Crossing::RoadMeetsPath ||
       kind == Crossing::RailEndMeetsPath) {
@@ -331,6 +346,7 @@ int main() {
   }
   for (const auto kind : {Crossing::DenseStack,
                           Crossing::ObliqueStack,
+                          Crossing::BridgeBelowElevatedPath,
                           Crossing::SameBuildingFloor,
                           Crossing::StackedBuildingFloors}) {
     CheckStack(false, false, kind);

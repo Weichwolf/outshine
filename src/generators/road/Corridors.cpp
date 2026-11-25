@@ -529,7 +529,9 @@ void Corridors::RaiseDeckOver(const Path::Network::Crossing &one,
   const LongitudeLatitude at{.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg};
   if (PlannedNodeAt(on, first, at) == PlannedNodeAt(on, second, at)) { return; }
   const size_t spans = first.Bridge ? a : b;
+  const auto &bridge = first.Bridge ? first : second;
   const ::outshine::Generators::Osm::StreetField::Way &below = first.Bridge ? second : first;
+  if (bridge.Layer < below.Layer) { return; }
   const std::optional<Grounded> under =
       GroundUnder(on, {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg});
   if (!under) { return; }
