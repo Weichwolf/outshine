@@ -176,6 +176,7 @@ void Usage(std::string_view verb = {}) {
         "  --offline                      use cached and shipped sources\n"
         "  --output <file.json>           atomic report; default stdout\n"
         "  --image <file.png>             save only the final measured frame\n"
+        "  --tile-product <file.json>     render one prepared tile with Metal at 1280x720\n"
         "  --geometry-output <new-dir>    snapshot resident mesh indices after measurement\n"
         "N is 1..1000000; the scenario supplies width, height and target fps.\n"
         "No warmup frames; GPU percentiles stay absent when timestamps are incomplete.");

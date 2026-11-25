@@ -1,0 +1,212 @@
+#include "MetalTileRenderer.h"
+#include "Units.h"
+
+#import <Metal/Metal.h>
+#include <array>
+#include <chrono>
+#include <cmath>
+
+namespace outshine::Render {
+namespace {
+using Clock = std::chrono::steady_clock;
+constexpr size_t kMatrixWords = 16;
+constexpr auto kClearColor = std::array{0.18, 0.25, 0.34};
+constexpr size_t kChannels = 4;
+using ClipMatrix = std::array<float, kMatrixWords>;
+
+static_assert(sizeof(Vec3f) == 12 && alignof(Vec3f) == 4);
+static_assert(sizeof(ClipMatrix) == 64 && sizeof(uint32_t) == 4);
+
+NSString *const kShader = @R"(
+#include <metal_stdlib>
+using namespace metal;
+struct Varyings {
+  float4 position [[position]];
+  float3 metres;
+};
+vertex Varyings tile_vertex(uint index [[vertex_id]],
+                            const device packed_float3 *vertices [[buffer(0)]],
+                            constant float4x4 &clip [[buffer(1)]]) {
+  float3 point = vertices[index];
+  return {clip * float4(point, 1.0), point - float3(vertices[0])};
+}
+fragment float4 tile_fragment(Varyings in [[stage_in]]) {
+  float3 normal = normalize(cross(dfdx(in.metres), dfdy(in.metres)));
+  normal = normal.y < 0.0 ? -normal : normal;
+  const float3 light = normalize(float3(-0.55, 0.65, 0.45));
+  float diffuse = 0.35 + 0.65 * max(0.0, dot(normal, light));
+  float3 reflectance = mix(float3(0.26, 0.22, 0.17), float3(0.13, 0.20, 0.10),
+                           smoothstep(0.45, 0.92, normal.y));
+  return float4(diffuse * reflectance, 1.0);
+}
+)";
+
+double ElapsedMs(Clock::time_point since) {
+  return std::chrono::duration<double, std::milli>(Clock::now() - since).count();
+}
+
+std::expected<ClipMatrix, std::string> MetalClip(const Camera &camera) {
+  Mat4 clip;
+  const double aspect = static_cast<double>(TileFrameWidth) / TileFrameHeight;
+  if (!camera.clipMatrix(aspect, clip)) { return std::unexpected("invalid tile camera"); }
+  ClipMatrix packed{};
+  for (size_t column = 0; column < kMatrixWords; column += 4) {
+    clip[column + 2] = (clip[column + 3] - clip[column + 2]) * 0.5;
+  }
+  for (size_t word = 0; word < packed.size(); ++word) {
+    packed[word] = static_cast<float>(clip[word]);
+    if (!std::isfinite(packed[word])) { return std::unexpected("nonfinite Metal clip matrix"); }
+  }
+  return packed;
+}
+
+MTLTextureDescriptor *Texture(MTLPixelFormat format, MTLStorageMode storage) {
+  auto *const desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:format
+                                                                        width:TileFrameWidth
+                                                                       height:TileFrameHeight
+                                                                    mipmapped:NO];
+  desc.storageMode = storage;
+  desc.usage = MTLTextureUsageRenderTarget;
+  return desc;
+}
+
+struct TilePass {
+  id<MTLCommandQueue> Queue;
+  id<MTLRenderPipelineState> Pipeline;
+  id<MTLDepthStencilState> DepthState;
+  MTLRenderPassDescriptor *Pass;
+  id<MTLTexture> Color;
+};
+
+std::string MetalError(NSError *error, const char *fallback) {
+  const char *const reason = error.localizedDescription.UTF8String;
+  return reason != nullptr ? reason : fallback;
+}
+
+std::expected<TilePass, std::string> MakePass(id<MTLDevice> device) {
+  NSError *error = nil;
+  const id<MTLLibrary> library = [device newLibraryWithSource:kShader options:nil error:&error];
+  if (library == nil) {
+    return std::unexpected(MetalError(error, "Metal failed to create a tile shader or pipeline"));
+  }
+  auto *const descriptor = [[MTLRenderPipelineDescriptor alloc] init];
+  descriptor.vertexFunction = [library newFunctionWithName:@"tile_vertex"];
+  descriptor.fragmentFunction = [library newFunctionWithName:@"tile_fragment"];
+  descriptor.colorAttachments[0].pixelFormat = MTLPixelFormatRGBA8Unorm_sRGB;
+  descriptor.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float;
+  const id<MTLRenderPipelineState> pipeline =
+      [device newRenderPipelineStateWithDescriptor:descriptor error:&error];
+  if (pipeline == nil) {
+    return std::unexpected(MetalError(error, "Metal failed to create a tile shader or pipeline"));
+  }
+  auto *const depthSpec = [[MTLDepthStencilDescriptor alloc] init];
+  depthSpec.depthCompareFunction = MTLCompareFunctionGreater;
+  depthSpec.depthWriteEnabled = YES;
+  auto *const pass = [MTLRenderPassDescriptor renderPassDescriptor];
+  pass.colorAttachments[0].texture = [device
+      newTextureWithDescriptor:Texture(MTLPixelFormatRGBA8Unorm_sRGB, MTLStorageModeShared)];
+  pass.colorAttachments[0].loadAction = MTLLoadActionClear;
+  pass.colorAttachments[0].clearColor =
+      MTLClearColorMake(kClearColor[0], kClearColor[1], kClearColor[2], 1.0);
+  pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+  pass.depthAttachment.texture = [device
+      newTextureWithDescriptor:Texture(MTLPixelFormatDepth32Float, MTLStorageModeMemoryless)];
+  pass.depthAttachment.loadAction = MTLLoadActionClear;
+  pass.depthAttachment.clearDepth = 0.0;
+  pass.depthAttachment.storeAction = MTLStoreActionDontCare;
+  TilePass result{.Queue = [device newCommandQueue],
+                  .Pipeline = pipeline,
+                  .DepthState = [device newDepthStencilStateWithDescriptor:depthSpec],
+                  .Pass = pass,
+                  .Color = pass.colorAttachments[0].texture};
+  if (result.Queue == nil || result.DepthState == nil || result.Color == nil ||
+      pass.depthAttachment.texture == nil) {
+    return std::unexpected("Metal could not allocate the tile pass");
+  }
+  return result;
+}
+
+struct TileMesh {
+  id<MTLBuffer> Vertices;
+  id<MTLBuffer> Indices;
+  size_t IndexCount;
+};
+
+std::expected<double, std::string>
+Draw(const TilePass &pass, const TileMesh &mesh, const ClipMatrix &clip) {
+  @autoreleasepool {
+    const id<MTLCommandBuffer> command = [pass.Queue commandBuffer];
+    const id<MTLRenderCommandEncoder> draw = [command renderCommandEncoderWithDescriptor:pass.Pass];
+    if (draw == nil) { return std::unexpected("Metal could not encode the tile frame"); }
+    [draw setRenderPipelineState:pass.Pipeline];
+    [draw setDepthStencilState:pass.DepthState];
+    [draw setVertexBuffer:mesh.Vertices offset:0 atIndex:0];
+    [draw setVertexBytes:clip.data() length:sizeof(clip) atIndex:1];
+    [draw drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+                     indexCount:mesh.IndexCount
+                      indexType:MTLIndexTypeUInt32
+                    indexBuffer:mesh.Indices
+              indexBufferOffset:0];
+    [draw endEncoding];
+    [command commit];
+    [command waitUntilCompleted];
+    if (command.status != MTLCommandBufferStatusCompleted) {
+      return std::unexpected("Metal tile command failed");
+    }
+    const double began = command.GPUStartTime;
+    const double end = command.GPUEndTime;
+    if (began <= 0 || end <= began || !std::isfinite(end)) {
+      return std::unexpected("Metal tile GPU time unavailable");
+    }
+    return (end - began) * kMsPerS;
+  }
+}
+}
+
+std::expected<MetalTileFrames, std::string>
+RenderMetalTile(const SurfaceTile &tile, std::span<const Camera> cameras, bool readImage) {
+  @autoreleasepool {
+    const auto began = Clock::now();
+    const id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+    if (device == nil) { return std::unexpected("Metal device unavailable"); }
+    const auto pass = MakePass(device);
+    if (!pass) { return std::unexpected(pass.error()); }
+    MetalTileFrames frames;
+    const char *const name = device.name.UTF8String;
+    frames.Device = name != nullptr ? name : "Metal";
+    frames.SetupMs = ElapsedMs(began);
+    const auto upload = Clock::now();
+    const auto vertexBytes = std::as_bytes(std::span(tile.Vertices));
+    const auto indexBytes = std::as_bytes(std::span(tile.Indices));
+    const TileMesh mesh{.Vertices = [device newBufferWithBytes:vertexBytes.data()
+                                                        length:vertexBytes.size()
+                                                       options:MTLResourceStorageModeShared],
+                        .Indices = [device newBufferWithBytes:indexBytes.data()
+                                                       length:indexBytes.size()
+                                                      options:MTLResourceStorageModeShared],
+                        .IndexCount = tile.Indices.size()};
+    if (mesh.Vertices == nil || mesh.Indices == nil) {
+      return std::unexpected("Metal tile upload failed");
+    }
+    frames.UploadMs = ElapsedMs(upload);
+    frames.UploadedBytes = vertexBytes.size() + indexBytes.size();
+    frames.GpuMs.reserve(cameras.size());
+    for (const auto &camera : cameras) {
+      const auto clip = MetalClip(camera);
+      if (!clip) { return std::unexpected(clip.error()); }
+      const auto sample = Draw(*pass, mesh, *clip);
+      if (!sample) { return std::unexpected(sample.error()); }
+      frames.GpuMs.push_back(*sample);
+    }
+    if (readImage) {
+      const size_t row = TileFrameWidth * kChannels;
+      frames.Rgba.resize(row * TileFrameHeight);
+      [pass->Color getBytes:frames.Rgba.data()
+                bytesPerRow:row
+                 fromRegion:MTLRegionMake2D(0, 0, TileFrameWidth, TileFrameHeight)
+                mipmapLevel:0];
+    }
+    return frames;
+  }
+}
+}

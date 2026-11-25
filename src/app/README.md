@@ -179,3 +179,20 @@ Wartung erfolgt zwischen Läufen. Metadaten werden gebündelt geschrieben; ein l
 Prozess kann noch ungespeicherte Beobachtungen oder neue Cacheeinträge besitzen. Datenbanken
 bleiben jeweils transaktional konsistent; mehrere Datenbanken und Quelldateien bilden keine
 gemeinsame Transaktion. Teilfehler werden mit dem betroffenen Cache gemeldet.
+
+## Metal-Kachelbenchmark
+
+```sh
+build/outshine benchmark --scenario "$scenario" --tile-product "$tile" --frames 30 \
+  --image "$image" --output "$report"
+```
+
+Der Kachelbenchmark nimmt eine geografische Kamera mit absoluter Höhe und eine vorbereitete
+Oberflächenkachel bei 1280×720. `test/experiments/render/export_surface_tile.py` exportiert
+eine explizite Z/X/Y-Seite aus einer Ground-Region mit eingebetteten Seiten oder einem
+vollständigen Terrain-Pack (`--kind ground-terrain-pack`). Der Export verwendet die gespeicherten Höhen und die Triangulierung des
+Terrain-Meshers. Die Fehlerschranke bezieht sich auf die Triangulierung derselben Höhenzellen.
+
+Dieselbe Szenariodatei und Framezahl ohne `--tile-product` messen den gewohnten Weltpfad.
+Der Kachelbericht enthält Szene-Hash, Kachelrevision, Start- und Endkamera, Initialisierung,
+Upload und GPU-Zeit pro Frame. Die GPU-Zeit umfasst den Metal-Command-Buffer des Kachelpasses.

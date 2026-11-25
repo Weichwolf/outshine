@@ -1,6 +1,7 @@
 #include "BenchmarkCommand.h"
 #include "BenchmarkOptions.h"
 #include "BenchmarkScenario.h"
+#include "TileBenchmark.h"
 #include "Calibration.h"
 #include "WriteFileAtomically.h"
 
@@ -18,7 +19,17 @@ namespace outshine::App {
 namespace {
 
 std::expected<void, std::string> CheckOutputPaths(const BenchmarkOptions &options) {
-  if (!options.Scenario || options.Output.empty() || options.Scenario->Image.empty()) { return {}; }
+  if (!options.Scenario) { return {}; }
+  if (!options.Scenario->TileProduct.empty()) {
+    for (const auto output : {options.Output, options.Scenario->Image}) {
+      if (output.empty()) { continue; }
+      std::error_code error;
+      if (std::filesystem::equivalent(options.Scenario->TileProduct, output, error)) {
+        return std::unexpected("tile input and benchmark output require distinct files");
+      }
+    }
+  }
+  if (options.Output.empty() || options.Scenario->Image.empty()) { return {}; }
   std::error_code error;
   const auto output = std::filesystem::weakly_canonical(options.Output, error);
   if (error) {
@@ -36,7 +47,10 @@ std::expected<void, std::string> CheckOutputPaths(const BenchmarkOptions &option
 }
 
 std::expected<std::string, std::string> ExecuteBenchmark(const BenchmarkOptions &options) {
-  if (options.Scenario) { return RunScenarioBenchmark(*options.Scenario); }
+  if (options.Scenario) {
+    return options.Scenario->TileProduct.empty() ? RunScenarioBenchmark(*options.Scenario)
+                                                 : RunTileBenchmark(*options.Scenario);
+  }
   const auto report = Diagnostics::Calibration::Run(options.GpuValidation);
   if (!report) { return std::unexpected(report.error().Message); }
   return Diagnostics::Calibration::Json(*report);
