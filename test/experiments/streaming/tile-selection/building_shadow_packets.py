@@ -76,7 +76,7 @@ def geometry(payload, key):
     version, token = struct.unpack_from("<I64s", payload, len(magic))
     if (
         payload[: len(magic)] != magic
-        or version not in (13, 14)
+        or version not in (13, 14, 15)
         or token != key.encode()
         or sha256(payload[:-64]).hexdigest().encode() != payload[-64:]
     ):
@@ -91,9 +91,26 @@ def geometry(payload, key):
         at += array.nbytes
         return array.reshape(-1, width) if width > 1 else array
 
-    walls, roofs = take("<u4", 6)[:, :3], take("<u4", 6)[:, :3]
+    if version == 15:
+        corners, wall_count, roof_count = struct.unpack_from("<QQQ", payload, at)
+        at += 24
+        lanes = np.frombuffer(payload, dtype="u1", count=corners * 12, offset=at)
+        words = lanes.reshape(3, 4, corners).transpose(0, 2, 1).copy().view("<u4")
+        positions = np.bitwise_xor.accumulate(words.reshape(3, corners), axis=1).T
+        at += lanes.nbytes
+        references = np.frombuffer(
+            payload,
+            dtype="<u2" if corners <= 65536 else "<u4",
+            count=wall_count + roof_count,
+            offset=at,
+        )
+        at += references.nbytes + 12 * (wall_count + roof_count)
+        walls = positions[references[:wall_count]]
+        roofs = positions[references[wall_count:]]
+    else:
+        walls, roofs = take("<u4", 6)[:, :3], take("<u4", 6)[:, :3]
     wall_direct, roof_direct = take("<u4"), take("<u4")
-    cluster_words = 15 if version == 14 else 13
+    cluster_words = 15 if version >= 14 else 13
     take("<u4", cluster_words)
     take("<f4")  # WallColours
     take("<f4")  # WallMaterialM

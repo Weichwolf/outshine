@@ -1,5 +1,6 @@
 #include "StructureArtifact.h"
 #include "StructureBinary.h"
+#include "StructurePositionPalette.h"
 #include "BuildingFootprintFields.h"
 #include "Sha256.h"
 #include <algorithm>
@@ -24,8 +25,8 @@ static_assert(sizeof(size_t) == sizeof(uint64_t));
 constexpr uint32_t kPreviousVersion = 10;
 constexpr uint32_t kCeilingVersion = 11;
 constexpr uint32_t kPartVersion = 12;
-constexpr uint32_t kCompactVersion = 13;
-constexpr uint32_t kVersion = 14;
+constexpr uint32_t kDirectionalVersion = 14;
+constexpr uint32_t kPositionVersion = 15;
 constexpr uint32_t kPackedNormalMaximum = 0x00ffffffu;
 constexpr size_t kHashBytes = 64;
 constexpr size_t kMostBytes = kStructureArtifactBytesMost;
@@ -45,6 +46,9 @@ constexpr auto vertex = [](auto &archive, auto &value) {
   }
   return archive.Number(value.texture[0]) && archive.Number(value.texture[1]) &&
          archive.Number(value.normWord);
+};
+constexpr auto vertexLists = [](auto &archive, auto &geometry) {
+  return archive.List(geometry.WallCorners, vertex) && archive.List(geometry.RoofCorners, vertex);
 };
 constexpr auto cluster = [](auto &archive, auto &value, bool directions) {
   for (size_t i = 0; i < 3; ++i) {
@@ -92,11 +96,9 @@ bool OriginalIndices(Reader &archive, BakedTile &tile) {
 template <typename Archive, typename Tile>
 bool Product(Archive &archive, Tile &tile, uint32_t version) {
   const auto writeCluster = [version](auto &held, auto &value) {
-    return cluster(held, value, version >= kVersion);
+    return cluster(held, value, version >= kDirectionalVersion);
   };
-  if (!archive.List(tile.Built.WallCorners, vertex) ||
-      !archive.List(tile.Built.RoofCorners, vertex) || !OriginalIndices(archive, tile) ||
-      !archive.List(tile.Walls.Clusters, writeCluster) ||
+  if (!OriginalIndices(archive, tile) || !archive.List(tile.Walls.Clusters, writeCluster) ||
       !archive.List(tile.Built.WallColours, scalar) ||
       !archive.List(tile.Built.WallMaterialM, scalar) || !archive.List(tile.Walls.Index, scalar) ||
       !archive.List(tile.Roofs.Clusters, writeCluster) || !archive.List(tile.Roofs.Index, scalar) ||
@@ -217,11 +219,16 @@ std::expected<std::vector<uint8_t>, StructureArtifactError>
 EncodeStructureArtifact(const BakedTile &tile, std::string_view inputKey) {
   if (!KeyValid(inputKey)) { return std::unexpected(StructureArtifactError::InvalidKey); }
   if (!Valid(tile)) { return std::unexpected(StructureArtifactError::InvalidProduct); }
+  const auto palette = tile.RequestedDetail == LevelOfDetail::Shell
+                           ? StructureBinary::PositionPalette::Make(tile.Built)
+                           : std::nullopt;
+  const auto version = palette ? kPositionVersion : kDirectionalVersion;
   Writer writer;
   writer.Bytes.insert(writer.Bytes.end(), kMagic.begin(), kMagic.end());
-  if (!writer.Number(kVersion)) { return std::unexpected(writer.Failure); }
+  if (!writer.Number(version)) { return std::unexpected(writer.Failure); }
   writer.Bytes.insert(writer.Bytes.end(), inputKey.begin(), inputKey.end());
-  if (!Product(writer, tile, kVersion) || writer.Bytes.size() > kMostBytes - kHashBytes) {
+  if (!(palette ? palette->Write(writer, tile.Built) : vertexLists(writer, tile.Built)) ||
+      !Product(writer, tile, version) || writer.Bytes.size() > kMostBytes - kHashBytes) {
     return std::unexpected(writer.Failure);
   }
   const auto checksum = Sha256Hex(writer.Bytes.data(), writer.Bytes.size());
@@ -232,7 +239,7 @@ EncodeStructureArtifact(const BakedTile &tile, std::string_view inputKey) {
 std::optional<BakedTile> DecodeStructureArtifact(std::span<const uint8_t> bytes,
                                                  std::string_view inputKey,
                                                  uint64_t currentSourceKey) {
-  const size_t header = kMagic.size() + sizeof(kVersion) + kHashBytes;
+  const size_t header = kMagic.size() + sizeof(uint32_t) + kHashBytes;
   if (!KeyValid(inputKey) || bytes.size() > kMostBytes || bytes.size() < header + kHashBytes ||
       !std::equal(kMagic.begin(), kMagic.end(), bytes.begin())) {
     return std::nullopt;
@@ -244,15 +251,16 @@ std::optional<BakedTile> DecodeStructureArtifact(std::span<const uint8_t> bytes,
   }
   Reader reader(payload.subspan(kMagic.size()));
   uint32_t version = 0;
-  if (!reader.Number(version) ||
-      (version != kVersion && version != kPartVersion && version != kCeilingVersion &&
-       version != kPreviousVersion && version != kCompactVersion) ||
+  if (!reader.Number(version) || version < kPreviousVersion || version > kPositionVersion ||
       !std::equal(inputKey.begin(), inputKey.end(), reader.Bytes.begin())) {
     return std::nullopt;
   }
   reader.Bytes = reader.Bytes.subspan(kHashBytes);
   BakedTile tile;
-  if (!Product(reader, tile, version) || !reader.Bytes.empty() || !Valid(tile)) {
+  const bool positions = version == kPositionVersion
+                             ? StructureBinary::PositionPalette::Read(reader, tile.Built)
+                             : vertexLists(reader, tile.Built);
+  if (!positions || !Product(reader, tile, version) || !reader.Bytes.empty() || !Valid(tile)) {
     return std::nullopt;
   }
   if (tile.SurfaceError) {
