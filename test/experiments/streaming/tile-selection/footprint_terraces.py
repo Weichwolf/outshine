@@ -51,28 +51,28 @@ def raster(parts, spacing):
     return start, lower, upper
 
 
+def footprint_support(part, spacing, grid):
+    start, lower, upper = grid
+    point = point_on_surface(part.footprint)
+    column, row = (
+        np.floor(np.asarray((point.x, point.y)) / spacing).astype(int) - start
+    )
+    if upper[row, column] == NO_ROOF:
+        left, top, right, bottom = part.footprint.bounds
+        return math.hypot(right - left, bottom - top, part.top_m - part.bottom_m)
+    drift = max(
+        abs(part.top_m - upper[row, column] * HEIGHT_STEP_M),
+        abs(part.bottom_m - lower[row, column] * HEIGHT_STEP_M),
+    )
+    return math.hypot(spacing, spacing, drift)
+
+
 def support_diameter(parts, spacing, grid):
     """Estimate the image support lost when the raster replaces these footprints."""
-    start, lower, upper = grid
-    support = math.hypot(spacing, spacing)
-    for part in parts:
-        point = point_on_surface(part.footprint)
-        column, row = (
-            np.floor(np.asarray((point.x, point.y)) / spacing).astype(int) - start
-        )
-        if upper[row, column] == NO_ROOF:
-            left, top, right, bottom = part.footprint.bounds
-            diameter = math.hypot(
-                right - left, bottom - top, part.top_m - part.bottom_m
-            )
-        else:
-            drift = max(
-                abs(part.top_m - upper[row, column] * HEIGHT_STEP_M),
-                abs(part.bottom_m - lower[row, column] * HEIGHT_STEP_M),
-            )
-            diameter = math.hypot(spacing, spacing, drift)
-        support = max(support, diameter)
-    return support
+    return max(
+        (footprint_support(part, spacing, grid) for part in parts),
+        default=math.hypot(spacing, spacing),
+    )
 
 
 def wall_runs(lower, upper, neighbour_lower, neighbour_upper):
@@ -162,9 +162,13 @@ def surface(start, spacing, floor, roof, region):
 def terrace_tiles(grounded, spacing):
     if not grounded:
         return
+    yield from occupied_tiles(raster(grounded, spacing), spacing)
+
+
+def occupied_tiles(grid, spacing):
     if spacing <= 0 or GROUP_METRES % spacing:
         raise ValueError("terrace spacing must divide the group extent")
-    start, lower, upper = raster(grounded, spacing)
+    start, lower, upper = grid
     height, width = upper.shape
     side = GROUP_METRES // spacing
     for z in range(0, height, side):
@@ -186,7 +190,15 @@ def terraces(grounded, spacing):
 
 
 def prism_tiles(grounded, spacing):
-    for start, lower, upper, (x, z, right, south) in terrace_tiles(grounded, spacing):
+    yield from pack_prism_tiles(terrace_tiles(grounded, spacing), spacing)
+
+
+def prism_grid_tiles(grid, spacing):
+    yield from pack_prism_tiles(occupied_tiles(grid, spacing), spacing)
+
+
+def pack_prism_tiles(tiles, spacing):
+    for start, lower, upper, (x, z, right, south) in tiles:
         region = np.s_[z:south, x:right]
         spans = np.stack((lower[region], upper[region]), axis=-1).astype("<f4")
         spans *= HEIGHT_STEP_M

@@ -178,7 +178,7 @@ bool ReadFlight(BinaryValueReader &in, Flight &flight) {
          std::isfinite(flight.Fov) && flight.Fov > 0 && flight.Fov < std::numbers::pi;
 }
 
-std::expected<Geometry, std::string> Prepare(const std::vector<uint8_t> &bytes,
+std::expected<Geometry, std::string> Prepare(std::span<const uint8_t> bytes,
                                              std::string_view mode,
                                              double texelMetres,
                                              Flight &flight,
@@ -270,7 +270,7 @@ GeneratePrisms(BinaryValueReader &in, LongitudeLatitude anchor, std::string_view
   return result;
 }
 
-std::expected<PrismRows, std::string> PreparePrisms(const std::vector<uint8_t> &bytes,
+std::expected<PrismRows, std::string> PreparePrisms(std::span<const uint8_t> bytes,
                                                     Flight &flight,
                                                     Counts &counts,
                                                     std::optional<std::string_view> generate) {
@@ -308,8 +308,8 @@ std::expected<PrismRows, std::string> PreparePrisms(const std::vector<uint8_t> &
     rows.Instances.push_back(
         {.Patch = at, .Current = placed, .Previous = placed, .TopCoating = roof});
   }
-  counts.Groups = rows.Instances.size();
-  counts.Triangles = 2 * counts.Groups;
+  counts.Groups += rows.Instances.size();
+  counts.Triangles += 2 * rows.Instances.size();
   return rows;
 }
 
@@ -328,12 +328,36 @@ std::expected<void, std::string> PlacePrisms(SceneRenderer &renderer, const Pris
   return {};
 }
 
+std::expected<Replay, std::string>
+PrepareHybrid(std::span<const uint8_t> bytes, Flight &flight, Counts &counts) {
+  BinaryValueReader input(bytes);
+  uint64_t meshBytes = 0;
+  if (!input(meshBytes) || meshBytes > input.In.Remaining()) {
+    return std::unexpected("invalid hybrid footprint header");
+  }
+  const auto meshPayload = input.In.Take(static_cast<size_t>(meshBytes));
+  const auto gridPayload = input.In.Take(input.In.Remaining());
+  if (!meshPayload || !gridPayload) { return std::unexpected("incomplete hybrid footprint"); }
+  auto mesh = Prepare(*meshPayload, "geometry", 0, flight, counts);
+  if (!mesh) { return std::unexpected(mesh.error()); }
+  Flight gridFlight;
+  auto rows = PreparePrisms(*gridPayload, gridFlight, counts, std::nullopt);
+  if (!rows) { return std::unexpected(rows.error()); }
+  if (gridFlight.Start != flight.Start || gridFlight.End != flight.End ||
+      gridFlight.Forward != flight.Forward || gridFlight.Up != flight.Up ||
+      gridFlight.Fov != flight.Fov) {
+    return std::unexpected("hybrid footprint components use different flight poses");
+  }
+  return Replay{.Mesh = std::move(*mesh), .Prisms = std::move(*rows)};
+}
+
 std::expected<Replay, std::string> PrepareReplay(const std::vector<uint8_t> &bytes,
                                                  std::string_view mode,
                                                  double texelMetres,
                                                  Flight &flight,
                                                  Counts &counts,
                                                  std::string_view output) {
+  if (mode == "hybrid") { return PrepareHybrid(bytes, flight, counts); }
   if (mode == "prisms" || mode == "terraces") {
     const auto generate = mode == "terraces" ? std::optional(output) : std::nullopt;
     auto rows = PreparePrisms(bytes, flight, counts, generate);
@@ -365,7 +389,7 @@ std::expected<double, std::string> Measure(const Geometry &geometry,
                                            const PrismRows *prisms = nullptr) {
   SceneRenderer renderer;
   Core::Declaration declaration;
-  declaration.InitialGeometry = prisms == nullptr ? &geometry : nullptr;
+  declaration.InitialGeometry = geometry.parts() != 0 ? &geometry : nullptr;
   declaration.SurfaceWidthPx = kFrame.WidthPx;
   declaration.SurfaceHeightPx = kFrame.HeightPx;
   declaration.Outputs = {"surface", "sceneDepth"};
@@ -414,13 +438,13 @@ std::expected<double, std::string> Measure(const Geometry &geometry,
 
 int main(int argc, const char *const *argv) {
   if (argc < 4 || argc > 5) {
-    std::cerr
-        << "usage: footprint_cards PRODUCT geometry|flat|depth|prisms|terraces OUTPUT [4|8|16]\n";
+    std::cerr << "usage: footprint_cards PRODUCT geometry|flat|depth|prisms|terraces|hybrid OUTPUT "
+                 "[4|8|16]\n";
     return 2;
   }
   const std::string_view mode = argv[2];
-  constexpr std::array<std::string_view, 5> modes{
-      "geometry", "flat", "depth", "prisms", "terraces"};
+  constexpr std::array<std::string_view, 6> modes{
+      "geometry", "flat", "depth", "prisms", "terraces", "hybrid"};
   if (!std::ranges::contains(modes, mode)) { return 2; }
   const std::string_view pitch = argc == 5 ? argv[4] : "4";
   int texelMetres = 0;
@@ -450,9 +474,10 @@ int main(int argc, const char *const *argv) {
   }
   std::cout << mode << ' ';
   if (mode == "flat" || mode == "depth") { std::cout << texelMetres << " m/texel "; }
+  std::string_view triangles = replay->Prisms ? " proxy triangles " : " triangles ";
+  if (mode == "hybrid") { triangles = " submitted triangles "; }
   std::cout << counts.Groups << " groups " << counts.Cards << " cards " << counts.Triangles
-            << (replay->Prisms ? " proxy triangles " : " triangles ") << counts.AtlasBytes
-            << " atlas bytes upper bound " << counts.BytesRejected << " byte rejects "
-            << counts.PoseRejected << " pose rejects " << preparation << " ms preparation " << *p99
-            << " ms GPU p99\n";
+            << triangles << counts.AtlasBytes << " atlas bytes upper bound " << counts.BytesRejected
+            << " byte rejects " << counts.PoseRejected << " pose rejects " << preparation
+            << " ms preparation " << *p99 << " ms GPU p99\n";
 }
