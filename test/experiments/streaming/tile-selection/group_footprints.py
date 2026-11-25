@@ -116,6 +116,7 @@ class Perspective:
     eye: np.ndarray
     axes: np.ndarray
     focal: float
+    size: tuple[int, int] = (WIDTH, HEIGHT)
 
     @classmethod
     def look_at(cls, azimuth, elevation, distance, centre):
@@ -141,12 +142,12 @@ class Perspective:
         camera = np.einsum("ni,ij->nj", xyz - self.eye, self.axes)
         assert (camera[:, 2] > 0).all()
         points = camera[:, :2] * (self.focal / camera[:, 2, None])
-        points += (WIDTH * 0.5, HEIGHT * 0.5)
+        points += np.asarray(self.size) * 0.5
         return points
 
 
-def silhouette(extrusions, camera):
-    image = Image.new("1", (WIDTH, HEIGHT))
+def silhouette(extrusions, camera, size=(WIDTH, HEIGHT)):
+    image = Image.new("1", size)
     walls = ImageDraw.Draw(image)
     for item in extrusions:
         footprint = item.footprint
@@ -160,8 +161,8 @@ def silhouette(extrusions, camera):
                 walls.polygon((tuple(a), tuple(b), tuple(c), tuple(d)), fill=1)
         top = top_rings[0]
         xs, ys = zip(*top)
-        x0, x1 = max(0, math.floor(min(xs))), min(WIDTH, math.ceil(max(xs)) + 1)
-        y0, y1 = max(0, math.floor(min(ys))), min(HEIGHT, math.ceil(max(ys)) + 1)
+        x0, x1 = max(0, math.floor(min(xs))), min(size[0], math.ceil(max(xs)) + 1)
+        y0, y1 = max(0, math.floor(min(ys))), min(size[1], math.ceil(max(ys)) + 1)
         if x0 >= x1 or y0 >= y1:
             continue
         roof = Image.new("1", (x1 - x0, y1 - y0))
