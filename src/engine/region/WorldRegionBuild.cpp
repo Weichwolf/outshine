@@ -59,7 +59,6 @@
 #include "WaterBasinStamps.h"
 #include "GroundBuildSchedule.h"
 #include "GroundMesher.h"
-#include "GroundPatchwork.h"
 #include "StreetGraphBuilder.h"
 #include "StreetGraphRequest.h"
 #include "GroundRegionRequest.h"
@@ -434,8 +433,7 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
   if (!over.Sweep && from != previous.Region && World.PublishedGroundCoverage &&
       !World.PublishedGroundCoverage->Sweep && World.TerrainClipmaps &&
       previous.Quality == GroundQuality::Refined && World.Pending == 0 && World.Bare == 0 &&
-      World.RimsMissing == 0 &&
-      PatchworkCoversFocus(*World.PublishedGroundCoverage, over, FinestTerrainSampleRadiusM())) {
+      World.RimsMissing == 0 && PublishedGroundCoversClipmap(over)) {
     request.Coverage = *World.PublishedGroundCoverage;
     from = previous.Region;
   }

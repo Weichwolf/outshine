@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_TERRAIN_GROUNDPATCHWORK_H
 #define OUTSHINE_GENERATORS_TERRAIN_GROUNDPATCHWORK_H
 
+#include "Box.h"
 #include "TileGeodesy.h"
 #include "Vec3.h"
 #include <array>
@@ -14,6 +15,8 @@
 #include "GroundMesher.h"
 
 namespace outshine {
+
+class TangentFrame;
 
 class Patchworker final : public GroundMesher {
 public:
@@ -40,6 +43,11 @@ SweptPatchworkCovers(const TerrainSweep &sweep, const Around &request, const Vec
 
 [[nodiscard]] bool
 PatchworkCoversFocus(const Around &coverage, const Around &request, double radiusM) noexcept;
+
+[[nodiscard]] bool PatchworkCoversSamples(const Around &coverage,
+                                          const Around &request,
+                                          const TangentFrame &frame,
+                                          const Box &localBounds) noexcept;
 
 }
 

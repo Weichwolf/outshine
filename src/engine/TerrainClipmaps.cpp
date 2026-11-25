@@ -1,11 +1,16 @@
 #include "EngineState.h"
+#include "Box.h"
+#include "GroundPatchwork.h"
 #include "RuntimeScene.h"
+#include "TangentFrame.h"
 #include "TerrainClipmapPreparation.h"
 #include "TerrainFieldSet.h"
 #include "TerrainLoader.h"
 #include "WorldRegionBuildState.h"
+#include "Units.h"
 #include "device/native/MemoryStatus.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -22,6 +27,7 @@ namespace outshine {
 namespace {
 constexpr size_t kClipmapSamplesPerSlice = 1024;
 constexpr Render::ClipmapGrid kFinestGrid{.HalfCells = 128, .Levels = 1};
+constexpr double kFinestSampleHalfWidthM = (kFinestGrid.HalfCells + 3) * kFinestGrid.CellM;
 
 Vec2 GroundCamera(const Core::RuntimeScene &scene) {
   const auto &eye = scene.Watched() ? scene.Watching() : scene.Aimed();
@@ -55,6 +61,21 @@ Render::ClipmapGrid GridFor(double sightM) {
   }
   return grid;
 }
+
+Box ClipmapSampleVolume(Vec2 camera, const std::array<double, 2> &heightsM) noexcept {
+  constexpr double radiusM = kWgs84A * (1 - kWgs84E2);
+  constexpr double roundoffM = 256 * std::numeric_limits<double>::epsilon() * kWgs84A;
+  const double heightM = std::max(std::abs(heightsM[0]), std::abs(heightsM[1]));
+  const double reachM = 2 * (std::hypot(std::abs(camera[0]) + kFinestSampleHalfWidthM,
+                                        std::abs(camera[1]) + kFinestSampleHalfWidthM) +
+                             roundoffM);
+  if (!(reachM < radiusM / 2) || !(heightM < radiusM / 4)) { return {}; }
+  const double sagM = (reachM * reachM) / radiusM;
+  const double driftM = heightM * std::hypot(reachM, sagM) / radiusM;
+  const double half = kFinestSampleHalfWidthM + driftM + roundoffM;
+  return {.Min = {{camera[0] - half, camera[1] - half, -sagM - heightM - roundoffM}},
+          .Max = {{camera[0] + half, camera[1] + half, heightM + roundoffM}}};
+}
 }
 
 double Engine::State::FinestTerrainSampleRadiusM() noexcept {
@@ -62,7 +83,22 @@ double Engine::State::FinestTerrainSampleRadiusM() noexcept {
 }
 
 double Engine::State::FinestTerrainSampleHalfWidthM() noexcept {
-  return (kFinestGrid.HalfCells + 3) * kFinestGrid.CellM;
+  return kFinestSampleHalfWidthM;
+}
+
+bool Engine::State::PublishedGroundCoversClipmap(const Around &request) const {
+  if (!World.PublishedGroundCoverage) { return false; }
+  const auto &coverage = *World.PublishedGroundCoverage;
+  if (PatchworkCoversFocus(coverage, request, FinestTerrainSampleRadiusM())) { return true; }
+  const auto *terrain = World.TerrainSurface.PublishedSurface();
+  if (terrain == nullptr) { return false; }
+  const auto range = terrain->SampleAslBoundsM();
+  if (!range) { return false; }
+  const auto bounds = ClipmapSampleVolume(GroundCamera(*Picture.Standing), *range);
+  const auto &anchor = Session.Declared.Ground.Origin;
+  const auto frame =
+      TangentFrame::At({.LongitudeDeg = anchor.LongitudeDeg, .LatitudeDeg = anchor.LatitudeDeg});
+  return PatchworkCoversSamples(coverage, request, frame, bounds);
 }
 
 bool Engine::State::TerrainClipmapsReady() const noexcept {

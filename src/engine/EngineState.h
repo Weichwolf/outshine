@@ -613,6 +613,7 @@ struct Engine::State {
   [[nodiscard]] double TerrainSightM() const noexcept;
   [[nodiscard]] static double FinestTerrainSampleRadiusM() noexcept;
   [[nodiscard]] static double FinestTerrainSampleHalfWidthM() noexcept;
+  [[nodiscard]] bool PublishedGroundCoversClipmap(const Around &request) const;
   [[nodiscard]] Generators::Osm::GroundTerrainErrorLimit
   TerrainPackErrorLimit(const Around &coverage) const;
   [[nodiscard]] Holds<std::vector<Around>>

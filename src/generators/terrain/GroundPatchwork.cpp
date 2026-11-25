@@ -1,4 +1,6 @@
 #include "GroundPatchwork.h"
+#include "Box.h"
+#include "TangentFrame.h"
 #include "TileGeodesy.h"
 #include "Units.h"
 
@@ -8,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <limits>
 #include <map>
 #include <optional>
 #include <span>
@@ -302,16 +305,53 @@ bool PatchworkIncludesContactTile(const Around &coverage, const Around &request)
   return column < kBlockTiles && row >= 0 && row < kBlockTiles;
 }
 
-bool PatchworkCoversFocus(const Around &coverage, const Around &request, double radiusM) noexcept {
-  if (!PatchworkIncludesContactTile(coverage, request) || !std::isfinite(radiusM) ||
-      radiusM <= 0.0) {
-    return false;
-  }
+namespace {
+bool RetainsCoarseBlocks(const Around &coverage, const Around &request) noexcept {
+  if (!PatchworkIncludesContactTile(coverage, request)) { return false; }
   const int levels = std::min(coverage.Levels, coverage.Zoom);
   for (int level = 1; level < levels; ++level) {
     const TileBlock held = BlockAt(coverage, level);
     const TileBlock wanted = BlockAt(request, level);
     if (held.X != wanted.X || held.Y != wanted.Y) { return false; }
+  }
+  return true;
+}
+
+constexpr double kEdgeRoundoffM = 256 * std::numeric_limits<double>::epsilon() * kWgs84A;
+enum class EdgeBound { Lower, Upper };
+
+bool InsideMeridian(std::span<const Vec3> corners, double degrees, EdgeBound bound) noexcept {
+  const double inward = bound == EdgeBound::Lower ? 1 : -1;
+  const double angle = degrees * kDeg2Rad;
+  const Vec3 normal{{-inward * std::sin(angle), inward * std::cos(angle), 0}};
+  return std::ranges::all_of(
+      corners, [&](const Vec3 &corner) { return Dot(normal, corner) > kEdgeRoundoffM; });
+}
+
+bool InsideParallel(std::span<const Vec3> corners,
+                    const Box &rotated,
+                    double degrees,
+                    EdgeBound bound) noexcept {
+  if (!(rotated.Min[0] > 0)) { return false; }
+  const double inward = bound == EdgeBound::Lower ? 1 : -1;
+  const double angle = degrees * kDeg2Rad;
+  const double vertical = inward * std::cos(angle);
+  const double sine = std::sin(angle);
+  const double radial = -inward * sine;
+  const double primeVertical = kWgs84A / std::sqrt(1 - kWgs84E2 * sine * sine);
+  const double offset = kWgs84E2 * primeVertical * sine * vertical;
+  const double outerEast = std::max(std::abs(rotated.Min[1]), std::abs(rotated.Max[1]));
+  const double radialSlack = outerEast * outerEast / (2 * rotated.Min[0]);
+  const double margin = kEdgeRoundoffM + std::max(0.0, -radial * radialSlack);
+  return std::ranges::all_of(corners, [&](const Vec3 &corner) {
+    return radial * corner[0] + vertical * corner[2] + offset > margin;
+  });
+}
+}
+
+bool PatchworkCoversFocus(const Around &coverage, const Around &request, double radiusM) noexcept {
+  if (!std::isfinite(radiusM) || radiusM <= 0.0 || !RetainsCoarseBlocks(coverage, request)) {
+    return false;
   }
   const auto block = BlockAt(coverage, 0);
   const auto bounds = FinestBlockBounds(block);
@@ -328,6 +368,34 @@ bool PatchworkCoversFocus(const Around &coverage, const Around &request, double 
   const double eastward = offset - kDegPerTurn * std::floor(offset / kDegPerTurn);
   const double width = bounds.MaxLonDeg - bounds.MinLonDeg;
   return lonSpan < eastward && eastward + lonSpan < width;
+}
+
+bool PatchworkCoversSamples(const Around &coverage,
+                            const Around &request,
+                            const TangentFrame &frame,
+                            const Box &localBounds) noexcept {
+  if (localBounds.Empty() || !RetainsCoarseBlocks(coverage, request)) { return false; }
+  const auto window = FinestBlockBounds(BlockAt(coverage, 0));
+  const double width = window.MaxLonDeg - window.MinLonDeg;
+  std::array<Vec3, 8> corners;
+  const auto &east = frame.EastEcef();
+  const Vec3 radial{{east[1], -east[0], 0}};
+  const double origin = frame.Anchor().LongitudeDeg;
+  Box rotated;
+  for (unsigned i = 0; i < corners.size(); ++i) {
+    const auto point = localBounds.Corner(i);
+    const auto corner =
+        frame.ToEcefPosition({.EastM = point[0], .NorthM = point[1], .UpM = point[2]});
+    corners[i] = {{Dot(radial, corner), Dot(east, corner), corner[2]}};
+    rotated.Cover(corners[i]);
+  }
+  const bool betweenMeridians =
+      width >= kDegPerTurn ||
+      (width <= kDegPerHalfTurn &&
+       InsideMeridian(corners, window.MinLonDeg - origin, EdgeBound::Lower) &&
+       InsideMeridian(corners, window.MaxLonDeg - origin, EdgeBound::Upper));
+  return betweenMeridians && InsideParallel(corners, rotated, window.MinLatDeg, EdgeBound::Lower) &&
+         InsideParallel(corners, rotated, window.MaxLatDeg, EdgeBound::Upper);
 }
 
 std::expected<Patchwork, std::string> Patchworker::Lay(TileMeshes &tiles,

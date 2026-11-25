@@ -1,4 +1,5 @@
 #include "src/generators/terrain/GroundPatchwork.h"
+#include "TangentFrame.h"
 #include "TileGeodesy.h"
 #include "Check.h"
 #include <algorithm>
@@ -250,12 +251,29 @@ int main() {
         "walking across an overlapping fine tile can reuse the full near footprint");
   CHECK(!PatchworkCoversFocus(published, fine({.X = 100003.25, .Y = 53002.01}), 186),
         "a resident contact tile alone cannot cover the near footprint");
+  const auto overlap = fine({.X = 100003.25, .Y = 53002.65});
+  const auto frame =
+      TangentFrame::At({.LongitudeDeg = overlap.LongitudeDeg, .LatitudeDeg = overlap.LatitudeDeg});
+  const Box square{.Min = {{-131, -131, -6000}}, .Max = {{131, 131, 6000}}};
+  CHECK(!PatchworkCoversFocus(published, overlap, 186) &&
+            PatchworkCoversSamples(published, overlap, frame, square),
+        "a camera retains the overlapping terrain when its sample square fits");
+  auto crossing = square;
+  crossing.Max[1] = 190;
+  CHECK(!PatchworkCoversSamples(published, overlap, frame, crossing),
+        "crossing the fine edge requires a finer replacement even with the contact tile held");
   CHECK(!PatchworkCoversFocus(published, fine({.X = 100005.1, .Y = 53003.1}), 186),
         "crossing a coarser block boundary requires new terrain");
   const auto east = fine({.X = 131071.5, .Y = 53001.5}, 1);
   const auto west = fine({.X = 0.5, .Y = 53001.5}, 1);
   CHECK(PatchworkCoversFocus(east, west, 186) && PatchworkCoversFocus(west, east, 186),
         "fine coverage remains continuous across the antimeridian in either direction");
+  CHECK(PatchworkCoversSamples(
+            east,
+            west,
+            TangentFrame::At({.LongitudeDeg = west.LongitudeDeg, .LatitudeDeg = west.LatitudeDeg}),
+            square),
+        "the sample volume is recognized through a wrapped meridian");
   CHECK(
       !PatchworkCoversFocus(fine({.X = 500.5, .Y = 0.1}, 1), fine({.X = 500.5, .Y = 0.01}, 1), 186),
       "coverage cannot extend beyond the Mercator band");
