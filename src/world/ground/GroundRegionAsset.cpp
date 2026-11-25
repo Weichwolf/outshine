@@ -196,6 +196,14 @@ bool ReadClasses(BinaryValueReader &in, std::shared_ptr<const TerrainClassificat
 }
 }
 
+bool WriteGroundTerrainSheet(BinaryValueWriter &out, const Sheet &sheet) {
+  return PageFields(out, sheet);
+}
+
+bool ReadGroundTerrainSheet(BinaryValueReader &in, Sheet &sheet) {
+  return PageFields(in, sheet);
+}
+
 std::optional<std::vector<uint8_t>> EncodeGroundRegionAsset(const GroundRegionAsset &region,
                                                             size_t bytesMost) {
   BinaryValueWriter out(bytesMost);
@@ -204,11 +212,16 @@ std::optional<std::vector<uint8_t>> EncodeGroundRegionAsset(const GroundRegionAs
 }
 
 bool EncodeGroundRegionAsset(const GroundRegionAsset &region, BinaryValueWriter &out) {
-  if (!ValidRegion(region) || region.Terrain.Sheets.size() > kPagesMost) { return false; }
-  if (!out(kFormat) || !RegionFields(out, region) ||
-      !out(static_cast<uint32_t>(region.Terrain.Sheets.size())) ||
-      !std::ranges::all_of(region.Terrain.Sheets,
-                           [&](const Sheet &page) { return PageFields(out, page); }) ||
+  return EncodeGroundRegionAsset(region, region.Terrain.Sheets, out);
+}
+
+bool EncodeGroundRegionAsset(const GroundRegionAsset &region,
+                             std::span<const Sheet> sheets,
+                             BinaryValueWriter &out) {
+  if (!ValidRegion(region) || sheets.size() > kPagesMost) { return false; }
+  if (!out(kFormat) || !RegionFields(out, region) || !out(static_cast<uint32_t>(sheets.size())) ||
+      !std::ranges::all_of(sheets,
+                           [&](const Sheet &page) { return WriteGroundTerrainSheet(out, page); }) ||
       !WriteClasses(out, region.Classes) || !out(region.Network != nullptr)) {
     return false;
   }
@@ -237,7 +250,7 @@ std::optional<GroundRegionAsset> DecodeGroundRegionAsset(std::span<const uint8_t
   }
   region.Terrain.Sheets.resize(pages);
   if (!std::ranges::all_of(region.Terrain.Sheets,
-                           [&](Sheet &page) { return PageFields(in, page); }) ||
+                           [&](Sheet &page) { return ReadGroundTerrainSheet(in, page); }) ||
       !ReadClasses(in, region.Classes)) {
     return std::nullopt;
   }

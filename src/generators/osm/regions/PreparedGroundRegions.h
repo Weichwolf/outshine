@@ -16,6 +16,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace outshine::Data {
 class SourceSet;
@@ -52,9 +53,12 @@ public:
 
   class StoreWork {
   public:
-    // Encoded package capacity; a decoded region remains a separate owner.
     [[nodiscard]] size_t PublicationBytes() const noexcept {
-      return Package_ ? Package_->CapacityBytes() : 0;
+      size_t bytes = Packages_.capacity() * sizeof(PreparedAssetWrite);
+      for (const auto &package : Packages_) {
+        bytes += package.CapacityBytes() - sizeof(PreparedAssetWrite);
+      }
+      return bytes;
     }
 
     [[nodiscard]] uint64_t PublicationAttempts() const noexcept { return Attempts_; }
@@ -67,7 +71,7 @@ public:
         : Key_(std::move(key)), Request_(std::move(request)) {}
 
     std::string Key_, Request_;
-    std::optional<PreparedAssetWrite> Package_;
+    std::vector<PreparedAssetWrite> Packages_;
     std::optional<Loaded> Loaded_;
     Phase Current_ = Phase::Publish;
     uint64_t Attempts_ = 0;
@@ -99,10 +103,11 @@ public:
   [[nodiscard]] std::string RequestKey(const OsmField &vectors,
                                        const ::outshine::Ground::ShapedGround &shape,
                                        std::span<const uint8_t> parameters) const;
-  // Native reads check kind and binding; Decode consumes the package and validates its schema.
+  // Restore resolves the dependencies of the selected native product.
   [[nodiscard]] ReadResult LoadProduct(const std::string &key);
   [[nodiscard]] ReadResult LoadRequestProduct(const std::string &requestKey);
-  [[nodiscard]] std::optional<Loaded> Decode(CachedAsset product);
+  [[nodiscard]] std::expected<std::optional<Loaded>, Failure>
+  Restore(CachedAsset product, const std::stop_token &stop = {});
   [[nodiscard]] std::expected<void, Failure> BindRequest(const std::string &key,
                                                          const std::string &requestKey);
   [[nodiscard]] std::expected<StoreWork, Failure> PrepareStore(const std::string &key,
@@ -115,7 +120,8 @@ public:
 
 private:
   PreparedGroundRegions(std::shared_ptr<AssetCache> cache, std::string recipe);
-  [[nodiscard]] std::expected<std::optional<Loaded>, Failure> LoadDecoded(const std::string &key);
+  [[nodiscard]] std::expected<std::optional<Loaded>, Failure>
+  LoadRegion(const std::string &key, const std::stop_token &stop = {});
   [[nodiscard]] std::expected<Loaded, Failure> ResumeStore(StoreWork &work,
                                                            const std::stop_token &stop);
   std::shared_ptr<AssetCache> Cache_;

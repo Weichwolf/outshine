@@ -8,6 +8,29 @@
 #include <numeric>
 
 namespace outshine {
+Box GroundTerrainSheetBoundsEcef(const Sheet &sheet) {
+  if (sheet.Nodes.empty()) { return {}; }
+  const auto geographic = Ground::TileBounds(sheet.Tile);
+  const auto [low, high] = std::ranges::minmax(sheet.Nodes);
+  Vec3 centre;
+  GeoToEcef({.LongitudeDeg = std::midpoint(geographic.MinLonDeg, geographic.MaxLonDeg),
+             .LatitudeDeg = std::midpoint(geographic.MinLatDeg, geographic.MaxLatDeg),
+             .HeightM = std::midpoint(static_cast<double>(low), static_cast<double>(high))},
+            centre);
+  constexpr double derivativeBoundM = 6400000;
+  const double radius = (derivativeBoundM + std::max(std::abs(low), std::abs(high))) *
+                            (geographic.MaxLonDeg - geographic.MinLonDeg + geographic.MaxLatDeg -
+                             geographic.MinLatDeg) *
+                            std::numbers::pi / kDegPerTurn +
+                        (static_cast<double>(high) - low) * 0.5;
+  Box page;
+  for (size_t axis = 0; axis < 3; ++axis) {
+    page.Min[axis] = centre[axis] - radius;
+    page.Max[axis] = centre[axis] + radius;
+  }
+  return page;
+}
+
 Box GroundRegionBoundsEcef(const GroundRegionAsset &region) {
   Box bounds;
   const TangentFrame frame = TangentFrame::At(region.Anchor);
@@ -23,25 +46,7 @@ Box GroundRegionBoundsEcef(const GroundRegionAsset &region) {
     }
   }
   for (const Sheet &sheet : region.Terrain.Sheets) {
-    const auto geographic = Ground::TileBounds(sheet.Tile);
-    const auto [low, high] = std::ranges::minmax(sheet.Nodes);
-    Vec3 centre;
-    GeoToEcef({.LongitudeDeg = std::midpoint(geographic.MinLonDeg, geographic.MaxLonDeg),
-               .LatitudeDeg = std::midpoint(geographic.MinLatDeg, geographic.MaxLatDeg),
-               .HeightM = std::midpoint(static_cast<double>(low), static_cast<double>(high))},
-              centre);
-    constexpr double derivativeBoundM = 6400000;
-    const double radius = (derivativeBoundM + std::max(std::abs(low), std::abs(high))) *
-                              (geographic.MaxLonDeg - geographic.MinLonDeg + geographic.MaxLatDeg -
-                               geographic.MinLatDeg) *
-                              std::numbers::pi / kDegPerTurn +
-                          (static_cast<double>(high) - low) * 0.5;
-    Box page;
-    for (size_t axis = 0; axis < 3; ++axis) {
-      page.Min[axis] = centre[axis] - radius;
-      page.Max[axis] = centre[axis] + radius;
-    }
-    bounds.Cover(page);
+    bounds.Cover(GroundTerrainSheetBoundsEcef(sheet));
   }
   if (region.Network) { bounds.Cover(region.Network->BoundsEcef()); }
   if (bounds.Empty()) { bounds.Cover(frame.OriginEcef()); }
