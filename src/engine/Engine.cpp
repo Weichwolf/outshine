@@ -681,7 +681,6 @@ std::expected<Engine::State::PreloadFlush, std::string> Engine::State::FlushPrel
       return std::unexpected(finished.error());
     }
     if (Readiness(quality).Ready() &&
-        (!World.BuildingFields || World.BuildingFields->Read().Pending == 0) &&
         std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() < bound) {
       if (quality == GroundQuality::Refined) {
         if (const auto uploaded = CompletePreloadResources(began, bound); !uploaded) {
