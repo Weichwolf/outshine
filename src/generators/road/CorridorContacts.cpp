@@ -86,7 +86,7 @@ void Corridors::GroupTerrainContacts(const Paving &on, Paved &into) {
   std::vector<Connection> connections;
   connections.reserve(into.Edges.size());
   for (const Edge &edge : into.Edges) {
-    if (ways[edge.Lane].Bridge) { continue; }
+    if (ways[edge.Lane].Bridge || ways[edge.Lane].Floor.value_or(0) != 0) { continue; }
     for (const uint64_t node : edge.NodeAt) {
       if (node == 0) { continue; }
       const auto [found, inserted] =

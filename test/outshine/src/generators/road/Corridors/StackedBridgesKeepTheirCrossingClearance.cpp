@@ -308,6 +308,9 @@ void CheckStack(bool reversed, bool duplicate, Crossing kind = Crossing::Stack) 
   std::vector<EarthworkStamp> contacts;
   std::vector<DiagnosticSample> notes;
   CHECK(corridors.Lay(site, geometry, contacts, notes), "both deck products are generated");
+  if (UsesBuildingFloors(kind)) {
+    CHECK(contacts.empty(), "pedestrian floors do not cut or raise the underlying terrain");
+  }
   CHECK(mesher.JunctionCount == 0,
         "duplicate lines do not manufacture junctions or consume the available profile length");
   if (kind == Crossing::GroundEnds || kind == Crossing::RoadMeetsPath ||

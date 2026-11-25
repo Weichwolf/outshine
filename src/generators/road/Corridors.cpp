@@ -2039,6 +2039,11 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadJunctions(Job &job,
           std::min(job.NextBody + std::max(size_t{1}, nodesMost), into.Junctions.size());
       for (; job.NextBody < end; ++job.NextBody) {
         const auto &junction = into.Junctions[job.NextBody];
+        if (std::ranges::any_of(junction.Legs, [&](const Leg &leg) {
+              return slice.ways.Ways()[into.Edges[leg.Edge].Lane].Floor.value_or(0) != 0;
+            })) {
+          continue;
+        }
         AppendJunctionTerrainStamp(junction, junction.RootsM, junction.Elevated, into);
       }
       job.StageMs += elapsed();
@@ -2071,7 +2076,9 @@ std::expected<bool, std::string_view> Corridors::AdvanceTerrainContacts(Job &job
   if (slice.paving != nullptr) {
     for (; job.NextEdge < end; ++job.NextEdge) {
       auto &edge = job.Work.Edges[job.NextEdge];
-      if (edge.PlannedCount < 2) { continue; }
+      if (edge.PlannedCount < 2 || slice.ways.Ways()[edge.Lane].Floor.value_or(0) != 0) {
+        continue;
+      }
       const auto first = job.Work.Planned.begin() + edge.PlannedFirst;
       job.Work.Along.assign(first, first + edge.PlannedCount);
       if (!PrepareStepBody(*slice.paving, edge, job.Work, job.Corridor)) {
