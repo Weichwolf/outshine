@@ -70,8 +70,12 @@ bool ReadHeader(const Json &record, SurfaceTile &tile) {
 }
 
 bool ReadMesh(const Json &record, SurfaceTile &tile) {
-  if (!record.contains("vertices_eus_m") || !record.contains("indices")) { return false; }
+  if (!record.contains("vertices_eus_m") || !record.contains("normals_eus") ||
+      !record.contains("indices")) {
+    return false;
+  }
   const auto &vertices = record["vertices_eus_m"];
+  const auto &normals = record["normals_eus"];
   const auto &indices = record["indices"];
   if (!vertices.is_array() || vertices.size() < 3 ||
       vertices.size() > SurfaceTile::MaximumVertices || !indices.is_array() || indices.empty() ||
@@ -80,13 +84,18 @@ bool ReadMesh(const Json &record, SurfaceTile &tile) {
   }
   tile.Vertices.reserve(vertices.size());
   tile.Indices.reserve(indices.size());
-  for (const auto &row : vertices) {
-    if (!Numbers(row, 3)) { return false; }
-    const auto position = Triple(row);
-    Vec3f packed;
+  for (size_t at = 0; at < vertices.size(); ++at) {
+    if (!Numbers(vertices[at], 3) || !Numbers(normals[at], 3)) { return false; }
+    const auto position = Triple(vertices[at]);
+    const auto normal = Triple(normals[at]);
+    constexpr double kNormalSquaredTolerance = 0.001;
+    if (std::abs(Dot(normal, normal) - 1.0) > kNormalSquaredTolerance) { return false; }
+    SurfaceVertex packed;
     for (size_t axis = 0; axis < 3; ++axis) {
-      packed[axis] = static_cast<float>(position[axis]);
-      if (packed[axis] < tile.MinimumM[axis] || packed[axis] > tile.MaximumM[axis]) {
+      packed.PositionM[axis] = static_cast<float>(position[axis]);
+      packed.Normal[axis] = static_cast<float>(normal[axis]);
+      if (packed.PositionM[axis] < tile.MinimumM[axis] ||
+          packed.PositionM[axis] > tile.MaximumM[axis]) {
         return false;
       }
     }

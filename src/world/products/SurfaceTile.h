@@ -13,6 +13,11 @@
 
 namespace outshine {
 
+struct SurfaceVertex {
+  Vec3f PositionM;
+  Vec3f Normal;
+};
+
 struct SurfaceTile {
   static constexpr unsigned Version = 1;
   static constexpr size_t MaximumVertices = 65536;
@@ -24,7 +29,7 @@ struct SurfaceTile {
   Vec3 MinimumM;
   Vec3 MaximumM;
   double GeometricErrorM = 0;
-  std::vector<Vec3f> Vertices;
+  std::vector<SurfaceVertex> Vertices;
   std::vector<uint32_t> Indices;
 };
 

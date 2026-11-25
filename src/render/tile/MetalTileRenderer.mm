@@ -14,25 +14,30 @@ constexpr auto kClearColor = std::array{0.18, 0.25, 0.34};
 constexpr size_t kChannels = 4;
 using ClipMatrix = std::array<float, kMatrixWords>;
 
-static_assert(sizeof(Vec3f) == 12 && alignof(Vec3f) == 4);
+static_assert(sizeof(SurfaceVertex) == 6 * sizeof(float) &&
+              alignof(SurfaceVertex) == alignof(float) &&
+              offsetof(SurfaceVertex, Normal) == 3 * sizeof(float));
 static_assert(sizeof(ClipMatrix) == 64 && sizeof(uint32_t) == 4);
 
 NSString *const kShader = @R"(
 #include <metal_stdlib>
 using namespace metal;
+struct SurfaceVertex {
+  packed_float3 position;
+  packed_float3 normal;
+};
 struct Varyings {
   float4 position [[position]];
-  float3 metres;
+  float3 normal;
 };
 vertex Varyings tile_vertex(uint index [[vertex_id]],
-                            const device packed_float3 *vertices [[buffer(0)]],
+                            const device SurfaceVertex *vertices [[buffer(0)]],
                             constant float4x4 &clip [[buffer(1)]]) {
-  float3 point = vertices[index];
-  return {clip * float4(point, 1.0), point - float3(vertices[0])};
+  SurfaceVertex point = vertices[index];
+  return {clip * float4(point.position, 1.0), point.normal};
 }
 fragment float4 tile_fragment(Varyings in [[stage_in]]) {
-  float3 normal = normalize(cross(dfdx(in.metres), dfdy(in.metres)));
-  normal = normal.y < 0.0 ? -normal : normal;
+  float3 normal = normalize(in.normal);
   const float3 light = normalize(float3(-0.55, 0.65, 0.45));
   float diffuse = 0.35 + 0.65 * max(0.0, dot(normal, light));
   float3 reflectance = mix(float3(0.26, 0.22, 0.17), float3(0.13, 0.20, 0.10),

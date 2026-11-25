@@ -53,6 +53,12 @@ def surface_tile(cache, key, kind, zoom, x, y):
     corner = np.arange(side**2).reshape(side, side)[:-1, :-1]
     indices = np.stack((corner, corner + side, corner + side + 1,
                         corner, corner + side + 1, corner + 1), axis=-1)
+    triangles = indices.reshape(-1, 3)
+    points = vertices[triangles].astype(np.float64)
+    weighted = np.cross(points[:, 1] - points[:, 0], points[:, 2] - points[:, 0])
+    normals = np.zeros_like(vertices, dtype=np.float64)
+    np.add.at(normals, triangles.ravel(), np.repeat(weighted, 3, axis=0))
+    normals /= np.linalg.norm(normals, axis=1, keepdims=True)
     # Any surface triangulated from the same four source corners per cell stays
     # within that cell's convex hull. The diameter bounds either diagonal choice.
     corners = (eus[:-1, :-1], eus[1:, :-1], eus[1:, 1:], eus[:-1, 1:])
@@ -68,7 +74,8 @@ def surface_tile(cache, key, kind, zoom, x, y):
         "bounds_eus_m": [vertices.min(axis=0).tolist(), vertices.max(axis=0).tolist()],
         "geometric_error_m": float(np.nextafter(cell_diameter + rounding, np.inf)),
         "vertices_eus_m": vertices.tolist(),
-        "indices": indices.ravel().tolist(),
+        "normals_eus": normals.astype(np.float32).tolist(),
+        "indices": triangles.ravel().tolist(),
         "source": provenance,
     }
 
