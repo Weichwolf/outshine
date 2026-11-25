@@ -64,7 +64,8 @@ void FreshRequestHit(const std::string &directory,
   auto hit = product && *product ? (*opened)->Restore(std::move(**product)) : std::nullopt;
   CHECK(product && *product && hit && *hit && (**hit).Key == key &&
             (**hit).Region.Terrain.Sheets.size() == 1 &&
-            (**hit).Region.Terrain.Sheets[0].Nodes == std::vector<float>({100, 101, 102, 103}),
+            std::ranges::equal((**hit).Region.Terrain.Sheets[0].Samples(),
+                               std::array{100.0f, 101.0f, 102.0f, 103.0f}),
         "bound demand restores native contacts before any unavailable inputs exist");
   const auto changed = (*opened)->RequestKey(3, MvtSchema::Shortbread, shape, parameters, inputs);
   const auto miss = (*opened)->LoadRequestProduct(changed);

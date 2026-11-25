@@ -153,7 +153,7 @@ uint64_t DigestPatchwork(const Patchwork &patchwork) {
     fold(sheet.Postings);
     fold(static_cast<uint32_t>(sheet.Virtual));
     fold(static_cast<uint32_t>(sheet.SourceZoom));
-    for (const float node : sheet.Nodes) { fold(std::bit_cast<uint32_t>(node)); }
+    for (const float node : sheet.Samples()) { fold(std::bit_cast<uint32_t>(node)); }
   }
   return digest;
 }

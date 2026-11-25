@@ -23,6 +23,7 @@ using namespace outshine::Test;
 void CheckTerrainPacks(AssetCache &store,
                        Generators::Osm::PreparedGroundRegions &regions,
                        GroundRegionAsset &region,
+                       std::span<const Sheet> resident,
                        const std::string &key,
                        const std::string &request) {
   const auto index = [&](const std::string &revision) {
@@ -42,6 +43,7 @@ void CheckTerrainPacks(AssetCache &store,
     const std::string otherKey(64, '9');
     const auto other = StoreGroundRegion(
         regions, otherKey, GroundRegionBoundsEcef(region), region, Generators::WaterAsset{});
+    const auto root = store.Find(otherKey);
     const auto shared = index(otherKey);
     CHECK(other && other->Region.Terrain.Sheets == region.Terrain.Sheets && shared &&
               shared->size() == packs->size() &&
@@ -51,6 +53,10 @@ void CheckTerrainPacks(AssetCache &store,
                                         *shared, pack.Package, &AssetRecord::Package);
                                   }),
           "reordered regions share the compressed terrain without changing draw order");
+    CHECK(other && root && *root && other->ReadBytes == (**root).ByteCount &&
+              other->Region.Terrain.Sheets.front().Samples().data() ==
+                  resident.back().Samples().data(),
+          "overlapping camera regions reuse the live heights and only read their new header");
     std::ranges::reverse(region.Terrain.Sheets);
     CHECK(store.Remove(packs->front().Key), "terrain pack can be evicted separately");
     auto partial = regions.LoadRequestProduct(request);
@@ -119,7 +125,7 @@ int main() {
             (**decoded).Region.Terrain.Sheets == region.Terrain.Sheets &&
             regions.Costs().Decodes == before.Decodes + 1,
         "independent terrain packs restore the original draw order and heights");
-  CheckTerrainPacks(*store, regions, region, key, request);
+  CheckTerrainPacks(*store, regions, region, saved->Region.Terrain.Sheets, key, request);
   const std::array<uint8_t, 4> bytes{1, 2, 3, 4};
   const auto publish = [&](char id, char address, std::string kind) {
     const std::array<AssetRecord, 1> records{{{.Key = std::string(64, id),

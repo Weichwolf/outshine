@@ -23,21 +23,29 @@ TerrainResidency::PageBatch TerrainResidency::PlanPages(const Patchwork &patchwo
       ++batch.Flat;
       continue;
     }
-    const auto extrema = std::ranges::minmax(sheet.Nodes);
-    const std::array<float, 2> samples{extrema.min, extrema.max};
+    const auto nodes = sheet.Samples();
     const auto *const found = PageIndex_.Find(sheet.Tile);
     const size_t slot = found != nullptr ? *found : Held_.size() + batch.Appended;
     const bool unchanged = found != nullptr && Renderer_->HasHeightPage(Held_[slot].Page) &&
-                           std::ranges::equal(Held_[slot].Samples(), sheet.Nodes);
+                           (nodes.data() == Held_[slot].Samples().data() ||
+                            std::ranges::equal(Held_[slot].Samples(), nodes));
+    std::array<float, 2> samples;
+    if (unchanged) {
+      samples = Held_[slot].SampleBounds;
+    } else {
+      const auto extrema = std::ranges::minmax(nodes);
+      samples = {extrema.min, extrema.max};
+    }
     if (!unchanged) {
       auto &pending = batch.Pages[batch.PageCount++];
       pending.Slot = slot;
       pending.Appended = found == nullptr;
       pending.Value = {.Tile = sheet.Tile,
-                       .Nodes = std::make_shared<const std::vector<float>>(sheet.Nodes.begin(),
-                                                                           sheet.Nodes.end()),
+                       .Nodes = sheet.SharedSamples ? sheet.SharedSamples
+                                                    : std::make_shared<const std::vector<float>>(
+                                                          nodes.begin(), nodes.end()),
                        .SharedNodes = nullptr,
-                       .SamplesDigest = SamplesIdentity(sheet.Nodes),
+                       .SamplesDigest = SamplesIdentity(nodes),
                        .SampleBounds = samples,
                        .Postings = sheet.Postings,
                        .Virtual = sheet.Virtual};

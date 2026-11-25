@@ -9,9 +9,10 @@
 
 namespace outshine {
 Box GroundTerrainSheetBoundsEcef(const Sheet &sheet) {
-  if (sheet.Nodes.empty()) { return {}; }
+  const auto nodes = sheet.Samples();
+  if (nodes.empty()) { return {}; }
   const auto geographic = Ground::TileBounds(sheet.Tile);
-  const auto [low, high] = std::ranges::minmax(sheet.Nodes);
+  const auto [low, high] = std::ranges::minmax(nodes);
   Vec3 centre;
   GeoToEcef({.LongitudeDeg = std::midpoint(geographic.MinLonDeg, geographic.MaxLonDeg),
              .LatitudeDeg = std::midpoint(geographic.MinLatDeg, geographic.MaxLatDeg),

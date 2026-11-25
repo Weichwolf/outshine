@@ -29,11 +29,13 @@ struct TileSpot;
 
 namespace outshine::Generators::Osm {
 class OsmField;
+class GroundTerrainPackReader;
 struct OsmTileWindow;
 enum class MvtSchema : uint8_t;
 
 class PreparedGroundRegions {
 public:
+  ~PreparedGroundRegions();
   static constexpr size_t PackageBytesMost = size_t{512} * 1024u * 1024u;
 
   struct Loaded {
@@ -125,6 +127,7 @@ private:
   [[nodiscard]] std::expected<Loaded, Failure> ResumeStore(StoreWork &work,
                                                            const std::stop_token &stop);
   std::shared_ptr<AssetCache> Cache_;
+  std::unique_ptr<GroundTerrainPackReader> TerrainPacks_;
   std::string Recipe_;
   std::optional<Sha256Prefix> RequestPrefix_;
   size_t RequestPrefixBytes_ = 0;

@@ -197,7 +197,7 @@ bool TerrainResidency::ReindexPages(std::string &error) {
 
 bool TerrainResidency::HasNativePage(const Sheet &sheet) noexcept {
   return sheet.Side == Render::TerrainLattice::kSide &&
-         sheet.Nodes.size() == Render::TerrainLattice::kPageNodes;
+         sheet.Samples().size() == Render::TerrainLattice::kPageNodes;
 }
 
 bool TerrainResidency::BeginPublish(const Patchwork &patchwork, std::string &error) {

@@ -6,10 +6,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <memory>
+#include <mutex>
 #include <span>
 #include <stop_token>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace outshine {
@@ -39,13 +42,28 @@ PrepareGroundTerrainPacks(AssetCache &cache,
                           size_t bytesMost,
                           std::vector<PreparedAssetWrite> &into);
 
-[[nodiscard]] std::expected<bool, AssetCacheError>
-RestoreGroundTerrainPacks(const AssetCache &cache,
-                          const AssetRecord &region,
-                          const GroundTerrainManifest &manifest,
-                          size_t bytesMost,
-                          std::vector<Sheet> &sheets,
-                          size_t &readBytes,
-                          const std::stop_token &stop);
+class GroundTerrainPackReader {
+public:
+  [[nodiscard]] std::expected<bool, AssetCacheError> Restore(const AssetCache &cache,
+                                                             const AssetRecord &region,
+                                                             const GroundTerrainManifest &manifest,
+                                                             size_t bytesMost,
+                                                             std::vector<Sheet> &sheets,
+                                                             size_t &readBytes,
+                                                             const std::stop_token &stop);
+
+private:
+  using Pages = std::shared_ptr<const std::vector<Sheet>>;
+
+  struct ResidentPack {
+    std::weak_ptr<const std::vector<Sheet>> Pages;
+    uint64_t NativeBytes = 0;
+  };
+
+  [[nodiscard]] std::expected<Pages, AssetCacheError>
+  Read(const AssetCache &cache, const AssetRecord &record, size_t count, size_t &readBytes);
+  std::mutex Lock_;
+  std::unordered_map<std::string, ResidentPack> Resident_;
+};
 }
 #endif

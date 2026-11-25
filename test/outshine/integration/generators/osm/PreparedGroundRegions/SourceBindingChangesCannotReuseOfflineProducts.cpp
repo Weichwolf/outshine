@@ -9,6 +9,7 @@
 #include "TilePool.h"
 #include "WaterAsset.h"
 #include "Wayfinding.h"
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <filesystem>
@@ -120,8 +121,7 @@ int Offline(const std::filesystem::path &root, bool pair) {
     if (hit) {
       const auto &region = (**loaded).Region;
       CHECK(region.Terrain.Sheets.size() == 1 &&
-                region.Terrain.Sheets.front().Nodes ==
-                    std::vector<float>(kTerrainHeightsM.begin(), kTerrainHeightsM.end()),
+                std::ranges::equal(region.Terrain.Sheets.front().Samples(), kTerrainHeightsM),
             "the same binding restores the exact native product in a fresh offline process");
       CHECK(region.Network && region.NetworkWays == 1 &&
                 region.Network->TagOf(0) == kNetworkSourceTag &&

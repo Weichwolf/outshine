@@ -100,13 +100,17 @@ std::expected<std::vector<uint8_t>, std::string> Encode(const GroundRegionAsset 
 }
 
 PreparedGroundRegions::PreparedGroundRegions(std::shared_ptr<AssetCache> cache, std::string recipe)
-    : Cache_(std::move(cache)), Recipe_(std::move(recipe)) {
+    : Cache_(std::move(cache)),
+      TerrainPacks_(std::make_unique<GroundTerrainPackReader>()),
+      Recipe_(std::move(recipe)) {
   BinaryValueWriter prefix(kRequestBytesMost);
   if (!prefix.Text("native-ground-region-demand-2") || !prefix.Text(Recipe_)) { return; }
   const auto bytes = prefix.Out.Bytes();
   RequestPrefix_.emplace(bytes.data(), bytes.size());
   RequestPrefixBytes_ = bytes.size();
 }
+
+PreparedGroundRegions::~PreparedGroundRegions() = default;
 
 std::expected<std::shared_ptr<PreparedGroundRegions>, std::string> PreparedGroundRegions::Open(
     std::shared_ptr<AssetCache> cache, const Data::SourceSet &sources, std::string_view rules) {
@@ -169,13 +173,13 @@ PreparedGroundRegions::Restore(CachedAsset product, const std::stop_token &stop)
   if (!decoded) { return std::nullopt; }
   if (terrain.Sheets != 0) {
     size_t terrainBytes = 0;
-    const auto restored = RestoreGroundTerrainPacks(*Cache_,
-                                                    product.Record(),
-                                                    terrain,
-                                                    PackageBytesMost - product.Bytes().size(),
-                                                    decoded->Region.Terrain.Sheets,
-                                                    terrainBytes,
-                                                    stop);
+    const auto restored = TerrainPacks_->Restore(*Cache_,
+                                                 product.Record(),
+                                                 terrain,
+                                                 PackageBytesMost - product.Bytes().size(),
+                                                 decoded->Region.Terrain.Sheets,
+                                                 terrainBytes,
+                                                 stop);
     ReadBytes_ += terrainBytes;
     if (!restored) { return std::unexpected(restored.error()); }
     if (!*restored) { return std::nullopt; }

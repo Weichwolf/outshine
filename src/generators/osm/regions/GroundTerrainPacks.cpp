@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <expected>
 #include <map>
+#include <memory>
+#include <mutex>
 #include <span>
 #include <stop_token>
 #include <string>
@@ -85,17 +87,18 @@ std::expected<PreparedAssetWrite, AssetCacheError> PreparePack(AssetCache &cache
                                   std::move(bytes));
 }
 
-bool DecodePack(std::span<const uint8_t> bytes,
-                std::span<const uint32_t> slots,
-                std::vector<Sheet> &sheets) {
+std::shared_ptr<const std::vector<Sheet>> DecodePack(std::span<const uint8_t> bytes,
+                                                     size_t expected) {
   BinaryValueReader in(bytes);
   uint32_t format = 0;
   uint32_t count = 0;
-  if (!in(format, count) || format != kPackFormat || count != slots.size()) { return false; }
-  for (const auto slot : slots) {
-    if (!ReadGroundTerrainSheet(in, sheets[slot])) { return false; }
+  if (!in(format, count) || format != kPackFormat || count != expected) { return {}; }
+  auto sheets = std::make_shared<std::vector<Sheet>>(count);
+  for (auto &sheet : *sheets) {
+    if (!ReadGroundTerrainSheet(in, sheet)) { return {}; }
   }
-  return in.In.Remaining() == 0;
+  return in.In.Remaining() == 0 ? std::shared_ptr<const std::vector<Sheet>>(std::move(sheets))
+                                : nullptr;
 }
 }
 
@@ -164,14 +167,51 @@ PrepareGroundTerrainPacks(AssetCache &cache,
   return manifest;
 }
 
+std::expected<GroundTerrainPackReader::Pages, AssetCacheError> GroundTerrainPackReader::Read(
+    const AssetCache &cache, const AssetRecord &record, size_t count, size_t &readBytes) {
+  if (record.OffsetBytes != 0) { return Pages{}; }
+  Pages resident;
+  {
+    const std::scoped_lock lock(Lock_);
+    const auto found = Resident_.find(record.Package);
+    if (found != Resident_.end() && found->second.NativeBytes == record.ByteCount) {
+      resident = found->second.Pages.lock();
+    }
+  }
+  if (resident) {
+    cache.UsePackage(record.Package);
+    return resident->size() == count ? std::move(resident) : nullptr;
+  }
+  const auto pack = cache.Load(record.Key, static_cast<size_t>(record.ByteCount));
+  if (!pack) { return std::unexpected(pack.error()); }
+  if (!*pack || (**pack).Record().Package != record.Package ||
+      (**pack).Record().ByteCount != record.ByteCount ||
+      (**pack).Record().OffsetBytes != record.OffsetBytes) {
+    return Pages{};
+  }
+  const auto bytes = (**pack).Bytes();
+  readBytes += bytes.size();
+  auto decoded = DecodePack(bytes, count);
+  if (decoded) {
+    const std::scoped_lock lock(Lock_);
+    auto &entry = Resident_[record.Package];
+    if (auto published = entry.Pages.lock();
+        published && entry.NativeBytes == record.ByteCount && published->size() == count) {
+      return published;
+    }
+    entry = {.Pages = decoded, .NativeBytes = record.ByteCount};
+  }
+  return decoded;
+}
+
 std::expected<bool, AssetCacheError>
-RestoreGroundTerrainPacks(const AssetCache &cache,
-                          const AssetRecord &region,
-                          const GroundTerrainManifest &manifest,
-                          size_t bytesMost,
-                          std::vector<Sheet> &sheets,
-                          size_t &readBytes,
-                          const std::stop_token &stop) {
+GroundTerrainPackReader::Restore(const AssetCache &cache,
+                                 const AssetRecord &region,
+                                 const GroundTerrainManifest &manifest,
+                                 size_t bytesMost,
+                                 std::vector<Sheet> &sheets,
+                                 size_t &readBytes,
+                                 const std::stop_token &stop) {
   const auto index = cache.Select({.Bounds = region.Bounds,
                                    .Kind = kKind,
                                    .Level = {},
@@ -190,20 +230,28 @@ RestoreGroundTerrainPacks(const AssetCache &cache,
     }
   }
   if (selected.size() != manifest.Packs.size()) { return false; }
+  {
+    const std::scoped_lock lock(Lock_);
+    std::erase_if(Resident_, [](const auto &entry) { return entry.second.Pages.expired(); });
+  }
   sheets.resize(manifest.Sheets);
   for (const auto &[record, entry] : selected) {
     if (stop.stop_requested() || record->ByteCount > bytesMost) { return false; }
-    const auto pack = cache.Load(record->Key, bytesMost);
-    if (!pack) { return std::unexpected(pack.error()); }
-    if (!*pack || (**pack).Record().Package != record->Package ||
-        (**pack).Record().ByteCount != record->ByteCount ||
-        (**pack).Record().OffsetBytes != record->OffsetBytes) {
-      return false;
+    const auto pages = Read(cache, *record, entry->Slots.size(), readBytes);
+    if (!pages) { return std::unexpected(pages.error()); }
+    if (!*pages) { return false; }
+    bytesMost -= static_cast<size_t>(record->ByteCount);
+    for (size_t pageIndex = 0; pageIndex < entry->Slots.size(); ++pageIndex) {
+      const auto &page = (**pages)[pageIndex];
+      sheets[entry->Slots[pageIndex]] = {
+          .Tile = page.Tile,
+          .Nodes = {},
+          .Side = page.Side,
+          .Postings = page.Postings,
+          .Virtual = page.Virtual,
+          .SourceZoom = page.SourceZoom,
+          .SharedSamples = std::shared_ptr<const std::vector<float>>(*pages, &page.Nodes)};
     }
-    const auto bytes = (**pack).Bytes();
-    readBytes += bytes.size();
-    bytesMost -= bytes.size();
-    if (!DecodePack(bytes, entry->Slots, sheets)) { return false; }
   }
   return true;
 }

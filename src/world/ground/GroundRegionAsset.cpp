@@ -70,23 +70,26 @@ template <class Archive, class Grid> bool GridFields(Archive &archive, Grid &gri
 }
 
 template <class Archive, class Page> bool PageFields(Archive &archive, Page &page) {
-  if (!archive(page.Tile.Zoom,
-               page.Tile.X,
-               page.Tile.Y,
-               page.Side,
-               page.Postings,
-               page.Virtual,
-               page.SourceZoom) ||
-      !archive.template Array<float>(page.Nodes) || page.Tile.Zoom < 0 ||
-      page.Tile.Zoom > Data::TileId::MaximumZoom ||
+  return archive(page.Tile.Zoom,
+                 page.Tile.X,
+                 page.Tile.Y,
+                 page.Side,
+                 page.Postings,
+                 page.Virtual,
+                 page.SourceZoom);
+}
+
+bool ValidPage(const Sheet &page) {
+  const auto nodes = page.Samples();
+  if (page.Tile.Zoom < 0 || page.Tile.Zoom > Data::TileId::MaximumZoom ||
       page.Tile.X >= (uint32_t{1} << static_cast<unsigned>(page.Tile.Zoom)) ||
       page.Tile.Y >= (uint32_t{1} << static_cast<unsigned>(page.Tile.Zoom)) || page.Side < 1 ||
       page.Side > 4096 || page.Postings < 2 || page.SourceZoom < -1 ||
-      page.SourceZoom > page.Tile.Zoom || !Finite<float>(page.Nodes)) {
+      page.SourceZoom > page.Tile.Zoom || !Finite<float>(nodes)) {
     return false;
   }
   const auto side = static_cast<size_t>(page.Side);
-  return page.Nodes.size() == side * side || page.Nodes.size() == (side + 2) * (side + 2);
+  return nodes.size() == side * side || nodes.size() == (side + 2) * (side + 2);
 }
 
 template <class Archive, class Patch> bool PatchFields(Archive &archive, Patch &terrain) {
@@ -197,11 +200,12 @@ bool ReadClasses(BinaryValueReader &in, std::shared_ptr<const TerrainClassificat
 }
 
 bool WriteGroundTerrainSheet(BinaryValueWriter &out, const Sheet &sheet) {
-  return PageFields(out, sheet);
+  return ValidPage(sheet) && PageFields(out, sheet) && out.Array<float>(sheet.Samples());
 }
 
 bool ReadGroundTerrainSheet(BinaryValueReader &in, Sheet &sheet) {
-  return PageFields(in, sheet);
+  sheet.SharedSamples.reset();
+  return PageFields(in, sheet) && in.Array<float>(sheet.Nodes) && ValidPage(sheet);
 }
 
 std::optional<std::vector<uint8_t>> EncodeGroundRegionAsset(const GroundRegionAsset &region,
