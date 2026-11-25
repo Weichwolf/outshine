@@ -14,11 +14,13 @@
 #include "ShadowDemand.h"
 #include "PreparedTerraceAsset.h"
 #include "UrbanPrismPreparation.h"
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <expected>
 #include <memory>
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -123,12 +125,30 @@ struct BuildingFieldStreaming::State {
   };
 
   struct TerraceWork {
+    struct DetailLoad {
+      std::atomic_bool Done{false};
+      std::stop_source Stop;
+      std::expected<std::optional<GeometryAsset::Product>, std::string> Result;
+    };
+
     uint32_t Tile;
     uint64_t Revision;
     uint32_t Cell;
     Generators::Osm::TerraceAssetRequest Request;
     std::unique_ptr<Generators::Osm::UrbanPrismPreparation> Job;
+    std::shared_ptr<DetailLoad> Detail;
     bool Retiring = false;
+
+    void Cancel() noexcept {
+      Job->Cancel();
+      if (Detail) { Detail->Stop.request_stop(); }
+      Retiring = true;
+    }
+  };
+
+  struct RemainderParts {
+    std::vector<std::vector<StoredVertex>> Vertices;
+    std::vector<Render::GeometryPagePartView> Parts;
   };
 
   struct ProductCut {
@@ -171,12 +191,24 @@ struct BuildingFieldStreaming::State {
   void PollTerrace(Context &context, const Vec3 &eye, TerraceWork &work);
   void RequestTerrace(Context &context, const Vec3 &eye);
   [[nodiscard]] static bool
+  PrepareTerraceDetail(Context &context, const Cell &cell, TerraceWork &work);
+  [[nodiscard]] bool PublishTerrace(Context &context,
+                                    const Tile &tile,
+                                    Cell &cell,
+                                    TerraceWork &work,
+                                    const Generators::Osm::UrbanPrismPreparation::Product &ready);
+  [[nodiscard]] static bool
   AllowsTerrace(const Context &context, const Tile &tile, const Cell &cell, const Vec3 &eye);
   [[nodiscard]] bool StageTerrace(Context &context,
                                   const Tile &tile,
                                   Cell &cell,
                                   const Generators::Osm::UrbanPrismPreparation::Product &ready,
-                                  const std::string &key);
+                                  const std::string &key,
+                                  const std::optional<GeometryAsset::Product> &detail);
+  [[nodiscard]] static RemainderParts MeshParts(const GeometryAsset::Product &asset,
+                                                const Render::MaterialRegistration &materials);
+  [[nodiscard]] static std::expected<Render::MaterialRegistration, std::string>
+  RegisterPaint(Render::SceneRenderer &renderer, const std::array<Material, 3> &surfaces);
   [[nodiscard]] static Mat4 ToScene(const TangentFrame &frame, const Mat4 &world);
   bool RequestGroup(Context &context, Tile &tile, Cell &cell, Group &group);
   [[nodiscard]] static std::expected<void, std::string> PrepareCellMetadata(Cell &cell);

@@ -1,4 +1,5 @@
 #include "BuildingFieldStreamingState.h"
+#include "BuildingGeometrySource.h"
 #include "BuildingMaterials.h"
 #include "BuildingSourceRead.h"
 #include "GeometryPageView.h"
@@ -6,6 +7,7 @@
 #include "StructureBuildQueue.h"
 #include "SurfacePreparation.h"
 #include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -24,6 +26,43 @@ constexpr unsigned kSupportMostM = 16;
 constexpr size_t kProductBytesMost = size_t{64} * 1024u;
 constexpr size_t kProductSamplesMost = size_t{256} * 1024u;
 constexpr size_t kNativeBytesLeast = 4096;
+
+std::expected<std::optional<GeometryAsset::Product>, std::string>
+LoadDetail(AssetCache &cache,
+           Generators::PreparedBuildingAssets &assets,
+           const Generators::Osm::TerraceAssetRequest &request,
+           const SourceCoverage &cell,
+           size_t bytesMost,
+           const std::stop_token &stop) {
+  if (stop.stop_requested()) { return std::unexpected("terrace detail cancelled"); }
+  auto remainder = Generators::Osm::ReadPreparedTerraceRemainder(cache, request, kProductBytesMost);
+  if (!remainder || remainder->SourceCount != cell.SourceCount()) {
+    return std::unexpected("terrace detail has a foreign source domain");
+  }
+  if (remainder->Sources.empty()) { return std::nullopt; }
+  const auto expected =
+      SourceCoverage::FromSources(request.BaseKey, remainder->SourceCount, remainder->Sources);
+  if (!expected || !cell.Contains(*expected) || *expected == cell) {
+    return std::unexpected("terrace detail exceeds its selected source partition");
+  }
+  const auto recipe =
+      Generators::BuildingGeometrySource::Recipe{.BaseKey = request.BaseKey,
+                                                 .SourceCount = remainder->SourceCount,
+                                                 .Sources = std::move(remainder->Sources),
+                                                 .Detail = LevelOfDetail::Fine};
+  auto result =
+      Generators::BuildingGeometrySource::Resolve(cache,
+                                                  &assets,
+                                                  recipe,
+                                                  {.EncodedBytesMost = bytesMost,
+                                                   .TriangleAttempts = bytesMost / sizeof(uint32_t),
+                                                   .KeepWhenCacheBusy = true},
+                                                  stop);
+  if (!result || result->Layout.Coverage != *expected) {
+    return std::unexpected("native terrace detail does not cover the retained buildings");
+  }
+  return std::move(*result);
+}
 }
 
 bool BuildingFieldStreaming::State::AllowsTerrace(const Context &context,
@@ -52,20 +91,10 @@ bool BuildingFieldStreaming::State::StageTerrace(
     const Tile &tile,
     Cell &cell,
     const Generators::Osm::UrbanPrismPreparation::Product &ready,
-    const std::string &key) {
+    const std::string &key,
+    const std::optional<GeometryAsset::Product> &detail) {
   if (!TerraceMaterial) {
-    Geometry geometry;
-    Material wall;
-    for (size_t axis = 0; axis < 3; ++axis) {
-      wall.BaseColour[axis] = Generators::kBuildingWallColour[axis];
-    }
-    constexpr float roughness = .8f;
-    wall.Roughness = roughness;
-    if (!geometry.addSurface("building terraces", wall)) {
-      cell.TerraceRejected = true;
-      return true;
-    }
-    const auto registered = context.Renderer.RegisterPieceMaterials(std::move(geometry));
+    const auto registered = RegisterPaint(context.Renderer, Generators::BuildingSurfaceMaterials());
     if (!registered) {
       cell.TerraceRejected = true;
       return true;
@@ -82,14 +111,19 @@ bool BuildingFieldStreaming::State::StageTerrace(
         scene, row.begin(), [](double value) { return static_cast<float>(value); });
     rows.push_back({.Patch = patch, .Current = row, .Previous = row, .TopCoating = roof});
   }
+  const auto remainder = detail ? MeshParts(*detail, *TerraceMaterial) : RemainderParts{};
+  const auto detailPlacement =
+      detail ? std::make_shared<const Mat4>(ToScene(context.Frame, detail->Layout.WorldFromLocal))
+             : nullptr;
   const Render::GeometryPageView page{
-      .Parts = {},
+      .Parts = remainder.Parts,
       .AssetKey = key,
       .SelectedView = {},
       .RequestedDetail = LevelOfDetail::Skyline,
       .RequestedCell = cell.Source.Cell,
       .OccupiedCells = uint64_t{1} << (cell.Source.Cell - 1),
       .Coverage = cell.Coverage,
+      .Placement = detailPlacement,
       .Grid = Render::GeometryPageGridView{
           .Grid = std::shared_ptr<const PrismGrid>(ready, &ready->Geometry),
           .SceneInstances = rows,
@@ -106,6 +140,45 @@ bool BuildingFieldStreaming::State::StageTerrace(
   return true;
 }
 
+bool BuildingFieldStreaming::State::PrepareTerraceDetail(Context &context,
+                                                         const Cell &cell,
+                                                         TerraceWork &work) {
+  const auto load = std::make_shared<TerraceWork::DetailLoad>();
+  if (!context.Workers.PostDetached([load,
+                                     cache = context.Surface.AssetStore(),
+                                     assets = context.Surface.BuildingAssets(),
+                                     request = work.Request,
+                                     coverage = cell.Coverage,
+                                     bytes = cell.Source.NativeBytes / 2] {
+        load->Result =
+            LoadDetail(*cache, *assets, request, coverage, bytes, load->Stop.get_token());
+        load->Done.store(true, std::memory_order_release);
+      })) {
+    return false;
+  }
+  work.Detail = load;
+  return true;
+}
+
+bool BuildingFieldStreaming::State::PublishTerrace(
+    Context &context,
+    const Tile &tile,
+    Cell &cell,
+    TerraceWork &work,
+    const Generators::Osm::UrbanPrismPreparation::Product &ready) {
+  if (!work.Detail) {
+    (void)PrepareTerraceDetail(context, cell, work);
+    return false;
+  }
+  if (!work.Detail->Done.load(std::memory_order_acquire)) { return false; }
+  const auto &detail = work.Detail->Result;
+  if (!detail) {
+    cell.TerraceRejected = true;
+    return true;
+  }
+  return StageTerrace(context, tile, cell, ready, work.Job->Key(), *detail);
+}
+
 void BuildingFieldStreaming::State::AdvanceTerrace(Context &context) {
   const auto eye = WorldCamera(context).EyeM;
   if (Terrace) {
@@ -119,22 +192,23 @@ void BuildingFieldStreaming::State::PollTerrace(Context &context,
                                                 const Vec3 &eye,
                                                 TerraceWork &work) {
   if (work.Retiring) {
-    if (!work.Job->InFlight()) { Terrace.reset(); }
+    if (!work.Job->InFlight() &&
+        (!work.Detail || work.Detail->Done.load(std::memory_order_acquire))) {
+      Terrace.reset();
+    }
     return;
   }
   const auto tile = std::ranges::find(Tiles, work.Tile, &Tile::Index);
   if (tile == Tiles.end() || work.Revision != tile->SourceKey ||
       StructureBuildQueue::QualifiedSourceKey(context.Surface.Footprints(), tile->Index) !=
           work.Revision) {
-    work.Job->Cancel();
-    work.Retiring = true;
+    work.Cancel();
     return;
   }
   const auto cell = std::ranges::find(
       tile->Cells, work.Cell, [](const Cell &candidate) { return candidate.Source.Cell; });
   if (cell == tile->Cells.end() || !AllowsTerrace(context, *tile, *cell, eye)) {
-    work.Job->Cancel();
-    work.Retiring = true;
+    work.Cancel();
     return;
   }
   const auto ready = work.Job->Advance([&](const std::stop_token &stop) {
@@ -154,7 +228,7 @@ void BuildingFieldStreaming::State::PollTerrace(Context &context,
   if (!ready) {
     cell->TerraceRejected = true;
     Terrace.reset();
-  } else if (*ready && StageTerrace(context, *tile, *cell, *ready, work.Job->Key())) {
+  } else if (*ready && PublishTerrace(context, *tile, *cell, work, *ready)) {
     Terrace.reset();
   }
 }
@@ -174,7 +248,8 @@ void BuildingFieldStreaming::State::RequestTerrace(Context &context, const Vec3 
       const TerraceAssetRequest request{.BaseKey = tile.Source.BaseKey,
                                         .SpacingM = kSpacingM,
                                         .Cells = uint64_t{1} << (cell.Source.Cell - 1),
-                                        .SupportMostM = kSupportMostM};
+                                        .SupportMostM = kSupportMostM,
+                                        .RetainRemainder = true};
       const auto key = request.Key();
       if (!key) {
         cell.TerraceRejected = true;
@@ -190,7 +265,8 @@ void BuildingFieldStreaming::State::RequestTerrace(Context &context, const Vec3 
                             .Cell = cell.Source.Cell,
                             .Request = request,
                             .Job = std::make_unique<UrbanPrismPreparation>(
-                                context.Workers, context.Surface.AssetStore(), *key, bytes)};
+                                context.Workers, context.Surface.AssetStore(), *key, bytes),
+                            .Detail = {}};
       return;
     }
   }

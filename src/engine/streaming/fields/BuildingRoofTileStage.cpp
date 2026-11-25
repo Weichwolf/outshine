@@ -64,13 +64,11 @@ Render::ConvexPrism ToPrism(const Generators::BuildingRoofProxy &roof,
   return prism;
 }
 
-struct RemainderParts {
-  std::vector<std::vector<StoredVertex>> Vertices;
-  std::vector<Render::GeometryPagePartView> Parts;
-};
+}
 
-RemainderParts MeshParts(const GeometryAsset::Product &asset,
-                         const Render::MaterialRegistration &materials) {
+BuildingFieldStreaming::State::RemainderParts
+BuildingFieldStreaming::State::MeshParts(const GeometryAsset::Product &asset,
+                                         const Render::MaterialRegistration &materials) {
   RemainderParts result;
   const auto &mesh = asset.Mesh;
   result.Vertices.reserve(static_cast<size_t>(mesh.parts()));
@@ -102,7 +100,8 @@ RemainderParts MeshParts(const GeometryAsset::Product &asset,
 }
 
 std::expected<Render::MaterialRegistration, std::string>
-RegisterPaint(Render::SceneRenderer &renderer, const std::array<Material, 3> &surfaces) {
+BuildingFieldStreaming::State::RegisterPaint(Render::SceneRenderer &renderer,
+                                             const std::array<Material, 3> &surfaces) {
   Geometry palette;
   auto plain = surfaces.front();
   plain.Pattern = SurfacePattern::None;
@@ -117,6 +116,7 @@ RegisterPaint(Render::SceneRenderer &renderer, const std::array<Material, 3> &su
   return renderer.RegisterPieceMaterials(std::move(palette));
 }
 
+namespace {
 bool StageCaster(BuildingFieldStreaming::Context &context,
                  const BuildingRoofTile &product,
                  const Generators::BuildingShadowCell &caster,

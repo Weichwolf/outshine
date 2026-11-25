@@ -27,7 +27,9 @@
 namespace outshine {
 BuildingFieldStreaming::BuildingFieldStreaming() : State_(std::make_unique<State>()) {}
 
-BuildingFieldStreaming::~BuildingFieldStreaming() = default;
+BuildingFieldStreaming::~BuildingFieldStreaming() {
+  if (State_->Terrace) { State_->Terrace->Cancel(); }
+}
 
 BuildingFieldStreaming::Counts BuildingFieldStreaming::Read() const noexcept {
   return State_->Statistics;
