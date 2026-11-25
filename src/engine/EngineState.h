@@ -14,6 +14,7 @@
 #include "Units.h"
 #include "Vec2.h"
 #include "Vec3.h"
+#include "ViewPath.h"
 #include "HttpTransport.h"
 #include "HeapProbe.h"
 #include "BuiltinGenerators.h"
@@ -186,6 +187,7 @@ struct WorldRegionState {
   size_t AskedWanted = 0;
   GroundPublication GroundPublished;
   std::optional<Around> PublishedGroundCoverage;
+  std::optional<ViewPath> PlannedCameraPath;
   std::shared_ptr<const TerrainSweep> PlannedTerrainSweep;
   uint64_t NextTerrainSweep = 0;
   std::optional<GroundRevision> RequestedRefinedGround;

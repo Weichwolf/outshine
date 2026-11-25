@@ -1,8 +1,10 @@
 #include "EngineState.h"
+#include "Box.h"
 #include "GroundPatchwork.h"
 #include "RuntimeScene.h"
 #include "TerrainPathPreparation.h"
 #include "RoadHeightCoverage.h"
+#include "ViewPath.h"
 #include <chrono>
 #include <algorithm>
 #include <cstddef>
@@ -21,8 +23,32 @@ namespace {
 using Clock = std::chrono::steady_clock;
 constexpr double kMostAwaitS = 0.01;
 
+struct CameraMotion {
+  Box Eyes;
+  ViewPath Path;
+};
+
+CameraMotion PlanCameraMotion(std::span<const Vec3> positions) {
+  CameraMotion motion{.Eyes = {}, .Path = {.Start = positions.front(), .End = positions.back()}};
+  for (const Vec3 position : positions) {
+    motion.Eyes.Cover(position);
+    motion.Path.RadiusM = std::max(motion.Path.RadiusM, motion.Path.DistanceTo(position));
+  }
+  double roundoff = 0;
+  for (size_t axis = 0; axis < 3; ++axis) {
+    const double guard =
+        64 * std::numeric_limits<double>::epsilon() *
+        std::max({std::abs(motion.Eyes.Min[axis]), std::abs(motion.Eyes.Max[axis]), 1.0});
+    motion.Eyes.Min[axis] -= guard;
+    motion.Eyes.Max[axis] += guard;
+    roundoff += guard;
+  }
+  motion.Path.RadiusM += roundoff;
+  return motion;
+}
+
 std::shared_ptr<TerrainSweep> PlanMotionTerrain(std::span<const Around> coverage,
-                                                std::span<const Vec3> positions,
+                                                const CameraMotion &motion,
                                                 std::vector<Data::TileId> requested,
                                                 double sampleRadiusM) {
   const auto initial = PlanPatchworkTiles(coverage.front());
@@ -32,21 +58,6 @@ std::shared_ptr<TerrainSweep> PlanMotionTerrain(std::span<const Around> coverage
       })) {
     return {};
   }
-  Box eyes;
-  ViewPath eyePath{.Start = positions.front(), .End = positions.back()};
-  for (const Vec3 position : positions) {
-    eyes.Cover(position);
-    eyePath.RadiusM = std::max(eyePath.RadiusM, eyePath.DistanceTo(position));
-  }
-  double roundoff = 0;
-  for (size_t axis = 0; axis < 3; ++axis) {
-    const double guard = 64 * std::numeric_limits<double>::epsilon() *
-                         std::max({std::abs(eyes.Min[axis]), std::abs(eyes.Max[axis]), 1.0});
-    eyes.Min[axis] -= guard;
-    eyes.Max[axis] += guard;
-    roundoff += guard;
-  }
-  eyePath.RadiusM += roundoff;
   const int levels = std::ranges::max(coverage, {}, &Around::Levels).Levels;
   auto patches = RemoveCoveredPatchworkTiles(requested);
   return std::make_shared<TerrainSweep>(
@@ -54,8 +65,8 @@ std::shared_ptr<TerrainSweep> PlanMotionTerrain(std::span<const Around> coverage
                    .Patches = std::move(patches),
                    .Focus = {.LongitudeDeg = coverage.front().LongitudeDeg,
                              .LatitudeDeg = coverage.front().LatitudeDeg},
-                   .Eyes = eyes,
-                   .EyePath = eyePath,
+                   .Eyes = motion.Eyes,
+                   .EyePath = motion.Path,
                    .Levels = levels});
 }
 }
@@ -225,20 +236,22 @@ Result Engine::State::PrepareViewTerrain(std::span<const Around> coverage,
                                          TerrainPathPlan plan,
                                          Clock::time_point deadline) {
   if (!positions.empty() && !World.GroundPublished.Current()) {
+    const auto motion = PlanCameraMotion(positions);
     std::vector<LongitudeLatitude> route;
     route.reserve(coverage.size());
     for (const auto &at : coverage) {
       route.push_back({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg});
     }
     World.Surface().PlanMotionCoverage(route);
-    auto sweep = PlanMotionTerrain(
-        coverage, positions, std::move(plan.Meshes), FinestTerrainSampleRadiusM());
+    auto sweep =
+        PlanMotionTerrain(coverage, motion, std::move(plan.Meshes), FinestTerrainSampleRadiusM());
     if (sweep) {
       constexpr uint64_t kSweptTerrainRegion = uint64_t{1} << 63u;
       sweep->Region = kSweptTerrainRegion | ++World.NextTerrainSweep;
       Published.RecordMetric(
           "view data: swept terrain patches", static_cast<double>(sweep->Patches.size()), "tiles");
     }
+    World.PlannedCameraPath = motion.Path;
     World.PlannedTerrainSweep = std::move(sweep);
     return {};
   }
