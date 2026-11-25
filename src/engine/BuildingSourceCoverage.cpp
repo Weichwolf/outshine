@@ -1,8 +1,9 @@
 #include "BuildingSourceCoverage.h"
 #include "GeometryPageResidency.h"
 #include "BuildingField.h"
-#include "StructureCell.h"
+#include "StructureCellGrid.h"
 #include "TileGeodesy.h"
+#include <cstddef>
 #include <cstdint>
 #include <map>
 #include <utility>
@@ -20,18 +21,22 @@ bool BuildingSourceCoverage::Update(const Render::GeometryPageResidency &pieces,
         piece.FallbackHeights) {
       return;
     }
-    if (piece.Cell == 0) {
-      masks[piece.Tile] = input->OccupiedCells;
-    } else if (piece.Cell <= Ground::kStructureCellsPerTile) {
-      masks[piece.Tile] |=
-          piece.OccupiedCells != 0 ? piece.OccupiedCells : uint64_t{1} << (piece.Cell - 1);
-    }
+    if (piece.Cell > Ground::kStructureCellsPerTile) { return; }
+    const uint64_t covered = piece.OccupiedCells == 0 && piece.Cell != 0
+                                 ? uint64_t{1} << (piece.Cell - 1)
+                                 : piece.OccupiedCells;
+    masks[piece.Tile] |= covered;
   });
+  const auto inputs = footprints.AcceptedInputs();
+  const auto tiles = footprints.AcceptedTiles();
   std::vector<Ground::GeoBounds> regions;
   regions.reserve(masks.size());
-  for (const auto &[tile, mask] : masks) {
-    const auto &input = *footprints.InputOfTile(tile);
-    if (input.Vector && mask == input.OccupiedCells) {
+  for (size_t index = 0; index < inputs.size(); ++index) {
+    const auto &input = inputs[index];
+    if (!input.Qualified || !input.Vector) { continue; }
+    const auto resident = masks.find(tiles[index]);
+    const uint64_t covered = resident != masks.end() ? resident->second : 0;
+    if (covered == input.OccupiedCells) {
       regions.push_back(Ground::TileBounds(input.Vector->Tile));
     }
   }
