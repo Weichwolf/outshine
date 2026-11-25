@@ -15,6 +15,8 @@ public:
 
   void Collect(const Generators::BakedTile &child);
 
+  void SkipCovered(uint64_t covered) noexcept { Cells_ &= ~(covered & ~Collected_); }
+
   [[nodiscard]] uint64_t Cells() const noexcept { return Cells_; }
 
   [[nodiscard]] uint64_t Remaining() const noexcept { return Cells_ & ~Collected_; }

@@ -1,7 +1,10 @@
 #include "BuildingQueueFixture.h"
 #include "Check.h"
+#include "StructureCellAssembly.h"
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -106,6 +109,27 @@ void IntrinsicDemandCompletes(bool continueFromPosts) {
   CHECK(prints.OfTile(0).size() == kStructures,
         "the full intrinsic product publishes all semantic building footprints");
 }
+
+void ResidentReplacementRetiresPendingCell() {
+  constexpr uint64_t landed = 1;
+  constexpr uint64_t replaced = 2;
+  constexpr uint64_t missing = 4;
+  StructureCellAssembly build(landed | replaced | missing);
+  Generators::BakedTile child;
+  child.RequestedCell = 1;
+  child.RequestedDetail = LevelOfDetail::Shell;
+  child.OccupiedCells = landed;
+  child.Coordinates = std::make_shared<Ground::BuildingGeometry>();
+  build.Collect(child);
+  build.SkipCovered(landed | replaced);
+  CHECK(build.Remaining() == missing && build.Metadata().OccupiedCells == landed,
+        "resident coverage skips only pending geometry and preserves the original already read");
+  child.RequestedCell = 3;
+  child.OccupiedCells = missing;
+  build.Collect(child);
+  CHECK(build.Remaining() == 0 && build.Cells() == (landed | missing),
+        "the partial publication contains exactly the geometry built by this request");
+}
 }
 
 int main() {
@@ -114,5 +138,6 @@ int main() {
   }
   IntrinsicDemandCompletes(false);
   IntrinsicDemandCompletes(true);
+  ResidentReplacementRetiresPendingCell();
   return Report();
 }

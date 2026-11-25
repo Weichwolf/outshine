@@ -368,14 +368,20 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
     return true;
   }
   const auto landingAt = std::chrono::steady_clock::now();
-  auto ready = World.StructureBuilds.NextLandings(World.Surface(),
-                                                  World.Surface().Footprints(),
-                                                  eye,
-                                                  heightAt,
-                                                  std::min(landsMost, size_t{1}),
-                                                  StructureBuildQueue::HeightRequirement::FineOnly,
-                                                  LevelOfDetail::Shell,
-                                                  StructureBuildQueue::BuildPurpose::StaticParents);
+  auto ready = World.StructureBuilds.NextLandings(
+      World.Surface(),
+      World.Surface().Footprints(),
+      eye,
+      heightAt,
+      std::min(landsMost, size_t{1}),
+      StructureBuildQueue::HeightRequirement::FineOnly,
+      LevelOfDetail::Shell,
+      StructureBuildQueue::BuildPurpose::StaticParents,
+      [this](uint32_t tile, uint64_t key) {
+        return World.BuildingFields
+                   ? World.BuildingFields->ReplacementCells({.Tile = tile, .Key = key})
+                   : uint64_t{0};
+      });
   Cost.BakeLanding.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - landingAt)
           .count());

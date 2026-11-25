@@ -170,6 +170,7 @@ public:
   };
 
   using CellDemand = std::function<std::optional<uint64_t>(uint32_t)>;
+  using CellCoverage = std::function<uint64_t(uint32_t, uint64_t)>;
   [[nodiscard]] size_t Posts(Ground::SurfacePreparation &stack,
                              ::outshine::Generators::Osm::BuildingField &footprints,
                              LongitudeLatitude eye,
@@ -205,7 +206,8 @@ public:
                size_t most,
                HeightRequirement heights = HeightRequirement::AllowFallback,
                std::optional<LevelOfDetail> detail = std::nullopt,
-               BuildPurpose purpose = BuildPurpose::ViewDetail);
+               BuildPurpose purpose = BuildPurpose::ViewDetail,
+               const CellCoverage &replacementCells = {});
   void PollCompletedTasks();
   void CommitsLandings(::outshine::Generators::Osm::BuildingField &footprints,
                        std::span<Landing> landings) noexcept;
@@ -386,7 +388,9 @@ private:
   [[nodiscard]] static Landing PrepareLanding(QueuedBuild &bake,
                                               ::outshine::Generators::Osm::BuildingField &prints,
                                               const ::outshine::Generators::Osm::OsmField *vectors);
-  static void CollectInitialCell(QueuedBuild &bake);
+  static void CollectInitialCell(QueuedBuild &bake,
+                                 const ::outshine::Generators::Osm::BuildingField &prints,
+                                 const CellCoverage &replacementCells);
   [[nodiscard]] static ::outshine::Generators::Osm::BuildingField::Baked
   ContactMetadata(const QueuedBuild &bake) noexcept;
   static void CommitFootprints(QueuedBuild &bake,

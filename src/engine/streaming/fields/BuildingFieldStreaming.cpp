@@ -60,6 +60,23 @@ bool BuildingFieldStreaming::ProductsReady(SourceAddress source) const noexcept 
   return found != State_->Tiles.end() && found->SourceKey == source.Key && found->Complete;
 }
 
+uint64_t BuildingFieldStreaming::State::Tile::ReplacementCells() const noexcept {
+  uint64_t replaced = RoofOriginalsReplaced;
+  for (const auto &cell : Cells) {
+    if (cell.Qualified && !cell.ShadowNeeded) {
+      replaced |= uint64_t{1} << (cell.Source.Cell - 1u);
+    }
+  }
+  return replaced;
+}
+
+uint64_t BuildingFieldStreaming::ReplacementCells(SourceAddress source) const noexcept {
+  const auto found = std::ranges::find(State_->Tiles, source.Tile, &State::Tile::Index);
+  return found != State_->Tiles.end() && found->SourceKey == source.Key && found->Coverage
+             ? found->ReplacementCells()
+             : 0;
+}
+
 std::optional<uint64_t> BuildingFieldStreaming::OriginalCells(SourceAddress source) const noexcept {
   if (State_->ReadingTile && State_->ReadingTile->Index == source.Tile &&
       State_->ReadingTile->SourceKey == source.Key) {
@@ -69,12 +86,7 @@ std::optional<uint64_t> BuildingFieldStreaming::OriginalCells(SourceAddress sour
   if (found == State_->Tiles.end() || found->SourceKey != source.Key || !found->Coverage) {
     return std::nullopt;
   }
-  uint64_t needed = 0;
-  for (const auto &cell : found->Cells) {
-    if (!cell.Qualified || cell.ShadowNeeded) { needed |= uint64_t{1} << (cell.Source.Cell - 1u); }
-  }
-  needed &= ~(found->ResidentOriginals | found->RoofOriginalsReplaced);
-  return needed;
+  return found->Source.Cells & ~(found->ResidentOriginals | found->ReplacementCells());
 }
 
 Render::CameraBasis BuildingFieldStreaming::State::WorldCamera(const Context &context) {

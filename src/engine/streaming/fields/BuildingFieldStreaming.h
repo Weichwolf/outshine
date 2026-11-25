@@ -66,6 +66,7 @@ public:
   };
 
   [[nodiscard]] bool ProductsReady(SourceAddress source) const noexcept;
+  [[nodiscard]] uint64_t ReplacementCells(SourceAddress source) const noexcept;
   [[nodiscard]] std::optional<uint64_t> OriginalCells(SourceAddress source) const noexcept;
 
 private:

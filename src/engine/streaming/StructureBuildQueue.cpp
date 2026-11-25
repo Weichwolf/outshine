@@ -1139,7 +1139,8 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
                                   size_t most,
                                   HeightRequirement heights,
                                   std::optional<LevelOfDetail> detail,
-                                  BuildPurpose purpose) {
+                                  BuildPurpose purpose,
+                                  const CellCoverage &replacementCells) {
   if (Context_.NativeFailure) { return std::unexpected(*Context_.NativeFailure); }
   std::vector<Landing> landings;
   if (Pool_ == nullptr || most == 0) { return landings; }
@@ -1181,7 +1182,7 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
       DiscardFront(prints);
       continue;
     }
-    CollectInitialCell(bake);
+    CollectInitialCell(bake, prints, replacementCells);
 
     ++count;
     if (bake.InitialCells) { break; }
@@ -1189,13 +1190,23 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
   return PrepareLandings(prints, vectors, count);
 }
 
-void StructureBuildQueue::CollectInitialCell(QueuedBuild &bake) {
+void StructureBuildQueue::CollectInitialCell(
+    QueuedBuild &bake,
+    const ::outshine::Generators::Osm::BuildingField &prints,
+    const CellCoverage &replacementCells) {
   auto &completed = bake.Task.Result().Tile;
   assert(completed);
   if (const uint64_t cells = bake.Task.InitialCells(); cells != 0) {
     if (!bake.InitialCells) { bake.InitialCells.emplace(cells); }
     PrepareGeometry(*completed, bake.Task.Raw());
     bake.InitialCells->Collect(*completed);
+    if (replacementCells && QualifiedSourceKey(prints, bake.Task.Tile()) == bake.SourceKey) {
+      const auto original = bake.InitialCells->Cells();
+      bake.InitialCells->SkipCovered(replacementCells(bake.Task.Tile(), bake.SourceKey));
+      if (bake.InitialCells->Cells() != original) {
+        bake.Revision.OriginalCells = bake.InitialCells->Cells();
+      }
+    }
   }
 }
 

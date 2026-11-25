@@ -107,6 +107,8 @@ struct BuildingFieldStreaming::State {
     bool RoofActive = false;
     bool RoofQualified = false;
     bool RoofCasterActive = false;
+
+    [[nodiscard]] uint64_t ReplacementCells() const noexcept;
   };
 
   struct OriginalProduct {
