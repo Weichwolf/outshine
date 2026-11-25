@@ -19,6 +19,7 @@ struct LookupState {
   std::shared_ptr<Regions> Assets;
   std::string Request;
   std::optional<RegionRequest::IdentityInputs> Inputs;
+  Osm::GroundTerrainErrorLimit TerrainLimit;
   bool CheckedRequest = false, CheckedContent = false;
   std::string Key;
   std::optional<Regions::Loaded> Held;
@@ -27,7 +28,7 @@ struct LookupState {
   Read(Regions::ReadResult product, const std::stop_token &stop) const {
     if (!product) { return std::unexpected(std::move(product.error())); }
     if (!*product) { return std::nullopt; }
-    return Assets->Restore(std::move(**product), stop);
+    return Assets->Restore(std::move(**product), stop, TerrainLimit);
   }
 
   RegionRequest::Attempt Advance(const std::stop_token &stop) {
@@ -148,12 +149,14 @@ GroundRegionRequest::Factory
 GroundRegionRequest::Lookup(std::shared_ptr<Osm::PreparedGroundRegions> assets,
                             std::string request,
                             std::optional<IdentityInputs> inputs,
-                            bool checked) {
+                            bool checked,
+                            Osm::GroundTerrainErrorLimit terrainLimit) {
   auto state = std::make_shared<LookupState>();
   state->Assets = std::move(assets);
   state->Request = std::move(request);
   state->Inputs = std::move(inputs);
   state->CheckedRequest = checked;
+  state->TerrainLimit = std::move(terrainLimit);
   return [state = std::move(state)](const std::stop_token &stop) -> Attempt {
     if (stop.stop_requested()) {
       return std::unexpected(std::string("ground region lookup canceled"));

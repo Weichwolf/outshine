@@ -1423,10 +1423,24 @@ Engine::State::BeginGroundRegionLookup(WorldRegionBuildState &state) {
           std::move(request),
           Generators::GroundRegionRequest::IdentityInputs{
               .Vectors = vectors, .Shape = shape, .Parameters = std::move(*parameters)},
-          checked),
+          checked,
+          TerrainPackErrorLimit(coverage)),
       Phase::Loading,
       World.Surface().RoadAssets());
   return GroundBuildProgress::Pending;
+}
+
+namespace {
+void RecordGroundRegionRead(
+    Core::DiagnosticLedger &published,
+    const std::optional<Generators::Osm::PreparedGroundRegions::Loaded> &loaded) {
+  published.RecordMetric("ground region: native asset bytes",
+                         loaded ? static_cast<double>(loaded->ReadBytes) : 0.0,
+                         "bytes");
+  published.RecordMetric("ground region: compact terrain packs",
+                         loaded ? static_cast<double>(loaded->CompactTerrainPacks) : 0.0,
+                         "packs");
+}
 }
 
 Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
@@ -1460,9 +1474,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
   }
   Published.RecordMetric("ground region: native cache hit", hit ? 1.0 : 0.0, "hit");
   Published.RecordMetric("ground region: worker elapsed", result.WorkerMs, "ms");
-  Published.RecordMetric("ground region: native asset bytes",
-                         result.Loaded ? static_cast<double>(result.Loaded->ReadBytes) : 0.0,
-                         "bytes");
+  RecordGroundRegionRead(Published, result.Loaded);
   if (state.RegionStatus() == Phase::Loading && !hit && World.Surface().UsesCachedRegionNetwork()) {
     RequestGroundStreetSources();
   }

@@ -27,6 +27,7 @@
 #include "GroundSnapshot.h"
 #include "RegionPool.h"
 #include "TerrainSurfacePublication.h"
+#include "GroundTerrainPacks.h"
 #include "Wayfinding.h"
 #include "GeometryPageResidency.h"
 #include "BuildingPageAdapter.h"
@@ -602,6 +603,8 @@ struct Engine::State {
   [[nodiscard]] Around RequestedTerrainCoverage(LongitudeLatitude focus) const;
   [[nodiscard]] double TerrainSightM() const noexcept;
   [[nodiscard]] static double FinestTerrainSampleRadiusM() noexcept;
+  [[nodiscard]] Generators::Osm::GroundTerrainErrorLimit
+  TerrainPackErrorLimit(const Around &coverage) const;
   [[nodiscard]] Holds<std::vector<Around>>
   ViewPreparationPath(const Scenario::View &view,
                       double durationS,

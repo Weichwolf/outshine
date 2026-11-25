@@ -49,7 +49,8 @@ public:
   [[nodiscard]] static Factory Lookup(std::shared_ptr<Osm::PreparedGroundRegions> assets,
                                       std::string request,
                                       std::optional<IdentityInputs> inputs = {},
-                                      bool checked = false);
+                                      bool checked = false,
+                                      Osm::GroundTerrainErrorLimit terrainLimit = {});
   [[nodiscard]] static Factory PrepareStore(StoreInputs inputs);
 
   // The pool outlives this owner and unfinished callbacks; Advance only posts due work.
