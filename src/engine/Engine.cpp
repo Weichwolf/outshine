@@ -1,6 +1,7 @@
 #include "GroundQuality.h"
 #include "EngineState.h"
 #include "BuildingFieldStreaming.h"
+#include "AssetCache.h"
 #include "SourceFailure.h"
 #include "GpuFrameSample.h"
 #include "geo/Mercator.h"
@@ -604,6 +605,9 @@ Loading Engine::loading() const {
   const size_t missing = native ? S_->World.Pending : S_->World.AskedPending;
   said.GroundArrived = said.GroundWanted >= missing ? said.GroundWanted - missing : 0;
   if (!S_->World.Surface().Opened()) { return said; }
+  if (const auto &cache = S_->World.Surface().AssetStore()) {
+    said.AssetPackageBytesRead = cache->PackageBytesRead();
+  }
   if (const ::outshine::Generators::Osm::OsmField *vectors = S_->World.Surface().Vectors();
       vectors != nullptr && S_->World.Surface().HasVectorSource()) {
     said.VectorArrived = vectors->Tiles().size();

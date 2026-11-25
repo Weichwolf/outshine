@@ -25,6 +25,7 @@ struct AssetCache::State {
   sqlite3 *Database = nullptr;
   std::unique_ptr<CacheUsageIndex> Usage;
   std::atomic<bool> UsageWarning{false};
+  std::atomic_uint64_t PackageBytesRead{0};
   [[nodiscard]] std::expected<void, AssetCacheError> EnsureOpen();
   [[nodiscard]] std::expected<void, AssetCacheError> Initialize();
   void ReleaseConnection();

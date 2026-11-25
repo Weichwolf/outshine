@@ -1,6 +1,7 @@
 #include "AssetCacheState.h"
 #include "AssetPackageCodec.h"
 #include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <limits>
 #include <cstdint>
@@ -76,6 +77,10 @@ std::span<const uint8_t> CachedAsset::Bytes() const noexcept {
       raw != nullptr ? std::span<const uint8_t>(*raw) : std::get<ByteBlock>(Package_).Bytes();
   return bytes.subspan(static_cast<size_t>(Record_.OffsetBytes),
                        static_cast<size_t>(Record_.ByteCount));
+}
+
+uint64_t AssetCache::PackageBytesRead() const noexcept {
+  return State_->PackageBytesRead.load(std::memory_order_relaxed);
 }
 
 std::expected<std::optional<AssetCache::ReadPlan>, AssetCacheError>
@@ -179,6 +184,7 @@ AssetCache::Load(std::string_view key, const ReadPlan &plan) const {
   auto stored = ReadBlob(State_->Database, sqlite3_column_int64(statement.Value, 0), table, bytes);
   if (!stored) { return std::unexpected(stored.error()); }
   if (!*stored) { return std::optional<CachedAsset>{}; }
+  State_->PackageBytesRead.fetch_add(bytes, std::memory_order_relaxed);
   const auto expectedCrc = sqlite3_column_int64(statement.Value, 2);
   sqlite3_finalize(std::exchange(statement.Value, nullptr));
   lock.unlock();

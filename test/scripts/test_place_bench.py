@@ -63,6 +63,8 @@ class PlaceBench(unittest.TestCase):
                                "peak_scope": "process_lifetime"},
             "gpu_memory": {"resource_allocated_bytes": 2**20 * index},
             "phases_ms": {"preload": timing}, "metrics": [],
+            "loading": {"prepared": {"asset_package_bytes_read": 2**20 * index},
+                        "finished": {"asset_package_bytes_read": 3 * 2**20 * index}},
             "image_row_variation": 2.0,
             "measurement_complete": True, "world_complete": True, "unrefined_frames": 0,
             "gpu": {"rtx3060": "RTX 3060", "iris": "Iris Xe Graphics", "a18": "Apple A18 Pro"}
@@ -102,6 +104,8 @@ class PlaceBench(unittest.TestCase):
                     self.assertEqual(row["cpu_work_p50_ms"], 1.75)
                     self.assertEqual(row["gpu_p99_ms"], 14)
                     self.assertEqual(row["warm_load_ms"], 7)
+                    self.assertEqual(row["prepared_asset_package_bytes"], 2**21)
+                    self.assertEqual(row["motion_asset_package_bytes"], 2**22)
                     self.assertEqual(row["peak_footprint_bytes"], 2**22)
                     self.assertIsNone(row["draws_max"])
                     self.assertIsNone(row["triangles_max"])
@@ -109,6 +113,7 @@ class PlaceBench(unittest.TestCase):
                     self.assertIsNone(row["gpu_passes"]["water"]["p99_ms"])
                     self.assertTrue(row["complete"])
                 self.assertIn(f"GPU: {result['rows'][0]['gpu']}; Treiber: test driver", table)
+                self.assertIn("2.00 / 4.00", table)
                 self.assertEqual(table.count("| Husum |"), 4)
 
     def test_failed_repetition_cannot_publish_a_successful_partial_median(self):

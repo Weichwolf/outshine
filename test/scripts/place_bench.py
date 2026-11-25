@@ -208,10 +208,19 @@ def summarize(reports):
     gaps = [{"run": index, "missing": missing}
             for index, report in enumerate(reports, 1) if (missing := missing_measurements(report))]
     encoding = []
+    motion_asset_reads = []
     for report, metric in zip(reports, metrics):
         stages = [value for key, value in metric.items()
                   if key.startswith("cost.stage.") and key.endswith(".total_ms")]
         encoding.append(sum(stages) / report["motion"]["frames"] if stages else None)
+        loading = report.get("loading", {})
+        prepared = loading.get("prepared", {}).get("asset_package_bytes_read")
+        finished = loading.get("finished", {}).get("asset_package_bytes_read")
+        motion_asset_reads.append(
+            finished - prepared
+            if prepared is not None and finished is not None and finished >= prepared
+            else None
+        )
     return {
         "cpu_p50_ms": field("cpu_times", "frame", "p50_ms"),
         "cpu_p99_ms": field("cpu_times", "frame", "p99_ms"),
@@ -235,6 +244,8 @@ def summarize(reports):
             for r in reports
         ]),
         "path_preparation_ms": field("phases_ms", "path_preparation"),
+        "prepared_asset_package_bytes": field("loading", "prepared", "asset_package_bytes_read"),
+        "motion_asset_package_bytes": median(motion_asset_reads),
         "source_remote_starts": field("loading", "prepared", "remote_starts"),
         "source_fetched_mib": field("loading", "prepared", "fetched_mib"),
         "structure_wait_ms": field("loading", "prepared", "waits", "structure", "ms"),
@@ -312,7 +323,12 @@ def table_row(row, budget, cpu_budget, gpu_budget):
     passes = row.get("gpu_passes", {})
     pass_text = ", ".join(f"{label}={number(passes.get(group, {}).get('p99_ms'))}" for group, label in
                           zip(GROUPS, ("S", "O", "A", "W", "P")))
-    values.extend((number(row.get("warm_load_ms")), "ja" if row["complete"] else "nein",
+    values.append(number(row.get("warm_load_ms")))
+    asset_reads = [row.get(key) for key in
+                   ("prepared_asset_package_bytes", "motion_asset_package_bytes")]
+    values.append(" / ".join(number(value / 2**20 if value is not None else None)
+                             for value in asset_reads))
+    values.extend(("ja" if row["complete"] else "nein",
                    "ja" if row.get("image_nonblank") else "nein",
                    number(row.get("cpu_encoding_ms")), pass_text))
     return "| " + " | ".join(values) + " |"
@@ -376,8 +392,8 @@ def benchmark_places(available, selected, options, invoke, publish_shot=None):
           "CPU-Arbeit p99 ms | GPU p50 ms | GPU p99 ms | "
           "CPU-Arbeit Anlauf p99 ms | CPU-Arbeit Max ms (L/F) | GPU Anlauf p99 ms | GPU Max ms (L/F) | "
           "Draws (Frame-Max) | Dreiecke (Frame-Max) | Peak-RSS MiB | Peak-Footprint MiB | GPU MiB (danach) | "
-          "Laden warm ms | Vollständig | Bildstruktur | CPU-Encoding ms | GPU-Pässe |")
-    print("|" + " --- |" * 22)
+          "Laden warm ms | Asset-MiB vor / im Lauf | Vollständig | Bildstruktur | CPU-Encoding ms | GPU-Pässe |")
+    print("|" + " --- |" * 23)
     for row in output["rows"]:
         print(table_row(row, budget, cpu_budget, gpu_budget))
     print(f"\nJSON: {options.reports / 'results.json'}; Dauer: {output['elapsed_s']:.1f} s.")

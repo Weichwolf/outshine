@@ -158,6 +158,7 @@ public:
   [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
   LoadRequest(std::string_view requestKey, size_t packageBytesMost) const;
   void UsePackage(std::string_view packageKey) const;
+  [[nodiscard]] uint64_t PackageBytesRead() const noexcept;
 
   [[nodiscard]] std::expected<std::vector<AssetRecord>, AssetCacheError>
   Select(const AssetQuery &query) const;

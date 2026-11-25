@@ -165,6 +165,7 @@ ReportJson LoadingJson(const Loading &loading) {
           {"source_deliveries", loading.SourceDeliveries},
           {"source_from_store", loading.SourceFromStore},
           {"source_bytes", loading.SourceBytes},
+          {"asset_package_bytes_read", loading.AssetPackageBytesRead},
           {"preload_ms", loading.PreloadMs},
           {"preload_pump_ms", loading.PreloadPumpMs},
           {"preload_flush_ms", loading.PreloadFlushMs},
