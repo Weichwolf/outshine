@@ -65,7 +65,7 @@ struct BuildingShape {
   int WallVariant = 0;
   int FrontEdge = -1;
 
-  [[nodiscard]] bool Valid() const { return Ring.size() >= 3 && AreaM2 > 1.0; }
+  [[nodiscard]] bool Valid() const { return Ring.size() >= 3 && AreaM2 > 0.0; }
 
   [[nodiscard]] bool OnGround() const { return FootM == 0.0; }
 

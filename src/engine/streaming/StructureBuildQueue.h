@@ -357,6 +357,8 @@ private:
   void PrefetchContactBases(Ground::SurfacePreparation &stack,
                             const Generators::Osm::BuildingField &prints,
                             const Generators::Osm::OsmField &vectors);
+  [[nodiscard]] const std::string &BuildingInputDigest(const Generators::Osm::OsmField &vectors,
+                                                       uint32_t tile);
   [[nodiscard]] bool SelectNativeBasis(Ground::SurfacePreparation &stack,
                                        const ::outshine::Generators::Osm::BuildingField &prints,
                                        uint32_t tile,
@@ -460,6 +462,9 @@ private:
     int PreparingOriginalHeightZoom = -1;
     std::deque<QueuedBuild> Queue;
     std::unordered_map<std::string, std::shared_ptr<NativeLookup>> NativeLookups;
+    std::shared_ptr<const void> BuildingInputOrigin;
+    uint64_t BuildingInputGeneration = 0;
+    std::vector<std::string> BuildingInputDigests;
     std::shared_ptr<NativeProgress> LookupProgress;
     std::shared_ptr<Generators::PreparedBuildingAssets> NativeAssets;
     std::optional<Generators::StructureBakeError> NativeFailure;

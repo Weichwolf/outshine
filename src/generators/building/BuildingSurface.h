@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <array>
+#include <atomic>
 #include <expected>
 #include <optional>
 #include <memory>
@@ -16,6 +17,7 @@
 namespace outshine::Generators {
 
 struct BuildingSurfacePatch;
+struct PreparedStructureTile;
 class BuildingSurfaceBlock;
 
 class BuildingSurface {
@@ -96,6 +98,10 @@ public:
 
 private:
   friend class PreparedStructureCodec;
+  friend bool AttachCanopySupports(PreparedStructureTile &tile,
+                                   std::span<const WayLine> ways,
+                                   const std::atomic_bool *stopping);
+  void AppendPart(BuildingShape shape);
   friend bool CompatiblePreparedSurface(const BuildingSurface &header,
                                         const BuildingSurface &model) noexcept;
   [[nodiscard]] const BuildingSurface &Resident() const noexcept;

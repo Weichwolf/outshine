@@ -1,4 +1,5 @@
 #include "BuildingInputs.h"
+#include "BuildingCanopy.h"
 #include "BuildingProperties.h"
 #include "Log.h"
 #include "OsmLayer.h"
@@ -220,6 +221,15 @@ void AppendBuildingRings(const OsmField &vectors,
   }
 }
 
+}
+
+bool HasCanopySlab(const OsmField &vectors, uint32_t tile) {
+  const int layer = vectors.Layer(OsmLayer::Buildings);
+  return std::ranges::any_of(vectors.OfTile(static_cast<int>(tile)), [&](const auto &feature) {
+    return feature.Type == kPolygonFeature && std::cmp_equal(feature.Layer, layer) &&
+           IsCanopySlab({.MinimumM = vectors.Num(feature, "min_height", 0),
+                         .TopM = vectors.Num(feature, "height", 0)});
+  });
 }
 
 void PrepareBuildingInputs(const OsmField &vectors,

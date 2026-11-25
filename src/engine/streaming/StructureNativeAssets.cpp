@@ -1,4 +1,5 @@
 #include "SurfacePreparation.h"
+#include "BuildingInputs.h"
 #include "StructureBuildQueue.h"
 #include "PreparedBuildingAssets.h"
 #include <algorithm>
@@ -278,8 +279,8 @@ StructureBuildQueue::PollNativeAsset(Ground::SurfacePreparation &stack,
   Context_.NativeAssets = cache;
   const Data::TileId address{
       .Zoom = region.Z, .X = static_cast<uint32_t>(region.X), .Y = static_cast<uint32_t>(region.Y)};
-  query.RequestKey =
-      cache->RequestKey(address, stack.Pool().Shaped(), prints.TileSpanM(), region.InputDigest);
+  query.RequestKey = cache->RequestKey(
+      address, stack.Pool().Shaped(), prints.TileSpanM(), BuildingInputDigest(*vectors, tile));
   if (query.RequestKey.empty()) {
     return std::unexpected(Generators::StructureBakeErrorKind::ArtifactInvalidProduct);
   }
@@ -296,6 +297,23 @@ StructureBuildQueue::PollNativeAsset(Ground::SurfacePreparation &stack,
     query.Where = NativeAssetQuery::Phase::Missing;
   }
   return query;
+}
+
+const std::string &
+StructureBuildQueue::BuildingInputDigest(const Generators::Osm::OsmField &vectors, uint32_t tile) {
+  auto &context = Context_;
+  if (context.BuildingInputOrigin.get() != vectors.OriginToken() ||
+      context.BuildingInputGeneration != vectors.Generation()) {
+    context.BuildingInputOrigin = vectors.ShareOriginToken();
+    context.BuildingInputGeneration = vectors.Generation();
+    context.BuildingInputDigests.assign(vectors.Tiles().size(), {});
+  }
+  auto &digest = context.BuildingInputDigests[tile];
+  if (digest.empty()) {
+    digest = vectors.Tiles()[tile].InputDigest;
+    if (Generators::Osm::HasCanopySlab(vectors, tile)) { digest += "/canopy-supports-v1"; }
+  }
+  return digest;
 }
 
 void StructureBuildQueue::ReleaseNativeAsset(const std::string &request,
@@ -366,8 +384,11 @@ bool StructureBuildQueue::SelectNativeBasis(
     stack.RequestStreets();
     return false;
   }
-  const auto key =
-      cache->Key(address, *digest, stack.Pool().Shaped(), prints.TileSpanM(), region.InputDigest);
+  const auto key = cache->Key(address,
+                              *digest,
+                              stack.Pool().Shaped(),
+                              prints.TileSpanM(),
+                              BuildingInputDigest(vectors, tile));
   if (key.empty()) {
     Context_.NativeFailure = Generators::StructureBakeErrorKind::ArtifactInvalidProduct;
     return false;
