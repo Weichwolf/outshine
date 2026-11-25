@@ -11,10 +11,11 @@ from time import perf_counter
 import numpy as np
 from footprint_cards import catalogue
 from footprint_flight import Terrain, render_poses, seat
-from footprint_terraces import GROUP_METRES, terraces
+from footprint_terraces import GROUP_METRES, prism_tiles, terraces
 from group_footprints import HEIGHT, read_source
 from mapbox_earcut import triangulate_float64
 from shapely.geometry.polygon import orient
+from tile_selection import local_frame
 
 
 def mesh(parts, roofs):
@@ -93,12 +94,49 @@ def write_products(path, header, groups):
     return group_count, triangles
 
 
+def write_prisms(path, header, groups, spacing, terrain):
+    latitude, longitude = map(math.degrees, (terrain.latitude, terrain.longitude))
+    origin, axes = local_frame(latitude, longitude)
+    patches = []
+    samples = 0
+    with path.open("wb") as output:
+        output.write(header)
+        output.write(struct.pack("<2d", latitude, longitude))
+        product_header = output.tell()
+        output.write(struct.pack("<QII", 0x31534D535250534F, 0, 0))
+        for (x, z), spans in groups:
+            rows, columns, _ = spans.shape
+            placement = np.eye(4)
+            placement[:3, :3] = axes
+            placement[:3, 3] = origin + axes @ (x, 0, z)
+            patches.append(
+                struct.pack(
+                    "<QIIfff17d",
+                    samples,
+                    columns,
+                    rows,
+                    spacing,
+                    spacing,
+                    1,
+                    *placement.T.ravel(),
+                    0,
+                )
+            )
+            output.write(spans.tobytes())
+            samples += rows * columns
+        output.writelines(patches)
+        output.seek(product_header + struct.calcsize("<Q"))
+        output.write(struct.pack("<II", samples, len(patches)))
+    return len(patches)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for field in ("source", "dem", "scene", "benchmark", "export"):
         parser.add_argument(field, type=Path)
     parser.add_argument("--extent-m", type=float, default=1200)
     parser.add_argument("--terrace-m", type=int, choices=(4, 8, 16, 32))
+    parser.add_argument("--prisms", action="store_true")
     args = parser.parse_args()
     if not math.isfinite(args.extent_m) or args.extent_m <= 0:
         parser.error("the source half extent must be positive and finite")
@@ -113,6 +151,8 @@ def main():
     ]
     if not parts:
         parser.error("the selected window has no source footprints")
+    if args.prisms and (args.terrace_m is None or any(p.bottom_m > 0 for p in parts)):
+        parser.error("the prism replay needs terrace spacing and grounded footprints")
     start, end = render_poses(
         json.loads(args.benchmark.read_text()), args.scene, terrain, 2
     )
@@ -124,9 +164,19 @@ def main():
         *-start.axes[:, 1],
         2 * math.atan(HEIGHT / (2 * start.focal)),
     )
-    groups, triangles = write_products(
-        args.export, header, products(parts, terrain, args.terrace_m)
-    )
+    triangles = None
+    if args.prisms:
+        groups = write_prisms(
+            args.export,
+            header,
+            prism_tiles(seat(parts, terrain), args.terrace_m),
+            args.terrace_m,
+            terrain,
+        )
+    else:
+        groups, triangles = write_products(
+            args.export, header, products(parts, terrain, args.terrace_m)
+        )
     print(
         json.dumps(
             {

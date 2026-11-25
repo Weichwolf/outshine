@@ -5,8 +5,12 @@
 #include "ImpostorBaker.h"
 #include "ImpostorPoseBounds.h"
 #include "ImpostorSurface.h"
+#include "PrismGrid.h"
+#include "PrismInstance.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
+#include "TangentFrame.h"
+#include "UrbanPrismCodec.h"
 #include "Viewing.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -49,10 +53,19 @@ struct FootprintGroup {
   Box Bounds;
 };
 
+struct PrismRows {
+  std::shared_ptr<PrismGrid> Grid;
+  std::vector<PrismInstance> Instances;
+};
+
 struct Counts {
   size_t Groups = 0, Cards = 0, AtlasBytes = 0, Triangles = 0;
   size_t BytesRejected = 0, PoseRejected = 0;
 };
+
+constexpr Vec4f kWallColour{{.74f, .71f, .65f, 1}};
+constexpr Vec4f kRoofColour{{.42f, .20f, .14f, 1}};
+constexpr float kRoughness = .85f;
 
 std::expected<std::vector<uint8_t>, std::string> Read(const char *path) {
   std::ifstream in(path, std::ios::binary | std::ios::ate);
@@ -79,7 +92,7 @@ bool ReadPart(BinaryValueReader &in, FootprintGroup &group, std::string_view nam
   }
   Material material;
   material.BaseColour = colour;
-  material.Roughness = .85f;
+  material.Roughness = kRoughness;
   const auto surface = group.Mesh.addSurface(name, material);
   const auto part = surface ? group.Mesh.addPart(name, *surface)
                             : std::expected<int, GeometryPartError>{
@@ -154,6 +167,11 @@ std::optional<Geometry> Card(ImpostorBaker &baker,
   return card;
 }
 
+bool ReadFlight(BinaryValueReader &in, Flight &flight) {
+  return in(flight.Start.Axis, flight.End.Axis, flight.Forward.Axis, flight.Up.Axis, flight.Fov) &&
+         std::isfinite(flight.Fov) && flight.Fov > 0 && flight.Fov < std::numbers::pi;
+}
+
 std::expected<Geometry, std::string> Prepare(const std::vector<uint8_t> &bytes,
                                              std::string_view mode,
                                              double texelMetres,
@@ -161,22 +179,15 @@ std::expected<Geometry, std::string> Prepare(const std::vector<uint8_t> &bytes,
                                              Counts &counts) {
   BinaryValueReader in(bytes);
   uint32_t groups = 0;
-  if (!in(flight.Start.Axis,
-          flight.End.Axis,
-          flight.Forward.Axis,
-          flight.Up.Axis,
-          flight.Fov,
-          groups) ||
-      groups == 0 || groups > 4096 || !std::isfinite(flight.Fov) || flight.Fov <= 0 ||
-      flight.Fov >= std::numbers::pi) {
+  if (!ReadFlight(in, flight) || !in(groups) || groups == 0 || groups > 4096) {
     return std::unexpected("invalid footprint flight header");
   }
   Geometry geometry;
   ImpostorBaker baker;
   for (uint32_t i = 0; i < groups; ++i) {
     FootprintGroup group;
-    if (!ReadPart(in, group, "walls", {{.74f, .71f, .65f, 1}}) ||
-        !ReadPart(in, group, "roofs", {{.42f, .20f, .14f, 1}}) || group.Bounds.Empty()) {
+    if (!ReadPart(in, group, "walls", kWallColour) || !ReadPart(in, group, "roofs", kRoofColour) ||
+        group.Bounds.Empty()) {
       return std::unexpected("invalid footprint group");
     }
     auto card = mode == "geometry" ? std::optional<Geometry>{}
@@ -200,6 +211,59 @@ std::expected<Geometry, std::string> Prepare(const std::vector<uint8_t> &bytes,
   return geometry;
 }
 
+std::expected<PrismRows, std::string>
+PreparePrisms(const std::vector<uint8_t> &bytes, Flight &flight, Counts &counts) {
+  BinaryValueReader in(bytes);
+  LongitudeLatitude anchor;
+  if (!ReadFlight(in, flight) || !in(anchor.LatitudeDeg, anchor.LongitudeDeg) ||
+      !(std::abs(anchor.LatitudeDeg) <= 90) || !(std::abs(anchor.LongitudeDeg) <= 180)) {
+    return std::unexpected("invalid prism flight header");
+  }
+  const auto frame = TangentFrame::At(anchor);
+  const auto payload = in.In.Take(in.In.Remaining());
+  if (!payload) { return std::unexpected("missing prism product"); }
+  auto product = Generators::Osm::DecodeUrbanPrisms(*payload);
+  if (!product) { return std::unexpected(product.error()); }
+  PrismRows rows{.Grid = std::make_shared<PrismGrid>(std::move(product->Geometry)),
+                 .Instances = {}};
+  rows.Instances.reserve(product->Placements.size());
+  for (uint32_t at = 0; at < product->Placements.size(); ++at) {
+    Mat4f placed;
+    const auto &transform = product->Placements[at].EcefFromLocal;
+    for (size_t axis = 0; axis < 4; ++axis) {
+      const Vec3 column{{transform.At(0, axis), transform.At(1, axis), transform.At(2, axis)}};
+      const auto local = axis == 3 ? frame.ToLocalPosition(column) : frame.ToLocalDirection(column);
+      placed.At(0, axis) = static_cast<float>(local.EastM);
+      placed.At(1, axis) = static_cast<float>(local.UpM);
+      placed.At(2, axis) = static_cast<float>(-local.NorthM);
+    }
+    constexpr Vec4f roof{{kRoofColour[0] / kWallColour[0],
+                          kRoofColour[1] / kWallColour[1],
+                          kRoofColour[2] / kWallColour[2],
+                          kRoughness}};
+    rows.Instances.push_back(
+        {.Patch = at, .Current = placed, .Previous = placed, .TopCoating = roof});
+  }
+  counts.Groups = rows.Instances.size();
+  counts.Triangles = 2 * counts.Groups;
+  return rows;
+}
+
+std::expected<void, std::string> PlacePrisms(SceneRenderer &renderer, const PrismRows &rows) {
+  Geometry materials;
+  Material surface;
+  surface.BaseColour = kWallColour;
+  surface.Roughness = kRoughness;
+  if (!materials.addSurface("terrace walls", surface)) {
+    return std::unexpected("invalid terrace material");
+  }
+  const auto material = renderer.RegisterPieceMaterials(std::move(materials));
+  if (!material) { return std::unexpected(material.error()); }
+  const auto placed = renderer.PlacePrismGrid(rows.Grid, rows.Instances, *material);
+  if (!placed) { return std::unexpected(placed.error().Message); }
+  return {};
+}
+
 bool RenderAt(Core::RuntimeScene &scene, const Flight &flight, double t, std::string &error) {
   const Vec3 at = flight.Start + (flight.End - flight.Start) * t;
   auto camera = Viewpoint::LookAt({.EyeM = at, .AimM = at + flight.Forward}, flight.Up);
@@ -214,11 +278,13 @@ bool RenderAt(Core::RuntimeScene &scene, const Flight &flight, double t, std::st
   return scene.Draw(error);
 }
 
-std::expected<double, std::string>
-Measure(const Geometry &geometry, const Flight &flight, std::string_view output) {
+std::expected<double, std::string> Measure(const Geometry &geometry,
+                                           const Flight &flight,
+                                           std::string_view output,
+                                           const PrismRows *prisms = nullptr) {
   SceneRenderer renderer;
   Core::Declaration declaration;
-  declaration.InitialGeometry = &geometry;
+  declaration.InitialGeometry = prisms == nullptr ? &geometry : nullptr;
   declaration.SurfaceWidthPx = kFrame.WidthPx;
   declaration.SurfaceHeightPx = kFrame.HeightPx;
   declaration.Outputs = {"surface", "sceneDepth"};
@@ -230,6 +296,10 @@ Measure(const Geometry &geometry, const Flight &flight, std::string_view output)
   std::string error;
   if (!Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error)) {
     return std::unexpected(error);
+  }
+  if (prisms != nullptr) {
+    const auto placed = PlacePrisms(renderer, *prisms);
+    if (!placed) { return std::unexpected(placed.error()); }
   }
   if (!RenderAt(*scene, flight, 0, error)) { return std::unexpected(error); }
   renderer.WaitForGpu();
@@ -263,11 +333,11 @@ Measure(const Geometry &geometry, const Flight &flight, std::string_view output)
 
 int main(int argc, const char *const *argv) {
   if (argc < 4 || argc > 5) {
-    std::cerr << "usage: footprint_cards MESH geometry|flat|depth OUTPUT [4|8|16]\n";
+    std::cerr << "usage: footprint_cards PRODUCT geometry|flat|depth|prisms OUTPUT [4|8|16]\n";
     return 2;
   }
   const std::string_view mode = argv[2];
-  if (mode != "geometry" && mode != "flat" && mode != "depth") { return 2; }
+  if (mode != "geometry" && mode != "flat" && mode != "depth" && mode != "prisms") { return 2; }
   const std::string_view pitch = argc == 5 ? argv[4] : "4";
   int texelMetres = 0;
   const auto parsed = std::from_chars(pitch.begin(), pitch.end(), texelMetres);
@@ -283,18 +353,37 @@ int main(int argc, const char *const *argv) {
   Flight flight;
   Counts counts;
   const auto data = Read(argv[1]);
-  auto geometry = data ? Prepare(*data, mode, texelMetres, flight, counts)
-                       : std::expected<Geometry, std::string>{std::unexpect, data.error()};
+  Geometry geometry;
+  std::optional<PrismRows> prisms;
+  std::expected<double, std::string> p99;
+  if (!data) {
+    p99 = std::unexpected(data.error());
+  } else if (mode == "prisms") {
+    auto rows = PreparePrisms(*data, flight, counts);
+    if (rows) {
+      prisms.emplace(std::move(*rows));
+    } else {
+      p99 = std::unexpected(rows.error());
+    }
+  } else {
+    auto loaded = Prepare(*data, mode, texelMetres, flight, counts);
+    if (loaded) {
+      geometry = std::move(*loaded);
+    } else {
+      p99 = std::unexpected(loaded.error());
+    }
+  }
   const auto preparation = std::chrono::duration<double, std::milli>(Clock::now() - began).count();
-  auto p99 = geometry ? Measure(*geometry, flight, argv[3])
-                      : std::expected<double, std::string>{std::unexpect, geometry.error()};
+  if (p99) { p99 = Measure(geometry, flight, argv[3], prisms ? &*prisms : nullptr); }
   SDL_Quit();
   if (!p99) {
     std::cerr << p99.error() << '\n';
     return 1;
   }
-  std::cout << mode << ' ' << texelMetres << " m/texel " << counts.Groups << " groups "
-            << counts.Cards << " cards " << counts.Triangles << " triangles " << counts.AtlasBytes
+  std::cout << mode << ' ';
+  if (mode == "flat" || mode == "depth") { std::cout << texelMetres << " m/texel "; }
+  std::cout << counts.Groups << " groups " << counts.Cards << " cards " << counts.Triangles
+            << (mode == "prisms" ? " proxy triangles " : " triangles ") << counts.AtlasBytes
             << " atlas bytes upper bound " << counts.BytesRejected << " byte rejects "
             << counts.PoseRejected << " pose rejects " << preparation << " ms preparation " << *p99
             << " ms GPU p99\n";

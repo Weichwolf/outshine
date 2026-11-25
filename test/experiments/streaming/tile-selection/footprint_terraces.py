@@ -133,18 +133,36 @@ def surface(start, spacing, floor, roof, region):
     return walls.mesh(), roofs.mesh()
 
 
-def terraces(grounded, spacing):
+def terrace_tiles(grounded, spacing):
     if not grounded:
         return
     if spacing <= 0 or GROUP_METRES % spacing:
         raise ValueError("terrace spacing must divide the group extent")
     start, lower, upper = raster(grounded, spacing)
-    floor = np.pad(lower, 1, constant_values=NO_FLOOR)
-    roof = np.pad(upper, 1, constant_values=NO_ROOF)
     height, width = upper.shape
     side = GROUP_METRES // spacing
     for z in range(0, height, side):
         for x in range(0, width, side):
             right, south = min(x + side, width), min(z + side, height)
             if (upper[z:south, x:right] != NO_ROOF).any():
-                yield surface(start, spacing, floor, roof, (x, z, right, south))
+                yield start, lower, upper, (x, z, right, south)
+
+
+def terraces(grounded, spacing):
+    padded = None
+    for start, lower, upper, region in terrace_tiles(grounded, spacing):
+        if padded is None:
+            padded = (
+                np.pad(lower, 1, constant_values=NO_FLOOR),
+                np.pad(upper, 1, constant_values=NO_ROOF),
+            )
+        yield surface(start, spacing, *padded, region)
+
+
+def prism_tiles(grounded, spacing):
+    for start, lower, upper, (x, z, right, south) in terrace_tiles(grounded, spacing):
+        region = np.s_[z:south, x:right]
+        spans = np.stack((lower[region], upper[region]), axis=-1).astype("<f4")
+        spans *= HEIGHT_STEP_M
+        spans[upper[region] == NO_ROOF] = 0
+        yield (start + (x, z)) * spacing, spans
