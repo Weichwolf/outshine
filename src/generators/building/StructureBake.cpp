@@ -124,6 +124,16 @@ std::expected<void, StructureMeshError> RaiseStructureMass(const StructureMassPl
 std::expected<void, ClusterError> FinalizeBake(const RawTile &raw, BakedTile &out) {
   auto walls = CookedOver(raw, out.Built.WallCorners, out.Built.WallRun);
   if (!walls) { return std::unexpected(walls.error()); }
+  if (raw.RequestedDetail == LevelOfDetail::Shell && !walls->Index.empty()) {
+    const auto &corners = out.Built.WallCorners;
+    const auto *positions = reinterpret_cast<const float *>(corners.data());
+    walls = CookDirectionalClusters(
+        {.PositionsM = std::span(positions, corners.size() * kStoredVertexFloats),
+         .Indices = walls->Index,
+         .StrideFloats = kStoredVertexFloats},
+        raw.ClusterTriangles);
+    if (!walls) { return std::unexpected(walls.error()); }
+  }
   auto roofs = CookedOver(raw, out.Built.RoofCorners, out.Built.RoofRun);
   if (!roofs) { return std::unexpected(roofs.error()); }
   out.Walls = std::move(*walls);

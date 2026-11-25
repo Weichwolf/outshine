@@ -100,14 +100,18 @@ int main() {
         "clustered building production supplies both index orders before publication");
   const auto drawAsset = EncodeStructureArtifact(clustered, key);
   const auto drawProduct = drawAsset ? DecodeStructureArtifact(*drawAsset, key, 29) : std::nullopt;
-  CHECK(drawProduct && drawProduct->Built.WallRun.empty() && drawProduct->Built.RoofRun.empty() &&
-            std::ranges::equal(drawProduct->Walls.DrawIndices(drawProduct->Built.WallRun),
-                               clustered.Walls.Index) &&
-            std::ranges::equal(drawProduct->Roofs.DrawIndices(drawProduct->Built.RoofRun),
-                               clustered.Roofs.Index) &&
-            drawProduct->Triangles() == clustered.Triangles() &&
-            drawProduct->GeometryBytes() == clustered.GeometryBytes(),
-        "published geometry retains every draw triangle and skips redundant source order");
+  CHECK(
+      drawProduct && drawProduct->Built.WallRun.empty() && drawProduct->Built.RoofRun.empty() &&
+          std::ranges::equal(drawProduct->Walls.DrawIndices(drawProduct->Built.WallRun),
+                             clustered.Walls.Index) &&
+          std::ranges::equal(drawProduct->Roofs.DrawIndices(drawProduct->Built.RoofRun),
+                             clustered.Roofs.Index) &&
+          std::ranges::any_of(clustered.Walls.Clusters,
+                              [](const DagCluster &cluster) { return cluster.NormalCosine > 0; }) &&
+          drawProduct->Walls.Clusters == clustered.Walls.Clusters &&
+          drawProduct->Triangles() == clustered.Triangles() &&
+          drawProduct->GeometryBytes() == clustered.GeometryBytes(),
+      "published geometry retains every draw triangle and skips redundant source order");
   raw.Projection.FocalPx = 720;
   raw.RequestedDetail.reset();
   raw.RequestedCell.reset();

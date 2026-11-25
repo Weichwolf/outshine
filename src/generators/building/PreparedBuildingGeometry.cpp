@@ -18,7 +18,7 @@
 
 namespace outshine::Generators {
 namespace {
-std::string GeometryKey(const std::string &base, const RawTile &view) {
+std::string GeometryKey(const std::string &base, const RawTile &view, bool legacy = false) {
   ByteWriter bytes(4096);
   const auto text = [&bytes](std::string_view value) {
     return bytes.Number(value.size()) &&
@@ -32,6 +32,9 @@ std::string GeometryKey(const std::string &base, const RawTile &view) {
   if (intrinsic) {
     family = view.RequestedDetail == LevelOfDetail::Fine ? "building-static-lod-4"
                                                          : "building-static-lod-6";
+  }
+  if (!legacy && view.RequestedDetail == LevelOfDetail::Shell && view.ClusterTriangles > 0) {
+    family = "building-directional-shell-2";
   }
   if (!text(family) || !text(base) ||
       !bytes.Number(view.RequestedDetail ? static_cast<int>(*view.RequestedDetail) : -1) ||
@@ -98,18 +101,42 @@ PreparedBuildingAssets::LoadGeometryArtifact(const std::string &baseKey,
                                              size_t coordinatePoints) {
   const auto key = GeometryKey(baseKey, view);
   if (key.empty()) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
-  const auto loaded = Cache_->Load(key, kStructureArtifactBytesMost);
-  if (!loaded) { return std::unexpected(CacheFailure(loaded.error())); }
   const std::string_view kind = view.RequestedDetail ? "building-static-lod" : "building-lod";
-  if (*loaded && (**loaded).Record().Parent == baseKey && (**loaded).Record().Kind == kind &&
-      (**loaded).Record().Level ==
-          static_cast<uint32_t>(view.RequestedDetail.value_or(LevelOfDetail::Fine))) {
-    auto tile = DecodeStructureArtifact((**loaded).Bytes(), key, sourceKey);
-    if (tile && ValidCeilings(*tile, coordinatePoints)) {
-      tile->WorldBounds = (**loaded).Record().Bounds;
-      ++GeometryHits_;
-      GeometryReadBytes_ += (**loaded).Bytes().size();
-      return std::move(tile);
+  const auto level = static_cast<uint32_t>(view.RequestedDetail.value_or(LevelOfDetail::Fine));
+  const auto read =
+      [&](const std::string &from) -> std::expected<std::optional<BakedTile>, StructureBakeError> {
+    const auto loaded = Cache_->Load(from, kStructureArtifactBytesMost);
+    if (!loaded) { return std::unexpected(CacheFailure(loaded.error())); }
+    if (!*loaded || (**loaded).Record().Parent != baseKey || (**loaded).Record().Kind != kind ||
+        (**loaded).Record().Level != level) {
+      return std::nullopt;
+    }
+    auto tile = DecodeStructureArtifact((**loaded).Bytes(), from, sourceKey);
+    if (!tile || !ValidCeilings(*tile, coordinatePoints)) { return std::nullopt; }
+    tile->WorldBounds = (**loaded).Record().Bounds;
+    ++GeometryHits_;
+    GeometryReadBytes_ += (**loaded).Bytes().size();
+    return tile;
+  };
+  auto current = read(key);
+  if (!current || *current) { return current; }
+  if (view.RequestedDetail == LevelOfDetail::Shell && view.ClusterTriangles > 0) {
+    auto legacy = read(GeometryKey(baseKey, view, true));
+    if (!legacy) { return legacy; }
+    if (*legacy) {
+      auto &tile = **legacy;
+      const auto &corners = tile.Built.WallCorners;
+      if (!tile.Walls.Index.empty()) {
+        const auto *data = reinterpret_cast<const float *>(corners.data());
+        auto packed = CookDirectionalClusters(
+            {.PositionsM = std::span(data, corners.size() * kStoredVertexFloats),
+             .Indices = tile.Walls.Index,
+             .StrideFloats = kStoredVertexFloats},
+            view.ClusterTriangles);
+        if (!packed) { return std::unexpected(packed.error()); }
+        tile.Walls = std::move(*packed);
+      }
+      return legacy;
     }
   }
   ++GeometryMisses_;

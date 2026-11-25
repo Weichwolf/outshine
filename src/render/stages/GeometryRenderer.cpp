@@ -1002,7 +1002,11 @@ bool GeometryRenderer::AppendPieceBatches(Piece &one, std::string &error) {
     (void)LayoutOf(carried, layout);
   }
   const auto firstSphere = static_cast<uint32_t>(spheres.size() / kSphereFloats);
+  const auto normalCullMask = static_cast<float>(Slots[MaterialSlotFor(one)].CullsBack);
+  bool normalCulling = false;
   for (const DagCluster &cluster : one.Clusters) {
+    const float normalCosine = cluster.NormalCosine * normalCullMask;
+    normalCulling |= normalCosine > 0.0f;
     spheres.insert(spheres.end(),
                    {cluster.SelfCenter[0],
                     cluster.SelfCenter[1],
@@ -1014,8 +1018,8 @@ bool GeometryRenderer::AppendPieceBatches(Piece &one, std::string &error) {
                     cluster.ParentRadius,
                     cluster.SelfErr,
                     cluster.ParentErr,
-                    0.0f,
-                    0.0f});
+                    static_cast<float>(cluster.NormalAxis),
+                    normalCosine});
   }
   const auto firstTemplate = static_cast<uint32_t>(templates.size());
   uint64_t capacity = 0;
@@ -1031,7 +1035,8 @@ bool GeometryRenderer::AppendPieceBatches(Piece &one, std::string &error) {
     return false;
   }
   const size_t runs = one.Clusters.empty() ? 1u : one.Rows.size();
-  const bool completeIndexRange = CompleteTerminalIndexRange(one.Clusters, one.IndexCount);
+  const bool completeIndexRange =
+      !normalCulling && CompleteTerminalIndexRange(one.Clusters, one.IndexCount);
   one.FirstBatch = static_cast<uint32_t>(Batches.size());
   for (size_t instance = 0; instance < runs; ++instance) {
     const auto row = static_cast<uint32_t>(Batches.size());

@@ -124,6 +124,8 @@ private:
 
 [[nodiscard]] std::expected<ClusteredMesh, ClusterError> CookClusters(ClusterMeshInput input,
                                                                       uint32_t triangleLimit);
+[[nodiscard]] std::expected<ClusteredMesh, ClusterError>
+CookDirectionalClusters(ClusterMeshInput input, uint32_t triangleLimit);
 
 }
 #endif

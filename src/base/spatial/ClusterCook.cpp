@@ -1,5 +1,7 @@
 #include "ClusterCook.h"
 #include "Vec3.h"
+#include "Octahedral.h"
+#include <numbers>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -382,5 +384,105 @@ std::expected<ClusteredMesh, ClusterError> CookClusters(ClusterMeshInput input,
     if (!advanced) { return std::unexpected(advanced.error()); }
     if (*advanced) { return job.Take(); }
   }
+}
+
+namespace {
+constexpr size_t kDirectionCount = 16;
+constexpr uint32_t kDirectionBits = 12;
+constexpr uint32_t kDirectionMaximum = (1u << kDirectionBits) - 1u;
+
+Vec3 FaceNormal(ClusterMeshInput input, size_t first) {
+  const Vec3 a = Position(input, input.Indices[first]);
+  const Vec3 b = Position(input, input.Indices[first + 1]);
+  const Vec3 c = Position(input, input.Indices[first + 2]);
+  return Cross(b - a, c - a);
+}
+
+void SetNormalCone(ClusterMeshInput input, DagCluster &cluster) {
+  Vec3 sum;
+  const size_t end = size_t{cluster.First} + cluster.Count;
+  for (size_t at = cluster.First; at < end; at += 3) {
+    Vec3 normal = FaceNormal(input, at);
+    if (Normalise(normal)) { sum = sum + normal; }
+  }
+  if (!Normalise(sum)) { return; }
+  const auto fold = OctFolded(
+      {{static_cast<float>(sum[0]), static_cast<float>(sum[1]), static_cast<float>(sum[2])}});
+  const auto quantise = [](float axis) {
+    return static_cast<uint32_t>(
+        std::lround((std::clamp(axis, -1.0f, 1.0f) * 0.5f + 0.5f) * kDirectionMaximum));
+  };
+  const uint32_t u = quantise(fold[0]);
+  const uint32_t v = quantise(fold[1]);
+  const auto unquantise = [](uint32_t axis) {
+    return static_cast<float>(axis) * (2.0f / kDirectionMaximum) - 1.0f;
+  };
+  const Vec3f axis{OctUnfolded({{unquantise(u), unquantise(v)}})};
+  const Vec3 centre{{axis[0], axis[1], axis[2]}};
+  double cosine = 1.0;
+  for (size_t at = cluster.First; at < end; at += 3) {
+    Vec3 normal = FaceNormal(input, at);
+    if (Normalise(normal)) { cosine = std::min(cosine, Dot(normal, centre)); }
+  }
+  constexpr float guard = 8.0f * std::numeric_limits<float>::epsilon();
+  cluster.NormalAxis = (u << kDirectionBits) | v;
+  cluster.NormalCosine = std::max(0.0f, static_cast<float>(cosine) - guard);
+}
+}
+
+std::expected<ClusteredMesh, ClusterError> CookDirectionalClusters(ClusterMeshInput input,
+                                                                   uint32_t triangleLimit) {
+  constexpr size_t maximum = std::numeric_limits<uint32_t>::max();
+  if (triangleLimit == 0 || triangleLimit > maximum / 3u) {
+    return std::unexpected(ClusterError::InvalidLimit);
+  }
+  if (input.Indices.size() > maximum) { return std::unexpected(ClusterError::CapacityExceeded); }
+  if (input.StrideFloats < 3 || input.PositionsM.size() % input.StrideFloats != 0 ||
+      input.Indices.size() % 3 != 0) {
+    return std::unexpected(ClusterError::InvalidLayout);
+  }
+  const size_t vertices = input.PositionsM.size() / input.StrideFloats;
+  if (!std::ranges::all_of(input.Indices, [vertices](auto index) { return index < vertices; })) {
+    return std::unexpected(ClusterError::InvalidIndex);
+  }
+  std::array<std::vector<uint32_t>, kDirectionCount> bins;
+  for (size_t at = 0; at < input.Indices.size(); at += 3) {
+    const Vec3 normal = FaceNormal(input, at);
+    const double direction = std::atan2(normal[2], normal[0]);
+    if (!std::isfinite(direction)) { return std::unexpected(ClusterError::NonFinitePosition); }
+    const double phase = (direction + std::numbers::pi) * (0.5 / std::numbers::pi);
+    auto &indices = bins[static_cast<size_t>(phase * kDirectionCount) % kDirectionCount];
+    const auto words = input.Indices.subspan(at, 3);
+    indices.insert(indices.end(), words.begin(), words.end());
+  }
+  ClusteredMesh result;
+  result.Index.reserve(input.Indices.size());
+  for (const auto &bin : bins) {
+    if (bin.empty()) { continue; }
+    auto binInput = input;
+    binInput.Indices = bin;
+    const size_t step = size_t{triangleLimit} * 3u;
+    for (size_t first = 0; first < bin.size(); first += step) {
+      const size_t count = std::min(step, bin.size() - first);
+      std::array<double, 3> low;
+      std::array<double, 3> high;
+      low.fill(std::numeric_limits<double>::max());
+      high.fill(std::numeric_limits<double>::lowest());
+      for (const uint32_t index : std::span(bin).subspan(first, count)) {
+        const auto point = Position(input, index);
+        for (size_t axis = 0; axis < 3; ++axis) {
+          low[axis] = std::min(low[axis], point[axis]);
+          high[axis] = std::max(high[axis], point[axis]);
+        }
+      }
+      auto cluster = BoundCluster(low, high, first, count);
+      if (!cluster) { return std::unexpected(cluster.error()); }
+      SetNormalCone(binInput, *cluster);
+      cluster->First += static_cast<uint32_t>(result.Index.size());
+      result.Clusters.push_back(*cluster);
+    }
+    result.Index.insert(result.Index.end(), bin.begin(), bin.end());
+  }
+  return result;
 }
 }
