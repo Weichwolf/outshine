@@ -94,6 +94,7 @@ TerrainResidency::TerrainResidency(const TerrainResidency &other)
       Flat_(other.Flat_),
       GridPostings_(other.GridPostings_),
       Renderer_(other.Renderer_),
+      Backing_(other.Backing_),
       Publishing_(other.Publishing_) {
   if (!Publishing_) {
     auto index = other.PageIndex_.Clone();
@@ -201,7 +202,7 @@ bool TerrainResidency::HasNativePage(const Sheet &sheet) noexcept {
 }
 
 bool TerrainResidency::BeginPublish(const Patchwork &patchwork, std::string &error) {
-  if (Renderer_ == nullptr) { return true; }
+  if (UsesLattice() && Renderer_ == nullptr) { return true; }
   auto wanted = IndexSheets(patchwork);
   if (!wanted) {
     error = std::move(wanted.error());
@@ -225,7 +226,7 @@ bool TerrainResidency::BeginPublish(const Patchwork &patchwork, std::string &err
 std::expected<bool, std::string> TerrainResidency::AdvancePublish(const Patchwork &patchwork,
                                                                   const TangentFrame &frame,
                                                                   size_t sheetsMost) {
-  if (Renderer_ == nullptr) { return true; }
+  if (UsesLattice() && Renderer_ == nullptr) { return true; }
   if (!Publishing_ || NextSheet_ > patchwork.Sheets.size() ||
       (sheetsMost == 0 && !patchwork.Sheets.empty())) {
     return std::unexpected("height pages are not prepared for a bounded publication");
@@ -239,20 +240,22 @@ std::expected<bool, std::string> TerrainResidency::AdvancePublish(const Patchwor
   };
   const size_t count =
       std::min({sheetsMost, Render::kHeightPageBatchMost, patchwork.Sheets.size() - NextSheet_});
-  const auto uploaded = UploadPages(patchwork, frame, NextSheet_ + count);
-  if (!uploaded) {
+  const auto batch = PublishPages(patchwork, frame, NextSheet_ + count);
+  if (!batch) {
     sampleBatch();
-    if (uploaded.error().Kind == Render::Native::ErrorKind::Busy) { return false; }
-    return std::unexpected(uploaded.error().Message);
+    if (batch.error().Kind == Render::Native::ErrorKind::Busy) { return false; }
+    return std::unexpected(batch.error().Message);
   }
   sampleBatch();
   if (NextSheet_ < patchwork.Sheets.size()) { return false; }
   const auto finalizeAt = std::chrono::steady_clock::now();
-  auto published = PublishGrid(patchwork);
-  if (published) { published = Renderer_->SetTerrainTiles(Instances_, Virtual_); }
-  if (!published) {
-    if (published.error().Kind == Render::Native::ErrorKind::Busy) { return false; }
-    return std::unexpected(published.error().Message);
+  if (UsesLattice()) {
+    auto published = PublishGrid(patchwork);
+    if (published) { published = Renderer_->SetTerrainTiles(Instances_, Virtual_); }
+    if (!published) {
+      if (published.error().Kind == Render::Native::ErrorKind::Busy) { return false; }
+      return std::unexpected(published.error().Message);
+    }
   }
   RetirePages();
   std::ranges::sort(Held_, [](const Held &left, const Held &right) {
@@ -277,7 +280,7 @@ void TerrainResidency::RetirePages() {
   size_t kept = 0;
   for (size_t at = 0; at < Held_.size(); ++at) {
     if (next < Retiring_.size() && Retiring_[next] == at) {
-      Renderer_->ReleaseHeightPage(Held_[at].Page);
+      if (UsesLattice()) { Renderer_->ReleaseHeightPage(Held_[at].Page); }
       ++next;
     } else {
       if (kept != at) { Held_[kept] = std::move(Held_[at]); }
@@ -289,7 +292,7 @@ void TerrainResidency::RetirePages() {
 }
 
 void TerrainResidency::Clear() {
-  if (Renderer_ != nullptr) {
+  if (UsesLattice() && Renderer_ != nullptr) {
     for (const Held &one : Held_) { Renderer_->ReleaseHeightPage(one.Page); }
     for (const auto page : Replaced_) { Renderer_->ReleaseHeightPage(page); }
     std::string ignored;

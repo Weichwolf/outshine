@@ -39,7 +39,8 @@ int main() {
       ground.Configure(*device,
                        {.NormalIndex = 1, .IdentityIndex = 2, .BaseIndex = 3, .MetalRoughIndex = 4},
                        targets));
-  const auto surface = Require(ground.CreateClipmaps({.HalfCells = 8, .Levels = 3}, kBytes));
+  const auto surface =
+      Require(ground.CreateClipmaps({.HalfCells = 8, .Levels = 3, .ViewRadiusM = 28}, kBytes));
   const auto initial = ground.Generation();
   const auto heights = Samples(surface->Heights(), {{0.5, 0.5}});
   const auto normals = Samples(surface->NormalHeights(), {{0.5, 0.5}});
@@ -66,12 +67,14 @@ int main() {
         "camera rotation and vertical translation preserve world geometry and update its frame");
   CHECK(ground.Triangles() < surface->Triangles(),
         "view selection reduces submitted topology before cached shadow preparation");
-  frame.PreViewTranslation[0] = -0.6;
+  frame.Mvp[0] = 1.0f / 64;
+  frame.PreViewTranslation[0] = -7;
+  CHECK(!surface->Covers({{7, 0.5}}), "camera movement requires replacement coverage");
   Require(ground.PrepareClipmaps(frame, {}));
-  CHECK(ground.Generation() == prepared,
+  CHECK(ground.Generation() == prepared && ground.Drawn() == 3 && surface->Shift()[0] == -7,
         "camera motion preserves the accepted LOD surface until replacement fields are published");
-  const auto nextHeights = Samples(surface->Heights(), {{2.5, 0.5}});
-  const auto nextNormals = Samples(surface->NormalHeights(), {{2.5, 0.5}});
+  const auto nextHeights = Samples(surface->Heights(), {{8.5, 0.5}});
+  const auto nextNormals = Samples(surface->NormalHeights(), {{8.5, 0.5}});
   Require(surface->Publish(nextHeights, nextNormals, kBytes));
   Require(ground.PrepareClipmaps(frame, {}));
   CHECK(ground.Generation() != prepared,

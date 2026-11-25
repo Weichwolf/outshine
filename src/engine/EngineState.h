@@ -146,7 +146,7 @@ struct EngineServices {
 };
 
 struct WorldRegionState {
-  WorldRegionState();
+  explicit WorldRegionState(TerrainBacking backing = TerrainBacking::Lattice);
   ~WorldRegionState();
   WorldRegionState(const WorldRegionState &) = delete;
   WorldRegionState &operator=(const WorldRegionState &) = delete;
@@ -393,7 +393,7 @@ struct Engine::State {
   ScenarioSession Session;
   std::unique_ptr<ScenarioRuntime> ScenarioState = std::make_unique<ScenarioRuntime>();
   EngineServices Services;
-  WorldRegionState World;
+  WorldRegionState World{TerrainBacking::ClipmapSource};
   World::BodySnapshot BodyFrame;
   EngineCostCounters Cost;
   SimulationClock Ticking;

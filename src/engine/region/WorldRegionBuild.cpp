@@ -235,8 +235,8 @@ void RecordEarthworkDigest(Core::DiagnosticLedger &ledger,
 
 }
 
-WorldRegionState::WorldRegionState()
-    : SurfaceOwner(std::make_unique<Ground::SurfacePreparation>()) {}
+WorldRegionState::WorldRegionState(TerrainBacking backing)
+    : SurfaceOwner(std::make_unique<Ground::SurfacePreparation>()), TerrainSurface(backing) {}
 
 WorldRegionState::~WorldRegionState() = default;
 
