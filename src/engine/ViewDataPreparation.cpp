@@ -7,6 +7,7 @@
 #include "ViewPath.h"
 #include <chrono>
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -16,6 +17,7 @@
 #include <cmath>
 #include <expected>
 #include <span>
+#include <tuple>
 #include <vector>
 
 namespace outshine {
@@ -237,22 +239,11 @@ Result Engine::State::PrepareViewTerrain(std::span<const Around> coverage,
                                          Clock::time_point deadline) {
   if (!positions.empty() && !World.GroundPublished.Current()) {
     const auto motion = PlanCameraMotion(positions);
-    std::vector<LongitudeLatitude> route;
-    route.reserve(coverage.size());
-    for (const auto &at : coverage) {
-      route.push_back({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg});
-    }
-    World.Surface().PlanMotionCoverage(route);
-    auto sweep =
-        PlanMotionTerrain(coverage, motion, std::move(plan.Meshes), FinestTerrainSampleRadiusM());
-    if (sweep) {
-      constexpr uint64_t kSweptTerrainRegion = uint64_t{1} << 63u;
-      sweep->Region = kSweptTerrainRegion | ++World.NextTerrainSweep;
-      Published.RecordMetric(
-          "view data: swept terrain patches", static_cast<double>(sweep->Patches.size()), "tiles");
-    }
+    World.CachedCameraSweepPending = false;
+    PlanCameraSourceCoverage(coverage);
     World.PlannedCameraPath = motion.Path;
-    World.PlannedTerrainSweep = std::move(sweep);
+    InstallTerrainSweep(
+        PlanMotionTerrain(coverage, motion, std::move(plan.Meshes), FinestTerrainSampleRadiusM()));
     return {};
   }
   const auto prepared = PrepareTerrainPath(std::move(plan), World.Surface(), deadline);
@@ -266,5 +257,64 @@ Result Engine::State::PrepareViewTerrain(std::span<const Around> coverage,
                                          World.BuildingCoverage.Regions(),
                                          World.BuildingCoverage.Version(),
                                          deadline);
+}
+
+void Engine::State::PlanCameraSourceCoverage(std::span<const Around> coverage) {
+  std::vector<LongitudeLatitude> route;
+  route.reserve(coverage.size());
+  for (const auto &at : coverage) {
+    route.push_back({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg});
+  }
+  World.Surface().PlanMotionCoverage(route);
+}
+
+void Engine::State::InstallTerrainSweep(std::shared_ptr<TerrainSweep> sweep) {
+  if (sweep) {
+    constexpr uint64_t kSweptTerrainRegion = uint64_t{1} << 63u;
+    sweep->Region = kSweptTerrainRegion | ++World.NextTerrainSweep;
+    Published.RecordMetric(
+        "view data: swept terrain patches", static_cast<double>(sweep->Patches.size()), "tiles");
+  }
+  World.PlannedTerrainSweep = std::move(sweep);
+}
+
+void Engine::State::PlanCachedCameraDemand() {
+  if (World.PlannedCameraPath) { return; }
+  const auto &view =
+      Picture.Standing->Watched() ? Picture.Standing->Watching() : Picture.Standing->Aimed();
+  const auto eye = view.EyeM;
+  const double widthM = FinestTerrainSampleHalfWidthM();
+  std::array<Vec3, 10> positions{};
+  positions.front() = positions.back() = eye;
+  for (size_t corner = 0; corner < 8; ++corner) {
+    for (size_t axis = 0; axis < 3; ++axis) {
+      const bool positive = (corner & (1u << (2u - axis))) != 0;
+      positions[corner + 1][axis] = eye[axis] + (positive ? widthM : -widthM);
+    }
+  }
+  const auto motion = PlanCameraMotion(positions);
+  World.PlannedCameraPath = motion.Path;
+  std::array<Around, positions.size()> coverage;
+  for (size_t at = 0; at < positions.size(); ++at) {
+    coverage[at] = TerrainCoverageAt(GeographicFocusFor(positions[at]));
+  }
+  const auto initial = PlanPatchworkTiles(coverage.front());
+  if (!initial) { return; }
+  auto tiles = *initial;
+  for (const auto &window : std::span(coverage).subspan(1)) {
+    const auto nearby = PlanPatchworkTiles(window);
+    if (!nearby) { return; }
+    for (const auto tile : *nearby) {
+      if (tile.Zoom == coverage.front().Zoom) { tiles.push_back(tile); }
+    }
+  }
+  std::ranges::sort(
+      tiles, {}, [](Data::TileId tile) { return std::tuple(tile.Zoom, tile.X, tile.Y); });
+  tiles.erase(std::ranges::unique(tiles).begin(), tiles.end());
+  auto sweep = PlanMotionTerrain(coverage, motion, std::move(tiles), FinestTerrainSampleRadiusM());
+  if (!sweep) { return; }
+  PlanCameraSourceCoverage(coverage);
+  InstallTerrainSweep(std::move(sweep));
+  World.CachedCameraSweepPending = true;
 }
 }

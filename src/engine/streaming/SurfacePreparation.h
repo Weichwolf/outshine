@@ -241,6 +241,7 @@ public:
   [[nodiscard]] int VectorZoom() const noexcept { return VectorZoom_; }
 
   void PlanMotionCoverage(std::span<const LongitudeLatitude> path);
+  void ClearMotionCoverage() noexcept;
 
   [[nodiscard]] std::expected<Generators::Osm::OsmTileWindow, std::string_view>
   VectorWindowAt(LongitudeLatitude at, int rings) const;

@@ -191,6 +191,7 @@ struct WorldRegionState {
   std::optional<Around> PublishedGroundCoverage;
   std::optional<ViewPath> PlannedCameraPath;
   std::shared_ptr<const TerrainSweep> PlannedTerrainSweep;
+  bool CachedCameraSweepPending = false;
   uint64_t NextTerrainSweep = 0;
   std::optional<GroundRevision> RequestedRefinedGround;
   std::unique_ptr<WorldRegionBuildState> GroundBuild;
@@ -437,6 +438,9 @@ struct Engine::State {
   [[nodiscard]] bool CanAdvanceGroundCandidate() const;
   [[nodiscard]] Result PumpPreload(GroundQuality quality);
   [[nodiscard]] Holds<bool> PrimeGroundRegion(GroundQuality quality);
+  void PlanCachedCameraDemand();
+  void InstallTerrainSweep(std::shared_ptr<TerrainSweep> sweep);
+  void PlanCameraSourceCoverage(std::span<const Around> coverage);
   [[nodiscard]] bool CanPrimeGroundRegion(GroundQuality quality) const;
   [[nodiscard]] Holds<bool> PositionGroundRegionCamera(const Scenario::View &view);
   [[nodiscard]] int VectorPreparationRing() const noexcept;
@@ -608,6 +612,7 @@ struct Engine::State {
   [[nodiscard]] Around RequestedTerrainCoverage(LongitudeLatitude focus) const;
   [[nodiscard]] double TerrainSightM() const noexcept;
   [[nodiscard]] static double FinestTerrainSampleRadiusM() noexcept;
+  [[nodiscard]] static double FinestTerrainSampleHalfWidthM() noexcept;
   [[nodiscard]] Generators::Osm::GroundTerrainErrorLimit
   TerrainPackErrorLimit(const Around &coverage) const;
   [[nodiscard]] Holds<std::vector<Around>>

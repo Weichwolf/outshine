@@ -58,7 +58,11 @@ Render::ClipmapGrid GridFor(double sightM) {
 }
 
 double Engine::State::FinestTerrainSampleRadiusM() noexcept {
-  return std::numbers::sqrt2 * (kFinestGrid.HalfCells + 3) * kFinestGrid.CellM;
+  return std::numbers::sqrt2 * FinestTerrainSampleHalfWidthM();
+}
+
+double Engine::State::FinestTerrainSampleHalfWidthM() noexcept {
+  return (kFinestGrid.HalfCells + 3) * kFinestGrid.CellM;
 }
 
 bool Engine::State::TerrainClipmapsReady() const noexcept {

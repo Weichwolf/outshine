@@ -294,6 +294,11 @@ void SurfacePreparation::PlanMotionCoverage(std::span<const LongitudeLatitude> p
   Cls_.PlanMotionCoverage(path);
 }
 
+void SurfacePreparation::ClearMotionCoverage() noexcept {
+  VectorMotion_.reset();
+  Cls_.ClearMotionCoverage();
+}
+
 const Generators::Osm::OsmTileCoverage *
 SurfacePreparation::PlannedVectorCoverageAt(LongitudeLatitude at) const {
   if (!VectorMotion_) { return nullptr; }

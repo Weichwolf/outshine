@@ -125,6 +125,11 @@ void ClassificationPreparation::PlanMotionCoverage(std::span<const LongitudeLati
   PlanTierMotion(Coarse_, path);
 }
 
+void ClassificationPreparation::ClearMotionCoverage() noexcept {
+  Fine_.Motion.reset();
+  Coarse_.Motion.reset();
+}
+
 void ClassificationPreparation::PlanTierMotion(Tier &tier,
                                                std::span<const LongitudeLatitude> path) const {
   auto vectors = OsmField::CoverPath(path, tier.Zoom, tier.TileRadius);

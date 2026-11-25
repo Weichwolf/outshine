@@ -46,6 +46,7 @@ public:
   };
 
   void PlanMotionCoverage(std::span<const LongitudeLatitude> path);
+  void ClearMotionCoverage() noexcept;
   [[nodiscard]] std::array<const MotionCoverage *, 2> MotionCoverages() const noexcept;
 
   struct SourceWindow {
