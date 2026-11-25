@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -69,6 +70,17 @@ struct ZoomRange {
       sourceZoom, -static_cast<int64_t>(sheet.Tile.Y), -static_cast<int64_t>(sheet.Tile.X));
 }
 
+void SetSample(Sheet &sheet, size_t at, float height) {
+  if (sheet.SharedSamples) {
+    if (std::bit_cast<uint32_t>((*sheet.SharedSamples)[at]) == std::bit_cast<uint32_t>(height)) {
+      return;
+    }
+    sheet.Nodes = *sheet.SharedSamples;
+    sheet.SharedSamples.reset();
+  }
+  sheet.Nodes[at] = height;
+}
+
 [[nodiscard]] const Sheet *PeerNeighbor(const Sheet &sheet,
                                         const SeamEdge &edge,
                                         const Patchwork &laid,
@@ -89,7 +101,7 @@ void StitchPeers(Sheet &sheet, const Patchwork &laid, const SheetIndex &index) {
       const size_t into = edge.AlongJ ? PageNode(edge.FixedFine, k) : PageNode(k, edge.FixedFine);
       const size_t from =
           edge.AlongJ ? PageNode(edge.FixedCoarse, k) : PageNode(k, edge.FixedCoarse);
-      sheet.Nodes[into] = peer->Nodes[from];
+      SetSample(sheet, into, peer->Samples()[from]);
     }
   }
 }
@@ -137,7 +149,7 @@ struct CornerSource {
   const int i = std::min(static_cast<int>(source.I), last - 1);
   const int j = std::min(static_cast<int>(source.J), last - 1);
   const auto at = [&](int x, int y) {
-    return static_cast<double>(source.Page->Nodes[PageNode(x, y)]);
+    return static_cast<double>(source.Page->Samples()[PageNode(x, y)]);
   };
   const double top = std::lerp(at(i, j), at(i + 1, j), source.I - i);
   const double bottom = std::lerp(at(i, j + 1), at(i + 1, j + 1), source.I - i);
@@ -186,7 +198,7 @@ void StitchCorners(Sheet &sheet, const Patchwork &laid, const SheetIndex &index,
   for (const int i : {0, last}) {
     for (const int j : {0, last}) {
       const CornerSource best = BestCorner(sheet, i, j, laid, index, coarsest);
-      if (best.Page != nullptr) { sheet.Nodes[PageNode(i, j)] = CornerHeight(best); }
+      if (best.Page != nullptr) { SetSample(sheet, PageNode(i, j), CornerHeight(best)); }
     }
   }
 }
@@ -198,17 +210,16 @@ void StitchAlong(Sheet &fine, const Sheet &coarse, const SeamEdge &edge, Terrain
   const uint32_t along = edge.AlongJ ? fine.Tile.Y : fine.Tile.X;
   const double offset = static_cast<double>(along % scale) * static_cast<double>(side - 1);
   const auto coarseAt = [&](int k) {
-    return static_cast<double>(
-        coarse.Nodes[edge.AlongJ ? PageNode(edge.FixedCoarse, k) : PageNode(k, edge.FixedCoarse)]);
+    return static_cast<double>(coarse.Samples()[edge.AlongJ ? PageNode(edge.FixedCoarse, k)
+                                                            : PageNode(k, edge.FixedCoarse)]);
   };
   for (int k = 0; k < side; ++k) {
     const double c = (offset + static_cast<double>(k)) / static_cast<double>(scale);
     const int c0 = std::min(static_cast<int>(c), side - 2);
     const double chord = std::lerp(coarseAt(c0), coarseAt(c0 + 1), c - c0);
-    float &height =
-        fine.Nodes[edge.AlongJ ? PageNode(edge.FixedFine, k) : PageNode(k, edge.FixedFine)];
+    const size_t node = edge.AlongJ ? PageNode(edge.FixedFine, k) : PageNode(k, edge.FixedFine);
     if (kind != nullptr && k % static_cast<int>(scale) != 0) {
-      const double differenceM = std::fabs(height - chord);
+      const double differenceM = std::fabs(fine.Samples()[node] - chord);
       if (differenceM > kind->OddBeforeM) {
         kind->OddBeforeM = differenceM;
         const double fraction = static_cast<double>(k) / static_cast<double>(side - 1);
@@ -223,7 +234,8 @@ void StitchAlong(Sheet &fine, const Sheet &coarse, const SeamEdge &edge, Terrain
         kind->WorstCoarseZoom = coarse.Tile.Zoom;
       }
     }
-    height = static_cast<float>(chord);
+    const auto height = static_cast<float>(chord);
+    SetSample(fine, node, height);
     if (kind != nullptr) {
       double &after = k % static_cast<int>(scale) == 0 ? kind->EvenM : kind->OddAfterM;
       after = std::max(after, std::fabs(height - chord));
@@ -264,7 +276,7 @@ namespace {
 [[nodiscard]] bool
 IndexSheets(const Patchwork &laid, SheetIndex &index, ZoomRange &zooms, std::string &error) {
   for (size_t i = 0; i < laid.Sheets.size(); ++i) {
-    if (laid.Sheets[i].Nodes.size() != kPageNodes) { continue; }
+    if (laid.Sheets[i].Samples().size() != kPageNodes) { continue; }
     const auto added = index.Emplace(laid.Sheets[i].Tile, i);
     if (!added) {
       error = added.error() == FlatMapError::AllocationFailed
@@ -289,7 +301,7 @@ void StitchAtZoom(Patchwork &laid,
                   TerrainSeamMetrics &seams) {
   for (size_t sheetIndex = 0; sheetIndex < laid.Sheets.size(); ++sheetIndex) {
     Sheet &fine = laid.Sheets[sheetIndex];
-    if (fine.Tile.Zoom != zoom || fine.Nodes.size() != kPageNodes) { continue; }
+    if (fine.Tile.Zoom != zoom || fine.Samples().size() != kPageNodes) { continue; }
     for (const SeamEdge &edge : kSeamEdges) {
       const Sheet *coarse = CoarseNeighbor(fine, edge, laid, index, zooms.Coarsest);
       if (coarse == nullptr) { continue; }
@@ -310,13 +322,13 @@ std::expected<TerrainSeamMetrics, std::string> StitchTerrainSeams(Patchwork &lai
   if (!IndexSheets(laid, index, zooms, error)) { return std::unexpected(std::move(error)); }
   for (int zoom = zooms.Coarsest; zoom <= zooms.Finest; ++zoom) {
     for (Sheet &sheet : laid.Sheets) {
-      if (sheet.Tile.Zoom == zoom && sheet.Nodes.size() == kPageNodes) {
+      if (sheet.Tile.Zoom == zoom && sheet.Samples().size() == kPageNodes) {
         StitchPeers(sheet, laid, index);
       }
     }
     StitchAtZoom(laid, index, zooms, zoom, seams);
     for (Sheet &sheet : laid.Sheets) {
-      if (sheet.Tile.Zoom == zoom && sheet.Nodes.size() == kPageNodes) {
+      if (sheet.Tile.Zoom == zoom && sheet.Samples().size() == kPageNodes) {
         StitchCorners(sheet, laid, index, zooms.Coarsest);
       }
     }

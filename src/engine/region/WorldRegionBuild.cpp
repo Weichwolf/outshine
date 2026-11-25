@@ -237,7 +237,7 @@ void RecordEarthworkDigest(Core::DiagnosticLedger &ledger,
 
 class GroundRegionArchive {
 public:
-  Generators::GroundRegionRequest::Factory Pending;
+  WorldRegionBuildState::ArchiveWork Pending;
   std::unique_ptr<Generators::GroundRegionRequest> Writing;
 };
 
@@ -717,13 +717,13 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
   state.SamplesProductPeak();
   if (!completed) { return true; }
   auto pressed = state.TerrainDeformation()->Take(patchwork);
-  state.FinishTerrainDeformation();
   if (!pressed) {
     Error = std::move(pressed.error());
     World.GroundBuild.reset();
     return false;
   }
-  PublishEarthworkMeasurements(*pressed, state.LongestTerrainDeformationSliceMs());
+  state.FinishTerrainDeformation(std::move(pressed->Persist));
+  PublishEarthworkMeasurements(pressed->Effects, state.LongestTerrainDeformationSliceMs());
   state.AdvanceStage();
   return true;
 }
@@ -1686,9 +1686,20 @@ void Engine::State::AdvanceGroundArchive(bool canWrite) {
     }
     archive.Writing.reset();
   }
-  if (canWrite && archive.Pending) {
+  if (!canWrite) { return; }
+  if (archive.Pending.Region) {
     archive.Writing = std::make_unique<Generators::GroundRegionRequest>(
-        *Services.Compute, std::exchange(archive.Pending, {}), World.Surface().RoadAssets());
+        *Services.Compute, std::exchange(archive.Pending.Region, {}), World.Surface().RoadAssets());
+  } else if (archive.Pending.Deformation) {
+    archive.Writing = std::make_unique<Generators::GroundRegionRequest>(
+        *Services.Compute,
+        [store = std::exchange(archive.Pending.Deformation, {})](
+            const std::stop_token &stop) -> Generators::GroundRegionRequest::Attempt {
+          const auto saved = store(stop);
+          if (!saved) { return std::unexpected(saved.error()); }
+          if (!*saved) { return std::unexpected(AssetCacheError::Busy); }
+          return Generators::GroundRegionRequest::Completed{};
+        });
   }
 }
 
@@ -1956,9 +1967,12 @@ bool Engine::State::PublishGroundCandidate(WorldRegionBuildState &state) {
   }
   World.TerrainClipmaps = std::move(state.StagedClipmaps());
   World.PublishedGroundCoverage = state.Coverage();
-  if (auto archive = state.TakeArchive(); archive) {
+  if (auto archive = state.TakeArchive(); archive.Region || archive.Deformation) {
     if (!World.GroundArchive) { World.GroundArchive = std::make_unique<GroundRegionArchive>(); }
-    World.GroundArchive->Pending = std::move(archive);
+    if (archive.Region) { World.GroundArchive->Pending.Region = std::move(archive.Region); }
+    if (archive.Deformation) {
+      World.GroundArchive->Pending.Deformation = std::move(archive.Deformation);
+    }
   }
   Published.RecordMetric(
       "ground candidate: publication",

@@ -55,8 +55,8 @@ std::vector<EarthworkStamp> Stamps() {
   return {stamp};
 }
 
-std::expected<TerrainDeformationMetrics, std::string> Complete(TerrainDeformationTask &task,
-                                                               Patchwork &pages) {
+std::expected<TerrainDeformationTask::Result, std::string> Complete(TerrainDeformationTask &task,
+                                                                    Patchwork &pages) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (!task.Advance()) {
     if (std::chrono::steady_clock::now() >= deadline) {
@@ -65,6 +65,38 @@ std::expected<TerrainDeformationMetrics, std::string> Complete(TerrainDeformatio
     (void)task.AwaitSlice(0.01);
   }
   return task.Take(pages);
+}
+
+void CheckRequestIdentity(const TangentFrame &frame, const std::string &key) {
+  Patchwork changed = Inputs();
+  changed.Sheets.front().Nodes.front() += 1;
+  CHECK(TerrainDeformationKey(changed, Stamps(), frame, kLayout, 30) != key,
+        "height changes invalidate just the dependent native deformation");
+  auto stamps = Stamps();
+  stamps.front().HoleRingsEastNorthM.front().front() += 1;
+  CHECK(TerrainDeformationKey(Inputs(), stamps, frame, kLayout, 30) != key,
+        "contact holes participate in the full asset identity");
+  stamps = Stamps();
+  stamps.front().CorridorKey = 7;
+  CHECK(TerrainDeformationKey(Inputs(), stamps, frame, kLayout, 30) != key,
+        "corridor ownership participates in deformation identity");
+  stamps = Stamps();
+  stamps.front().PlanarSupportM = 0;
+  const auto planar = TerrainDeformationKey(Inputs(), stamps, frame, kLayout, 30);
+  CHECK(planar && *planar != key, "planar cell support cannot reuse point-only terrain assets");
+  stamps.front().PlanarSupportM = 1;
+  CHECK(TerrainDeformationKey(Inputs(), stamps, frame, kLayout, 30) != planar,
+        "explicit support distance participates in native asset identity");
+  stamps.front().PlanarSupportM = -1;
+  CHECK(!TerrainDeformationKey(Inputs(), stamps, frame, kLayout, 30),
+        "negative support distances are rejected at the asset boundary");
+  stamps.front().PlanarSupportM = std::numeric_limits<double>::infinity();
+  CHECK(!TerrainDeformationKey(Inputs(), stamps, frame, kLayout, 30),
+        "nonfinite support distances are rejected at the asset boundary");
+  CHECK(TerrainDeformationKey(Inputs(), Stamps(), frame, kLayout, 29) != key &&
+            TerrainDeformationKey(
+                Inputs(), Stamps(), TangentFrame::At({.LongitudeDeg = 1}), kLayout, 30) != key,
+        "construction limit and physical frame participate in identity");
 }
 }
 
@@ -121,12 +153,17 @@ int main() {
                                   contacts = Stamps();
                                 });
     const auto result = Complete(task, cold);
-    CHECK(result && result->Nodes == expected.Nodes && result->Pads.Nodes == expected.Pads.Nodes,
+    CHECK(result && result->Effects.Nodes == expected.Nodes &&
+              result->Effects.Pads.Nodes == expected.Pads.Nodes,
           "cold asset retains deformation results and contact diagnostics");
     CHECK(result && *preparedOn != caller && *preparedOn != std::thread::id{},
           "contact assembly runs on the deformation worker");
     CHECK(cold.Sheets == reference.Sheets && cold.Tiles == 4 && cold.ReachTiles == 4,
           "native deformation reproduces the original generator bit for bit");
+    CHECK(result && result->Persist, "new heights can be archived after becoming usable");
+    if (!result || !result->Persist) { return Report(); }
+    const auto stored = result->Persist({});
+    CHECK(stored && *stored, "background persistence completes before the restart");
   }
   CHECK((*cache)->Costs().DeformationMisses == 1 &&
             (*cache)->Costs().DeformationWrites == legacyKeys.size() + 1,
@@ -140,44 +177,17 @@ int main() {
   {
     TerrainDeformationTask task(pool, *cache, Stamps(), warm, frame, kLayout, 30);
     const auto result = Complete(task, warm);
-    CHECK(result && result->Nodes == expected.Nodes && result->GatherMs == 0 &&
-              result->ApplyMs == 0,
+    CHECK(result && result->Effects.Nodes == expected.Nodes && result->Effects.GatherMs == 0 &&
+              result->Effects.ApplyMs == 0,
           "warm native pages retain effects without running deformation stages");
     CHECK(warm.Sheets == reference.Sheets, "offline replay preserves every tile and height sample");
+    CHECK(result && !result->Persist, "offline replay leaves no new archival work");
   }
   CHECK((*cache)->Costs().DeformationHits == 1 && (*cache)->Costs().DeformationMisses == 0 &&
             (*cache)->Costs().DeformationWrites == 0,
         "warm process loads the ready asset without a factory invocation");
 
-  Patchwork changed = Inputs();
-  changed.Sheets.front().Nodes.front() += 1;
-  CHECK(TerrainDeformationKey(changed, Stamps(), frame, kLayout, 30) != key,
-        "height changes invalidate just the dependent native deformation");
-  auto stamps = Stamps();
-  stamps.front().HoleRingsEastNorthM.front().front() += 1;
-  CHECK(TerrainDeformationKey(Inputs(), stamps, frame, kLayout, 30) != key,
-        "contact holes participate in the full asset identity");
-  stamps = Stamps();
-  stamps.front().CorridorKey = 7;
-  CHECK(TerrainDeformationKey(Inputs(), stamps, frame, kLayout, 30) != key,
-        "corridor ownership participates in deformation identity");
-  stamps = Stamps();
-  stamps.front().PlanarSupportM = 0;
-  const auto planar = TerrainDeformationKey(Inputs(), stamps, frame, kLayout, 30);
-  CHECK(planar && *planar != key, "planar cell support cannot reuse point-only terrain assets");
-  stamps.front().PlanarSupportM = 1;
-  CHECK(TerrainDeformationKey(Inputs(), stamps, frame, kLayout, 30) != planar,
-        "explicit support distance participates in native asset identity");
-  stamps.front().PlanarSupportM = -1;
-  CHECK(!TerrainDeformationKey(Inputs(), stamps, frame, kLayout, 30),
-        "negative support distances are rejected at the asset boundary");
-  stamps.front().PlanarSupportM = std::numeric_limits<double>::infinity();
-  CHECK(!TerrainDeformationKey(Inputs(), stamps, frame, kLayout, 30),
-        "nonfinite support distances are rejected at the asset boundary");
-  CHECK(TerrainDeformationKey(Inputs(), Stamps(), frame, kLayout, 29) != key &&
-            TerrainDeformationKey(
-                Inputs(), Stamps(), TangentFrame::At({.LongitudeDeg = 1}), kLayout, 30) != key,
-        "construction limit and physical frame participate in identity");
+  CheckRequestIdentity(frame, key);
   PreparedTerrainDeformation product{.Pages = reference.Sheets, .Effects = expected};
   auto bytes = EncodeTerrainDeformation(key, product);
   CHECK(bytes.has_value(), "complete product encodes within its byte budget");

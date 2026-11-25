@@ -19,8 +19,29 @@
 #include <expected>
 
 namespace outshine::Generators {
+namespace {
+struct DeformationArchive {
+  std::shared_ptr<PreparedTerrainAssets> Cache;
+  std::string Key;
+  PreparedTerrainDeformation Product;
+  std::optional<PreparedTerrainAssets::DeformationWrite> Write;
+
+  std::expected<bool, PreparedTerrainAssets::Failure> Store(const std::stop_token &stop) {
+    if (stop.stop_requested()) {
+      return std::unexpected(std::string("terrain deformation archive cancelled"));
+    }
+    if (!Write) {
+      auto prepared = PreparedTerrainAssets::PrepareDeformation(std::move(Key), std::move(Product));
+      if (!prepared) { return std::unexpected(std::move(prepared.error())); }
+      Write = std::move(*prepared);
+    }
+    return Cache->StoreDeformation(*Write, stop);
+  }
+};
+}
+
 struct TerrainDeformationTask::State {
-  enum class Phase : uint8_t { Prepare, Lookup, Generate, Store, Reload, Complete };
+  enum class Phase : uint8_t { Prepare, Lookup, Generate, Complete };
 
   State(std::shared_ptr<PreparedTerrainAssets> cache,
         std::vector<EarthworkStamp> stamps,
@@ -44,13 +65,16 @@ struct TerrainDeformationTask::State {
   void RecordHeap() noexcept {
     size_t bytes = sizeof(State) + Key.capacity() + 1 + Input.HeapBytes() +
                    Product.Pages.capacity() * sizeof(Sheet);
-    for (const Sheet &page : Product.Pages) { bytes += page.Nodes.capacity() * sizeof(float); }
+    for (const Sheet &page : Product.Pages) {
+      bytes += (page.SharedSamples ? page.SharedSamples->capacity() : page.Nodes.capacity()) *
+               sizeof(float);
+    }
+    if (Persist) { bytes += sizeof(DeformationArchive) + Product.Pages.size() * sizeof(Sheet); }
     if (Press) {
       bytes += Press->HeapBytes();
     } else {
       bytes += StampBytes;
     }
-    if (Publication) { bytes += Publication->HeapBytes(); }
     Heap.store(bytes, std::memory_order_relaxed);
   }
 
@@ -91,30 +115,14 @@ struct TerrainDeformationTask::State {
     Product.Effects = Press->Take();
     Press.reset();
     Product.Pages = std::move(Input.Sheets);
-    Current = Cache ? Phase::Store : Phase::Complete;
-    return Cache ? Tasks::StepResult::Yield : Tasks::StepResult::Complete;
-  }
-
-  Tasks::StepResult Store() {
-    if (!Publication) {
-      auto prepared = PreparedTerrainAssets::PrepareDeformation(Key, std::move(Product));
-      if (!prepared) { return CacheFailure(prepared.error()); }
-      Publication = std::move(*prepared);
+    if (Cache) {
+      for (Sheet &page : Product.Pages) {
+        page.SharedSamples = std::make_shared<const std::vector<float>>(std::move(page.Nodes));
+      }
+      Persist = [archive = std::make_shared<DeformationArchive>(DeformationArchive{
+                     .Cache = Cache, .Key = std::move(Key), .Product = Product, .Write = {}})](
+                    const std::stop_token &stop) { return archive->Store(stop); };
     }
-    auto stored = Cache->StoreDeformation(*Publication, Stop.get_token());
-    if (!stored) { return CacheFailure(stored.error()); }
-    if (*stored) { Current = Phase::Reload; }
-    return Tasks::StepResult::Yield;
-  }
-
-  Tasks::StepResult Reload() {
-    if (!Publication) { return Fail("terrain deformation publication state is missing"); }
-    auto loaded = Cache->LoadDeformation(Key, LoadBytesMost);
-    if (!loaded) { return CacheFailure(loaded.error()); }
-    if (!*loaded) { return Fail("published terrain deformation asset is missing"); }
-    Product = std::move(**loaded);
-    Product.Effects = Publication->Effects();
-    Publication.reset();
     Current = Phase::Complete;
     return Tasks::StepResult::Complete;
   }
@@ -131,7 +139,6 @@ struct TerrainDeformationTask::State {
 
   Tasks::StepResult Fail(std::string message) {
     Outcome = std::unexpected(std::move(message));
-    Publication.reset();
     Current = Phase::Complete;
     return Tasks::StepResult::Complete;
   }
@@ -167,8 +174,6 @@ struct TerrainDeformationTask::State {
       case Phase::Prepare: result = Prepare(); break;
       case Phase::Lookup: result = Lookup(); break;
       case Phase::Generate: result = Generate(); break;
-      case Phase::Store: result = Store(); break;
-      case Phase::Reload: result = Reload(); break;
       case Phase::Complete: break;
     }
     RecordHeap();
@@ -188,7 +193,7 @@ struct TerrainDeformationTask::State {
   size_t LoadBytesMost = 0;
   std::string Key;
   std::unique_ptr<TerrainDeformationJob> Press;
-  std::optional<PreparedTerrainAssets::DeformationWrite> Publication;
+  Archive Persist;
   std::expected<void, std::string> Outcome;
   Phase Current = Phase::Prepare;
   std::stop_source Stop;
@@ -251,12 +256,12 @@ bool TerrainDeformationTask::AwaitSlice(double seconds) const {
   return Advance();
 }
 
-std::expected<TerrainDeformationMetrics, std::string>
+std::expected<TerrainDeformationTask::Result, std::string>
 TerrainDeformationTask::Take(Patchwork &candidate) {
   assert(State_->Finished());
   if (!State_->Outcome) { return std::unexpected(std::move(State_->Outcome.error())); }
   candidate.Sheets = std::move(State_->Product.Pages);
-  return State_->Product.Effects;
+  return Result{.Effects = State_->Product.Effects, .Persist = std::move(State_->Persist)};
 }
 
 size_t TerrainDeformationTask::HeapBytes() const noexcept {

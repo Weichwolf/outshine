@@ -6,15 +6,27 @@
 #include <expected>
 #include <functional>
 #include <memory>
+#include <stop_token>
 #include <string>
+#include <variant>
 #include <vector>
 
-namespace outshine::Generators {
+namespace outshine {
+enum class AssetCacheError;
+
+namespace Generators {
 class PreparedTerrainAssets;
 
 class TerrainDeformationTask {
 public:
   using StampPreparation = std::function<void(std::vector<EarthworkStamp> &)>;
+  using Archive = std::function<std::expected<bool, std::variant<AssetCacheError, std::string>>(
+      const std::stop_token &)>;
+
+  struct Result {
+    TerrainDeformationMetrics Effects;
+    Archive Persist;
+  };
 
   // The pool outlives this owner and unfinished callbacks; Advance posts due cache work.
   TerrainDeformationTask(Tasks &pool,
@@ -31,7 +43,7 @@ public:
 
   [[nodiscard]] bool Advance() const;
   [[nodiscard]] bool AwaitSlice(double seconds) const;
-  [[nodiscard]] std::expected<TerrainDeformationMetrics, std::string> Take(Patchwork &candidate);
+  [[nodiscard]] std::expected<Result, std::string> Take(Patchwork &candidate);
   [[nodiscard]] size_t HeapBytes() const noexcept;
 
 private:
@@ -41,6 +53,7 @@ private:
   Tasks &Pool_;
   std::shared_ptr<State> State_;
 };
+}
 }
 
 #endif

@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <memory>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -64,12 +66,20 @@ int main() {
     for (const bool reverse : {false, true}) {
       Patchwork patchwork{.Sheets = {Page(west, 16, 573.9629f), Page(east, 17, 575.6133f)}};
       if (reverse) { std::ranges::reverse(patchwork.Sheets); }
+      for (Sheet &page : patchwork.Sheets) {
+        page.SharedSamples = std::make_shared<const std::vector<float>>(std::move(page.Nodes));
+      }
+      const Patchwork archived = patchwork;
       CHECK(StitchTerrainSeams(patchwork), "unequal source resolutions remain stitchable");
       for (int j = 0; j < kSide; ++j) {
-        CHECK(Find(patchwork, west).Nodes[Node(32, j)] == 575.6133f &&
-                  Find(patchwork, east).Nodes[Node(0, j)] == 575.6133f,
+        CHECK(Find(patchwork, west).Samples()[Node(32, j)] == 575.6133f &&
+                  Find(patchwork, east).Samples()[Node(0, j)] == 575.6133f,
               "equal mesh LODs use the finer DEM source along the entire shared boundary");
       }
+      CHECK(Find(archived, west).Samples()[Node(32, 0)] == 573.9629f,
+            "stitching leaves the archived input untouched");
+      CHECK(Find(patchwork, east).Samples().data() == Find(archived, east).Samples().data(),
+            "unchanged heights remain shared with the archive");
     }
   }
   const std::array<Sheet, 4> peers{Page({.Zoom = 5, .X = 3, .Y = 3}, 3, 100),
