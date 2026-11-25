@@ -27,6 +27,7 @@ using GroundTerrainErrorLimit = std::function<double(const Box &)>;
 struct GroundTerrainManifest {
   struct Pack {
     std::string Key;
+    std::string Coarser;
     std::vector<uint32_t> Slots;
   };
 
@@ -34,7 +35,7 @@ struct GroundTerrainManifest {
   std::vector<Pack> Packs;
 
   [[nodiscard]] bool Write(BinaryValueWriter &out) const;
-  [[nodiscard]] bool Read(BinaryValueReader &in);
+  [[nodiscard]] bool Read(BinaryValueReader &in, bool indexedParents);
 };
 
 [[nodiscard]] std::expected<GroundTerrainManifest, AssetCacheError>
@@ -62,6 +63,8 @@ public:
 private:
   using Pages = std::shared_ptr<const std::vector<Sheet>>;
 
+  struct PlannedPack;
+
   struct ResidentPack {
     std::weak_ptr<const std::vector<Sheet>> Pages;
     std::string Package;
@@ -70,6 +73,12 @@ private:
   };
 
   [[nodiscard]] Pages Retain(const AssetCache &cache, const AssetRecord &record, size_t count);
+  [[nodiscard]] std::expected<bool, AssetCacheError>
+  RestorePacks(const AssetCache &cache,
+               std::span<const PlannedPack> selected,
+               std::span<Sheet> sheets,
+               GroundTerrainRead &read,
+               const std::stop_token &stop);
   [[nodiscard]] std::expected<Pages, AssetCacheError> Read(const AssetCache &cache,
                                                            const AssetRecord &record,
                                                            const AssetRecord *base,

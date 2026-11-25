@@ -108,5 +108,30 @@ int main() {
                   near->Region.Terrain.Sheets.front().Samples().data(),
           "overlapping views retain exact heights before considering compact payloads");
   }
+  const auto residuals = cache->Select({.Bounds = GroundRegionBoundsEcef(region),
+                                        .Kind = "ground-terrain-detail",
+                                        .Level = std::nullopt,
+                                        .Radius = std::nullopt,
+                                        .Planes = {}});
+  CHECK(residuals && residuals->size() == 2, "each compact product has a removable detail");
+  if (!residuals || residuals->empty()) { return Report(); }
+  CHECK(cache->Remove(residuals->front().Key), "one detail is evicted while its parent remains");
+  auto afterEviction = Regions::Open(cache, sources, "terrain-precision");
+  if (!afterEviction) { return Report(); }
+  const auto coarse = Restore(**afterEviction, key, [](const Box &) { return 0.0625; });
+  CHECK(coarse && coarse->Region.Terrain.Sheets.size() == region.Terrain.Sheets.size() &&
+            std::ranges::equal(coarse->Region.Terrain.Sheets,
+                               region.Terrain.Sheets,
+                               [](const Sheet &parent, const Sheet &detail) {
+                                 return parent.Tile == detail.Tile &&
+                                        std::ranges::equal(parent.Samples(),
+                                                           detail.Samples(),
+                                                           [](float a, float b) {
+                                                             return std::abs(a - b) <= 0.0625f;
+                                                           });
+                               }),
+        "a new view reads the separate parent and retains bounded terrain coverage");
+  CHECK(!Restore(**afterEviction, key, [](const Box &) { return -1.0; }),
+        "a near view still requests the missing refinement");
   return Report();
 }

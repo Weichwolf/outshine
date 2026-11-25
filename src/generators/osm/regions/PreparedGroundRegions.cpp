@@ -27,6 +27,7 @@ namespace {
 constexpr size_t kRequestBytesMost = size_t{4} * 1024u * 1024u;
 constexpr uint64_t kPackageVersion = 0x35524e474fULL;
 constexpr uint64_t kTerrainPacksVersion = 0x36524e474fULL;
+constexpr uint64_t kTerrainParentsVersion = 0x37524e474fULL;
 
 bool ShapeValues(BinaryValueWriter &out, const ::outshine::Ground::ShapedGround &shape) {
   return out.Text(shape.Kind) && out(shape.AmplitudeM,
@@ -44,7 +45,9 @@ DecodePackage(std::span<const uint8_t> bytes, GroundTerrainManifest &terrain) {
   uint64_t version = 0;
   uint64_t groundSize = 0;
   uint64_t waterSize = 0;
-  if (!in(version, groundSize) || (version != kPackageVersion && version != kTerrainPacksVersion) ||
+  if (!in(version, groundSize) ||
+      (version != kPackageVersion && version != kTerrainPacksVersion &&
+       version != kTerrainParentsVersion) ||
       groundSize > in.In.Remaining()) {
     return std::unexpected("invalid native region package header");
   }
@@ -57,7 +60,8 @@ DecodePackage(std::span<const uint8_t> bytes, GroundTerrainManifest &terrain) {
   const auto waterBytes = in.In.Take(static_cast<size_t>(waterSize));
   if (!waterBytes) { return std::unexpected("invalid native region water range"); }
   auto water = WaterAsset::DecodeNative(*waterBytes);
-  if (version == kTerrainPacksVersion && (!region->Terrain.Sheets.empty() || !terrain.Read(in))) {
+  if (version != kPackageVersion &&
+      (!region->Terrain.Sheets.empty() || !terrain.Read(in, version == kTerrainParentsVersion))) {
     return std::unexpected("invalid native region terrain manifest");
   }
   if (!water || !water->SurfacesReady() || in.In.Remaining() != 0) {
@@ -79,7 +83,7 @@ std::expected<std::vector<uint8_t>, std::string> Encode(const GroundRegionAsset 
   BinaryValueWriter out(bytesMost);
   const bool packed = terrain.Sheets != 0;
   const auto inlineSheets = packed ? std::span<const Sheet>{} : std::span(region.Terrain.Sheets);
-  if (!out(packed ? kTerrainPacksVersion : kPackageVersion, uint64_t{0}) ||
+  if (!out(packed ? kTerrainParentsVersion : kPackageVersion, uint64_t{0}) ||
       !EncodeGroundRegionAsset(region, inlineSheets, out)) {
     return std::unexpected("native region products cannot be encoded");
   }
