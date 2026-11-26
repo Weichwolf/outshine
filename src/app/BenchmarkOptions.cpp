@@ -34,6 +34,7 @@ enum class Argument : uint8_t {
   AssetCache,
   Geometry,
   TileProduct,
+  Panorama,
   Image
 };
 
@@ -56,6 +57,7 @@ constexpr std::array kFlags{Flag{.Name = "--output", .Kind = Argument::Output},
                             Flag{.Name = "--asset-cache-dir", .Kind = Argument::AssetCache},
                             Flag{.Name = "--geometry-output", .Kind = Argument::Geometry},
                             Flag{.Name = "--tile-product", .Kind = Argument::TileProduct},
+                            Flag{.Name = "--panorama-output", .Kind = Argument::Panorama},
                             Flag{.Name = "--image", .Kind = Argument::Image}};
 
 std::expected<Vec3, std::string_view> ReadVelocity(std::string_view value) noexcept {
@@ -85,6 +87,7 @@ ApplyValue(BenchmarkOptions &options, Argument kind, std::string_view value) noe
     case Argument::Scenario: scenario.Source = value; break;
     case Argument::View: scenario.View = value; break;
     case Argument::Image: scenario.Image = value; break;
+    case Argument::Panorama: scenario.PanoramaDirectory = value; break;
     case Argument::Geometry: scenario.GeometryDirectory = value; break;
     case Argument::TileProduct: scenario.TileProduct = value; break;
     case Argument::AssetCache: scenario.AssetCacheDirectory = value; break;
@@ -138,6 +141,14 @@ ValidateCombination(const BenchmarkOptions &options) noexcept {
        !options.Scenario->GeometryDirectory.empty())) {
     return std::unexpected(
         "--tile-product reads prepared inputs without source cache or geometry export options");
+  }
+  if (!options.Scenario->PanoramaDirectory.empty() &&
+      (!options.Scenario->TileProduct.empty() || !options.Scenario->GeometryDirectory.empty() ||
+       !options.Scenario->Image.empty() || options.Scenario->Motion.Frames != 1 ||
+       options.Scenario->Motion.LinearVelocityMps != Vec3{} ||
+       options.Scenario->Motion.AngularVelocityDegS != Vec3{} ||
+       options.Output == options.Scenario->PanoramaDirectory)) {
+    return std::unexpected("--panorama-output requires a stationary world capture with --frames 1");
   }
   if (options.GpuValidation) {
     return std::unexpected("--gpu-validation applies only to synthetic calibration");

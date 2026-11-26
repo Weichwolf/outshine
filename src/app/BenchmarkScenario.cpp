@@ -5,6 +5,7 @@
 #include "BenchmarkInput.h"
 #include "BenchmarkOptions.h"
 #include "BenchmarkReport.h"
+#include "PanoramaCapture.h"
 #include "FrameTiming.h"
 #include "GpuFrameTiming.h"
 #include "LogSinks.h"
@@ -228,6 +229,11 @@ RunScenarioBenchmark(const ScenarioBenchmarkOptions &options) {
   if (!roots) { return std::unexpected(roots.error()); }
   auto input = ReadBenchmarkScenario(options, roots->BuiltinDataDirectory, report);
   if (!input) { return std::unexpected(input.error()); }
+  if (!options.PanoramaDirectory.empty()) {
+    if (const auto valid = CheckPanoramaSource(*input, report); !valid) {
+      return std::unexpected(valid.error());
+    }
+  }
   if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
     return std::unexpected("SDL video did not start: " + std::string(SDL_GetError()));
   }
@@ -250,6 +256,9 @@ RunScenarioBenchmark(const ScenarioBenchmarkOptions &options) {
   report.SetupMs = BenchmarkElapsedMs(began);
   if (const auto ready = PrepareBenchmarkWorld(engine, options, report); !ready) {
     return std::unexpected(ready.error());
+  }
+  if (!options.PanoramaDirectory.empty()) {
+    return CapturePanorama(engine, report, options.PanoramaDirectory);
   }
   const auto motion = BenchmarkMotion::Make(report.Start, report.Motion);
   if (!motion) { return std::unexpected(std::string(motion.error())); }
