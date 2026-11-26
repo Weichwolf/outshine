@@ -48,6 +48,12 @@ add_executable(outshine_experiment_group_impostors EXCLUDE_FROM_ALL
 target_link_libraries(outshine_experiment_group_impostors PRIVATE
   outshine_generators_flora outshine_render SDL3::SDL3 PkgConfig::nlohmann_json)
 
+add_executable(outshine_experiment_tree_prototype EXCLUDE_FROM_ALL
+  "${PROJECT_SOURCE_DIR}/test/experiments/render/NativeTreePrototype.cpp")
+target_link_libraries(outshine_experiment_tree_prototype PRIVATE
+  outshine_generators_flora PkgConfig::nlohmann_json)
+target_compile_options(outshine_experiment_tree_prototype PRIVATE -fno-exceptions)
+
 add_executable(outshine_experiment_compose_groups EXCLUDE_FROM_ALL
   "${PROJECT_SOURCE_DIR}/test/experiments/render/ComposeGroupImpostors.cpp")
 target_link_libraries(outshine_experiment_compose_groups PRIVATE

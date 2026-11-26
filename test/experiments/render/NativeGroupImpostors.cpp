@@ -37,7 +37,7 @@ ImpostorCapture WithBounds(const Box &bounds) {
   return {.Sources = {}, .LeastM = bounds.Min, .MostM = bounds.Max, .ViewDirections = {}};
 }
 
-CaptureInput BuildingTile(const SurfaceTile &tile) {
+CaptureInput SurfaceOverlay(const SurfaceTile &tile, bool doubleSided) {
   const size_t first = static_cast<size_t>(tile.GridSide) * tile.GridSide;
   if (first == 0 || first >= tile.Vertices.size() || tile.GroundIndices >= tile.Indices.size()) {
     return std::unexpected("building tile requires a packed overlay");
@@ -45,6 +45,7 @@ CaptureInput BuildingTile(const SurfaceTile &tile) {
   Geometry geometry;
   Material matte;
   matte.BaseColour = {{1, 1, 1, 1}};
+  matte.DoubleSided = doubleSided;
   const auto surface = geometry.addSurface("building", matte);
   if (!surface) { return std::unexpected("could not register building material"); }
   const auto part = geometry.addPart("building group", *surface);
@@ -159,7 +160,7 @@ size_t SourceTriangles(const ImpostorCapture &capture) {
 
 int Run(int argc, const char *const *argv) {
   const std::string_view kind = argv[1];
-  if (kind != "buildings" && kind != "stand" && kind != "tree") { return 2; }
+  if (kind != "buildings" && kind != "overlay" && kind != "stand" && kind != "tree") { return 2; }
   const std::span arguments(argv, static_cast<size_t>(argc));
   const auto pixels = PositiveArgument<int>(argv[4]);
   if (!pixels) { return 2; }
@@ -169,7 +170,7 @@ int Run(int argc, const char *const *argv) {
   std::vector<Vec3> roots;
   const auto began = std::chrono::steady_clock::now();
   std::optional<SurfaceTile> tile;
-  if (kind == "buildings") {
+  if (kind == "buildings" || kind == "overlay") {
     auto loaded = ReadSurfaceTile(argv[2]);
     if (!loaded) {
       std::cerr << loaded.error() << '\n';
@@ -177,8 +178,8 @@ int Run(int argc, const char *const *argv) {
     }
     tile = std::move(*loaded);
   }
-  auto capture =
-      tile ? BuildingTile(*tile) : Trees(argv[2], kind == "tree" ? 1 : kStandRows, roots);
+  auto capture = tile ? SurfaceOverlay(*tile, kind == "overlay")
+                      : Trees(argv[2], kind == "tree" ? 1 : kStandRows, roots);
   if (!capture) {
     std::cerr << capture.error() << '\n';
     return 1;
@@ -238,9 +239,9 @@ int Run(int argc, const char *const *argv) {
 
 int main(int argc, const char *const *argv) {
   if (argc < 6 || argc > 8) {
-    std::cerr
-        << "group_impostors <buildings|stand|tree> <source> <directions> <pixels> <directory> "
-           "[card pixels [card views]]\n";
+    std::cerr << "group_impostors <buildings|overlay|stand|tree> <source> <directions> <pixels> "
+                 "<directory> "
+                 "[card pixels [card views]]\n";
     return 2;
   }
   if (!SDL_Init(SDL_INIT_VIDEO)) {
