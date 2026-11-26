@@ -408,6 +408,55 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(image.read_bytes(), b'previous PNG')
 
     @unittest.skipUnless(os.uname().sysname == 'Darwin', 'native Metal product renderer')
+    def test_spatial_panorama_selects_the_overlapping_flight_pair_before_body_reads(self):
+        with tempfile.TemporaryDirectory(prefix='outshine-panorama-index-') as folder:
+            root = Path(folder)
+            scene = root / 'view.scenario'
+            scene.write_text(PRODUCT_SCENE)
+            database = root / 'prepared.sqlite'
+            image = root / 'frame.png'
+            revision = 'a' * 64
+            first, next_view = root / 'first', root / 'next'
+            write_panorama(first, radius=6)
+            write_panorama(next_view, anchor=(8, 100, 0), radius=6,
+                           colour=(0, 1, 0), revision='1')
+
+            def publish(*directories, version=revision):
+                installed = subprocess.run(
+                    [str(CLIENT), 'cache', 'import-panorama', str(database), version,
+                     *map(str, directories)], check=False, capture_output=True, text=True, timeout=60)
+                self.assertEqual(installed.returncode, 0, installed.stderr)
+
+            flight = ('--scenario', str(scene), '--frames', '12', '--linear-velocity', '30,0,0',
+                      '--image', str(image))
+            direct = self.invoke(*flight, '--panorama-product', str(first), '--panorama-next',
+                                 str(next_view))
+            self.assertEqual(direct.returncode, 0, direct.stderr)
+            pixels = image.read_bytes()
+            publish(first, next_view)
+            with sqlite3.connect(database) as cache:
+                expected_read, = cache.execute('SELECT sum(length(bytes)) FROM package_bodies').fetchone()
+            corner, distant, different = (root / name for name in ('corner', 'distant', 'other-set'))
+            write_panorama(corner, anchor=(5, 95, 5), radius=6, revision='2')
+            write_panorama(distant, anchor=(500, 100, 0), radius=6, revision='3')
+            write_panorama(different, radius=20, revision='4')
+            publish(corner, distant)
+            publish(different, version='b' * 64)
+
+            result = self.invoke(*flight, '--product-store', str(database),
+                                 '--product-revision', revision)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(image.read_bytes(), pixels)
+            report = json.loads(result.stdout)
+            direct_report = json.loads(direct.stdout)
+            self.assertEqual(report['rendered_content'], direct_report['rendered_content'])
+            self.assertEqual(report['traffic']['asset_read_bytes'], expected_read)
+            self.assertEqual(report['traffic']['panorama_decoded_bytes'],
+                             direct_report['traffic']['panorama_decoded_bytes'])
+            self.assertGreater(report['traffic']['panorama_requested_bytes'],
+                               report['traffic']['panorama_decoded_bytes'])
+
+    @unittest.skipUnless(os.uname().sysname == 'Darwin', 'native Metal product renderer')
     def test_indexed_tile_reads_only_selected_body_and_uses_parent_on_corruption(self):
         with tempfile.TemporaryDirectory(prefix='outshine-benchmark-tile-index-') as folder:
             root = Path(folder)

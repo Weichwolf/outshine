@@ -8,6 +8,7 @@
 #include "BenchmarkInput.h"
 #include "BenchmarkMotion.h"
 #include "BenchmarkReport.h"
+#include "FarPanoramaAsset.h"
 #include "GeodeticCamera.h"
 #include "MetalProductRenderer.h"
 #include "SurfaceTileAsset.h"
@@ -18,6 +19,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <string_view>
 #include <optional>
 #include <system_error>
@@ -134,34 +136,21 @@ MakePanoramaView(const Camera &pose, Extent frame, const FarPanorama &panorama) 
       .Exposure = panorama.ReferenceExposure};
 }
 
-bool CoversEye(const FarPanorama &panorama, const Vec3 &eye) {
-  return Length(eye - panorama.AnchorM) <= panorama.MaximumTranslationM + kPoseRoundoffM;
-}
-
-double ChordHalfLength(const FarPanorama &panorama, const Vec3 &axisOffset) {
-  const double radius = panorama.MaximumTranslationM + kPoseRoundoffM;
-  return std::sqrt(std::max(0.0, radius * radius - Dot(axisOffset, axisOffset)));
-}
-
 std::expected<std::array<double, 2>, std::string> PanoramaOverlap(
     const FarPanorama &first, const FarPanorama &next, const ScenarioBenchmarkReport &report) {
   const Vec3 start = report.Start.PositionM;
   const Vec3 finish = report.Finish.PositionM;
   const double length = Length(finish - start);
-  if (length <= kPoseRoundoffM || !CoversEye(first, start) || !CoversEye(next, finish)) {
+  if (length <= kPoseRoundoffM || !first.Domain().Covers(start) || !next.Domain().Covers(finish)) {
     return std::unexpected("panorama handoff requires a flight covered at both endpoints");
   }
   if (first.Side != next.Side || first.MaximumRangeM != next.MaximumRangeM ||
       first.ReferenceExposure != next.ReferenceExposure) {
     return std::unexpected("panorama handoff requires matching resolution, range and exposure");
   }
-  const Vec3 direction = (finish - start) * (1.0 / length);
-  const Vec3 a = first.AnchorM - start;
-  const Vec3 b = next.AnchorM - start;
-  const double alongA = Dot(a, direction);
-  const double alongB = Dot(b, direction);
-  const double exit = alongA + ChordHalfLength(first, a - direction * alongA);
-  const double entry = alongB - ChordHalfLength(next, b - direction * alongB);
+  const PanoramaRay ray{.OriginM = start, .Direction = (finish - start) * (1.0 / length)};
+  const double exit = first.Domain().Along(ray)[1];
+  const double entry = next.Domain().Along(ray)[0];
   if (exit < entry) {
     return std::unexpected("prepared panorama domains leave a gap in the flight");
   }
@@ -195,18 +184,27 @@ struct PreparedPanoramas {
 
 std::expected<PreparedPanoramas, std::string>
 PreparePanoramas(const ScenarioBenchmarkOptions &options,
+                 AssetCache *cache,
                  ScenarioBenchmarkReport &report,
                  LongitudeLatitude origin) {
   PreparedPanoramas prepared;
-  for (const auto path : {options.PanoramaProduct, options.NextPanorama}) {
-    if (path.empty()) { continue; }
-    auto input = ReadFarPanorama(path);
-    if (!input) { return std::unexpected(input.error()); }
-    if (input->Origin.LongitudeDeg != origin.LongitudeDeg ||
-        input->Origin.LatitudeDeg != origin.LatitudeDeg) {
-      return std::unexpected("prepared panorama must share the scenario origin");
+  if (cache != nullptr && options.PanoramaProduct.empty()) {
+    auto indexed = LoadFarPanoramas(
+        *cache, options.ProductRevision, origin, report.Start.PositionM, report.Finish.PositionM);
+    if (!indexed) { return std::unexpected(indexed.error()); }
+    report.IndexedPanoramaRequestedBytes = indexed->RequestedBytes;
+    prepared.Products = std::move(indexed->Products);
+  } else {
+    for (const auto path : {options.PanoramaProduct, options.NextPanorama}) {
+      if (path.empty()) { continue; }
+      auto input = ReadFarPanorama(path);
+      if (!input) { return std::unexpected(input.error()); }
+      if (input->Origin.LongitudeDeg != origin.LongitudeDeg ||
+          input->Origin.LatitudeDeg != origin.LatitudeDeg) {
+        return std::unexpected("prepared panorama must share the scenario origin");
+      }
+      prepared.Products.push_back(std::move(*input));
     }
-    prepared.Products.push_back(std::move(*input));
   }
   if (prepared.Products.empty()) { return prepared; }
   const auto &first = prepared.Products.front();
@@ -217,58 +215,62 @@ PreparePanoramas(const ScenarioBenchmarkOptions &options,
     if (!overlap) { return std::unexpected(overlap.error()); }
     prepared.BlendWindowFrames = *overlap;
     report.PanoramaHandoff = {.Next = PanoramaCoverage(next), .BlendWindowFrames = *overlap};
-  } else if (!CoversEye(first, report.Start.PositionM) ||
-             !CoversEye(first, report.Finish.PositionM)) {
+  } else if (!first.Domain().Covers(report.Start.PositionM) ||
+             !first.Domain().Covers(report.Finish.PositionM)) {
     return std::unexpected("camera path exceeds the prepared far panorama translation domain");
   }
   return prepared;
 }
 
-std::expected<SurfaceTile, std::string> ReadIndexedTile(const ScenarioBenchmarkOptions &options,
-                                                        const Vec3 &position,
-                                                        LongitudeLatitude origin,
-                                                        BenchmarkTileCoverage &coverage) {
+std::expected<std::unique_ptr<AssetCache>, std::string> OpenStore(std::string_view path) {
+  if (path.empty()) { return nullptr; }
   std::error_code error;
-  if (!std::filesystem::is_regular_file(options.ProductStore, error)) {
+  if (!std::filesystem::is_regular_file(path, error)) {
     return std::unexpected("prepared product store must be an existing database");
   }
-  const auto cache = AssetCache::Open(std::string(options.ProductStore));
+  auto cache = AssetCache::Open(std::string(path));
   if (!cache) { return std::unexpected("could not open the prepared product store"); }
+  return std::move(*cache);
+}
+
+std::expected<SurfaceTileLookup, std::string> ReadIndexedTile(AssetCache &cache,
+                                                              std::string_view revision,
+                                                              const Vec3 &position,
+                                                              LongitudeLatitude origin) {
   const auto eye = TangentFrame::At(origin).ToEcefPosition(
       {.EastM = position[0], .NorthM = -position[2], .UpM = position[1]});
   const auto geo = Ground::EcefToGeoWgs84({.X = eye[0], .Y = eye[1], .Z = eye[2]});
-  auto tile = LoadSurfaceTileAt(**cache,
-                                options.ProductRevision,
-                                {.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg});
-  if (!tile) { return std::unexpected(tile.error()); }
-  if (!tile->Product) {
-    return std::unexpected("prepared product store has no terrain at the camera");
-  }
-  coverage.StoreReadBytes = (*cache)->PackageBytesRead();
-  coverage.RequestedBytes = tile->RequestedBytes;
-  return std::move(*tile->Product);
+  return LoadSurfaceTileAt(
+      cache, revision, {.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg});
 }
 
 std::expected<std::optional<SurfaceTile>, std::string>
 PrepareTile(const ScenarioBenchmarkOptions &options,
+            AssetCache *cache,
             ScenarioBenchmarkReport &report,
             LongitudeLatitude origin) {
-  const bool indexed = !options.ProductStore.empty();
-  if (options.TileProduct.empty() && !indexed) { return std::nullopt; }
-  BenchmarkTileCoverage traffic{};
-  auto tile = indexed ? ReadIndexedTile(options, report.Start.PositionM, origin, traffic)
-                      : ReadSurfaceTile(options.TileProduct);
-  if (!tile) { return std::unexpected(tile.error()); }
+  SurfaceTileLookup found;
+  if (cache != nullptr) {
+    auto indexed = ReadIndexedTile(*cache, options.ProductRevision, report.Start.PositionM, origin);
+    if (!indexed) { return std::unexpected(indexed.error()); }
+    found = std::move(*indexed);
+  } else if (!options.TileProduct.empty()) {
+    auto direct = ReadSurfaceTile(options.TileProduct);
+    if (!direct) { return std::unexpected(direct.error()); }
+    found.RequestedBytes = direct->StoredBytes;
+    found.Product = std::move(*direct);
+  }
+  report.TileRequestedBytes = found.RequestedBytes;
+  const auto &tile = found.Product;
+  if (!tile) { return std::nullopt; }
   report.Tile = BenchmarkTileCoverage{
       .Address = {static_cast<uint32_t>(tile->Coverage.Zoom), tile->Coverage.X, tile->Coverage.Y},
       .OriginLonLat = {tile->Origin.LongitudeDeg, tile->Origin.LatitudeDeg},
       .Revision = tile->Revision,
       .Triangles = tile->Indices.size() / 3,
       .GeometricErrorM = tile->GeometricErrorM,
-      .StoredBytes = tile->StoredBytes,
-      .StoreReadBytes = traffic.StoreReadBytes,
-      .RequestedBytes = indexed ? traffic.RequestedBytes : tile->StoredBytes};
-  return std::move(*tile);
+      .StoredBytes = tile->StoredBytes};
+  return std::move(found.Product);
 }
 
 std::expected<Render::MetalProductFrames, std::string>
@@ -277,13 +279,16 @@ MeasureProducts(const ScenarioBenchmarkOptions &options,
                 const BenchmarkMotion &motion,
                 LongitudeLatitude origin) {
   const auto loadAt = BenchmarkClock::now();
-  const auto loadedTile = PrepareTile(options, report, origin);
+  const auto cache = OpenStore(options.ProductStore);
+  if (!cache) { return std::unexpected(cache.error()); }
+  const auto loadedTile = PrepareTile(options, cache->get(), report, origin);
   if (!loadedTile) { return std::unexpected(loadedTile.error()); }
   const auto &tile = *loadedTile;
   Mat4 placement;
   if (tile) { placement = TilePlacement(*tile, origin); }
-  const auto prepared = PreparePanoramas(options, report, origin);
+  const auto prepared = PreparePanoramas(options, cache->get(), report, origin);
   if (!prepared) { return std::unexpected(prepared.error()); }
+  if (*cache) { report.ProductStoreReadBytes = (*cache)->PackageBytesRead(); }
   report.ProductReadMs = BenchmarkElapsedMs(loadAt);
   const auto &panoramas = prepared->Products;
   const double aspect = static_cast<double>(report.Frame.WidthPx) / report.Frame.HeightPx;

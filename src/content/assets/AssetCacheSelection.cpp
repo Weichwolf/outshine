@@ -246,8 +246,12 @@ AssetCache::Select(const AssetQuery &query) const {
   AssetSql::Statement statement;
   std::string sql = std::string("SELECT ") + AssetSql::kColumns;
   if (query.TileRevision) { sql += AssetSql::kTileColumns; }
-  sql += " FROM bounds r JOIN assets a ON a.id=r.id";
-  if (query.TileRevision) { sql += AssetSql::kTileJoin; }
+  sql += query.SpatialFirst ? " FROM bounds r CROSS JOIN assets a ON a.id=r.id"
+                            : " FROM bounds r JOIN assets a ON a.id=r.id";
+  if (query.TileRevision) {
+    if (query.SpatialFirst) { sql += " CROSS"; }
+    sql += AssetSql::kTileJoin;
+  }
   sql += " WHERE r.minx<=? AND r.maxx>=? AND r.miny<=? AND r.maxy>=? AND r.minz<=? AND r.maxz>=?";
   if (!query.Kind.empty()) { sql += " AND a.kind=?"; }
   if (query.Level) { sql += " AND a.level=?"; }

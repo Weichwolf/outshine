@@ -36,8 +36,6 @@ struct BenchmarkTileCoverage {
   size_t Triangles = 0;
   double GeometricErrorM = 0;
   size_t StoredBytes = 0;
-  std::optional<uint64_t> StoreReadBytes;
-  size_t RequestedBytes = 0;
 };
 
 struct BenchmarkPanoramaCoverage {
@@ -67,6 +65,9 @@ struct ScenarioBenchmarkReport {
   std::optional<BenchmarkTileCoverage> Tile;
   std::optional<BenchmarkPanoramaCoverage> Panorama;
   std::optional<BenchmarkPanoramaHandoff> PanoramaHandoff;
+  std::optional<uint64_t> ProductStoreReadBytes;
+  std::optional<size_t> IndexedPanoramaRequestedBytes;
+  size_t TileRequestedBytes = 0;
   size_t ProductUploadBytes = 0;
   double ProductReadMs = 0;
   double ProductUploadMs = 0;

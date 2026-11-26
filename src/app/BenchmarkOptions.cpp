@@ -153,7 +153,8 @@ ValidateCombination(const BenchmarkOptions &options) noexcept {
   const bool stored = !options.Scenario->ProductStore.empty();
   const bool revision = !options.Scenario->ProductRevision.empty();
   if (stored != revision || (stored && !options.Scenario->TileProduct.empty())) {
-    return std::unexpected("--product-store requires --product-revision and an implicit tile");
+    return std::unexpected(
+        "--product-store requires --product-revision and selects terrain by location");
   }
   const bool prepared = stored || !options.Scenario->TileProduct.empty() ||
                         !options.Scenario->PanoramaProduct.empty();

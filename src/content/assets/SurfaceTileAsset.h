@@ -14,8 +14,6 @@ namespace outshine {
 
 class AssetCache;
 
-[[nodiscard]] bool IsSurfaceTileSetRevision(std::string_view revision);
-
 [[nodiscard]] std::expected<void, std::string>
 PublishSurfaceTile(AssetCache &cache, std::string_view revision, std::span<const uint8_t> bytes);
 

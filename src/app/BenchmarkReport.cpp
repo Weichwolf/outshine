@@ -232,24 +232,28 @@ ReportJson RenderedContent(const ScenarioBenchmarkReport &report) {
 
 ReportJson BenchmarkTraffic(const ScenarioBenchmarkReport &report) {
   if (report.Panorama || report.Tile) {
-    uint64_t bytes = 0;
-    const bool indexed = report.Tile && report.Tile->StoreReadBytes;
-    if (report.Panorama) { bytes += report.Panorama->StoredBytes; }
-    if (report.PanoramaHandoff) { bytes += report.PanoramaHandoff->Next.StoredBytes; }
-    if (report.Tile) { bytes += report.Tile->StoreReadBytes.value_or(report.Tile->StoredBytes); }
-    return {{"source_delivery_bytes", 0},
-            {"asset_read_bytes", bytes},
-            {"asset_read_scope",
-             indexed ? "stored package bytes plus any direct panorama payload"
-                     : "prepared product payloads"},
-            {"tile_requested_bytes",
-             report.Tile ? ReportJson(report.Tile->RequestedBytes) : ReportJson(nullptr)},
-            {"tile_decoded_bytes",
-             report.Tile ? ReportJson(report.Tile->StoredBytes) : ReportJson(nullptr)},
-            {"asset_read_ms", report.ProductReadMs},
-            {"upload_bytes", report.ProductUploadBytes},
-            {"upload_scope", "initial shared product buffers and textures"},
-            {"upload_ms", report.ProductUploadMs}};
+    const bool indexed = report.ProductStoreReadBytes.has_value();
+    const size_t panoramaBytes =
+        (report.Panorama ? report.Panorama->StoredBytes : 0) +
+        (report.PanoramaHandoff ? report.PanoramaHandoff->Next.StoredBytes : 0);
+    const uint64_t tileBytes = report.Tile ? report.Tile->StoredBytes : 0;
+    const uint64_t bytes = report.ProductStoreReadBytes.value_or(tileBytes) +
+                           (report.IndexedPanoramaRequestedBytes ? 0 : panoramaBytes);
+    return {
+        {"source_delivery_bytes", 0},
+        {"asset_read_bytes", bytes},
+        {"asset_read_scope",
+         indexed ? "stored package bytes plus direct product payloads"
+                 : "prepared product payloads"},
+        {"tile_requested_bytes", report.TileRequestedBytes},
+        {"panorama_requested_bytes", report.IndexedPanoramaRequestedBytes.value_or(panoramaBytes)},
+        {"panorama_decoded_bytes", panoramaBytes},
+        {"tile_decoded_bytes",
+         report.Tile ? ReportJson(report.Tile->StoredBytes) : ReportJson(nullptr)},
+        {"asset_read_ms", report.ProductReadMs},
+        {"upload_bytes", report.ProductUploadBytes},
+        {"upload_scope", "initial shared product buffers and textures"},
+        {"upload_ms", report.ProductUploadMs}};
   }
   const auto bytes = std::ranges::find_if(report.Measures, [](const auto &metric) {
     return metric.Name == "rebuild: bytes offered for upload";

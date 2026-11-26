@@ -73,13 +73,9 @@ std::expected<std::optional<SurfaceTile>, std::string> ReadRecord(AssetCache &ca
 
 }
 
-bool IsSurfaceTileSetRevision(std::string_view revision) {
-  return AssetProductKey::Parse(revision).has_value();
-}
-
 std::expected<void, std::string>
 PublishSurfaceTile(AssetCache &cache, std::string_view revision, std::span<const uint8_t> bytes) {
-  if (!IsSurfaceTileSetRevision(revision)) {
+  if (!AssetProductKey::Parse(revision)) {
     return std::unexpected("surface tile set needs a SHA-256 revision");
   }
   const auto tile = DecodePackedSurfaceTile(bytes);
@@ -107,7 +103,7 @@ PublishSurfaceTile(AssetCache &cache, std::string_view revision, std::span<const
 
 std::expected<SurfaceTileLookup, std::string>
 LoadSurfaceTileAt(AssetCache &cache, std::string_view revision, LongitudeLatitude location) {
-  if (!IsSurfaceTileSetRevision(revision)) {
+  if (!AssetProductKey::Parse(revision)) {
     return std::unexpected("surface tile set needs a SHA-256 revision");
   }
   const auto leaf = Ground::TileIndex::Of({.LongitudeDeg = location.LongitudeDeg,
