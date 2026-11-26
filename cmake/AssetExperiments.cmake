@@ -48,6 +48,14 @@ add_executable(outshine_experiment_group_impostors EXCLUDE_FROM_ALL
 target_link_libraries(outshine_experiment_group_impostors PRIVATE
   outshine_generators_flora outshine_render SDL3::SDL3 PkgConfig::nlohmann_json)
 
+if(APPLE)
+  add_executable(outshine_experiment_metal_groups EXCLUDE_FROM_ALL
+    "${PROJECT_SOURCE_DIR}/test/experiments/render/MetalGroupImpostorControl.cpp")
+  target_link_libraries(outshine_experiment_metal_groups PRIVATE
+    outshine_render_products outshine_app_capture PkgConfig::nlohmann_json)
+  target_compile_options(outshine_experiment_metal_groups PRIVATE -fno-exceptions)
+endif()
+
 add_executable(outshine_experiment_road_display EXCLUDE_FROM_ALL
   "${PROJECT_SOURCE_DIR}/test/experiments/streaming/tile-selection/RoadDisplayCache.cpp")
 target_link_libraries(outshine_experiment_road_display PRIVATE outshine_generators_road_pages)

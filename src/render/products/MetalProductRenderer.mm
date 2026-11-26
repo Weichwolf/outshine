@@ -1,4 +1,6 @@
 #include "MetalProductRenderer.h"
+#include "MetalGroupImpostor.h"
+#include "MetalGroupImpostorShader.h"
 #include "Units.h"
 
 #import <Metal/Metal.h>
@@ -34,7 +36,6 @@ static_assert(sizeof(ClipMatrix) == 64 && sizeof(uint32_t) == 4);
 static_assert(sizeof(SurfaceColour) == 4);
 static_assert(sizeof(SurfaceShadingUniform) == kSurfaceShadingBytes &&
               offsetof(SurfaceShadingUniform, EyeM) == 64 && sizeof(SurfaceColourRanges) == 16);
-
 NSString *const kShader = @R"(
 #include <metal_stdlib>
 using namespace metal;
@@ -336,6 +337,7 @@ struct ProductPipeline {
 struct ProductPass {
   id<MTLCommandQueue> Queue;
   ProductPipeline Tile;
+  ProductPipeline Group;
   ProductPipeline Panorama;
   MTLRenderPassDescriptor *Pass;
   id<MTLTexture> Color;
@@ -346,22 +348,21 @@ std::string MetalError(NSError *error, const char *fallback) {
   return reason != nullptr ? reason : fallback;
 }
 
-enum class ProductDraw { Tile, Panorama, TileForComposition, Composition };
+enum class ProductDraw { Tile, Group, Panorama };
 
 std::expected<ProductPipeline, std::string>
-MakePipeline(id<MTLDevice> device, id<MTLLibrary> library, ProductDraw mode) {
-  const bool panorama = mode == ProductDraw::Panorama || mode == ProductDraw::Composition;
-  const bool composite =
-      mode == ProductDraw::TileForComposition || mode == ProductDraw::Composition;
+MakePipeline(id<MTLDevice> device, id<MTLLibrary> library, ProductDraw mode, bool composite) {
+  const bool panorama = mode == ProductDraw::Panorama;
+  const auto pipelineIndex = static_cast<size_t>(mode);
   NSError *error = nil;
   auto *const descriptor = [[MTLRenderPipelineDescriptor alloc] init];
-  descriptor.vertexFunction =
-      [library newFunctionWithName:panorama ? @"panorama_vertex" : @"tile_vertex"];
-  const std::array<NSString *, 4> fragments{@"tile_fragment",
-                                            @"panorama_fragment",
-                                            @"tile_composite_fragment",
-                                            @"panorama_composite_fragment"};
-  descriptor.fragmentFunction = [library newFunctionWithName:fragments[static_cast<size_t>(mode)]];
+  const std::array<NSString *, 3> vertices{@"tile_vertex", @"group_vertex", @"panorama_vertex"};
+  const std::array<NSString *, 3> direct{@"tile_fragment", @"group_fragment", @"panorama_fragment"};
+  const std::array<NSString *, 3> combined{
+      @"tile_composite_fragment", @"group_composite_fragment", @"panorama_composite_fragment"};
+  descriptor.vertexFunction = [library newFunctionWithName:vertices[pipelineIndex]];
+  descriptor.fragmentFunction =
+      [library newFunctionWithName:(composite ? combined : direct)[pipelineIndex]];
   descriptor.colorAttachments[0].pixelFormat = MTLPixelFormatRGBA8Unorm_sRGB;
   if (composite) { descriptor.colorAttachments[1].pixelFormat = MTLPixelFormatR32Float; }
   descriptor.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float;
@@ -373,10 +374,8 @@ MakePipeline(id<MTLDevice> device, id<MTLLibrary> library, ProductDraw mode) {
   auto *const depthSpec = [[MTLDepthStencilDescriptor alloc] init];
   depthSpec.depthCompareFunction =
       panorama ? MTLCompareFunctionGreaterEqual : MTLCompareFunctionGreater;
-  if (mode == ProductDraw::Composition) {
-    depthSpec.depthCompareFunction = MTLCompareFunctionAlways;
-  }
-  depthSpec.depthWriteEnabled = mode != ProductDraw::Composition;
+  if (panorama && composite) { depthSpec.depthCompareFunction = MTLCompareFunctionAlways; }
+  depthSpec.depthWriteEnabled = !(panorama && composite);
   const id<MTLDepthStencilState> depth = [device newDepthStencilStateWithDescriptor:depthSpec];
   if (depth == nil) { return std::unexpected("Metal could not allocate product depth state"); }
   return ProductPipeline{.Draw = pipeline, .Depth = depth};
@@ -385,22 +384,29 @@ MakePipeline(id<MTLDevice> device, id<MTLLibrary> library, ProductDraw mode) {
 std::expected<ProductPass, std::string> MakePass(id<MTLDevice> device,
                                                  const MetalProductInputs &products) {
   NSError *error = nil;
-  const id<MTLLibrary> library = [device newLibraryWithSource:kShader options:nil error:&error];
+  NSString *const source =
+      products.Groups.empty() ? kShader : [kShader stringByAppendingString:GroupImpostorShader];
+  const id<MTLLibrary> library = [device newLibraryWithSource:source options:nil error:&error];
   if (library == nil) {
     return std::unexpected(MetalError(error, "Metal failed to create product shaders"));
   }
   ProductPipeline tile;
+  ProductPipeline group;
   ProductPipeline panorama;
-  const bool composite = !products.Tiles.empty() && !products.Panoramas.empty();
+  const bool composite =
+      (!products.Tiles.empty() || !products.Groups.empty()) && !products.Panoramas.empty();
   if (!products.Tiles.empty()) {
-    const auto pipeline = MakePipeline(
-        device, library, composite ? ProductDraw::TileForComposition : ProductDraw::Tile);
+    const auto pipeline = MakePipeline(device, library, ProductDraw::Tile, composite);
     if (!pipeline) { return std::unexpected(pipeline.error()); }
     tile = *pipeline;
   }
+  if (!products.Groups.empty()) {
+    const auto pipeline = MakePipeline(device, library, ProductDraw::Group, composite);
+    if (!pipeline) { return std::unexpected(pipeline.error()); }
+    group = *pipeline;
+  }
   if (!products.Panoramas.empty()) {
-    const auto pipeline =
-        MakePipeline(device, library, composite ? ProductDraw::Composition : ProductDraw::Panorama);
+    const auto pipeline = MakePipeline(device, library, ProductDraw::Panorama, composite);
     if (!pipeline) { return std::unexpected(pipeline.error()); }
     panorama = *pipeline;
   }
@@ -429,6 +435,7 @@ std::expected<ProductPass, std::string> MakePass(id<MTLDevice> device,
   pass.depthAttachment.storeAction = MTLStoreActionDontCare;
   ProductPass result{.Queue = [device newCommandQueue],
                      .Tile = tile,
+                     .Group = group,
                      .Panorama = panorama,
                      .Pass = pass,
                      .Color = pass.colorAttachments[0].texture};
@@ -636,12 +643,6 @@ void DrawPanorama(id<MTLRenderCommandEncoder> draw,
   [draw drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
 }
 
-struct ProductResources {
-  std::vector<TileMesh> Meshes;
-  std::vector<PanoramaTextures> Panoramas;
-  size_t Bytes = 0;
-};
-
 SurfaceLightUniform PackLight(const Mat4 &worldFromTile, const PanoramaLighting *light) {
   if (light == nullptr) { return {}; }
   const auto toward =
@@ -663,6 +664,13 @@ SurfaceLightUniform PackLight(const Mat4 &worldFromTile, const PanoramaLighting 
           light->Ground[2],
           0};
 }
+
+struct ProductResources {
+  std::vector<TileMesh> Meshes;
+  std::vector<PanoramaTextures> Panoramas;
+  std::vector<GroupResources> Groups;
+  size_t Bytes = 0;
+};
 
 std::expected<TileMesh, std::string> UploadTile(id<MTLDevice> device,
                                                 const MetalSurface &tile,
@@ -725,6 +733,13 @@ std::expected<ProductResources, std::string> UploadProducts(id<MTLDevice> device
     }
     resources.Panoramas.push_back(textures);
     resources.Bytes += panorama.Colour.size() + panorama.Depth.size();
+  }
+  resources.Groups.reserve(products.Groups.size());
+  for (const auto &group : products.Groups) {
+    auto uploaded = UploadMetalGroup(device, group, resources.Bytes);
+    if (!uploaded) { return std::unexpected(uploaded.error()); }
+    uploaded->Light = PackLight(group.WorldFromTile, light);
+    resources.Groups.push_back(std::move(*uploaded));
   }
   return resources;
 }
@@ -793,7 +808,8 @@ void RecordReplacement(PreparedSurfaceReplacement &replacement, MetalProductFram
 
 std::expected<id<MTLCommandBuffer>, std::string> SubmitProducts(const ProductPass &pass,
                                                                 const ProductResources &resources,
-                                                                const MetalProductView &view) {
+                                                                const MetalProductView &view,
+                                                                MetalProductFrameSample &sample) {
   @autoreleasepool {
     const id<MTLCommandBuffer> command = [pass.Queue commandBuffer];
     const id<MTLRenderCommandEncoder> draw = [command renderCommandEncoderWithDescriptor:pass.Pass];
@@ -805,6 +821,24 @@ std::expected<id<MTLCommandBuffer>, std::string> SubmitProducts(const ProductPas
         return std::unexpected(clip.error());
       }
       DrawTile(draw, pass.Tile, mesh, *clip, view.EyeM);
+    }
+    if (pass.Group.Draw != nil) {
+      [draw setRenderPipelineState:pass.Group.Draw];
+      [draw setDepthStencilState:pass.Group.Depth];
+    }
+    for (const auto &group : resources.Groups) {
+      const auto clip = MetalClip(view.ClipFromWorld * group.WorldFromTile);
+      if (!clip) {
+        [draw endEncoding];
+        return std::unexpected(clip.error());
+      }
+      const auto &p = group.WorldFromTile;
+      const auto local = TileDirection(p, view.EyeM - Vec3{{p[12], p[13], p[14]}});
+      const SurfaceShadingUniform shading{.Light = group.Light,
+                                          .EyeM = {local[0], local[1], local[2], 0}};
+      [draw setVertexBytes:clip->data() length:sizeof(*clip) atIndex:1];
+      [draw setFragmentBytes:&shading length:sizeof(shading) atIndex:0];
+      sample.GroupTriangles += EncodeMetalGroup(draw, group, {{local[0], local[1], local[2]}});
     }
     if (pass.Panorama.Draw != nil) {
       const auto &active = resources.Panoramas[view.PanoramaIndex];
@@ -825,7 +859,7 @@ RenderMetalProducts(const MetalProductInputs &products,
                     const MetalProductViewAt &viewAt,
                     bool readImage,
                     const MetalSurfaceStream &stream) {
-  if (products.Tiles.empty() && products.Panoramas.empty()) {
+  if (products.Tiles.empty() && products.Panoramas.empty() && products.Groups.empty()) {
     return std::unexpected("Metal product capture requires an input product");
   }
   @autoreleasepool {
@@ -869,7 +903,7 @@ RenderMetalProducts(const MetalProductInputs &products,
       if (!resources->Panoramas.empty() && view->PanoramaIndex >= resources->Panoramas.size()) {
         return std::unexpected("Metal panorama view references an unavailable product");
       }
-      return SubmitProducts(*pass, *resources, *view);
+      return SubmitProducts(*pass, *resources, *view, frames.Samples[frame]);
     };
     if (const auto measured = MeasureCapture(count, submit, stream.FrameSeconds, frames);
         !measured) {

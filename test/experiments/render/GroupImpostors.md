@@ -45,6 +45,27 @@ the block's probes, the two selected files occupy 93,976 bytes at the median and
 97,956 bytes at the peak. The full set of 13 views occupies 613,464 bytes. This
 supports making each direction an independently resident product.
 
+## Metal control
+
+```sh
+cmake --build build --target outshine_experiment_metal_groups
+build/outshine_experiment_metal_groups "$probe/block" "$prepared_surface_tile" \
+  "$probe/metal" 950 28
+```
+
+This 1280×720 control moves through 86° at the given distance and elevation over
+120 frames. The ground grid is the same in both runs. The group draw uses two
+views of instanced planar quads with the sampled coverage mask and opaque depth.
+Three paired A18 Pro runs of the Tokyo block measured a median GPU p99 of
+0.592 ms for geometry and 0.118 ms for the group. Peak triangles fell from
+12,056 to 2,878 including the shared terrain grid. All 13 views were resident
+in this control, yielding 668,012 uploaded bytes including ground versus
+729,704 for geometry. Device allocation increased from 5,701,632 to 5,865,472
+bytes, so the upload reduction alone does not establish a residency saving.
+The larger district has visibly broken roof details and uploads more bytes as
+cards. The full world still needs projected-size admission, selective residency,
+and continuous handoffs to geometry and the panorama.
+
 Compositing the single spruce captures at the 25 roots reaches 82% median and
 64% worst coverage overlap against the direct stand captures. One native bake of
 24 views took 0.98 s for the tree and 21.02 s for the stand. The Python composition

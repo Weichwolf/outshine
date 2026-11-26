@@ -413,7 +413,7 @@ MeasureProducts(const ScenarioBenchmarkOptions &options,
           options, **cache, report, origin, panoramas, cut->Products, refinement);
     };
   }
-  auto frames = Render::RenderMetalProducts({.Tiles = tiles, .Panoramas = panoramas},
+  auto frames = Render::RenderMetalProducts({.Tiles = tiles, .Panoramas = panoramas, .Groups = {}},
                                             report.Motion.Frames,
                                             viewAt,
                                             !options.Image.empty(),

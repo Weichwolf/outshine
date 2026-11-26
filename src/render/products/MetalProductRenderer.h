@@ -3,6 +3,7 @@
 
 #include "Mat4.h"
 #include "FarPanorama.h"
+#include "GroupImpostorView.h"
 #include "SurfaceTile.h"
 #include <cstddef>
 #include <cstdint>
@@ -24,6 +25,7 @@ struct MetalProductFrameSample {
   double RenderMs = 0;
   double SyncWaitMs = 0;
   std::optional<double> GpuMs;
+  size_t GroupTriangles = 0;
   bool Refined = true;
 };
 
@@ -87,9 +89,17 @@ struct MetalSurfaceStream {
   double FrameSeconds = 0;
 };
 
+struct MetalImpostorGroup {
+  std::span<const GroupImpostorView> Views;
+  Mat4 WorldFromTile;
+  Vec3 CentreM;
+  double HalfExtentM;
+};
+
 struct MetalProductInputs {
   std::span<const MetalSurface> Tiles;
   std::span<const FarPanorama> Panoramas;
+  std::span<const MetalImpostorGroup> Groups;
 };
 
 struct MetalProductView {
