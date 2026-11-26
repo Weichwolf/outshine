@@ -4,6 +4,7 @@
 #include "BenchmarkReport.h"
 #include "CivilTime.h"
 #include "Ephemeris.h"
+#include "FarPanorama.h"
 #include "FrameBuffer.h"
 #include "GpuFrameSample.h"
 #include "GroundAtmosphere.h"
@@ -28,12 +29,14 @@
 #include <system_error>
 #include <utility>
 #include <vector>
+#ifdef __APPLE__
+#include "MetalProductRenderer.h"
+#endif
 
 namespace outshine::App {
 namespace {
 using Json = nlohmann::json;
 constexpr size_t kColourChannels = 4;
-constexpr int kMaximumSide = 2048;
 
 struct CubeFace {
   std::string_view Name;
@@ -48,11 +51,15 @@ constexpr std::array kFaces{CubeFace{.Name = "px", .Forward = {{1, 0, 0}}, .Up =
                             CubeFace{.Name = "pz", .Forward = {{0, 0, 1}}, .Up = {{0, 1, 0}}},
                             CubeFace{.Name = "nz", .Forward = {{0, 0, -1}}, .Up = {{0, 1, 0}}}};
 
-Result CaptureFace(Engine &engine, const CubeFace &face, Camera pose) {
+Camera FaceCamera(const CubeFace &face, Camera pose) {
   pose.LooksAt = true;
   pose.LookAtM = pose.PositionM + face.Forward;
   pose.UpM = face.Up;
-  if (const auto set = engine.setCameraPose(pose); !set) { return set; }
+  return pose;
+}
+
+Result CaptureFace(Engine &engine, const CubeFace &face, const Camera &pose) {
+  if (const auto set = engine.setCameraPose(FaceCamera(face, pose)); !set) { return set; }
   if (const auto prepared = engine.advance(0.0); !prepared) { return prepared; }
   if (!engine.settled(WorldQuality::Refined)) {
     return std::unexpected("panorama view is incomplete: " +
@@ -89,6 +96,35 @@ Result WriteFace(Renderer &renderer,
     return written;
   }
   return WriteAttachment(renderer, Buffer::Depth, pixels, depth);
+}
+
+Json FaceRecord(const CubeFace &face) {
+  return {{"name", face.Name}, {"forward_eus", face.Forward.Axis}, {"up_eus", face.Up.Axis}};
+}
+
+Json CaptureManifest(const ScenarioBenchmarkReport &report,
+                     LongitudeLatitude origin,
+                     const Vec3 &anchor,
+                     Json faces) {
+  return {{"capture_version", 1},
+          {"declaration_sha256", report.DeclarationSha256},
+          {"origin_lon_lat", {origin.LongitudeDeg, origin.LatitudeDeg}},
+          {"eye_eus_m", anchor.Axis},
+          {"face_px", report.Frame.WidthPx},
+          {"near_m", report.Start.NearM},
+          {"far_m", report.Start.FarM},
+          {"colour", "scene_linear_rgba_f32_le"},
+          {"depth", "reversed_perspective_f32_le"},
+          {"faces", std::move(faces)}};
+}
+
+std::expected<std::string, std::string> SaveCaptureManifest(const std::filesystem::path &directory,
+                                                            const Json &manifest) {
+  auto text = manifest.dump(2) + '\n';
+  const auto saved =
+      WriteFileAtomically((directory / "capture.json").string(), std::as_bytes(std::span(text)));
+  if (!saved) { return std::unexpected(saved.error()); }
+  return text;
 }
 
 Json CaptureSources(const Loading &loading) {
@@ -151,11 +187,11 @@ std::expected<void, std::string> CheckPanoramaSource(const Scenario::Document &s
   constexpr double kCubeFov = 90;
   const int side = report.Frame.WidthPx;
   const auto view = std::ranges::find(scenario.Views, report.View, &Scenario::View::Id);
-  if (side < 2 || side > kMaximumSide || side != report.Frame.HeightPx ||
-      !scenario.Ground.Declared || scenario.Render.Antialiasing != "none" ||
-      view == scenario.Views.end() || view->Sees.Orthographic || view->Sees.FovDeg != kCubeFov ||
-      !std::isfinite(view->Sees.FarM) || view->Sees.NearM <= 0 ||
-      view->Sees.FarM <= view->Sees.NearM) {
+  if (side < 2 || std::cmp_greater(side, FarPanorama::MaximumSide) ||
+      side != report.Frame.HeightPx || !scenario.Ground.Declared ||
+      scenario.Render.Antialiasing != "none" || view == scenario.Views.end() ||
+      view->Sees.Orthographic || view->Sees.FovDeg != kCubeFov || !std::isfinite(view->Sees.FarM) ||
+      view->Sees.NearM <= 0 || view->Sees.FarM <= view->Sees.NearM) {
     return std::unexpected("panorama capture requires a square render target, a declared world, "
                            "90-degree perspective, finite clipping planes and no temporal AA");
   }
@@ -189,11 +225,10 @@ CapturePanorama(Engine &engine, const ScenarioBenchmarkReport &report, std::stri
     if (const auto written = WriteFace(renderer, face, pixels, directory); !written) {
       return std::unexpected(std::string(face.Name) + ": " + written.error());
     }
-    faces.push_back({{"name", face.Name},
-                     {"forward_eus", face.Forward.Axis},
-                     {"up_eus", face.Up.Axis},
-                     {"render_and_wait_ms", renderMs},
-                     {"attachment_read_and_write_ms", BenchmarkElapsedMs(saveAt)}});
+    auto record = FaceRecord(face);
+    record["render_and_wait_ms"] = renderMs;
+    record["attachment_read_and_write_ms"] = BenchmarkElapsedMs(saveAt);
+    faces.push_back(std::move(record));
   }
   std::vector<Render::GpuFrameSample> samples;
   if (const auto read = renderer.gpuSamples(samples); !read) {
@@ -202,28 +237,121 @@ CapturePanorama(Engine &engine, const ScenarioBenchmarkReport &report, std::stri
   auto gpu = Json::array();
   for (const auto &sample : samples) { gpu.push_back(sample.ElapsedMs); }
   auto light = CaptureLighting(engine.declaration());
-  Json manifest{{"capture_version", 1},
-                {"declaration_sha256", report.DeclarationSha256},
-                {"origin_lon_lat", {world.Origin.LongitudeDeg, world.Origin.LatitudeDeg}},
-                {"eye_eus_m", pose.PositionM.Axis},
-                {"face_px", side},
-                {"near_m", pose.NearM},
-                {"far_m", pose.FarM},
-                {"colour", "scene_linear_rgba_f32_le"},
-                {"depth", "reversed_perspective_f32_le"},
-                {"faces", std::move(faces)},
-                {"source_declarations", SourceDeclarations(engine.declaration())},
-                {"sources", CaptureSources(engine.loading())},
-                {"device", renderer.gpuName()},
-                {"setup_ms", report.SetupMs},
-                {"preload_ms", report.PreloadMs},
-                {"capture_ms", BenchmarkElapsedMs(began)},
-                {"gpu_submission_ms", std::move(gpu)}};
+  auto manifest = CaptureManifest(
+      report,
+      {.LongitudeDeg = world.Origin.LongitudeDeg, .LatitudeDeg = world.Origin.LatitudeDeg},
+      pose.PositionM,
+      std::move(faces));
+  manifest.update({{"source_declarations", SourceDeclarations(engine.declaration())},
+                   {"sources", CaptureSources(engine.loading())},
+                   {"device", renderer.gpuName()},
+                   {"setup_ms", report.SetupMs},
+                   {"preload_ms", report.PreloadMs},
+                   {"capture_ms", BenchmarkElapsedMs(began)},
+                   {"gpu_submission_ms", std::move(gpu)}});
   if (light) { manifest["surface_lighting"] = std::move(*light); }
-  auto text = manifest.dump(2) + '\n';
-  const auto saved =
-      WriteFileAtomically((directory / "capture.json").string(), std::as_bytes(std::span(text)));
-  if (!saved) { return std::unexpected(saved.error()); }
-  return text;
+  return SaveCaptureManifest(directory, manifest);
 }
+
+#ifdef __APPLE__
+namespace {
+Result WriteSurfaceFace(const std::filesystem::path &directory,
+                        const CubeFace &face,
+                        std::span<const float> pixels,
+                        double exposure) {
+  std::vector<float> colour(pixels.begin(), pixels.end());
+  std::vector<float> depth(pixels.size() / kColourChannels);
+  const auto inverseExposure = static_cast<float>(1.0 / exposure);
+  for (size_t at = 0; at < depth.size(); ++at) {
+    const size_t base = at * kColourChannels;
+    depth[at] = colour[base + 3];
+    colour[base + 3] = depth[at] > 0 ? 1.0f : 0.0f;
+    for (size_t channel = 0; channel < 3; ++channel) { colour[base + channel] *= inverseExposure; }
+  }
+  if (!std::ranges::all_of(colour, [](float value) { return std::isfinite(value); }) ||
+      !std::ranges::all_of(depth, [](float value) { return value >= 0.0f && value <= 1.0f; })) {
+    return std::unexpected("surface capture contains invalid colour or depth");
+  }
+  const std::string name(face.Name);
+  const auto saved = WriteFileAtomically((directory / (name + "-linear.f32")).string(),
+                                         std::as_bytes(std::span(colour)));
+  if (!saved) { return saved; }
+  return WriteFileAtomically((directory / (name + "-depth.f32")).string(),
+                             std::as_bytes(std::span(depth)));
+}
+
+Json UnexposedLighting(const PanoramaLighting &light, double exposure) {
+  const auto unexpose = [exposure](const Vec3f &value) {
+    return std::array{value[0] / exposure, value[1] / exposure, value[2] / exposure};
+  };
+  return {{"to_sun_eus", light.ToSun.Axis},
+          {"direct", unexpose(light.Direct)},
+          {"sky", unexpose(light.Sky)},
+          {"ground", unexpose(light.Ground)}};
+}
+}
+
+std::expected<std::string, std::string>
+CapturePreparedSurfacePanorama(const Render::MetalProductInputs &surfaces,
+                               const FarPanorama &reference,
+                               const ScenarioBenchmarkReport &report,
+                               std::string_view productRevision,
+                               const std::filesystem::path &directory) {
+  const auto &pose = report.Start;
+  const auto side = static_cast<size_t>(report.Frame.WidthPx);
+  if (side != reference.Side ||
+      Length(pose.PositionM - reference.AnchorM) > PanoramaDomain::RoundoffM ||
+      !reference.Lighting || pose.NearM > reference.AxialNearM ||
+      pose.FarM != reference.MaximumRangeM) {
+    return std::unexpected(
+        "surface capture requires its lit reference panorama's anchor, extent and range");
+  }
+  std::array<Render::MetalProductView, kFaces.size()> views{};
+  for (size_t face = 0; face < views.size(); ++face) {
+    views[face].EyeM = reference.AnchorM;
+    auto camera = FaceCamera(kFaces[face], pose);
+    camera.PositionM = reference.AnchorM;
+    camera.LookAtM = reference.AnchorM + kFaces[face].Forward;
+    if (!camera.clipMatrix(1.0, views[face].ClipFromWorld)) {
+      return std::unexpected("invalid surface capture camera");
+    }
+  }
+  std::error_code error;
+  if (!std::filesystem::create_directory(directory, error)) {
+    return std::unexpected("surface capture requires a fresh writable output directory");
+  }
+  const auto start = BenchmarkClock::now();
+  auto faces = Json::array();
+  const auto write = [&](size_t face, std::span<const float> pixels) -> Result {
+    if (const auto saved =
+            WriteSurfaceFace(directory, kFaces[face], pixels, reference.ReferenceExposure);
+        !saved) {
+      return std::unexpected(std::string(kFaces[face].Name) + ": " + saved.error());
+    }
+    faces.push_back(FaceRecord(kFaces[face]));
+    return {};
+  };
+  const auto capture =
+      Render::CaptureMetalSurfaceFaces(surfaces, *reference.Lighting, side, views, write);
+  if (!capture) { return std::unexpected(capture.error()); }
+  auto gpu = Json::array();
+  for (const auto &sample : capture->Samples) {
+    gpu.push_back(sample.GpuMs ? Json(*sample.GpuMs) : Json(nullptr));
+  }
+  auto manifest = CaptureManifest(report, reference.Origin, reference.AnchorM, std::move(faces));
+  manifest.update(
+      {{"surface_product_revision", productRevision},
+       {"panorama_reference_revision", reference.Revision},
+       {"reference_exposure", reference.ReferenceExposure},
+       {"source_declarations", Json::array()},
+       {"source", "indexed_surface_cut"},
+       {"device", capture->Device},
+       {"setup_ms", report.SetupMs + capture->SetupMs},
+       {"preload_ms", report.PreloadMs + capture->UploadMs},
+       {"capture_ms", BenchmarkElapsedMs(start)},
+       {"gpu_submission_ms", std::move(gpu)},
+       {"surface_lighting", UnexposedLighting(*reference.Lighting, reference.ReferenceExposure)}});
+  return SaveCaptureManifest(directory, manifest);
+}
+#endif
 }

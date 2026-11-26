@@ -546,6 +546,54 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(alias.returncode, 2, alias.stderr)
 
     @unittest.skipUnless(os.uname().sysname == 'Darwin', 'native Metal product renderer')
+    def test_panorama_capture_exports_the_indexed_surface(self):
+        with tempfile.TemporaryDirectory(prefix='outshine-surface-panorama-') as folder:
+            root = Path(folder)
+            reference = root / 'anchor'
+            lighting = {'to_sun_eus': [0, 0, 1], 'direct': [1, 1, 1],
+                        'sky': [.1, .1, .1], 'ground': [.1, .1, .1]}
+            write_panorama(reference, axial_near=1, overlap_end=9, lighting=lighting)
+            scene = PRODUCT_SCENE.replace('widthPx="1280" heightPx="720"',
+                                          'widthPx="2" heightPx="2" antialiasing="none"')
+            scene = scene.replace('fovDeg="60"', 'fovDeg="90"')
+            scenario = root / 'capture.scenario'
+            scenario.write_text(scene)
+            tile = root / 'tile.json'
+            tile.write_text(json.dumps({
+                'version': 1, 'coverage': [0, 0, 0], 'origin_lon_lat': [0, 0],
+                'revision': '1' * 64, 'bounds_eus_m': [[-3, 97, -4], [3, 103, -4]],
+                'geometric_error_m': 0, 'vertices_eus_m': [[-3, 97, -4], [3, 97, -4],
+                                                         [3, 103, -4], [-3, 103, -4]],
+                'normals_eus': [[0, 0, 1]] * 4, 'indices': [0, 1, 2, 0, 2, 3],
+            }))
+            packed = root / 'tile.surface'
+            subprocess.run([sys.executable, '-B',
+                            str(ROOT / 'test/experiments/render/pack_surface_tile.py'),
+                            str(tile), str(packed)], check=True)
+            store = root / 'products.sqlite'
+            revision = '9' * 64
+            result = subprocess.run([str(CLIENT), 'cache', 'import-surface', str(store),
+                                     revision, str(packed)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            output = root / 'surface-capture'
+            result = self.invoke('--scenario', str(scenario), '--frames', '1', '--product-store', str(store),
+                                 '--product-revision', revision, '--panorama-product', str(reference),
+                                 '--panorama-output', str(output))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            captured = json.loads((output / 'capture.json').read_text())
+            self.assertEqual(captured['surface_product_revision'], revision)
+            self.assertEqual(captured['reference_exposure'], 1)
+            self.assertEqual([face['name'] for face in captured['faces']],
+                             ['px', 'nx', 'py', 'ny', 'pz', 'nz'])
+            depth = (100 / 4 - 1) / 99
+            self.assertEqual(struct.unpack('<4f', (output / 'py-depth.f32').read_bytes()), (0,) * 4)
+            for value in struct.unpack('<4f', (output / 'nz-depth.f32').read_bytes()):
+                self.assertAlmostEqual(value, depth)
+            colour = struct.unpack('<16f', (output / 'nz-linear.f32').read_bytes())
+            self.assertTrue(all(0 < value < 1 for value in colour[:3]))
+            self.assertEqual(colour[3::4], (1,) * 4)
+
+    @unittest.skipUnless(os.uname().sysname == 'Darwin', 'native Metal product renderer')
     def test_surface_cut_promotes_only_a_complete_decodable_partition(self):
         with tempfile.TemporaryDirectory(prefix='outshine-surface-cut-') as folder:
             root = Path(folder)

@@ -65,6 +65,8 @@ def pack(capture, output, exposure=None, translation_m=0, overlap_end_m=None):
         colour[index, ..., 3] = covered
 
     if exposure is None:
+        exposure = manifest.get("reference_exposure")
+    if exposure is None:
         luminance = np.sum(colour[..., :3].astype(np.float32) * [0.2126, 0.7152, 0.0722],
                            axis=-1)
         metered = float(np.median(luminance))
@@ -91,6 +93,9 @@ def pack(capture, output, exposure=None, translation_m=0, overlap_end_m=None):
     }
     if overlap_end_m is not None:
         product["axial_overlap_end_m"] = overlap_end_m
+    for key in ("surface_product_revision", "panorama_reference_revision"):
+        if key in manifest:
+            product[key] = manifest[key]
     if light := manifest.get("surface_lighting"):
         product["surface_lighting"] = {
             "to_sun_eus": light["to_sun_eus"],

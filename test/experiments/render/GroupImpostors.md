@@ -750,6 +750,48 @@ spread of individual runs. The authored asset was verified by revision
 through the spatial index. Its endpoint matched the diagnostic bake to
 within one 8-bit colour value per channel.
 
+## Export the indexed surface with the normal renderer
+
+At the reference anchor, use a square scenario matching the reference
+face size, with a 90° perspective, no antialiasing and the same far
+plane. The native capture uploads one resident cut and renders six faces.
+Its float target records linear radiance and reversed depth. The
+handoff bake receives the reference exposure and
+lighting with the capture.
+
+```sh
+outshine benchmark --scenario "$anchor" --frames 1 \
+  --product-store "$database" --product-revision "$revision" \
+  --panorama-product "$far" --panorama-output "$capture"
+python3 -B test/experiments/render/pack_far_panorama.py "$capture" "$surface"
+python3 -B test/experiments/render/compose_panorama_overlap.py \
+  "$far" "$surface" "$matched" --fade-m "$fade_m"
+```
+
+At Körbersee, capture from the terrain-and-building cut and then add
+the same distant canopy sites to both controls with
+`compose_canopy_panorama.py`. This keeps a crown from being painted twice.
+The 1024-texel city capture took 218 ms including Metal setup, upload,
+six renders and writes. The 512-texel alpine capture took 81 ms.
+Indexed preparation plus upload took 195 ms and 10 ms respectively.
+The upload is included in both timings.
+
+Three paired 120-frame Metal runs on the A18 Pro at 720p30 and 240 km
+gave the following median GPU p99. Each pair kept its draw workload
+and cube size. The alpine cut used its coarse fallback for frame zero.
+
+| Place and motion | Independent cube | Matched cube |
+|---|---:|---:|
+| Tokyo turn | 12.93 ms | 13.48 ms |
+| Tokyo 36 m flight | 11.69 ms | 11.64 ms |
+| Körbersee turn | 2.49 ms | 2.46 ms |
+| Körbersee 16 m flight | 2.57 ms | 2.52 ms |
+
+The normal render path gives a pixel-identical result on the same
+input before and after adding the exporter. The new alpine image
+retains the six panorama-only groups. Speckle within the nearer
+crowns is still visible.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).

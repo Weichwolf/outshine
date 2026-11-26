@@ -13,6 +13,7 @@
 #include "GroupImpostorAsset.h"
 #include "ImpostorViewDemand.h"
 #include "MetalProductRenderer.h"
+#include "PanoramaCapture.h"
 #include "SurfaceTileAsset.h"
 #include "TileGeodesy.h"
 #include <algorithm>
@@ -587,6 +588,31 @@ MeasureProducts(const ScenarioBenchmarkOptions &options,
   return frames;
 }
 
+std::expected<std::string, std::string>
+CaptureIndexedSurface(const ScenarioBenchmarkOptions &options,
+                      ScenarioBenchmarkReport &report,
+                      LongitudeLatitude origin) {
+  const auto began = BenchmarkClock::now();
+  const auto cache = OpenStore(options.ProductStore);
+  if (!cache) { return std::unexpected(cache.error()); }
+  const auto prepared = PreparePanoramas(options, cache->get(), report, origin);
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  const auto &panoramas = prepared->Products;
+  if (panoramas.size() != 1 || panoramas.front().AxialNearM <= 0) {
+    return std::unexpected("indexed surface capture requires a clipped reference panorama");
+  }
+  const auto cut = PrepareTiles(options, cache->get(), report, origin, panoramas);
+  if (!cut) { return std::unexpected(cut.error()); }
+  const auto tiles = PlaceTiles(*cut, report, origin);
+  const auto groups = PlaceGroups(*cut, origin);
+  report.PreloadMs = BenchmarkElapsedMs(began);
+  return CapturePreparedSurfacePanorama({.Tiles = tiles, .Panoramas = {}, .Groups = groups},
+                                        panoramas.front(),
+                                        report,
+                                        options.ProductRevision,
+                                        std::filesystem::path(options.PanoramaDirectory));
+}
+
 }
 #endif
 
@@ -598,8 +624,13 @@ RunMetalProductBenchmark(const ScenarioBenchmarkOptions &options) {
   CaptureBenchmarkHost(report, true);
   const auto document = ReadBenchmarkScenario(options, "data", report);
   if (!document) { return std::unexpected(document.error()); }
-  if (report.Frame != Extent{.WidthPx = Render::MetalProductFrameWidth,
-                             .HeightPx = Render::MetalProductFrameHeight}) {
+  const bool capturing = !options.PanoramaDirectory.empty();
+  if (capturing) {
+    if (const auto shape = CheckPanoramaSource(*document, report); !shape) {
+      return std::unexpected(shape.error());
+    }
+  } else if (report.Frame != Extent{.WidthPx = Render::MetalProductFrameWidth,
+                                    .HeightPx = Render::MetalProductFrameHeight}) {
     return std::unexpected("Metal product capture requires a 1280x720 scenario");
   }
   const LongitudeLatitude origin{.LongitudeDeg = document->Ground.Origin.LongitudeDeg,
@@ -613,7 +644,7 @@ RunMetalProductBenchmark(const ScenarioBenchmarkOptions &options) {
   if (!finish) { return std::unexpected(std::string(finish.error())); }
   report.Finish = *finish;
   report.SetupMs = BenchmarkElapsedMs(setupAt);
-
+  if (capturing) { return CaptureIndexedSurface(options, report, origin); }
   const auto frames = MeasureProducts(options, report, *motion, origin);
   if (!frames) { return std::unexpected(frames.error()); }
   report.ProductUploadBytes = frames->UploadedBytes;

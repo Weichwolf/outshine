@@ -113,21 +113,20 @@ float3 groundRadiance(Varyings in, float3 normal, constant SurfaceLight &light, 
   return (diffuse + fresnel * distribution * visibility) * (light.direct.xyz * nl) +
       diffuse * ambient;
 }
-float4 tileColour(Varyings in, constant SurfaceLight &light) {
+float4 tileColour(Varyings in, constant SurfaceLight &light, bool capture = false) {
   float3 normal = normalize(in.normal);
   if (in.material >= TerrainMaterial && light.sun.w > 0.0) {
     const float3 ambient = mix(light.ground.xyz, light.sky.xyz, 0.5 + 0.5 * normal.y);
-    if (in.material == TerrainMaterial) {
-      return float4(filmic(groundRadiance(in, normal, light, ambient)), 1.0);
-    }
     const float3 direct = light.direct.xyz * max(0.0, dot(normal, light.sun.xyz));
-    return float4(filmic(float3(in.colour.rgb) * (ambient + direct)), 1.0);
+    const float3 radiance = in.material == TerrainMaterial
+        ? groundRadiance(in, normal, light, ambient) : float3(in.colour.rgb) * (ambient + direct);
+    return capture ? float4(radiance, in.position.z) : float4(filmic(radiance), 1.0);
   }
   const float3 previewLight = normalize(float3(-0.55, 0.65, 0.45));
   float diffuse = 0.35 + 0.65 * max(0.0, dot(normal, previewLight));
   const float3 reflectance = in.material != Fallback ? float3(in.colour.rgb) :
       mix(float3(0.26, 0.22, 0.17), float3(0.13, 0.20, 0.10), smoothstep(0.45, 0.92, normal.y));
-  return float4(diffuse * reflectance, 1.0);
+  return float4(diffuse * reflectance, capture ? in.position.z : 1.0);
 }
 float lodNoise(float2 pixel) {
   return fract(52.9829189 * fract(dot(floor(pixel), float2(0.06711056, 0.00583715))));
@@ -148,6 +147,15 @@ fragment float4 masked_tile_fragment(Varyings in [[stage_in]],
                                      constant SurfaceLight &light [[buffer(0)]]) {
   keepTileFragment(in, light);
   return tileColour(in, light);
+}
+fragment float4 tile_capture_fragment(Varyings in [[stage_in]],
+                                      constant SurfaceLight &light [[buffer(0)]]) {
+  return tileColour(in, light, true);
+}
+fragment float4 masked_tile_capture_fragment(Varyings in [[stage_in]],
+                                             constant SurfaceLight &light [[buffer(0)]]) {
+  keepTileFragment(in, light);
+  return tileColour(in, light, true);
 }
 struct TileFragment {
   float4 colour [[color(0), raster_order_group(0)]];
@@ -353,12 +361,12 @@ std::expected<ClipMatrix, std::string> MetalClip(Mat4 clip) {
   return packed;
 }
 
-MTLTextureDescriptor *Texture(MTLPixelFormat format, MTLStorageMode storage) {
-  auto *const desc =
-      [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:format
-                                                         width:MetalProductFrameWidth
-                                                        height:MetalProductFrameHeight
-                                                     mipmapped:NO];
+MTLTextureDescriptor *Texture(MTLPixelFormat format, MTLStorageMode storage, size_t captureSide) {
+  auto *const desc = [MTLTextureDescriptor
+      texture2DDescriptorWithPixelFormat:format
+                                   width:(captureSide > 0 ? captureSide : MetalProductFrameWidth)
+                                  height:(captureSide > 0 ? captureSide : MetalProductFrameHeight)
+                               mipmapped:NO];
   desc.storageMode = storage;
   desc.usage = MTLTextureUsageRenderTarget;
   return desc;
@@ -385,10 +393,17 @@ std::string MetalError(NSError *error, const char *fallback) {
 }
 
 enum class ProductDraw { Tile, MaskedTile, Group, Panorama };
+enum class ProductTarget { Display, Composite, SurfaceCapture };
+
+MTLPixelFormat ProductColourFormat(ProductTarget target) {
+  return target == ProductTarget::SurfaceCapture ? MTLPixelFormatRGBA32Float
+                                                 : MTLPixelFormatRGBA8Unorm_sRGB;
+}
 
 std::expected<ProductPipeline, std::string>
-MakePipeline(id<MTLDevice> device, id<MTLLibrary> library, ProductDraw mode, bool composite) {
+MakePipeline(id<MTLDevice> device, id<MTLLibrary> library, ProductDraw mode, ProductTarget target) {
   const bool panorama = mode == ProductDraw::Panorama;
+  const bool composite = target == ProductTarget::Composite;
   const auto pipelineIndex = static_cast<size_t>(mode);
   NSError *error = nil;
   auto *const descriptor = [[MTLRenderPipelineDescriptor alloc] init];
@@ -400,10 +415,13 @@ MakePipeline(id<MTLDevice> device, id<MTLLibrary> library, ProductDraw mode, boo
                                            @"masked_tile_composite_fragment",
                                            @"group_composite_fragment",
                                            @"panorama_composite_fragment"};
+  const std::array<NSString *, 4> capture{
+      @"tile_capture_fragment", @"masked_tile_capture_fragment", @"group_capture_fragment", nil};
+  const auto &displayFragments = composite ? combined : direct;
+  const auto &fragments = target == ProductTarget::SurfaceCapture ? capture : displayFragments;
   descriptor.vertexFunction = [library newFunctionWithName:vertices[pipelineIndex]];
-  descriptor.fragmentFunction =
-      [library newFunctionWithName:(composite ? combined : direct)[pipelineIndex]];
-  descriptor.colorAttachments[0].pixelFormat = MTLPixelFormatRGBA8Unorm_sRGB;
+  descriptor.fragmentFunction = [library newFunctionWithName:fragments[pipelineIndex]];
+  descriptor.colorAttachments[0].pixelFormat = ProductColourFormat(target);
   if (composite) { descriptor.colorAttachments[1].pixelFormat = MTLPixelFormatR32Float; }
   descriptor.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float;
   const id<MTLRenderPipelineState> pipeline =
@@ -421,8 +439,45 @@ MakePipeline(id<MTLDevice> device, id<MTLLibrary> library, ProductDraw mode, boo
   return ProductPipeline{.Draw = pipeline, .Depth = depth};
 }
 
-std::expected<ProductPass, std::string>
-MakePass(id<MTLDevice> device, const MetalProductInputs &products, bool streaming) {
+std::expected<MTLRenderPassDescriptor *, std::string>
+MakeProductAttachments(id<MTLDevice> device, ProductTarget target, size_t captureSide) {
+  auto *const pass = [MTLRenderPassDescriptor renderPassDescriptor];
+  pass.colorAttachments[0].texture = [device
+      newTextureWithDescriptor:Texture(
+                                   ProductColourFormat(target), MTLStorageModeShared, captureSide)];
+  pass.colorAttachments[0].loadAction = MTLLoadActionClear;
+  pass.colorAttachments[0].clearColor =
+      captureSide > 0 ? MTLClearColorMake(0, 0, 0, 0)
+                      : MTLClearColorMake(kClearColor[0], kClearColor[1], kClearColor[2], 1.0);
+  pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+  if (target == ProductTarget::Composite) {
+    auto *const attachment = pass.colorAttachments[1];
+    attachment.texture = [device
+        newTextureWithDescriptor:Texture(MTLPixelFormatR32Float, MTLStorageModeMemoryless, 0)];
+    if (attachment.texture == nil) {
+      return std::unexpected("Metal could not allocate near depth");
+    }
+    attachment.loadAction = MTLLoadActionClear;
+    attachment.clearColor = MTLClearColorMake(0, 0, 0, 0);
+    attachment.storeAction = MTLStoreActionDontCare;
+  }
+  pass.depthAttachment.texture =
+      [device newTextureWithDescriptor:Texture(MTLPixelFormatDepth32Float,
+                                               MTLStorageModeMemoryless,
+                                               captureSide)];
+  pass.depthAttachment.loadAction = MTLLoadActionClear;
+  pass.depthAttachment.clearDepth = 0.0;
+  pass.depthAttachment.storeAction = MTLStoreActionDontCare;
+  if (pass.colorAttachments[0].texture == nil || pass.depthAttachment.texture == nil) {
+    return std::unexpected("Metal could not allocate the product pass");
+  }
+  return pass;
+}
+
+std::expected<ProductPass, std::string> MakePass(id<MTLDevice> device,
+                                                 const MetalProductInputs &products,
+                                                 bool streaming,
+                                                 size_t captureSide = 0) {
   NSError *error = nil;
   const bool hasGroups = streaming || !products.Groups.empty();
   const bool hasTiles = streaming || !products.Tiles.empty();
@@ -441,60 +496,39 @@ MakePass(id<MTLDevice> device, const MetalProductInputs &products, bool streamin
   ProductPipeline group;
   ProductPipeline panorama;
   const bool composite = (hasTiles || hasGroups) && !products.Panoramas.empty();
+  const auto display = composite ? ProductTarget::Composite : ProductTarget::Display;
+  const auto target = captureSide > 0 ? ProductTarget::SurfaceCapture : display;
   if (hasTiles) {
-    const auto pipeline = MakePipeline(device, library, ProductDraw::Tile, composite);
+    const auto pipeline = MakePipeline(device, library, ProductDraw::Tile, target);
     if (!pipeline) { return std::unexpected(pipeline.error()); }
     tile = *pipeline;
   }
   if (hasMaskedTiles) {
-    const auto pipeline = MakePipeline(device, library, ProductDraw::MaskedTile, composite);
+    const auto pipeline = MakePipeline(device, library, ProductDraw::MaskedTile, target);
     if (!pipeline) { return std::unexpected(pipeline.error()); }
     maskedTile = *pipeline;
   }
   if (hasGroups) {
-    const auto pipeline = MakePipeline(device, library, ProductDraw::Group, composite);
+    const auto pipeline = MakePipeline(device, library, ProductDraw::Group, target);
     if (!pipeline) { return std::unexpected(pipeline.error()); }
     group = *pipeline;
   }
   if (!products.Panoramas.empty()) {
-    const auto pipeline = MakePipeline(device, library, ProductDraw::Panorama, composite);
+    const auto pipeline = MakePipeline(device, library, ProductDraw::Panorama, target);
     if (!pipeline) { return std::unexpected(pipeline.error()); }
     panorama = *pipeline;
   }
-  auto *const pass = [MTLRenderPassDescriptor renderPassDescriptor];
-  pass.colorAttachments[0].texture = [device
-      newTextureWithDescriptor:Texture(MTLPixelFormatRGBA8Unorm_sRGB, MTLStorageModeShared)];
-  pass.colorAttachments[0].loadAction = MTLLoadActionClear;
-  pass.colorAttachments[0].clearColor =
-      MTLClearColorMake(kClearColor[0], kClearColor[1], kClearColor[2], 1.0);
-  pass.colorAttachments[0].storeAction = MTLStoreActionStore;
-  if (composite) {
-    auto *const attachment = pass.colorAttachments[1];
-    attachment.texture =
-        [device newTextureWithDescriptor:Texture(MTLPixelFormatR32Float, MTLStorageModeMemoryless)];
-    if (attachment.texture == nil) {
-      return std::unexpected("Metal could not allocate near depth");
-    }
-    attachment.loadAction = MTLLoadActionClear;
-    attachment.clearColor = MTLClearColorMake(0, 0, 0, 0);
-    attachment.storeAction = MTLStoreActionDontCare;
-  }
-  pass.depthAttachment.texture = [device
-      newTextureWithDescriptor:Texture(MTLPixelFormatDepth32Float, MTLStorageModeMemoryless)];
-  pass.depthAttachment.loadAction = MTLLoadActionClear;
-  pass.depthAttachment.clearDepth = 0.0;
-  pass.depthAttachment.storeAction = MTLStoreActionDontCare;
-  ProductPass result{.Queue = [device newCommandQueue],
+  const auto pass = MakeProductAttachments(device, target, captureSide);
+  if (!pass) { return std::unexpected(pass.error()); }
+  const id<MTLCommandQueue> queue = [device newCommandQueue];
+  if (queue == nil) { return std::unexpected("Metal could not allocate the product queue"); }
+  return ProductPass{.Queue = queue,
                      .Tile = tile,
                      .MaskedTile = maskedTile,
                      .Group = group,
                      .Panorama = panorama,
-                     .Pass = pass,
-                     .Color = pass.colorAttachments[0].texture};
-  if (result.Queue == nil || result.Color == nil || pass.depthAttachment.texture == nil) {
-    return std::unexpected("Metal could not allocate the product pass");
-  }
-  return result;
+                     .Pass = *pass,
+                     .Color = (*pass).colorAttachments[0].texture};
 }
 
 struct TileBuffers {
@@ -1131,6 +1165,55 @@ RenderMetalProducts(const MetalProductInputs &products,
       RecordReplacement(replacement, frames);
     }
     FinishCapture(device, *pass, frames, readImage);
+    return frames;
+  }
+}
+
+std::expected<MetalProductFrames, std::string>
+CaptureMetalSurfaceFaces(const MetalProductInputs &products,
+                         const PanoramaLighting &lighting,
+                         size_t side,
+                         std::span<const MetalProductView> views,
+                         const MetalSurfaceFaceWriter &writeFace) {
+  if (side < 2 || side > FarPanorama::MaximumSide || views.size() != FarPanorama::FaceCount ||
+      !products.Panoramas.empty() || (products.Tiles.empty() && products.Groups.empty()) ||
+      !writeFace) {
+    return std::unexpected("surface capture requires six square views and resident surfaces");
+  }
+  @autoreleasepool {
+    const auto setup = Clock::now();
+    const id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+    if (device == nil) { return std::unexpected("Metal device unavailable"); }
+    const auto pass = MakePass(device, products, false, side);
+    if (!pass) { return std::unexpected(pass.error()); }
+    MetalProductFrames frames;
+    const char *const name = device.name.UTF8String;
+    frames.Device = name != nullptr ? name : "Metal";
+    frames.SetupMs = ElapsedMs(setup);
+    const auto upload = Clock::now();
+    const auto resources = UploadProducts(device, products, &lighting);
+    if (!resources) { return std::unexpected(resources.error()); }
+    frames.UploadMs = ElapsedMs(upload);
+    frames.UploadedBytes = resources->Bytes;
+    std::vector<float> pixels(side * side * kChannels);
+    frames.Samples.resize(views.size());
+    for (size_t face = 0; face < views.size(); ++face) {
+      @autoreleasepool {
+        const auto command = SubmitProducts(*pass, *resources, views[face], frames.Samples[face]);
+        if (!command) { return std::unexpected(command.error()); }
+        const auto elapsed = RetireFrame(*command);
+        if (!elapsed) { return std::unexpected(elapsed.error()); }
+        frames.Samples[face].GpuMs = *elapsed;
+        [pass->Color getBytes:pixels.data()
+                  bytesPerRow:side * kChannels * sizeof(float)
+                   fromRegion:MTLRegionMake2D(0, 0, side, side)
+                  mipmapLevel:0];
+        if (const auto saved = writeFace(face, pixels); !saved) {
+          return std::unexpected(saved.error());
+        }
+      }
+    }
+    FinishCapture(device, *pass, frames, false);
     return frames;
   }
 }

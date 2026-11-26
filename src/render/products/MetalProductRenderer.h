@@ -143,6 +143,8 @@ struct MetalProductView {
 };
 
 using MetalProductViewAt = std::function<std::expected<MetalProductView, std::string>(size_t)>;
+using MetalSurfaceFaceWriter =
+    std::function<std::expected<void, std::string>(size_t, std::span<const float>)>;
 
 [[nodiscard]] std::expected<MetalProductFrames, std::string>
 RenderMetalProducts(const MetalProductInputs &products,
@@ -150,6 +152,13 @@ RenderMetalProducts(const MetalProductInputs &products,
                     const MetalProductViewAt &viewAt,
                     bool readImage,
                     const MetalSurfaceStream &stream = {});
+
+[[nodiscard]] std::expected<MetalProductFrames, std::string>
+CaptureMetalSurfaceFaces(const MetalProductInputs &products,
+                         const PanoramaLighting &lighting,
+                         size_t side,
+                         std::span<const MetalProductView> views,
+                         const MetalSurfaceFaceWriter &writeFace);
 
 }
 #endif

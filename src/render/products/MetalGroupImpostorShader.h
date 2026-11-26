@@ -45,7 +45,7 @@ float3 groupNormal(float2 packed) {
   return normalize(float3(v, z));
 }
 float4 groupColour(GroupVaryings in, constant SurfaceLight &light, uint fractional,
-                   texture2d<float> colours, texture2d<float> normals) {
+                   texture2d<float> colours, texture2d<float> normals, bool capture = false) {
   constexpr sampler colourSampler(coord::normalized, address::clamp_to_edge,
                                    filter::linear, mip_filter::linear);
   constexpr sampler normalSampler(coord::normalized, address::clamp_to_edge,
@@ -60,7 +60,14 @@ float4 groupColour(GroupVaryings in, constant SurfaceLight &light, uint fraction
   const float3 normal = groupNormal(normals.sample(normalSampler, in.uv).xy);
   const half3 albedo = half3(alphaColour.rgb / alphaColour.a);
   const Varyings surface = {in.position, in.localPosition, normal, half4(albedo, 1.0h), Overlay};
-  return tileColour(surface, light);
+  return tileColour(surface, light, capture);
+}
+fragment float4 group_capture_fragment(GroupVaryings in [[stage_in]],
+                                       constant SurfaceLight &light [[buffer(0)]],
+                                       constant uint &fractional [[buffer(1)]],
+                                       texture2d<float> colours [[texture(0)]],
+                                       texture2d<float> normals [[texture(1)]]) {
+  return groupColour(in, light, fractional, colours, normals, true);
 }
 fragment float4 group_fragment(GroupVaryings in [[stage_in]],
                                constant SurfaceLight &light [[buffer(0)]],

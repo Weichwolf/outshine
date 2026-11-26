@@ -32,10 +32,16 @@ def compose(panorama, surface, output, fade_m):
     near = json.loads((surface / "panorama.json").read_text())
     alignment = ("origin_lon_lat", "anchor_eus_m", "face_px", "face_order",
                  "colour_encoding", "depth_encoding", "maximum_range_m",
-                 "reference_exposure", "surface_lighting")
+                 "reference_exposure")
     for key in alignment:
         if far[key] != near[key]:
             raise ValueError(f"surface overlap must share the panorama's {key}")
+    if near.get("panorama_reference_revision", far["revision"]) != far["revision"]:
+        raise ValueError("surface overlap was lit from a different reference revision")
+    far_light, near_light = far["surface_lighting"], near["surface_lighting"]
+    if any(not np.allclose(far_light[key], near_light[key], rtol=1e-6, atol=1e-10)
+           for key in ("to_sun_eus", "direct", "sky", "ground")):
+        raise ValueError("surface overlap must share the panorama's lighting")
     if far.get("baked_group_keys"):
         raise ValueError("compose the surface overlap before adding distant group coverage")
     side = far["face_px"]
