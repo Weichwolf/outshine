@@ -154,9 +154,9 @@ std::expected<std::array<double, 2>, std::string> PanoramaOverlap(
   if (first.Side != next.Side || first.AxialNearM != next.AxialNearM ||
       first.AxialOverlapEndM != next.AxialOverlapEndM ||
       first.MaximumRangeM != next.MaximumRangeM ||
-      first.ReferenceExposure != next.ReferenceExposure) {
+      first.ReferenceExposure != next.ReferenceExposure || first.Lighting != next.Lighting) {
     return std::unexpected(
-        "panorama handoff requires matching resolution, clip range and exposure");
+        "panorama handoff requires matching resolution, clip range, exposure and lighting");
   }
   const PanoramaRay ray{.OriginM = start, .Direction = (finish - start) * (1.0 / length)};
   const double exit = first.Domain().Along(ray)[1];

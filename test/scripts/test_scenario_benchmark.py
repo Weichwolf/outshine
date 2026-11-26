@@ -32,9 +32,9 @@ PRODUCT_SCENE = """<scenario>
 
 
 def write_panorama(root, anchor=(0, 100, 0), radius=0, colour=(1, 0, 0), revision='0',
-                   axial_near=0, overlap_end=0):
+                   axial_near=0, overlap_end=0, lighting=None):
     root.mkdir(exist_ok=True)
-    (root / 'panorama.json').write_text(json.dumps({
+    product = {
         'version': 1, 'representation': 'colour_radial_depth_cubemap',
         'face_order': ['px', 'nx', 'py', 'ny', 'pz', 'nz'], 'face_px': 2,
         'colour_encoding': 'rgba16f_linear_le_a_opaque_coverage',
@@ -44,7 +44,10 @@ def write_panorama(root, anchor=(0, 100, 0), radius=0, colour=(1, 0, 0), revisio
         'axial_overlap_end_m': overlap_end,
         'maximum_range_m': 100, 'maximum_eye_translation_m': radius,
         'reference_exposure': 1, 'opaque_texels': [4] * 6,
-    }))
+    }
+    if lighting is not None:
+        product['surface_lighting'] = lighting
+    (root / 'panorama.json').write_text(json.dumps(product))
     (root / 'colour.rgba16f').write_bytes(struct.pack('<4e', *colour, 1) * 24)
     (root / 'depth.r32f').write_bytes(struct.pack('<f', 10) * 24)
 
@@ -571,18 +574,31 @@ class ScenarioBenchmark(unittest.TestCase):
                                         capture_output=True, text=True, check=False, timeout=30)
                 self.assertEqual(result.returncode, 0, result.stderr)
 
-            def capture(stream=False):
+            def capture(stream=False, indexed=False):
                 extra = ('--stream-products',) if stream else ()
+                panorama = () if indexed else ('--panorama-product', str(far))
                 result = self.invoke('--scenario', str(scene), '--frames', '12' if stream else '1',
                                      '--product-store',
                                      str(database), '--product-revision', revision,
-                                     '--panorama-product', str(far), '--image', str(image), *extra)
+                                     '--image', str(image), *panorama, *extra)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 return json.loads(result.stdout)
 
             publish(parent, *children[:3])
+            capture()
+            unlit = image.read_bytes()
+            lighting = {'to_sun_eus': [0, 0, 1], 'direct': [0.4, 0.9, 0.7],
+                        'sky': [0.1, 0.2, 0.3], 'ground': [0.1, 0.1, 0.05]}
+            write_panorama(far, axial_near=1, overlap_end=9, lighting=lighting)
+            imported = subprocess.run([str(CLIENT), 'cache', 'import-panorama',
+                                       str(database), revision, str(far)],
+                                      capture_output=True, text=True, check=False, timeout=30)
+            self.assertEqual(imported.returncode, 0, imported.stderr)
             partial = capture()
             pixels = image.read_bytes()
+            self.assertNotEqual(pixels, unlit)
+            capture(indexed=True)
+            self.assertEqual(image.read_bytes(), pixels)
             self.assertEqual(partial['rendered_content']['near']['address'], [0, 0, 0])
             self.assertEqual(partial['rendered_content']['far']['axial_overlap_end_m'], 9)
             self.assertEqual(partial['rendered_content']['near']['overlay_triangles_per_frame'], 1)
@@ -601,7 +617,7 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(full['traffic']['tile_requested_bytes'],
                              sum(tile.stat().st_size for tile in children))
             self.assertEqual(image.read_bytes(), pixels)
-            promoted = capture(stream=True)
+            promoted = capture(stream=True, indexed=True)
             transition = promoted['surface_stream']
             self.assertEqual(transition['initial_tiles'], 1)
             self.assertEqual(transition['refined_tiles'], 4)

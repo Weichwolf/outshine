@@ -23,6 +23,10 @@ Cube faces follow +X, -X, +Y, -Y, +Z, -Z in east/up/south coordinates. The packe
 reversed perspective depth to radial metres and mirrors the right-handed capture camera
 rows into cube storage. It retains scene-linear RGB, opaque coverage, source declarations
 and a payload-derived revision. The capture records native GPU, readback and writing costs.
+Captures with a fixed scenario clock also carry sun direction, spectral sky diffuse and
+first-order ground bounce. The packer scales the three light terms with the same exposure
+used for far RGB. Metal uses them to light the prepared building overlays in the same
+display transform. The regular terrain grid has its own illumination path.
 
 ## Native rotation control
 
@@ -59,8 +63,8 @@ the city capture. Both distances are stored in the product and reported separate
 
 ## Anchor handoff
 
-Capture a second panorama in the same tangent frame with matching range, resolution and
-exposure. Declare overlapping translation domains, then add `--panorama-next "$next"`
+Capture a second panorama in the same tangent frame with matching range, resolution,
+exposure and lighting. Declare overlapping translation domains, then add `--panorama-next "$next"`
 to a flight that starts in the first domain and ends in the second. Before drawing,
 the benchmark intersects both domains with the flight segment, rejects a coverage gap
 and uploads both products. It uses one far draw per frame. Within the reported overlap

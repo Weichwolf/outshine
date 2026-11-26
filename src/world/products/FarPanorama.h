@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -28,6 +29,15 @@ struct PanoramaDomain {
   [[nodiscard]] std::array<double, 2> Along(const PanoramaRay &ray) const;
 };
 
+struct PanoramaLighting {
+  Vec3f ToSun;
+  Vec3f Direct;
+  Vec3f Sky;
+  Vec3f Ground;
+
+  bool operator==(const PanoramaLighting &) const = default;
+};
+
 struct FarPanorama {
   static constexpr std::string_view MetadataFile = "panorama.json";
   static constexpr std::string_view ColourFile = "colour.rgba16f";
@@ -39,7 +49,7 @@ struct FarPanorama {
   static constexpr size_t MaximumPayloadBytes =
       MaximumSide * MaximumSide * FaceCount * (ColourBytesPerTexel + DepthBytesPerTexel);
   static constexpr size_t PackedHeaderBytes =
-      (2 + FaceCount + 3) * sizeof(uint32_t) + 10 * sizeof(double) + 64;
+      (2 + FaceCount + 3) * sizeof(uint32_t) + 10 * sizeof(double) + 64 + 12 * sizeof(float);
   static constexpr size_t MaximumPackedBytes = MaximumPayloadBytes + PackedHeaderBytes;
 
   size_t Side = 0;
@@ -50,6 +60,7 @@ struct FarPanorama {
   double MaximumRangeM = 0;
   double MaximumTranslationM = 0;
   double ReferenceExposure = 0;
+  std::optional<PanoramaLighting> Lighting;
   std::string Revision;
   std::array<size_t, FaceCount> OpaqueTexels{};
   std::string Colour;

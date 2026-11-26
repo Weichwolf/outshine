@@ -33,6 +33,13 @@ std::string ProfileKey(const FarPanorama &panorama) {
       std::format("{}/{}/{}", panorama.Side, panorama.MaximumRangeM, panorama.ReferenceExposure);
   if (panorama.AxialNearM > 0) { profile += std::format("/{}", panorama.AxialNearM); }
   if (panorama.AxialOverlapEndM > 0) { profile += std::format("/{}", panorama.AxialOverlapEndM); }
+  if (const auto &light = panorama.Lighting) {
+    for (const auto &value : {light->ToSun, light->Direct, light->Sky, light->Ground}) {
+      for (const float channel : value) {
+        profile += std::format("/{}", channel == 0 ? 0.0f : channel);
+      }
+    }
+  }
   return Sha256Hex(profile);
 }
 

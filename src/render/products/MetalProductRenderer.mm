@@ -18,12 +18,15 @@ constexpr size_t kMatrixWords = 16;
 constexpr auto kClearColor = std::array{0.18, 0.25, 0.34};
 constexpr size_t kChannels = 4;
 using ClipMatrix = std::array<float, kMatrixWords>;
+using SurfaceLightUniform = std::array<float, 16>;
+using SurfaceColourRanges = std::array<uint32_t, 2>;
 
 static_assert(sizeof(SurfaceVertex) == 6 * sizeof(float) &&
               alignof(SurfaceVertex) == alignof(float) &&
               offsetof(SurfaceVertex, Normal) == 3 * sizeof(float));
 static_assert(sizeof(ClipMatrix) == 64 && sizeof(uint32_t) == 4);
 static_assert(sizeof(SurfaceColour) == 4);
+static_assert(sizeof(SurfaceLightUniform) == 64 && sizeof(SurfaceColourRanges) == 8);
 
 NSString *const kShader = @R"(
 #include <metal_stdlib>
@@ -36,34 +39,52 @@ struct Varyings {
   float4 position [[position]];
   float3 normal;
   half4 colour;
+  uint overlay [[flat]];
+};
+struct SurfaceLight {
+  float4 sun;
+  float4 direct;
+  float4 sky;
+  float4 ground;
 };
 vertex Varyings tile_vertex(uint index [[vertex_id]],
                             const device SurfaceVertex *vertices [[buffer(0)]],
                             constant float4x4 &clip [[buffer(1)]],
                             const device uchar4 *colours [[buffer(2)]],
-                            constant uint &firstColour [[buffer(3)]]) {
+                            constant uint2 &colourRanges [[buffer(3)]]) {
   SurfaceVertex point = vertices[index];
-  const half4 colour = index < firstColour ? half4(0.0h) : half4(colours[index - firstColour]) / 255.0h;
-  return {clip * float4(point.position, 1.0), point.normal, colour};
+  const half4 colour = index < colourRanges.x ? half4(0.0h) :
+      half4(colours[index - colourRanges.x]) / 255.0h;
+  return {clip * float4(point.position, 1.0), point.normal, colour, index >= colourRanges.y};
 }
-float4 tileColour(Varyings in) {
+float3 filmic(float3 x) {
+  return saturate((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14));
+}
+float4 tileColour(Varyings in, constant SurfaceLight &light) {
   float3 normal = normalize(in.normal);
-  const float3 light = normalize(float3(-0.55, 0.65, 0.45));
-  float diffuse = 0.35 + 0.65 * max(0.0, dot(normal, light));
+  if (in.overlay && light.sun.w > 0.0) {
+    const float3 ambient = mix(light.ground.xyz, light.sky.xyz, 0.5 + 0.5 * normal.y);
+    const float3 direct = light.direct.xyz * max(0.0, dot(normal, light.sun.xyz));
+    return float4(filmic(float3(in.colour.rgb) * (ambient + direct)), 1.0);
+  }
+  const float3 previewLight = normalize(float3(-0.55, 0.65, 0.45));
+  float diffuse = 0.35 + 0.65 * max(0.0, dot(normal, previewLight));
   float3 reflectance = mix(float3(0.26, 0.22, 0.17), float3(0.13, 0.20, 0.10),
                            smoothstep(0.45, 0.92, normal.y));
   reflectance = mix(reflectance, float3(in.colour.rgb), float(in.colour.a));
   return float4(diffuse * reflectance, 1.0);
 }
-fragment float4 tile_fragment(Varyings in [[stage_in]]) {
-  return tileColour(in);
+fragment float4 tile_fragment(Varyings in [[stage_in]],
+                              constant SurfaceLight &light [[buffer(0)]]) {
+  return tileColour(in, light);
 }
 struct TileFragment {
   float4 colour [[color(0), raster_order_group(0)]];
   float depth [[color(1), raster_order_group(0)]];
 };
-fragment TileFragment tile_composite_fragment(Varyings in [[stage_in]]) {
-  return {tileColour(in), in.position.z};
+fragment TileFragment tile_composite_fragment(Varyings in [[stage_in]],
+                                               constant SurfaceLight &light [[buffer(0)]]) {
+  return {tileColour(in, light), in.position.z};
 }
 struct PanoramaUniform {
   float4 forward;
@@ -158,9 +179,7 @@ PanoramaPixel panoramaPixel(PanoramaRaster in, constant PanoramaUniform &view,
     }
   }
   float forwardM = distance * dot(view.forward.xyz, ray);
-  float3 x = linear * view.display.z;
-  float3 filmic = saturate((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14));
-  return {filmic, ray, distance, forwardM, opaqueAtAnchor};
+  return {filmic(linear * view.display.z), ray, distance, forwardM, opaqueAtAnchor};
 }
 float deviceDepth(float forwardM, constant PanoramaUniform &view) {
   return forwardM > 0.0 ? saturate(view.display.x / forwardM - view.display.y) : 0.0;
@@ -367,7 +386,8 @@ struct TileMesh {
   id<MTLBuffer> Indices = nil;
   id<MTLBuffer> Colours = nil;
   size_t IndexCount = 0;
-  uint32_t FirstColour = 0;
+  SurfaceColourRanges ColourRanges{};
+  SurfaceLightUniform Light{};
   Mat4 WorldFromTile;
 };
 
@@ -380,7 +400,8 @@ void DrawTile(id<MTLRenderCommandEncoder> draw,
   [draw setVertexBuffer:mesh.Vertices offset:0 atIndex:0];
   [draw setVertexBytes:clip.data() length:sizeof(clip) atIndex:1];
   [draw setVertexBuffer:mesh.Colours == nil ? mesh.Vertices : mesh.Colours offset:0 atIndex:2];
-  [draw setVertexBytes:&mesh.FirstColour length:sizeof(mesh.FirstColour) atIndex:3];
+  [draw setVertexBytes:mesh.ColourRanges.data() length:sizeof(mesh.ColourRanges) atIndex:3];
+  [draw setFragmentBytes:mesh.Light.data() length:sizeof(mesh.Light) atIndex:0];
   [draw drawIndexedPrimitives:MTLPrimitiveTypeTriangle
                    indexCount:mesh.IndexCount
                     indexType:MTLIndexTypeUInt32
@@ -542,11 +563,43 @@ struct ProductResources {
   size_t Bytes = 0;
 };
 
-std::expected<TileMesh, std::string>
-UploadTile(id<MTLDevice> device, const MetalSurface &tile, size_t &bytes) {
+SurfaceLightUniform PackLight(const Mat4 &worldFromTile, const PanoramaLighting *light) {
+  if (light == nullptr) { return {}; }
+  const auto toward = [&](size_t axis) {
+    const size_t column = axis * 4;
+    return static_cast<float>(worldFromTile[column] * light->ToSun[0] +
+                              worldFromTile[column + 1] * light->ToSun[1] +
+                              worldFromTile[column + 2] * light->ToSun[2]);
+  };
+  return {toward(0),
+          toward(1),
+          toward(2),
+          1,
+          light->Direct[0],
+          light->Direct[1],
+          light->Direct[2],
+          0,
+          light->Sky[0],
+          light->Sky[1],
+          light->Sky[2],
+          0,
+          light->Ground[0],
+          light->Ground[1],
+          light->Ground[2],
+          0};
+}
+
+std::expected<TileMesh, std::string> UploadTile(id<MTLDevice> device,
+                                                const MetalSurface &tile,
+                                                const PanoramaLighting *light,
+                                                size_t &bytes) {
   const auto vertices = std::as_bytes(std::span(tile.Product.Vertices));
   const auto indices = std::as_bytes(std::span(tile.Product.Indices));
   const auto colours = std::as_bytes(std::span(tile.Product.Colours));
+  const auto count = static_cast<uint32_t>(tile.Product.Vertices.size());
+  const auto firstColour = count - static_cast<uint32_t>(tile.Product.Colours.size());
+  const uint32_t firstOverlay =
+      tile.Product.GridSide > 0 ? tile.Product.GridSide * tile.Product.GridSide : count;
   TileMesh mesh{.Vertices = [device newBufferWithBytes:vertices.data()
                                                 length:vertices.size()
                                                options:MTLResourceStorageModeShared],
@@ -559,8 +612,8 @@ UploadTile(id<MTLDevice> device, const MetalSurface &tile, size_t &bytes) {
                                                      length:colours.size()
                                                     options:MTLResourceStorageModeShared],
                 .IndexCount = tile.Product.Indices.size(),
-                .FirstColour = static_cast<uint32_t>(tile.Product.Vertices.size() -
-                                                     tile.Product.Colours.size()),
+                .ColourRanges = {firstColour, firstOverlay},
+                .Light = PackLight(tile.WorldFromTile, firstOverlay < count ? light : nullptr),
                 .WorldFromTile = tile.WorldFromTile};
   if (mesh.Vertices == nil || mesh.Indices == nil || (!colours.empty() && mesh.Colours == nil)) {
     return std::unexpected("Metal tile upload failed");
@@ -570,11 +623,12 @@ UploadTile(id<MTLDevice> device, const MetalSurface &tile, size_t &bytes) {
 }
 
 std::expected<ProductResources, std::string> UploadProducts(id<MTLDevice> device,
-                                                            const MetalProductInputs &products) {
+                                                            const MetalProductInputs &products,
+                                                            const PanoramaLighting *light) {
   ProductResources resources;
   resources.Meshes.reserve(products.Tiles.size());
   for (const auto &tile : products.Tiles) {
-    const auto mesh = UploadTile(device, tile, resources.Bytes);
+    const auto mesh = UploadTile(device, tile, light, resources.Bytes);
     if (!mesh) { return std::unexpected(mesh.error()); }
     resources.Meshes.push_back(*mesh);
   }
@@ -618,7 +672,8 @@ struct PreparedSurfaceReplacement {
 PreparedSurfaceReplacement PrepareReplacement(id<MTLDevice> device,
                                               const MetalSurfaceStream &stream,
                                               std::span<const MetalSurface> active,
-                                              std::span<const TileMesh> resident) {
+                                              std::span<const TileMesh> resident,
+                                              const PanoramaLighting *light) {
   @autoreleasepool {
     const auto start = Clock::now();
     auto candidate = stream.Load();
@@ -636,8 +691,10 @@ PreparedSurfaceReplacement PrepareReplacement(id<MTLDevice> device,
         prepared.Meshes.push_back(resident[static_cast<size_t>(same - active.begin())]);
         ++prepared.Transition.ReusedTiles;
       } else {
-        auto mesh = UploadTile(
-            device, {.Product = tile.Product, .WorldFromTile = tile.WorldFromTile}, prepared.Bytes);
+        auto mesh = UploadTile(device,
+                               {.Product = tile.Product, .WorldFromTile = tile.WorldFromTile},
+                               light,
+                               prepared.Bytes);
         if (!mesh) {
           prepared.Transition.Error = mesh.error();
           return prepared;
@@ -706,14 +763,17 @@ RenderMetalProducts(const MetalProductInputs &products,
     frames.Device = name != nullptr ? name : "Metal";
     frames.SetupMs = ElapsedMs(began);
     const auto upload = Clock::now();
-    auto resources = UploadProducts(device, products);
+    const auto *light = products.Panoramas.empty() || !products.Panoramas.front().Lighting
+                            ? nullptr
+                            : &*products.Panoramas.front().Lighting;
+    auto resources = UploadProducts(device, products, light);
     if (!resources) { return std::unexpected(resources.error()); }
     frames.UploadMs = ElapsedMs(upload);
     frames.UploadedBytes = resources->Bytes;
     std::future<PreparedSurfaceReplacement> pending;
     if (stream.Load) {
       pending = std::async(std::launch::async, [&] {
-        return PrepareReplacement(device, stream, products.Tiles, resources->Meshes);
+        return PrepareReplacement(device, stream, products.Tiles, resources->Meshes, light);
       });
     }
     const auto submit = [&](size_t frame) -> std::expected<id<MTLCommandBuffer>, std::string> {

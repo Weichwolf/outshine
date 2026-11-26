@@ -79,6 +79,12 @@ def pack(capture, output, exposure=None, translation_m=0, overlap_end_m=None):
     }
     if overlap_end_m is not None:
         product["axial_overlap_end_m"] = overlap_end_m
+    if light := manifest.get("surface_lighting"):
+        product["surface_lighting"] = {
+            "to_sun_eus": light["to_sun_eus"],
+            **{channel: [value * exposure for value in light[channel]]
+               for channel in ("direct", "sky", "ground")},
+        }
     revision = hashlib.sha256(json.dumps(product, sort_keys=True).encode("utf-8"))
     revision.update(colour)
     revision.update(depth)
