@@ -541,6 +541,30 @@ pixel-identical endpoints. Across the 17 admitted Tokyo groups, two
 selected views per group replace 162,078 source overlay triangles with
 82,772 patch triangles before viewport rejection.
 
+## Keep fully opaque tiles on an opaque Metal pipeline
+
+In eight headings on the same Tokyo cut, the isolated far panorama had
+GPU p99 between 0.51 and 1.84 ms. The dense westward view submitted
+about 1.27 M triangles with cards and still took over 20 ms in the short
+combined probe. Meshes with full coverage had been using a fragment
+shader with a possible discard for LOD handoffs. A separate opaque
+pipeline removes that branch for fully covered draws. Active handoffs
+keep the original fragment mask.
+
+Three paired A18 Pro 720p30 replays used the complete 400-tile test fixture,
+17 eligible groups and the same panorama as before:
+
+| Motion | GPU p50 | GPU p99 |
+|---|---:|---:|
+| 360° turn | 8.56 → 7.31 ms | 16.77 → 13.16 ms |
+| 16 m lateral flight | 10.19 → 8.52 ms | 12.38 → 9.13 ms |
+| 60-frame west view | 12.49 → 11.54 ms | 34.11 → 29.37 ms |
+
+The west probe had high run-to-run variance. All nine pairs had the
+same triangle counts and were pixel-identical at their endpoints.
+The Tokyo building handoff and Körbersee canopy detail handoff also kept
+identical endpoints and continued to exercise the masked draws.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).

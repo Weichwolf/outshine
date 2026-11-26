@@ -142,6 +142,10 @@ void keepTileFragment(Varyings in, constant SurfaceLight &light) {
 }
 fragment float4 tile_fragment(Varyings in [[stage_in]],
                               constant SurfaceLight &light [[buffer(0)]]) {
+  return tileColour(in, light);
+}
+fragment float4 masked_tile_fragment(Varyings in [[stage_in]],
+                                     constant SurfaceLight &light [[buffer(0)]]) {
   keepTileFragment(in, light);
   return tileColour(in, light);
 }
@@ -151,6 +155,10 @@ struct TileFragment {
 };
 fragment TileFragment tile_composite_fragment(Varyings in [[stage_in]],
                                                constant SurfaceLight &light [[buffer(0)]]) {
+  return {tileColour(in, light), in.position.z};
+}
+fragment TileFragment masked_tile_composite_fragment(Varyings in [[stage_in]],
+                                                      constant SurfaceLight &light [[buffer(0)]]) {
   keepTileFragment(in, light);
   return {tileColour(in, light), in.position.z};
 }
@@ -364,6 +372,7 @@ struct ProductPipeline {
 struct ProductPass {
   id<MTLCommandQueue> Queue;
   ProductPipeline Tile;
+  ProductPipeline MaskedTile;
   ProductPipeline Group;
   ProductPipeline Panorama;
   MTLRenderPassDescriptor *Pass;
@@ -375,7 +384,7 @@ std::string MetalError(NSError *error, const char *fallback) {
   return reason != nullptr ? reason : fallback;
 }
 
-enum class ProductDraw { Tile, Group, Panorama };
+enum class ProductDraw { Tile, MaskedTile, Group, Panorama };
 
 std::expected<ProductPipeline, std::string>
 MakePipeline(id<MTLDevice> device, id<MTLLibrary> library, ProductDraw mode, bool composite) {
@@ -383,10 +392,14 @@ MakePipeline(id<MTLDevice> device, id<MTLLibrary> library, ProductDraw mode, boo
   const auto pipelineIndex = static_cast<size_t>(mode);
   NSError *error = nil;
   auto *const descriptor = [[MTLRenderPipelineDescriptor alloc] init];
-  const std::array<NSString *, 3> vertices{@"tile_vertex", @"group_vertex", @"panorama_vertex"};
-  const std::array<NSString *, 3> direct{@"tile_fragment", @"group_fragment", @"panorama_fragment"};
-  const std::array<NSString *, 3> combined{
-      @"tile_composite_fragment", @"group_composite_fragment", @"panorama_composite_fragment"};
+  const std::array<NSString *, 4> vertices{
+      @"tile_vertex", @"tile_vertex", @"group_vertex", @"panorama_vertex"};
+  const std::array<NSString *, 4> direct{
+      @"tile_fragment", @"masked_tile_fragment", @"group_fragment", @"panorama_fragment"};
+  const std::array<NSString *, 4> combined{@"tile_composite_fragment",
+                                           @"masked_tile_composite_fragment",
+                                           @"group_composite_fragment",
+                                           @"panorama_composite_fragment"};
   descriptor.vertexFunction = [library newFunctionWithName:vertices[pipelineIndex]];
   descriptor.fragmentFunction =
       [library newFunctionWithName:(composite ? combined : direct)[pipelineIndex]];
@@ -413,6 +426,10 @@ MakePass(id<MTLDevice> device, const MetalProductInputs &products, bool streamin
   NSError *error = nil;
   const bool hasGroups = streaming || !products.Groups.empty();
   const bool hasTiles = streaming || !products.Tiles.empty();
+  const bool hasMaskedTiles =
+      streaming || std::ranges::any_of(products.Tiles, [](const auto &tile) {
+        return tile.HandoffGroup || tile.Detail;
+      });
   NSString *const source =
       hasGroups ? [kShader stringByAppendingString:GroupImpostorShader] : kShader;
   const id<MTLLibrary> library = [device newLibraryWithSource:source options:nil error:&error];
@@ -420,6 +437,7 @@ MakePass(id<MTLDevice> device, const MetalProductInputs &products, bool streamin
     return std::unexpected(MetalError(error, "Metal failed to create product shaders"));
   }
   ProductPipeline tile;
+  ProductPipeline maskedTile;
   ProductPipeline group;
   ProductPipeline panorama;
   const bool composite = (hasTiles || hasGroups) && !products.Panoramas.empty();
@@ -427,6 +445,11 @@ MakePass(id<MTLDevice> device, const MetalProductInputs &products, bool streamin
     const auto pipeline = MakePipeline(device, library, ProductDraw::Tile, composite);
     if (!pipeline) { return std::unexpected(pipeline.error()); }
     tile = *pipeline;
+  }
+  if (hasMaskedTiles) {
+    const auto pipeline = MakePipeline(device, library, ProductDraw::MaskedTile, composite);
+    if (!pipeline) { return std::unexpected(pipeline.error()); }
+    maskedTile = *pipeline;
   }
   if (hasGroups) {
     const auto pipeline = MakePipeline(device, library, ProductDraw::Group, composite);
@@ -463,6 +486,7 @@ MakePass(id<MTLDevice> device, const MetalProductInputs &products, bool streamin
   pass.depthAttachment.storeAction = MTLStoreActionDontCare;
   ProductPass result{.Queue = [device newCommandQueue],
                      .Tile = tile,
+                     .MaskedTile = maskedTile,
                      .Group = group,
                      .Panorama = panorama,
                      .Pass = pass,
@@ -534,7 +558,7 @@ FrameShading(const TileMesh &mesh, const Vec3 &eye, FragmentCoverage coverage) {
 }
 
 size_t DrawTile(id<MTLRenderCommandEncoder> draw,
-                const ProductPipeline &pipeline,
+                const ProductPass &pass,
                 const TileMesh &mesh,
                 const ClipMatrix &clip,
                 const Vec3 &eye,
@@ -543,6 +567,9 @@ size_t DrawTile(id<MTLRenderCommandEncoder> draw,
   const size_t indexCount =
       coverage.Begin >= coverage.End ? mesh.GroundIndexCount : mesh.IndexCount;
   if (indexCount == 0) { return 0; }
+  const bool masked =
+      indexCount > mesh.GroundIndexCount && (coverage.Begin > 0.0f || coverage.End < 1.0f);
+  const auto &pipeline = masked ? pass.MaskedTile : pass.Tile;
   const auto shading = FrameShading(mesh, eye, coverage);
   [draw setRenderPipelineState:pipeline.Draw];
   [draw setDepthStencilState:pipeline.Depth];
@@ -1001,7 +1028,7 @@ std::expected<id<MTLCommandBuffer>, std::string> SubmitProducts(const ProductPas
       if (OutsideViewport(Mat4f{.Column = *clip}, mesh.Bounds)) { continue; }
       const float weight =
           mesh.HandoffGroup ? GroupWeight(resources.Groups[*mesh.HandoffGroup], view.EyeM) : 0;
-      sample.TileTriangles += DrawTile(draw, pass.Tile, mesh, *clip, view.EyeM, weight);
+      sample.TileTriangles += DrawTile(draw, pass, mesh, *clip, view.EyeM, weight);
     }
     if (pass.Group.Draw != nil) {
       [draw setRenderPipelineState:pass.Group.Draw];
