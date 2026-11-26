@@ -720,6 +720,36 @@ detail with essentially the same band. A recapture widening the
 overlap from 1510–1760 m to 1000–1760 m raised the median to 84 px
 and exposed double contours in buildings. Keep the narrower overlap.
 
+## Bake the shared surfaces into the far handoff
+
+The 1024-texel city comparison captures the same resident surface tiles
+with 90° views at the panorama anchor. Transfer their colour and depth
+into the existing 1510–1760 m overlap, then fade back to the original
+world capture over the next 300 m. Preserve original texels where the
+surface capture has no hit. A diagnostic Metal build supplied the four
+horizontal captures for the trial. The runtime benchmark and indexed
+replay use the normal renderer.
+
+```sh
+python3 -B test/experiments/render/compose_panorama_overlap.py \
+  "$far" "$surface" "$matched" --fade-m 300
+outshine cache import-panorama "$database" "$revision" "$matched"
+```
+
+The surface product uses the same cube frame, exposure and lighting as
+the original. Compose before adding panorama-baked canopy. On the
+west-facing flight endpoint, the composite's mean absolute RGB error
+against a geometry-only capture was 14.48 → 11.70 of 255 across the
+42,318 pixels in the overlap. In the next 300 m it was 27.62 → 22.48.
+The matched image still has building-edge differences.
+
+Three paired 120-frame A18 Pro runs at 720p30 and 240 km kept the same
+submitted geometry and 72 MiB cube. Median GPU p99 was 13.39 → 13.72 ms
+for the full turn and 11.60 → 11.69 ms for the 36 m flight, within the
+spread of individual runs. The authored asset was verified by revision
+through the spatial index. Its endpoint matched the diagnostic bake to
+within one 8-bit colour value per channel.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).

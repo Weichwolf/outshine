@@ -1,5 +1,6 @@
 """Check cube directions, reverse-z reconstruction, translated planes and silhouettes."""
 import numpy as np
+from compose_panorama_overlap import overlap_weight
 from far_cubemap import (
     FORWARD, RIGHT, DOWN, addresses, anchor_overlap, anchor_weight, directions, from_device_depth,
     reproject, unit,
@@ -20,6 +21,11 @@ device = np.full((side, side), far * bias / center_distance - bias)
 radial = from_device_depth(device, near, far)
 assert np.max(abs(radial - center_distance / rays[0, :, :, 0])) < .0005
 assert np.all(from_device_depth(np.zeros_like(device), near, far) == 0)
+
+axial = np.array([0, 1509, 1510, 1760, 1910, 2060, 2100])
+axial_scale = np.array([[1.], [1.5]])
+assert np.array_equal(overlap_weight(axial * axial_scale, axial_scale, 1510, 1760, 300),
+                      np.tile([0, 0, 1, 1, .5, 0, 0], (2, 1)))
 
 # A face-spanning plane perpendicular to +X has an analytic translated intersection.
 volume = np.zeros(rays.shape[:-1], np.float32)
