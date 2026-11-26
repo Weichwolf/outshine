@@ -679,6 +679,47 @@ Corrupting one selected card gives the same 400-tile image as removing
 its group binding. The Körbersee terrain and canopy flight still refines
 at frame one and reaches the same image as before.
 
+## Keep elevated coverage throughout the eye sweep
+
+A building group viewed from above needs an elevated capture in the
+selected pair throughout the sweep. The second-best level direction
+and best elevated direction compete at every ordering change, including
+ties. If the pair can lose elevated coverage, keep the source mesh.
+Cards that pass that check still need to fit the overlay byte budget.
+
+The default projected texel limit stays at 1 px. A validated bank can
+set `maximum_projected_texel_px` in its manifest. The accepted range
+is 1–2 px, covering the original limit and the 2 px city trial above.
+With the 40 relit oblique banks imported at 2 px, the normal loader
+admitted all 40 on the 55° replay. The original horizontal banks stayed
+on geometry. Each pair below uses the same 400 tiles, camera and
+512-texel panorama at A18 Pro Metal 720p30.
+
+| Motion | Peak triangles, geometry → cards | GPU p99 | Compressed reads |
+|---|---:|---:|---:|
+| 360° turn | 1,329,065 → 1,198,936 | 14.22 → 13.20 ms | 60.60 → 54.99 MB |
+| 16 m lateral flight | 767,473 → 738,707 | 9.06 → 9.25 ms | 60.60 → 54.99 MB |
+
+The table uses medians of three pairs. The 36 m route with the clearer
+1024-texel panorama loaded three mesh/card handoffs from frame zero.
+It blended for 97 and 98 frames in the two directions at 11.67 and
+11.65 ms GPU p99. The opened frames preserved the roof band through
+the transition. Small silhouette and shading differences remain.
+The 14-group Körbersee turn and flight retained their pixel-identical
+endpoints and unchanged triangle counts.
+
+## Locate the far transition in the image
+
+A native diagnostic replay stores far weight in red and near and far
+axial depth in green and blue. Decode sRGB and scale both depths by
+twice the overlap end. At the west-facing 36 m endpoint, no sampled
+pixel in the far overlap lacked the local depth. The median number of
+pixels per column between 10% and 90% far weight was 20 at 512 texels
+and 19 at 1024. The higher resolution softened the apparent break in
+detail with essentially the same band. A recapture widening the
+overlap from 1510–1760 m to 1000–1760 m raised the median to 84 px
+and exposed double contours in buildings. Keep the narrower overlap.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).

@@ -28,6 +28,7 @@ struct GroupImpostorManifest {
   Vec3 CentreM;
   double HalfExtentM;
   uint32_t Side;
+  double MaximumTexelPx = 1;
   std::string SurfaceRevision;
   std::vector<Vec3> Directions;
   std::string CanopyCell;

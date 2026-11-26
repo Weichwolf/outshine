@@ -99,6 +99,12 @@ std::optional<GroupImpostorManifest> ParseGroupImpostorManifest(const Json &root
                                .SurfaceRevision = revision,
                                .Directions = {},
                                .CanopyCell = {}};
+  if (const auto texel = root.find("maximum_projected_texel_px"); texel != root.end()) {
+    constexpr double kLargestProjectedTexelPx = 2;
+    const auto limit = Number(*texel, kLargestProjectedTexelPx);
+    if (!limit || *limit < 1) { return std::nullopt; }
+    result.MaximumTexelPx = *limit;
+  }
   if (root.contains("canopy_cell")) {
     if (!root["canopy_cell"].is_string()) { return std::nullopt; }
     const auto &cell = root["canopy_cell"].get_ref<const std::string &>();

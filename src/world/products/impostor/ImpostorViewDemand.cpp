@@ -16,6 +16,20 @@ namespace {
 struct DirectionScore {
   double Begin;
   double End;
+  bool Elevated;
+};
+
+struct BestPair {
+  double First = -std::numeric_limits<double>::infinity();
+  double Second = First;
+
+  void Add(double score) {
+    if (score > First) {
+      Second = std::exchange(First, score);
+    } else if (score > Second) {
+      Second = score;
+    }
+  }
 };
 
 std::vector<double> Crossings(std::span<const DirectionScore> scores) {
@@ -35,24 +49,24 @@ std::vector<double> Crossings(std::span<const DirectionScore> scores) {
   return times;
 }
 
-void AdmitPair(std::span<const DirectionScore> scores,
+bool AdmitPair(std::span<const DirectionScore> scores,
                double at,
                double margin,
+               bool requireElevatedView,
                std::vector<bool> &needed) {
-  double first = -std::numeric_limits<double>::infinity();
-  double second = first;
+  BestPair level;
+  BestPair elevated;
   for (const auto &score : scores) {
-    const double value = std::lerp(score.Begin, score.End, at);
-    if (value > first) {
-      second = std::exchange(first, value);
-    } else if (value > second) {
-      second = value;
-    }
+    (score.Elevated ? elevated : level).Add(std::lerp(score.Begin, score.End, at));
   }
+  if (requireElevatedView && elevated.First <= level.Second + margin) { return false; }
+  const double second =
+      std::max({level.Second, elevated.Second, std::min(level.First, elevated.First)});
   for (size_t i = 0; i < scores.size(); ++i) {
     const auto &score = scores[i];
     if (std::lerp(score.Begin, score.End, at) >= second - margin) { needed[i] = true; }
   }
+  return true;
 }
 
 }
@@ -62,13 +76,14 @@ float ImpostorDistanceRamp::Weight(double distanceM) const {
   return static_cast<float>(t * t * (3.0 - 2.0 * t));
 }
 
-ImpostorDistanceRamp ImpostorProjectionRamp(double halfExtentM, uint32_t side, double focalPixels) {
-  constexpr double peakTexelPx = 1.0;
-  constexpr double fadedTexelPx = 0.985;
+ImpostorDistanceRamp ImpostorProjectionRamp(double halfExtentM,
+                                            uint32_t side,
+                                            double focalPixels,
+                                            double maximumTexelPx) {
+  constexpr double fadeRatio = 0.985;
   const double extent = std::numbers::sqrt3 * halfExtentM;
-  const double pixelsAtOneMetre = 2.0 * halfExtentM * focalPixels / side;
-  return {.BeginM = extent + pixelsAtOneMetre / peakTexelPx,
-          .EndM = extent + pixelsAtOneMetre / fadedTexelPx};
+  const double distance = 2.0 * halfExtentM * focalPixels / (side * maximumTexelPx);
+  return {.BeginM = extent + distance, .EndM = extent + distance / fadeRatio};
 }
 
 ImpostorDistanceMode ClassifyImpostorSweep(const ImpostorEyeSweep &eye,
@@ -85,18 +100,24 @@ ImpostorDistanceMode ClassifyImpostorSweep(const ImpostorEyeSweep &eye,
 }
 
 std::vector<size_t> SelectImpostorDirections(std::span<const Vec3> directions,
-                                             const ImpostorEyeSweep &eye) {
+                                             const ImpostorEyeSweep &eye,
+                                             bool requireElevatedView) {
   std::vector<DirectionScore> scores;
   scores.reserve(directions.size());
   for (const auto &direction : directions) {
-    scores.push_back({.Begin = Dot(direction, eye.Begin), .End = Dot(direction, eye.End)});
+    scores.push_back({.Begin = Dot(direction, eye.Begin),
+                      .End = Dot(direction, eye.End),
+                      .Elevated = direction[1] > 0});
   }
   const auto times = Crossings(scores);
   const double margin = 1e-9 * std::max(Length(eye.Begin), Length(eye.End));
   std::vector<bool> needed(scores.size(), false);
   for (size_t i = 0; i < times.size(); ++i) {
-    AdmitPair(scores, times[i], margin, needed);
-    if (i > 0) { AdmitPair(scores, (times[i - 1] + times[i]) * 0.5, margin, needed); }
+    if (!AdmitPair(scores, times[i], margin, requireElevatedView, needed)) { return {}; }
+    if (i > 0 &&
+        !AdmitPair(scores, (times[i - 1] + times[i]) * 0.5, margin, requireElevatedView, needed)) {
+      return {};
+    }
   }
   std::vector<size_t> result;
   for (size_t at = 0; at < needed.size(); ++at) {

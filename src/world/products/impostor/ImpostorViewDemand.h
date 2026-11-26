@@ -23,13 +23,16 @@ struct ImpostorDistanceRamp {
 
 enum class ImpostorDistanceMode { Geometry, Handoff, Impostor };
 
-[[nodiscard]] ImpostorDistanceRamp
-ImpostorProjectionRamp(double halfExtentM, uint32_t side, double focalPixels);
+[[nodiscard]] ImpostorDistanceRamp ImpostorProjectionRamp(double halfExtentM,
+                                                          uint32_t side,
+                                                          double focalPixels,
+                                                          double maximumTexelPx = 1);
 [[nodiscard]] ImpostorDistanceMode ClassifyImpostorSweep(const ImpostorEyeSweep &eye,
                                                          const ImpostorDistanceRamp &ramp);
 
 [[nodiscard]] std::vector<size_t> SelectImpostorDirections(std::span<const Vec3> directions,
-                                                           const ImpostorEyeSweep &eye);
+                                                           const ImpostorEyeSweep &eye,
+                                                           bool requireElevatedView = false);
 
 }
 #endif

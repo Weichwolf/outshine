@@ -340,11 +340,12 @@ std::expected<GroupImpostorLookup, std::string> LoadGroupImpostor(
   if (meshBytes == 0 || meshBytes >= surface.ByteCount) { return result; }
   if (demand.FocalPixels <= 0) { return result; }
   const auto eye = LocalEye(*manifest, demand.EyeEcef);
-  const auto ramp =
-      ImpostorProjectionRamp(manifest->HalfExtentM, manifest->Side, demand.FocalPixels);
+  const auto ramp = ImpostorProjectionRamp(
+      manifest->HalfExtentM, manifest->Side, demand.FocalPixels, manifest->MaximumTexelPx);
   const auto mode = ClassifyImpostorSweep(eye, ramp);
   if (mode == ImpostorDistanceMode::Geometry) { return result; }
-  const auto needed = SelectImpostorDirections(manifest->Directions, eye);
+  const bool eyeAboveGroup = std::max(eye.Begin[1], eye.End[1]) > manifest->HalfExtentM;
+  const auto needed = SelectImpostorDirections(manifest->Directions, eye, eyeAboveGroup);
   if (needed.size() < 2) { return result; }
   auto group =
       ReadViews(cache, *manifest, json["card_assets"], needed, meshBytes, result.RequestedBytes);
@@ -385,8 +386,8 @@ ReadAttachedGroup(const AssetCache &cache,
   if (!SurfaceCoversTile(cut.Ground, manifest->Coverage)) { return std::nullopt; }
   const auto &demand = cut.Impostors;
   const auto eye = LocalEye(*manifest, demand.EyeEcef);
-  const auto ramp =
-      ImpostorProjectionRamp(manifest->HalfExtentM, manifest->Side, demand.FocalPixels);
+  const auto ramp = ImpostorProjectionRamp(
+      manifest->HalfExtentM, manifest->Side, demand.FocalPixels, manifest->MaximumTexelPx);
   const auto refinedMode = ClassifyImpostorSweep(eye, ramp);
   const auto mode = demand.PreferCoarse ? ImpostorDistanceMode::Impostor : refinedMode;
   std::optional<CanopyMesh> mesh;
