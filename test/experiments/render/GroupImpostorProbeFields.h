@@ -34,8 +34,9 @@ inline bool SaveView(const std::filesystem::path &path, const ImpostorAtlas::Vie
 inline bool SaveCard(const std::filesystem::path &path,
                      const ImpostorAtlas &atlas,
                      size_t view,
-                     uint32_t side) {
-  const auto card = Render::BakeGroupImpostorView(atlas, view, side);
+                     uint32_t side,
+                     Render::GroupImpostorDepth depth = Render::GroupImpostorDepth::Captured) {
+  const auto card = Render::BakeGroupImpostorView(atlas, view, side, depth);
   if (!card) { return false; }
   const auto bytes = EncodeGroupImpostorView(*card);
   if (!bytes || !DecodeGroupImpostorView(*bytes)) { return false; }

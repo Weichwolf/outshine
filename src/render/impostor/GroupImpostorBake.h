@@ -9,8 +9,13 @@
 
 namespace outshine::Render {
 
+enum class GroupImpostorDepth { Captured, Compact };
+
 [[nodiscard]] std::optional<GroupImpostorView>
-BakeGroupImpostorView(const ImpostorAtlas &atlas, size_t view, uint32_t side);
+BakeGroupImpostorView(const ImpostorAtlas &atlas,
+                      size_t view,
+                      uint32_t side,
+                      GroupImpostorDepth depth = GroupImpostorDepth::Captured);
 
 }
 #endif

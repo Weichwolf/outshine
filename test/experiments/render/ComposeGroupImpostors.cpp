@@ -146,11 +146,17 @@ std::optional<std::vector<GroupImpostorInstance>> ReadInstances(const Json &mani
   return placed;
 }
 
-bool Emit(const ImpostorAtlas &atlas, const std::filesystem::path &folder, uint32_t cardSide) {
+bool Emit(const ImpostorAtlas &atlas,
+          const std::filesystem::path &folder,
+          uint32_t cardSide,
+          GroupImpostorDepth depth) {
   for (size_t at = 0; at < atlas.Views().size(); ++at) {
     const auto name = std::to_string(at);
-    if (!GroupProbe::SaveView(folder / (name + ".field"), atlas.Views()[at]) ||
-        !GroupProbe::SaveCard(folder / (name + ".card"), atlas, at, cardSide)) {
+    if (depth == GroupImpostorDepth::Captured &&
+        !GroupProbe::SaveView(folder / (name + ".field"), atlas.Views()[at])) {
+      return false;
+    }
+    if (!GroupProbe::SaveCard(folder / (name + ".card"), atlas, at, cardSide, depth)) {
       return false;
     }
   }
@@ -188,8 +194,12 @@ int Run(const char *const *arguments) {
     std::cerr << "invalid reusable atlas or group layout " << error << '\n';
     return 1;
   }
-  const auto side = CardSide(manifest, arguments[4], size->Pixels);
-  if (!side) { return 2; }
+  const bool compact =
+      arguments[4] != nullptr && std::string_view(arguments[4]) == "--compact-canopy";
+  if (compact && (!manifest.contains("canopy_cell") || size->Pixels % 2 != 0)) { return 2; }
+  const auto side = compact ? std::optional(static_cast<uint32_t>(size->Pixels / 2))
+                            : CardSide(manifest, arguments[4], size->Pixels);
+  if (!side || !GroupImpostorView::ValidSide(*side)) { return 2; }
   const auto began = std::chrono::steady_clock::now();
   const auto atlas = ComposeGroupImpostor(*prototype,
                                           {.CentreM = size->CentreM,
@@ -204,7 +214,8 @@ int Run(const char *const *arguments) {
   const auto elapsed =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began);
   const std::filesystem::path folder(arguments[3]);
-  if (!Emit(*atlas, folder, *side)) { return 1; }
+  const auto depth = compact ? GroupImpostorDepth::Compact : GroupImpostorDepth::Captured;
+  if (!Emit(*atlas, folder, *side, depth)) { return 1; }
   auto axes = Json::array();
   for (const auto &view : atlas->Views()) { axes.push_back(view.TowardEye.Axis); }
   if (manifest.contains("canopy_cell")) { manifest["layout_sha256"] = Sha256Hex(*layout); }
@@ -212,6 +223,7 @@ int Run(const char *const *arguments) {
   manifest.erase("tree_scales");
   manifest["directions"] = std::move(axes);
   manifest["card_side"] = *side;
+  if (compact) { manifest["maximum_projected_texel_px"] = 2.0; }
   manifest["card_views"] = atlas->Views().size();
   manifest["composition_ms"] = elapsed.count();
   const auto text = manifest.dump(2);
@@ -223,7 +235,8 @@ int Run(const char *const *arguments) {
 
 int main(int argc, const char *const *argv) {
   if (argc != 4 && argc != 5) {
-    std::cerr << "compose_groups <tree capture> <group layout> <output> [card pixels]\n";
+    std::cerr
+        << "compose_groups <tree capture> <group layout> <output> [card pixels|--compact-canopy]\n";
     return 2;
   }
   return Run(argv);

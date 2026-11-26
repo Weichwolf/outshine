@@ -99,6 +99,28 @@ bool BakePatches(GroupImpostorView &view, const std::vector<Footprint> &cells) {
   return true;
 }
 
+void CompactPatchDepth(GroupImpostorView &view) {
+  const double intervals = 16.0 * view.Side;
+  const auto round = [intervals](double value) {
+    return std::nearbyint(value * intervals) / intervals;
+  };
+  for (auto &patch : view.Patches) {
+    const double width = patch.Right - patch.Left;
+    const double height = patch.Bottom - patch.Top;
+    const auto depth = static_cast<float>(round(patch.Depth));
+    const auto slopeX = static_cast<float>(round(patch.SlopeX * width) / width);
+    const auto slopeY = static_cast<float>(round(patch.SlopeY * height) / height);
+    const auto dx = slopeX * width;
+    const auto dy = slopeY * height;
+    if (depth + std::min(0.0, dx) + std::min(0.0, dy) >= 0 &&
+        depth + std::max(0.0, dx) + std::max(0.0, dy) <= 1) {
+      patch.Depth = depth;
+      patch.SlopeX = slopeX;
+      patch.SlopeY = slopeY;
+    }
+  }
+}
+
 uint8_t Quantise(float value) {
   constexpr float highest = std::numeric_limits<uint8_t>::max();
   return static_cast<uint8_t>(std::lround(std::clamp(value, 0.0f, 1.0f) * highest));
@@ -149,8 +171,10 @@ void BakeMips(GroupImpostorView &view, std::vector<Footprint> cells, uint32_t so
 
 }
 
-std::optional<GroupImpostorView>
-BakeGroupImpostorView(const ImpostorAtlas &atlas, size_t view, uint32_t side) {
+std::optional<GroupImpostorView> BakeGroupImpostorView(const ImpostorAtlas &atlas,
+                                                       size_t view,
+                                                       uint32_t side,
+                                                       GroupImpostorDepth depth) {
   if (view >= atlas.Views().size() || !GroupImpostorView::ValidSide(side)) { return std::nullopt; }
   const auto sourceSide = static_cast<uint32_t>(atlas.Pixels());
   if (side > sourceSide || sourceSide % side != 0) { return std::nullopt; }
@@ -162,6 +186,7 @@ BakeGroupImpostorView(const ImpostorAtlas &atlas, size_t view, uint32_t side) {
                            .NormalMaterial = {}};
   auto cells = BaseSamples(atlas, source, side, sourceSide);
   if (!BakePatches(result, cells)) { return std::nullopt; }
+  if (depth == GroupImpostorDepth::Compact) { CompactPatchDepth(result); }
   BakeMips(result, std::move(cells), sourceSide);
   return result;
 }

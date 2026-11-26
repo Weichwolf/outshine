@@ -157,6 +157,24 @@ def validate_sample_coverage():
             print(f"37% pixel coverage MSE: {single_mse:.4f} -> {multisample_mse:.4f}")
 
 
+def validate_compact_patch_depth():
+    rng = np.random.default_rng(1975)
+    corners = np.array(((1, 0, 0), (1, 1, 0), (1, 0, 1), (1, 1, 1))).T
+    steps = np.column_stack((np.ones(8192), rng.integers(1, 65, (8192, 2))))
+    components = np.column_stack((rng.uniform(0, 1, 8192), rng.uniform(-.5, .5, (8192, 2))))
+    planes = (components / steps).astype(np.float32)
+    edges = planes.astype(float) * steps
+    original = edges @ corners
+    valid = (original.min(axis=1) >= 0) & (original.max(axis=1) <= 1)
+    for side in (32, 64, 128, 256):
+        scale = 16 * side
+        rounded = (np.rint(edges * scale) / (steps * scale)).astype(np.float32)
+        levels = (rounded.astype(float) * steps) @ corners
+        keep = valid & (levels.min(axis=1) >= 0) & (levels.max(axis=1) <= 1)
+        error_texels = np.abs(levels[keep] - original[keep]).max() * 2 * side
+        assert error_texels < .188
+
+
 def validate():
     ring = np.linspace(0., 2 * np.pi, 12, endpoint=False)
     directions = np.stack((np.cos(ring), np.zeros(len(ring)), np.sin(ring)), axis=1)
@@ -192,6 +210,7 @@ if __name__ == "__main__":
     validate()
     validate_handoff()
     validate_sample_coverage()
+    validate_compact_patch_depth()
     import argparse
     import json
     from pathlib import Path

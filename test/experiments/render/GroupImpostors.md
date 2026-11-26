@@ -968,6 +968,44 @@ The alpine instance control still reads 5.41 MB for the same route.
 Further gains require smaller resident card products or conservative
 rejection before their first read.
 
+## Bake compact canopy cards from the same capture
+
+`outshine_experiment_compose_groups <prototype> <layout> <output> --compact-canopy`
+retains the layout's capture grid and filters to half the card side.
+The two-pixel admission limit preserves the original one-pixel card's
+distance ramp. Coverage and albedo use the existing premultiplied filter.
+The writer skips the raw diagnostic fields in this mode.
+
+Round the plane origin and its two full-edge depth deltas on a grid of
+`1 / (16 * side)`. Keep the unrounded plane if any corner leaves
+`[0, 1]`. The sum of the three rounding errors is at most
+`3 / (32 * side)`, or 0.1875 of an authored texel along the capture axis
+since a unit of depth spans twice the card width. The Python reference
+checks the corners with float32 storage. The runtime reads the same card
+format as before. Native and Python-rounded flight endpoints match.
+
+At Körbersee, three paired 120-frame runs on A18 Pro at 720p30 and
+240 km used the same source trees, roots, terrain and panorama.
+
+| Metric | Instanced mesh | Full cards | Compact cards |
+|---|---:|---:|---:|
+| GPU p99, 16 m flight | 16.32 ms | 2.70 ms | 2.02 ms |
+| GPU p99, turn | 16.09 ms | 2.60 ms | 1.85 ms |
+| Peak triangles | 3,284,081 | 122,993 | 59,771 |
+| SSD reads per run | 5,412,618 B | 6,002,519 B | 5,407,367 B |
+| Shared uploads | 20.85 MB | 29.99 MB | 23.06 MB |
+
+All 13 groups stayed in the cut. The opened flight crop has 4,254
+canopy pixels in geometry, 4,514 in full cards and 5,290 in compact
+cards using the green-pixel rule above. Coverage IoU against the
+instanced mesh moves from 0.550 to 0.540. The compact canopy is denser
+and softer. In the separate 82° holdout, coverage IoU falls from 0.574
+to 0.448. Keep full cards for steep views pending per-direction sizing.
+The prepared 39° field-of-view flight kept the same 65 handoff frames
+and finished below 27 ms GPU p99 in both variants. The compact mode
+is selectable. Its SSD margin against instancing is small, and the
+textures still require more upfront upload.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).
