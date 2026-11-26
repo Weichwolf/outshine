@@ -306,7 +306,7 @@ std::expected<SurfaceCutLookup, std::string> PrepareTiles(const ScenarioBenchmar
         options.ProductRevision,
         {.SweptEyeEcef = eye,
          .RadiusM = radius + panoramas.front().MaximumTranslationM,
-         .FocalPixels = preferCoarse ? 0 : projection->FocalPixels,
+         .FocalPixels = projection->FocalPixels,
          .GroupDemand = GroupImpostorDemand{.EyeEcef = sweep,
                                             .FocalPixels = projection->FocalPixels,
                                             .PreferCoarse = preferCoarse,
@@ -544,10 +544,18 @@ MeasureProducts(const ScenarioBenchmarkOptions &options,
   Render::MetalSurfaceStream stream;
   if (options.StreamProducts) {
     stream.FrameSeconds = 1.0 / report.Motion.RateHz;
-    stream.Load = [&] {
-      return PrepareSurfaceReplacement(
-          options, **cache, report, origin, panoramas, *cut, refinement);
-    };
+    if (cut->NeedsRefinement) {
+      stream.Load = [&] {
+        return PrepareSurfaceReplacement(
+            options, **cache, report, origin, panoramas, *cut, refinement);
+      };
+    } else {
+      report.SurfaceStream = {.FirstRefinedFrame = 0,
+                              .Tiles = cut->Products.size(),
+                              .InitialCanopySites = cut->CanopySites.size(),
+                              .Error = {},
+                              .InitialCutFinal = true};
+    }
   }
   auto frames =
       Render::RenderMetalProducts({.Tiles = tiles, .Panoramas = panoramas, .Groups = groups},

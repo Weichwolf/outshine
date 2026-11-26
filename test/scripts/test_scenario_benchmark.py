@@ -603,7 +603,14 @@ class ScenarioBenchmark(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 return json.loads(result.stdout)
 
-            publish(parent, *children[:3])
+            publish(parent)
+            complete = capture(stream=True)
+            self.assertTrue(complete['surface_stream']['initial_cut_final'])
+            self.assertEqual(complete['surface_stream']['first_refined_frame'], 0)
+            self.assertEqual(complete['unrefined_frames'], 0)
+            self.assertEqual(complete['traffic']['tile_requested_bytes'], parent.stat().st_size)
+
+            publish(*children[:3])
             capture()
             unlit = image.read_bytes()
             lighting = {'to_sun_eus': [0, 0, 1], 'direct': [0.4, 0.9, 0.7],
@@ -623,6 +630,7 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(partial['rendered_content']['near']['overlay_triangles_per_frame'], 1)
             self.assertEqual(partial['traffic']['tile_requested_bytes'], parent.stat().st_size)
             waiting = capture(stream=True)
+            self.assertFalse(waiting['surface_stream']['initial_cut_final'])
             self.assertEqual(waiting['surface_stream']['initial_tiles'], 1)
             self.assertEqual(waiting['surface_stream']['refined_tiles'], 1)
             self.assertEqual(waiting['surface_stream']['reused_tiles'], 1)

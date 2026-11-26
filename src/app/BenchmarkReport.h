@@ -64,6 +64,7 @@ struct BenchmarkSurfaceStream {
   size_t DecodedBytes = 0;
   double ReadyMs = 0;
   std::string Error;
+  bool InitialCutFinal = false;
 };
 
 struct BenchmarkGroupCoverage {

@@ -58,6 +58,7 @@ struct SurfaceCutLookup {
   size_t RequestedBytes = 0;
   size_t GroupRequestedBytes = 0;
   size_t CanopyRequestedBytes = 0;
+  bool NeedsRefinement = false;
 };
 
 [[nodiscard]] std::expected<SurfaceCutLookup, std::string>

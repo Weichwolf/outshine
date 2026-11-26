@@ -178,10 +178,11 @@ private:
   }
 
   [[nodiscard]] std::expected<bool, std::string> VisitGroup(const AssetRecord &record) {
-    if (!Demand_.GroupDemand || Demand_.GroupDemand->PreferCoarse) { return false; }
+    if (!Demand_.GroupDemand) { return false; }
     auto replacement = LoadGroupImpostor(Cache_, record, *Demand_.GroupDemand);
     if (!replacement) { return std::unexpected(replacement.error()); }
     Cut_.GroupRequestedBytes += replacement->RequestedBytes;
+    Cut_.NeedsRefinement |= replacement->NeedsRefinement;
     if (!replacement->Product) { return false; }
     auto &group = *replacement->Product;
     auto ground = std::move(group.Ground);
@@ -227,8 +228,11 @@ private:
                            : std::span<const size_t>(Nodes_[node->second].Children);
     const auto error = record.Tile ? record.Tile->ErrorM : std::nullopt;
     const double distance = Clearance(record.Bounds, Demand_.SweptEyeEcef);
-    const bool refine = Demand_.FocalPixels > 0 && !known.empty() &&
-                        (!error || *error * Demand_.FocalPixels > distance * kMaxErrorPx);
+    const bool wantsChildren = Demand_.FocalPixels > 0 && !known.empty() &&
+                               (!error || *error * Demand_.FocalPixels > distance * kMaxErrorPx);
+    const bool deferred = wantsChildren && Demand_.GroupDemand && Demand_.GroupDemand->PreferCoarse;
+    Cut_.NeedsRefinement |= deferred;
+    const bool refine = wantsChildren && !deferred;
     if (refine) {
       const auto children = VisitChildren(request, record.Level, known);
       if (!children || *children) { return children; }
@@ -258,6 +262,7 @@ private:
 void AppendCanopy(SurfaceCutLookup &cut, AttachedCanopyLookup &canopy) {
   cut.GroupRequestedBytes += canopy.RequestedBytes;
   cut.CanopyRequestedBytes = canopy.NearRequestedBytes;
+  cut.NeedsRefinement |= canopy.NeedsRefinement;
   for (auto &site : canopy.Groups) {
     cut.CanopySites.push_back(std::move(site.Key));
     std::optional<size_t> handoff;

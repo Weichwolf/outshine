@@ -327,6 +327,7 @@ void ReportRenderPath(const ScenarioBenchmarkReport &report, ReportJson &json) {
     json["surface_stream"] = {
         {"first_refined_frame",
          stream.FirstRefinedFrame ? ReportJson(*stream.FirstRefinedFrame) : ReportJson(nullptr)},
+        {"initial_cut_final", stream.InitialCutFinal},
         {"initial_tiles", report.Tiles.size()},
         {"initial_canopy_sites", report.SurfaceStream->InitialCanopySites},
         {"refined_tiles", stream.Tiles},

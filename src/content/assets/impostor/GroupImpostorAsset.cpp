@@ -164,7 +164,10 @@ ReadGround(const AssetCache &cache,
   const auto &id = key.get_ref<const std::string &>();
   if (!AssetProductKey::Parse(id)) { return std::nullopt; }
   const auto package = cache.Load(id, SurfaceTile::MaximumPackedBytes);
-  if (!package) { return std::unexpected("group ground read failed"); }
+  if (!package) {
+    if (package.error() == AssetCacheError::CapacityExceeded) { return std::nullopt; }
+    return std::unexpected("group ground read failed");
+  }
   if (!*package || (**package).Record().Kind != GroupImpostorGroundKind) { return std::nullopt; }
   requestedBytes += (**package).Bytes().size();
   auto ground = DecodePackedSurfaceTile((**package).Bytes());
@@ -222,7 +225,10 @@ ReadViews(const AssetCache &cache,
     const auto &record = (*records)[at];
     requestedBytes += static_cast<size_t>(record.ByteCount);
     const auto card = cache.Load(record.Key, GroupImpostorViewBytesMost);
-    if (!card) { return std::unexpected("group impostor view read failed"); }
+    if (!card) {
+      if (card.error() == AssetCacheError::CapacityExceeded) { return std::nullopt; }
+      return std::unexpected("group impostor view read failed");
+    }
     if (!*card) { return std::nullopt; }
     auto view = DecodeGroupImpostorView((**card).Bytes());
     if (!view || !MatchesView(*view, manifest, needed[at])) { return std::nullopt; }
@@ -340,6 +346,12 @@ std::expected<GroupImpostorLookup, std::string> LoadGroupImpostor(
   if (mode == ImpostorDistanceMode::Geometry) { return result; }
   const auto needed = SelectImpostorDirections(manifest->Directions, eye);
   if (needed.size() < 2) { return result; }
+  if (demand.PreferCoarse && mode == ImpostorDistanceMode::Handoff) {
+    const auto records = ReadViewRecords(cache, json["card_assets"], needed, meshBytes);
+    if (!records) { return std::unexpected(records.error()); }
+    result.NeedsRefinement = !records->empty();
+    return result;
+  }
   auto group =
       ReadViews(cache, *manifest, json["card_assets"], needed, meshBytes, result.RequestedBytes);
   if (!group) { return std::unexpected(group.error()); }
@@ -381,10 +393,13 @@ ReadAttachedGroup(const AssetCache &cache,
   const auto eye = LocalEye(*manifest, demand.EyeEcef);
   const auto ramp =
       ImpostorProjectionRamp(manifest->HalfExtentM, manifest->Side, demand.FocalPixels);
-  const auto mode =
-      demand.PreferCoarse ? ImpostorDistanceMode::Impostor : ClassifyImpostorSweep(eye, ramp);
+  const auto refinedMode = ClassifyImpostorSweep(eye, ramp);
+  const auto mode = demand.PreferCoarse ? ImpostorDistanceMode::Impostor : refinedMode;
   std::optional<CanopyMesh> mesh;
   const bool hasLayout = json.contains("layout_sha256");
+  if (demand.PreferCoarse && hasLayout && refinedMode != ImpostorDistanceMode::Impostor) {
+    result.NeedsRefinement = true;
+  }
   const CanopyMeshDemand nearDemand{
       .CentreM = manifest->CentreM, .Eye = eye, .FocalPixels = demand.FocalPixels};
   if (hasLayout && mode != ImpostorDistanceMode::Impostor) {

@@ -44,6 +44,7 @@ struct GroupImpostorSurface {
 struct GroupImpostorLookup {
   std::optional<GroupImpostorSurface> Product;
   size_t RequestedBytes = 0;
+  bool NeedsRefinement = false;
 };
 
 struct GroupImpostorImport {
@@ -63,6 +64,7 @@ struct AttachedCanopyLookup {
   std::vector<AttachedCanopyGroup> Groups;
   size_t RequestedBytes = 0;
   size_t NearRequestedBytes = 0;
+  bool NeedsRefinement = false;
 };
 
 [[nodiscard]] std::expected<void, std::string>

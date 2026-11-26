@@ -510,6 +510,37 @@ rose from 183.07 to 191.82 MB because the initial geometry cut was also
 uploaded. A p99 gain in the whole turn remains unproven. At the replacement
 boundary the cut still includes a broad geometry preload.
 
+## Admit ready groups before the first frame
+
+For the initial cut, a building group that covers the entire eye sweep can
+replace its overlay immediately once its views and split ground validate.
+A sweep crossing the mesh-to-card band keeps geometry in the initial cut.
+It stages the handoff asynchronously. A terrain partition with potential
+children and a canopy site with a near layout can also defer refinement.
+If there is no deferred work, the first cut is final for that replay and
+the pacing stays active. There is no second decode or GPU upload for it.
+
+On A18 Pro Metal at 720p30, the same loaded Tokyo fixture at 55° with a
+240 km panorama measured:
+
+| Motion | First refined frame | Compressed reads | Total uploads | GPU p99 |
+|---|---:|---:|---:|---:|
+| Full turn | 5 → 0 | 115.38 → 57.71 MB | 191.82 → 179.70 MB | 17.99 → 19.02 ms |
+| 16 m lateral flight | 5 → 0 | 115.52 → 57.84 MB | 191.39 → 179.81 MB | 12.30 → 12.40 ms |
+
+Three paired 120-frame runs kept identical endpoints. The median startup
+preload was 165 → 166 ms in the turn and 164 → 167 ms in the flight.
+The frame timing runs still include startup. The win here is asset
+traffic and availability from frame zero.
+
+Removing, corrupting or oversizing one selected view made its tile fall
+back to the same 7,433 overlay triangles in all three cases. The other
+16 groups and all 400 terrain tiles stayed resident. The separate Tokyo
+and Körbersee refinement flights still promoted at frame 1 and reached
+pixel-identical endpoints. Across the 17 admitted Tokyo groups, two
+selected views per group replace 162,078 source overlay triangles with
+82,772 patch triangles before viewport rejection.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).
