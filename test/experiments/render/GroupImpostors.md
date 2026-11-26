@@ -384,6 +384,44 @@ handoff was pixel-identical. Thin crowns still stipple and the transition
 can submit both meshes. These prepared products do not establish full-world
 completeness or the frame budget with the rest of the environment enabled.
 
+## Moving the canopy card boundary inwards
+
+At the Körbersee flight endpoint the 64-texel cards of three oversized sites
+projected to 131, 162 and 206 pixels across, using the same nearest-distance
+support as the runtime ramp. At 128 texels they still needed 567 geometry
+instances. Rebaking those sites at 256 texels put them inside the existing card
+limit. The five panorama-baked sites kept their exact descriptors. The other
+sites used 128 texels. Roots, directions, lighting and ground did not change.
+Reproduce by setting `pixels` in the layout to the desired power of two before
+running `outshine_experiment_compose_groups` with the same card side and
+importing its output and layout digest.
+
+The prepared store held 14 visible-demand sites in each case. Three 120-frame
+runs per variant at A18 Pro Metal 720p30 gave:
+
+| Card bank | Peak combined triangles in flight | Flight / turn GPU p99 | Group bytes requested |
+|---|---:|---:|---:|
+| 64 texels | 4.41 M | 22.44 / 21.21 ms | 1.77 MB |
+| 128 texels | 2.32 M | 13.02 / 12.80 ms | 9.90 MB |
+| 128 and 256 texels | 0.12 M | 2.99 / 2.87 ms | 18.04 MB |
+
+Requests include both prepared cuts and count decoded payload size.
+The indexed compressed reads for the whole flight grew from 5.47 MB to
+6.86 MB, and shared uploads from 22.51 MB to 38.58 MB. Median staged-cut
+readiness for the mixed bank was 9.71 ms in flight. Native CPU composition
+of all 29 views took 24–25 ms per 256-texel site after prototype load and
+before card fitting and encoding.
+
+The mixed bank covered 4,580 pixels in the flight crop against 4,862 for fine
+geometry, with 0.625 IoU. The opened frame still shows thin, speckled crowns.
+At 39° vertical field of view the same 16 m flight blended one of the
+256-texel sites with geometry for 65 of 120 frames. The opened start, midpoint
+and endpoint preserve the stand silhouette at a glance, with visible grain
+inside the crowns.
+Card density shifts most of the cost from frame submission to product loading.
+A camera-independent storage policy and better angular coverage need a separate
+check before using these sizes globally.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).
