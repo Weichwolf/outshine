@@ -59,6 +59,7 @@ struct BenchmarkSurfaceStream {
   std::optional<size_t> FirstRefinedFrame;
   size_t Tiles = 0;
   size_t ReusedTiles = 0;
+  size_t ReusedGroups = 0;
   size_t InitialCanopySites = 0;
   size_t Triangles = 0;
   size_t DecodedBytes = 0;

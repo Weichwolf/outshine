@@ -279,12 +279,14 @@ std::vector<std::string> CommonPanoramaGroups(std::span<const FarPanorama> panor
   return common;
 }
 
-std::expected<SurfaceCutLookup, std::string> PrepareTiles(const ScenarioBenchmarkOptions &options,
-                                                          AssetCache *cache,
-                                                          const ScenarioBenchmarkReport &report,
-                                                          LongitudeLatitude origin,
-                                                          std::span<const FarPanorama> panoramas,
-                                                          bool preferCoarse = false) {
+std::expected<SurfaceCutLookup, std::string>
+PrepareTiles(const ScenarioBenchmarkOptions &options,
+             AssetCache *cache,
+             const ScenarioBenchmarkReport &report,
+             LongitudeLatitude origin,
+             std::span<const FarPanorama> panoramas,
+             bool preferCoarse = false,
+             const ResidentImpostorGroups *resident = nullptr) {
   if (cache != nullptr && !panoramas.empty() && panoramas.front().AxialNearM > 0) {
     const auto projection = MakePanoramaView(report.Start, report.Frame, panoramas.front());
     if (!projection) { return std::unexpected(projection.error()); }
@@ -311,7 +313,8 @@ std::expected<SurfaceCutLookup, std::string> PrepareTiles(const ScenarioBenchmar
          .GroupDemand = GroupImpostorDemand{.EyeEcef = sweep,
                                             .FocalPixels = projection->FocalPixels,
                                             .PreferCoarse = preferCoarse,
-                                            .PanoramaGroups = baked}});
+                                            .PanoramaGroups = baked,
+                                            .Resident = resident}});
   }
   SurfaceCutLookup cut;
   if (cache != nullptr) {
@@ -349,7 +352,7 @@ BenchmarkGroupCoverage DescribeGroups(const SurfaceCutLookup &cut) {
   }
   for (const auto &group : cut.Groups) {
     coverage.AvailableViews += group.AvailableViews;
-    coverage.ResidentViews += group.Group.Views.size();
+    coverage.ResidentViews += group.Group.Views->size();
     if (group.Group.Handoff) { ++coverage.HandoffGroups; }
   }
   return coverage;
@@ -404,7 +407,7 @@ std::vector<Render::MetalImpostorGroup> PlaceGroups(const SurfaceCutLookup &cut,
   placed.reserve(cut.Groups.size());
   const auto world = TangentFrame::At(origin);
   for (const auto &group : cut.Groups) {
-    placed.push_back({.Views = group.Group.Views,
+    placed.push_back({.Views = *group.Group.Views,
                       .WorldFromTile = TilePlacement(group.Origin, world),
                       .CentreM = group.Group.CentreM,
                       .HalfExtentM = group.Group.HalfExtentM,
@@ -430,7 +433,12 @@ PrepareSurfaceReplacement(const ScenarioBenchmarkOptions &options,
                           const SurfaceCutLookup &active,
                           SurfaceReadCost &cost) {
   const auto readAt = BenchmarkClock::now();
-  auto cut = PrepareTiles(options, &cache, report, origin, panoramas);
+  ResidentImpostorGroups resident;
+  resident.reserve(active.Groups.size());
+  for (const auto &group : active.Groups) {
+    resident.emplace(group.Group.ManifestKey, &group.Group);
+  }
+  auto cut = PrepareTiles(options, &cache, report, origin, panoramas, false, &resident);
   cost.Ms = BenchmarkElapsedMs(readAt);
   if (!cut) { return std::unexpected(cut.error()); }
   cost.RequestedBytes = cut->RequestedBytes;
@@ -581,6 +589,7 @@ MeasureProducts(const ScenarioBenchmarkOptions &options,
     report.SurfaceStream = {.FirstRefinedFrame = transition.FirstFrame,
                             .Tiles = transition.Tiles,
                             .ReusedTiles = transition.ReusedTiles,
+                            .ReusedGroups = transition.ReusedGroups,
                             .InitialCanopySites = cut->CanopySites.size(),
                             .Triangles = transition.Triangles,
                             .DecodedBytes = refinement.DecodedBytes,

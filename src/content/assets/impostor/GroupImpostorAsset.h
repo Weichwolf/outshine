@@ -9,10 +9,12 @@
 #include "Vec3.h"
 #include <cstddef>
 #include <expected>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace outshine {
@@ -20,19 +22,23 @@ namespace outshine {
 class AssetCache;
 struct AssetRecord;
 
+struct ResidentGroupImpostor {
+  std::string ManifestKey;
+  Vec3 CentreM;
+  double HalfExtentM;
+  std::shared_ptr<const std::vector<GroupImpostorView>> Views;
+  std::optional<ImpostorDistanceRamp> Handoff;
+  bool FractionalCoverage = false;
+};
+
+using ResidentImpostorGroups = std::unordered_map<std::string_view, const ResidentGroupImpostor *>;
+
 struct GroupImpostorDemand {
   ImpostorEyeSweep EyeEcef;
   double FocalPixels = 0;
   bool PreferCoarse = false;
   std::span<const std::string> PanoramaGroups;
-};
-
-struct ResidentGroupImpostor {
-  Vec3 CentreM;
-  double HalfExtentM;
-  std::vector<GroupImpostorView> Views;
-  std::optional<ImpostorDistanceRamp> Handoff;
-  bool FractionalCoverage = false;
+  const ResidentImpostorGroups *Resident = nullptr;
 };
 
 struct GroupImpostorSurface {

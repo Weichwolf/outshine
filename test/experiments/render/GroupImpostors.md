@@ -949,6 +949,25 @@ exit was discarded. Narrowing canopy bank reads remains open. In this
 cut, its 30 cards read more SSD bytes and upload more than the shared
 tree prototype and its small instance tables.
 
+## Retain resident views across cut replacement
+
+The worker shares the decoded directional views when the immutable
+manifest and selected direction sequence match the active cut. Metal
+reuses the associated textures and buffers at the same placement.
+The replacement still computes its handoff weight and validates all
+terrain and canopy coverage before activation.
+
+Three paired paced 16 m Körbersee flights at 720p30 on A18 Pro reused
+all 13 groups and promoted at frame 1. Median readiness fell from 10.69
+to 4.44 ms, total SSD reads from 6.92 to 6.00 MB, and shared uploads
+from 39.32 to 29.99 MB. GPU p99 was 2.73 / 2.71 ms. The paired end
+frames have identical RGB samples. The Tokyo cut was already final
+on the first frame and had no replacement to deduplicate.
+
+The alpine instance control still reads 5.41 MB for the same route.
+Further gains require smaller resident card products or conservative
+rejection before their first read.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).

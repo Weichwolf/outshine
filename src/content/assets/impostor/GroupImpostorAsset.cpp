@@ -18,6 +18,7 @@
 #include <filesystem>
 #include <format>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -205,22 +206,45 @@ bool HasViews(const Json &manifest, size_t count) {
          manifest["card_assets"].size() == count;
 }
 
+struct GroupViewSelection {
+  const GroupImpostorManifest &Manifest;
+  std::string_view ManifestKey;
+  const Json &Assets;
+  std::span<const size_t> Indices;
+  const ResidentImpostorGroups *Resident;
+};
+
+std::shared_ptr<const std::vector<GroupImpostorView>>
+RetainGroupViews(const GroupViewSelection &selection) {
+  if (selection.Resident == nullptr) { return {}; }
+  const auto found = selection.Resident->find(selection.ManifestKey);
+  if (found == selection.Resident->end()) { return {}; }
+  const auto &views = found->second->Views;
+  if (views->size() != selection.Indices.size()) { return {}; }
+  for (size_t at = 0; at < views->size(); ++at) {
+    if (!MatchesView((*views)[at], selection.Manifest, selection.Indices[at])) { return {}; }
+  }
+  return views;
+}
+
 std::expected<std::optional<ResidentGroupImpostor>, std::string>
 ReadViews(const AssetCache &cache,
-          const GroupImpostorManifest &manifest,
-          const Json &keys,
-          std::span<const size_t> needed,
+          const GroupViewSelection &selection,
           size_t limit,
           size_t &requestedBytes) {
-  const auto records = ReadViewRecords(cache, keys, needed, limit);
-  if (!records) { return std::unexpected(records.error()); }
-  if (records->empty()) { return std::nullopt; }
-  ResidentGroupImpostor group{.CentreM = manifest.CentreM,
+  const auto &manifest = selection.Manifest;
+  ResidentGroupImpostor group{.ManifestKey = std::string(selection.ManifestKey),
+                              .CentreM = manifest.CentreM,
                               .HalfExtentM = manifest.HalfExtentM,
-                              .Views = {},
+                              .Views = RetainGroupViews(selection),
                               .Handoff = {},
                               .FractionalCoverage = !manifest.CanopyCell.empty()};
-  group.Views.reserve(needed.size());
+  if (group.Views) { return group; }
+  const auto records = ReadViewRecords(cache, selection.Assets, selection.Indices, limit);
+  if (!records) { return std::unexpected(records.error()); }
+  if (records->empty()) { return std::nullopt; }
+  std::vector<GroupImpostorView> views;
+  views.reserve(records->size());
   for (size_t at = 0; at < records->size(); ++at) {
     const auto &record = (*records)[at];
     requestedBytes += static_cast<size_t>(record.ByteCount);
@@ -231,9 +255,10 @@ ReadViews(const AssetCache &cache,
     }
     if (!*card) { return std::nullopt; }
     auto view = DecodeGroupImpostorView((**card).Bytes());
-    if (!view || !MatchesView(*view, manifest, needed[at])) { return std::nullopt; }
-    group.Views.push_back(std::move(*view));
+    if (!view || !MatchesView(*view, manifest, selection.Indices[at])) { return std::nullopt; }
+    views.push_back(std::move(*view));
   }
+  group.Views = std::make_shared<const std::vector<GroupImpostorView>>(std::move(views));
   return group;
 }
 
@@ -347,8 +372,14 @@ std::expected<GroupImpostorLookup, std::string> LoadGroupImpostor(
   const bool eyeAboveGroup = std::max(eye.Begin[1], eye.End[1]) > manifest->HalfExtentM;
   const auto needed = SelectImpostorDirections(manifest->Directions, eye, eyeAboveGroup);
   if (needed.size() < 2) { return result; }
-  auto group =
-      ReadViews(cache, *manifest, json["card_assets"], needed, meshBytes, result.RequestedBytes);
+  auto group = ReadViews(cache,
+                         {.Manifest = *manifest,
+                          .ManifestKey = (**loaded).Record().Key,
+                          .Assets = json["card_assets"],
+                          .Indices = needed,
+                          .Resident = demand.Resident},
+                         meshBytes,
+                         result.RequestedBytes);
   if (!group) { return std::unexpected(group.error()); }
   if (!*group) { return result; }
   std::optional<SurfaceTile> ground;
@@ -414,9 +445,11 @@ ReadAttachedGroup(const AssetCache &cache,
   const auto needed = SelectBlendedImpostorDirections(manifest->Directions, eye);
   if (needed.size() >= 2) {
     auto group = ReadViews(cache,
-                           *manifest,
-                           json["card_assets"],
-                           needed,
+                           {.Manifest = *manifest,
+                            .ManifestKey = record.Key,
+                            .Assets = json["card_assets"],
+                            .Indices = needed,
+                            .Resident = demand.Resident},
                            std::numeric_limits<size_t>::max(),
                            result.RequestedBytes);
     if (!group) { return std::unexpected(group.error()); }

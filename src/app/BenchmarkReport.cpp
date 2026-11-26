@@ -332,6 +332,7 @@ void ReportRenderPath(const ScenarioBenchmarkReport &report, ReportJson &json) {
         {"initial_canopy_sites", report.SurfaceStream->InitialCanopySites},
         {"refined_tiles", stream.Tiles},
         {"reused_tiles", stream.ReusedTiles},
+        {"reused_groups", stream.ReusedGroups},
         {"refined_triangles", stream.Triangles},
         {"ready_ms", stream.ReadyMs},
         {"error", stream.Error}};

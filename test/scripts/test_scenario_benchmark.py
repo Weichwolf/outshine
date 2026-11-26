@@ -743,6 +743,40 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(recovered['rendered_content']['near']['address'], [0, 0, 0])
             self.assertEqual(recovered['traffic']['tile_decoded_bytes'], parent.stat().st_size)
             self.assertEqual(image.read_bytes(), pixels)
+            width, height, channels, bare = read_png(image)
+            centre = (width * (height // 2) + width // 2) * channels
+
+            canopy = root / 'canopy'
+            canopy.mkdir()
+            directions = [(0, 0, 1), (0, 1, 0)]
+            side = 8
+            (canopy / 'group.json').write_text(json.dumps({
+                'surface': {'coverage': [0, 0, 0], 'origin_lon_lat': [0, 0], 'revision': '1' * 64},
+                'centre_m': [0, 100, -3], 'half_extent_m': 0.6, 'canopy_cell': 'c' * 64,
+                'card_side': side, 'card_views': len(directions), 'directions': directions,
+            }))
+            texels = (4 * side * side - 1) // 3
+            body = (struct.pack('<4H3f', 0, 0, side, side, 0.5, 0, 0)
+                    + bytes((10, 190, 20, 255)) * texels + bytes((128, 128, 0, 0)) * texels)
+            for index, axis in enumerate(directions):
+                header = struct.pack('<8sII3d', b'OUTSHIV1', side, 1, *axis)
+                (canopy / f'{index}.card').write_bytes(header + body)
+            installed = subprocess.run([str(CLIENT), 'cache', 'import-group',
+                                        str(database), revision, str(canopy)], capture_output=True,
+                                       text=True, check=False, timeout=30)
+            self.assertEqual(installed.returncode, 0, installed.stderr)
+            preloaded = capture(indexed=True)
+            _, _, _, complete_cut = read_png(image)
+            streamed = capture(stream=True, indexed=True)
+            self.assertEqual(streamed['surface_stream']['reused_groups'], 1)
+            self.assertEqual(streamed['rendered_content']['mid']['groups'], 1)
+            self.assertEqual(streamed['traffic']['upload_bytes'], preloaded['traffic']['upload_bytes'])
+            one_view_bytes = len(header) + len(body)
+            self.assertLess(streamed['traffic']['group_requested_bytes'],
+                            2 * preloaded['traffic']['group_requested_bytes'] - one_view_bytes)
+            _, _, _, rgba = read_png(image)
+            self.assertGreater(rgba[centre + 1], bare[centre + 1])
+            self.assertEqual(rgba[centre:centre + 3], complete_cut[centre:centre + 3])
 
 
 if __name__ == '__main__':

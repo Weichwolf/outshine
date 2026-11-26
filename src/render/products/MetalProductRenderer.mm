@@ -1055,10 +1055,52 @@ struct PreparedSurfaceReplacement {
   size_t Bytes = 0;
 };
 
+std::expected<void, std::string>
+PrepareReplacementGroups(id<MTLDevice> device,
+                         std::span<const MetalPlacedImpostorGroup> groups,
+                         std::span<const MetalImpostorGroup> active,
+                         const ProductResources &resident,
+                         const PanoramaLighting *light,
+                         PreparedSurfaceReplacement &prepared) {
+  std::unordered_map<const GroupImpostorView *, size_t> uploads;
+  uploads.reserve(active.size());
+  for (size_t index = 0; index < active.size(); ++index) {
+    uploads.emplace(active[index].Views.data(), index);
+  }
+  prepared.Groups.reserve(groups.size());
+  for (const auto &group : groups) {
+    if (!group.Views) { return std::unexpected("replacement group views are unavailable"); }
+    const auto found = uploads.find(group.Views->data());
+    if (found != uploads.end()) {
+      const auto &prior = active[found->second];
+      if (prior.Views.size() == group.Views->size() && prior.WorldFromTile == group.WorldFromTile &&
+          prior.CentreM == group.CentreM && prior.HalfExtentM == group.HalfExtentM &&
+          prior.FractionalCoverage == group.FractionalCoverage) {
+        prepared.Groups.push_back(resident.Groups[found->second]);
+        prepared.Groups.back().Handoff = group.Handoff;
+        ++prepared.Transition.ReusedGroups;
+        continue;
+      }
+    }
+    auto uploaded = UploadLitGroup(device,
+                                   {.Views = *group.Views,
+                                    .WorldFromTile = group.WorldFromTile,
+                                    .CentreM = group.CentreM,
+                                    .HalfExtentM = group.HalfExtentM,
+                                    .Handoff = group.Handoff,
+                                    .FractionalCoverage = group.FractionalCoverage},
+                                   light,
+                                   prepared.Bytes);
+    if (!uploaded) { return std::unexpected(uploaded.error()); }
+    prepared.Groups.push_back(std::move(*uploaded));
+  }
+  return {};
+}
+
 PreparedSurfaceReplacement PrepareReplacement(id<MTLDevice> device,
                                               const MetalSurfaceStream &stream,
-                                              std::span<const MetalSurface> active,
-                                              std::span<const TileMesh> resident,
+                                              const MetalProductInputs &active,
+                                              const ProductResources &resident,
                                               const PanoramaLighting *light) {
   @autoreleasepool {
     const auto start = Clock::now();
@@ -1077,9 +1119,10 @@ PreparedSurfaceReplacement PrepareReplacement(id<MTLDevice> device,
         return prepared;
       }
       const auto same = std::ranges::find_if(
-          active, [&](const MetalSurface &surface) { return MatchesSurface(surface, tile); });
-      if (same != active.end()) {
-        prepared.Meshes.push_back(resident[static_cast<size_t>(same - active.begin())]);
+          active.Tiles, [&](const MetalSurface &surface) { return MatchesSurface(surface, tile); });
+      if (same != active.Tiles.end()) {
+        prepared.Meshes.push_back(
+            resident.Meshes[static_cast<size_t>(same - active.Tiles.begin())]);
         prepared.Meshes.back().HandoffGroup = tile.HandoffGroup;
         prepared.Meshes.back().Detail = tile.Detail;
         uploads.try_emplace(tile.Product.get(), prepared.Meshes.back().Geometry);
@@ -1103,22 +1146,11 @@ PreparedSurfaceReplacement PrepareReplacement(id<MTLDevice> device,
       prepared.Transition.Triangles +=
           (tile.Product->Indices.size() / 3) * std::max(size_t{1}, tile.Instances.size());
     }
-    prepared.Groups.reserve(candidate->Groups.size());
-    for (const auto &group : candidate->Groups) {
-      auto uploaded = UploadLitGroup(device,
-                                     {.Views = group.Views,
-                                      .WorldFromTile = group.WorldFromTile,
-                                      .CentreM = group.CentreM,
-                                      .HalfExtentM = group.HalfExtentM,
-                                      .Handoff = group.Handoff,
-                                      .FractionalCoverage = group.FractionalCoverage},
-                                     light,
-                                     prepared.Bytes);
-      if (!uploaded) {
-        prepared.Transition.Error = uploaded.error();
-        return prepared;
-      }
-      prepared.Groups.push_back(std::move(*uploaded));
+    if (const auto groups = PrepareReplacementGroups(
+            device, candidate->Groups, active.Groups, resident, light, prepared);
+        !groups) {
+      prepared.Transition.Error = groups.error();
+      return prepared;
     }
     prepared.Transition.Tiles = static_cast<size_t>(std::ranges::count_if(
         candidate->Tiles, [](const auto &tile) { return tile.Instances.empty(); }));
@@ -1229,7 +1261,7 @@ RenderMetalProducts(const MetalProductInputs &products,
     std::future<PreparedSurfaceReplacement> pending;
     if (stream.Load) {
       pending = std::async(std::launch::async, [&] {
-        return PrepareReplacement(device, stream, products.Tiles, resources->Meshes, light);
+        return PrepareReplacement(device, stream, products, *resources, light);
       });
     }
     const auto submit = [&](size_t frame) -> std::expected<id<MTLCommandBuffer>, std::string> {
