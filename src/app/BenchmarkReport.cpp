@@ -241,17 +241,19 @@ ReportJson RenderedContent(const ScenarioBenchmarkReport &report) {
   if (!report.Tiles.empty() && report.Panorama) {
     auto near = TileContent(report.Tiles);
     const auto triangles = near["triangles_per_frame"].get<size_t>();
-    if (report.GroupCoverage.CanopySites > 0) {
-      near["canopy"] = {{"sites", report.GroupCoverage.CanopySites},
-                        {"mesh_groups", report.GroupCoverage.CanopyMeshGroups},
-                        {"coarse_mesh_groups", report.GroupCoverage.CanopyCoarseGroups},
-                        {"mesh_detail_handoffs", report.GroupCoverage.CanopyDetailHandoffs},
-                        {"instances", report.GroupCoverage.CanopyInstances}};
-    }
     const auto &groups = report.GroupCoverage;
+    near["endpoint_triangles"] = groups.SurfaceEndpointTriangles;
+    if (groups.CanopySites > 0) {
+      near["canopy"] = {{"sites", groups.CanopySites},
+                        {"mesh_groups", groups.CanopyMeshGroups},
+                        {"coarse_mesh_groups", groups.CanopyCoarseGroups},
+                        {"mesh_detail_handoffs", groups.CanopyDetailHandoffs},
+                        {"instances", groups.CanopyInstances}};
+    }
     ReportJson content{{"kind", "near_far_composition"},
                        {"near", std::move(near)},
                        {"far", PanoramaContent(*report.Panorama, report.PanoramaHandoff)},
+                       {"peak_triangles_per_frame", 1 + groups.PeakSurfaceAndGroupTriangles},
                        {"draws_per_frame", 1 + report.Tiles.size() + groups.CanopyMeshGroups},
                        {"triangles_per_frame", 1 + triangles}};
     if (groups.Groups > 0) {
@@ -267,8 +269,6 @@ ReportJson RenderedContent(const ScenarioBenchmarkReport &report) {
                         {"endpoint_triangles", groups.GroupEndpointTriangles}};
     }
     if (groups.Groups > 0 || groups.CanopyMeshGroups > 0) {
-      content["near"]["endpoint_triangles"] = groups.SurfaceEndpointTriangles;
-      content["peak_triangles_per_frame"] = 1 + groups.PeakSurfaceAndGroupTriangles;
       content.erase("draws_per_frame");
       content.erase("triangles_per_frame");
     }

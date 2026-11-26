@@ -335,6 +335,8 @@ class ScenarioBenchmark(unittest.TestCase):
                 self.assertEqual(composite, foreground if distance == 2 else background)
                 self.assertEqual(metadata['render_path'], 'metal_near_far')
                 self.assertEqual(metadata['rendered_content']['draws_per_frame'], 2)
+                self.assertEqual(metadata['rendered_content']['peak_triangles_per_frame'], 3)
+                self.assertEqual(metadata['rendered_content']['near']['endpoint_triangles'], [2, 2])
                 self.assertFalse(metadata['world_complete'])
                 if distance == 2:
                     blended, _ = draw('--panorama-product', str(clipped), *near)
