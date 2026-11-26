@@ -193,6 +193,21 @@ eine explizite Z/X/Y-Seite aus einer Ground-Region mit eingebetteten Seiten oder
 vollständigen Terrain-Pack (`--kind ground-terrain-pack`). Der Export verwendet die gespeicherten Höhen und die Triangulierung des
 Terrain-Meshers. Die Fehlerschranke bezieht sich auf die Triangulierung derselben Höhenzellen.
 
+Gebäude aus vorbereiteten Quellkacheln werden beim Offline-Bake einer Geländekachel
+je Detailstufe zugeordnet. Die Zuordnung hält vollständige Gebäude zusammen und prüft
+die Gebäudemengen bei jedem vollständigen Ersatz einer Elternkachel. Wo die Daten
+vorliegen, lassen sich Gebäudeschlüssel wiederholen und der Bereich per
+`--extent WEST SOUTH EAST NORTH` begrenzen. Das Werkzeug benötigt Python ab 3.10.
+Passt die Detailgeometrie nicht ins Kachelformat, schreibt das Werkzeug die vollständigen
+Gebäudehüllen dieser Kachel.
+
+```sh
+cmake --build build --target outshine_experiment_surface_buildings
+python3 -B test/experiments/render/bake_surface_buildings.py "$asset_cache" \
+  "$geometry_cache" build/outshine_experiment_surface_buildings "$output_dir" "$grid" \
+  --building-key "$building_key" --fine-level "$fine_level"
+```
+
 Für den SSD-Vergleich importiert der Client gepackte Kacheln und Fernpanoramen unter einer gemeinsamen
 SHA-256-Revision, die Quellen und Generatorversion identifiziert.
 
