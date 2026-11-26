@@ -59,6 +59,10 @@ std::optional<AssetRecord> Read(sqlite3_stmt *statement) {
                                           ? std::nullopt
                                           : std::optional(sqlite3_column_double(statement, 16))};
   }
+  constexpr int kRequestColumn = 17;
+  if (sqlite3_column_count(statement) > kRequestColumn) {
+    record.RequestKey = Column(statement, kRequestColumn);
+  }
   return Valid(record) ? std::optional(std::move(record)) : std::nullopt;
 }
 
@@ -69,7 +73,8 @@ namespace {
 bool Valid(const AssetQuery &query) {
   if (!AssetSql::Valid(query.Bounds) ||
       (query.Parent && !query.Parent->empty() && !AssetSql::ValidKey(*query.Parent)) ||
-      (query.TileRevision && !AssetSql::ValidKey(*query.TileRevision))) {
+      (query.TileRevision && !AssetSql::ValidKey(*query.TileRevision)) ||
+      (query.BoundTilesOnly && !query.TileRevision)) {
     return false;
   }
   if (query.Radius) {
@@ -246,12 +251,14 @@ AssetCache::Select(const AssetQuery &query) const {
   AssetSql::Statement statement;
   std::string sql = std::string("SELECT ") + AssetSql::kColumns;
   if (query.TileRevision) { sql += AssetSql::kTileColumns; }
+  if (query.BoundTilesOnly) { sql += ",q.request_key"; }
   sql += query.SpatialFirst ? " FROM bounds r CROSS JOIN assets a ON a.id=r.id"
                             : " FROM bounds r JOIN assets a ON a.id=r.id";
   if (query.TileRevision) {
     if (query.SpatialFirst) { sql += " CROSS"; }
     sql += AssetSql::kTileJoin;
   }
+  if (query.BoundTilesOnly) { sql += " CROSS JOIN asset_requests q ON q.asset_id=a.id"; }
   sql += " WHERE r.minx<=? AND r.maxx>=? AND r.miny<=? AND r.maxy>=? AND r.minz<=? AND r.maxz>=?";
   if (!query.Kind.empty()) { sql += " AND a.kind=?"; }
   if (query.Level) { sql += " AND a.level=?"; }

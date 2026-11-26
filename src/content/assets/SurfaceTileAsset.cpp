@@ -4,6 +4,7 @@
 #include "Sha256.h"
 #include "TangentFrame.h"
 #include "TileGeodesy.h"
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -12,7 +13,9 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace outshine {
 namespace {
@@ -31,6 +34,16 @@ std::string Request(std::string_view revision, Data::TileId tile) {
   return Sha256Hex(std::format("{}/{}/{}", kKind, revision, Address(tile)));
 }
 
+std::string ParentRequest(std::string_view revision, Data::TileId tile) {
+  return tile.Zoom > 0 ? Request(revision, Parent(tile)) : "";
+}
+
+bool MatchesAddress(const SurfaceTile &tile, std::string_view revision, const AssetRecord &record) {
+  return Request(revision, tile.Coverage) == record.RequestKey &&
+         ParentRequest(revision, tile.Coverage) == record.Parent &&
+         std::cmp_equal(tile.Coverage.Zoom, record.Level);
+}
+
 Box EarthBounds(const SurfaceTile &tile) {
   const auto frame = TangentFrame::At(tile.Origin);
   const Box local{.Min = tile.MinimumM, .Max = tile.MaximumM};
@@ -44,23 +57,23 @@ Box EarthBounds(const SurfaceTile &tile) {
 
 std::expected<std::optional<SurfaceTile>, std::string> ReadRecord(AssetCache &cache,
                                                                   std::string_view revision,
-                                                                  Data::TileId address,
+                                                                  const AssetRecord &record,
                                                                   size_t &requestedBytes) {
-  const auto record = cache.FindRequest(Request(revision, address));
-  if (!record) { return std::unexpected("surface tile index lookup failed"); }
-  if (!*record || (**record).Kind != kKind ||
-      (**record).ByteCount > SurfaceTile::MaximumPackedBytes) {
+  if (record.Kind != kKind || !record.RequestKey ||
+      record.ByteCount > SurfaceTile::MaximumPackedBytes) {
     return std::nullopt;
   }
-  requestedBytes += static_cast<size_t>((**record).ByteCount);
+  requestedBytes += static_cast<size_t>(record.ByteCount);
   std::optional<SurfaceTile> tile;
   const auto loaded =
-      cache.LoadValidated((**record).Key,
+      cache.LoadValidated(record.Key,
                           kKind,
                           SurfaceTile::MaximumPackedBytes,
                           [&](const CachedAsset &asset) -> std::expected<bool, AssetCacheError> {
                             auto decoded = DecodePackedSurfaceTile(asset.Bytes());
-                            if (!decoded || decoded->Coverage != address) { return false; }
+                            if (!decoded || !MatchesAddress(*decoded, revision, record)) {
+                              return false;
+                            }
                             tile = std::move(*decoded);
                             return true;
                           });
@@ -70,6 +83,95 @@ std::expected<std::optional<SurfaceTile>, std::string> ReadRecord(AssetCache &ca
   }
   return tile;
 }
+
+struct Node {
+  const AssetRecord *Record;
+  std::vector<size_t> Children;
+};
+
+double Clearance(const Box &tile, const Box &eye) {
+  Vec3 gap;
+  for (size_t axis = 0; axis < 3; ++axis) {
+    gap[axis] = std::max({0.0, tile.Min[axis] - eye.Max[axis], eye.Min[axis] - tile.Max[axis]});
+  }
+  return Length(gap);
+}
+
+class CutLoader {
+public:
+  CutLoader(AssetCache &cache, std::string_view revision, const SurfaceCutDemand &demand)
+      : Cache_(cache), Revision_(revision), Demand_(demand) {}
+
+  [[nodiscard]] std::expected<SurfaceCutLookup, std::string>
+  Load(std::span<const AssetRecord> records) {
+    std::unordered_map<std::string_view, size_t> addresses;
+    Nodes_.reserve(records.size());
+    for (const auto &record : records) {
+      if (!record.RequestKey || !record.Tile) { continue; }
+      addresses.emplace(*record.RequestKey, Nodes_.size());
+      Nodes_.push_back({.Record = &record, .Children = {}});
+    }
+    std::vector<size_t> roots;
+    for (size_t at = 0; at < Nodes_.size(); ++at) {
+      const auto &record = *Nodes_[at].Record;
+      const auto parent = addresses.find(record.Parent);
+      if (parent == addresses.end()) {
+        roots.push_back(at);
+      } else if (record.Level > 0 && Nodes_[parent->second].Record->Level == record.Level - 1) {
+        Nodes_[parent->second].Children.push_back(at);
+      } else {
+        return std::unexpected("surface tile index contains an invalid parent");
+      }
+    }
+    for (const size_t root : roots) {
+      const auto loaded = Visit(root);
+      if (!loaded) { return std::unexpected(loaded.error()); }
+    }
+    return std::move(Cut_);
+  }
+
+private:
+  [[nodiscard]] std::expected<bool, std::string> VisitChildren(const Node &node) {
+    if (node.Children.size() != 4) { return false; }
+    const size_t checkpoint = Cut_.Products.size();
+    for (const size_t child : node.Children) {
+      const auto loaded = Visit(child);
+      if (!loaded) { return std::unexpected(loaded.error()); }
+      if (!*loaded) {
+        Cut_.Products.resize(checkpoint);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  [[nodiscard]] std::expected<bool, std::string> Visit(size_t index) {
+    constexpr double kMaxErrorPx = 1;
+    const auto &node = Nodes_[index];
+    const auto &record = *node.Record;
+    const auto error = record.Tile ? record.Tile->ErrorM : std::nullopt;
+    const double distance = Clearance(record.Bounds, Demand_.SweptEyeEcef);
+    const bool refine = !error || *error * Demand_.FocalPixels > distance * kMaxErrorPx;
+    if (refine) {
+      const auto children = VisitChildren(node);
+      if (!children || *children) { return children; }
+    }
+    auto tile = ReadRecord(Cache_, Revision_, record, Cut_.RequestedBytes);
+    if (!tile) { return std::unexpected(tile.error()); }
+    if (!*tile) {
+      if (refine) { return false; }
+      return VisitChildren(node);
+    }
+    Cut_.Products.push_back(std::move(**tile));
+    return true;
+  }
+
+  AssetCache &Cache_;
+  std::string_view Revision_;
+  const SurfaceCutDemand &Demand_;
+  std::vector<Node> Nodes_;
+  SurfaceCutLookup Cut_;
+};
 
 }
 
@@ -81,7 +183,7 @@ PublishSurfaceTile(AssetCache &cache, std::string_view revision, std::span<const
   const auto tile = DecodePackedSurfaceTile(bytes);
   if (!tile) { return std::unexpected(tile.error()); }
   const auto request = Request(revision, tile->Coverage);
-  const auto parent = tile->Coverage.Zoom > 0 ? Request(revision, Parent(tile->Coverage)) : "";
+  const auto parent = ParentRequest(revision, tile->Coverage);
   const auto package = Sha256Hex(bytes.data(), bytes.size());
   const AssetRecord record{.Key = Sha256Hex(request + package),
                            .Kind = std::string(kKind),
@@ -113,7 +215,10 @@ LoadSurfaceTileAt(AssetCache &cache, std::string_view revision, LongitudeLatitud
   SurfaceTileLookup result;
   if (!leaf) { return result; }
   for (auto address = *leaf; address.Zoom >= 0; address = Parent(address)) {
-    auto tile = ReadRecord(cache, revision, address, result.RequestedBytes);
+    const auto record = cache.FindRequest(Request(revision, address));
+    if (!record) { return std::unexpected("surface tile index lookup failed"); }
+    if (!*record) { continue; }
+    auto tile = ReadRecord(cache, revision, **record, result.RequestedBytes);
     if (!tile) { return std::unexpected(tile.error()); }
     if (*tile) {
       result.Product = std::move(*tile);
@@ -121,6 +226,23 @@ LoadSurfaceTileAt(AssetCache &cache, std::string_view revision, LongitudeLatitud
     }
   }
   return result;
+}
+
+std::expected<SurfaceCutLookup, std::string>
+LoadSurfaceCut(AssetCache &cache, std::string_view revision, const SurfaceCutDemand &demand) {
+  const Vec3 radius{{demand.RadiusM, demand.RadiusM, demand.RadiusM}};
+  auto records = cache.Select(
+      {.Bounds = {.Min = demand.SweptEyeEcef.Min - radius, .Max = demand.SweptEyeEcef.Max + radius},
+       .Kind = kKind,
+       .Level = std::nullopt,
+       .Radius = std::nullopt,
+       .Planes = {},
+       .TileRevision = revision,
+       .SpatialFirst = true,
+       .BoundTilesOnly = true});
+  if (!records) { return std::unexpected("surface cut index query failed"); }
+  std::ranges::sort(*records, {}, &AssetRecord::RequestKey);
+  return CutLoader(cache, revision, demand).Load(*records);
 }
 
 }

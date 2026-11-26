@@ -35,6 +35,7 @@ struct AssetQuery {
   std::optional<std::string_view> Parent = std::nullopt;
   std::optional<std::string_view> TileRevision = std::nullopt;
   bool SpatialFirst = false;
+  bool BoundTilesOnly = false;
 };
 
 enum class AssetCacheError { InvalidInput, Storage, Busy, UnsupportedVersion, CapacityExceeded };

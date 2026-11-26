@@ -523,6 +523,70 @@ class ScenarioBenchmark(unittest.TestCase):
             alias = self.invoke(*arguments, '--image', str(database))
             self.assertEqual(alias.returncode, 2, alias.stderr)
 
+    @unittest.skipUnless(os.uname().sysname == 'Darwin', 'native Metal product renderer')
+    def test_surface_cut_promotes_only_a_complete_decodable_partition(self):
+        with tempfile.TemporaryDirectory(prefix='outshine-surface-cut-') as folder:
+            root = Path(folder)
+            scene = root / 'view.scenario'
+            scene.write_text(PRODUCT_SCENE)
+            far = root / 'far'
+            write_panorama(far, axial_near=1)
+            database = root / 'prepared.sqlite'
+            revision = 'a' * 64
+            image = root / 'frame.png'
+
+            def quad(address, xmin, xmax, ymin, ymax):
+                path = root / ('-'.join(map(str, address)) + '.json')
+                packed = path.with_suffix('.surface')
+                bounds = [[xmin, ymin, -4], [xmax, ymax, -4]]
+                path.write_text(json.dumps({
+                    'version': 1, 'coverage': address, 'origin_lon_lat': [0, 0],
+                    'revision': '1' * 64, 'geometric_error_m': 10, 'bounds_eus_m': bounds,
+                    'vertices_eus_m': [bounds[0], [xmax, ymin, -4], bounds[1], [xmin, ymax, -4]],
+                    'normals_eus': [[0, 0, 1]] * 4, 'indices': [0, 1, 2, 0, 2, 3],
+                }))
+                subprocess.run([sys.executable, '-B',
+                                str(ROOT / 'test/experiments/render/pack_surface_tile.py'),
+                                str(path), str(packed)], check=True, timeout=20)
+                return packed
+
+            parent = quad([0, 0, 0], -10, 10, 90, 110)
+            children = [quad([1, x, y], x * 10 - 10, x * 10, 90 + y * 10, 100 + y * 10)
+                        for y in range(2) for x in range(2)]
+
+            def publish(*paths):
+                result = subprocess.run([str(CLIENT), 'cache', 'import-surface',
+                                         str(database), revision, *map(str, paths)],
+                                        capture_output=True, text=True, check=False, timeout=30)
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+            def capture():
+                result = self.invoke('--scenario', str(scene), '--frames', '1', '--product-store',
+                                     str(database), '--product-revision', revision,
+                                     '--panorama-product', str(far), '--image', str(image))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                return json.loads(result.stdout)
+
+            publish(parent, *children[:3])
+            partial = capture()
+            pixels = image.read_bytes()
+            self.assertEqual(partial['rendered_content']['near']['address'], [0, 0, 0])
+            self.assertEqual(partial['traffic']['tile_requested_bytes'], parent.stat().st_size)
+
+            publish(children[3])
+            full = capture()
+            self.assertEqual(full['rendered_content']['near']['draws_per_frame'], 4)
+            self.assertEqual(full['traffic']['tile_requested_bytes'],
+                             sum(tile.stat().st_size for tile in children))
+            self.assertEqual(image.read_bytes(), pixels)
+            with sqlite3.connect(database) as store:
+                store.execute('UPDATE package_bodies SET bytes=zeroblob(length(bytes)) '
+                              'WHERE key=(SELECT package FROM assets WHERE level=1 LIMIT 1)')
+            recovered = capture()
+            self.assertEqual(recovered['rendered_content']['near']['address'], [0, 0, 0])
+            self.assertEqual(recovered['traffic']['tile_decoded_bytes'], parent.stat().st_size)
+            self.assertEqual(image.read_bytes(), pixels)
+
 
 if __name__ == '__main__':
     unittest.main()

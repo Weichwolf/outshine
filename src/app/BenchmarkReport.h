@@ -62,7 +62,7 @@ struct ScenarioBenchmarkReport {
   BenchmarkMotionInput Motion;
   Camera Start;
   Camera Finish;
-  std::optional<BenchmarkTileCoverage> Tile;
+  std::vector<BenchmarkTileCoverage> Tiles;
   std::optional<BenchmarkPanoramaCoverage> Panorama;
   std::optional<BenchmarkPanoramaHandoff> PanoramaHandoff;
   std::optional<uint64_t> ProductStoreReadBytes;

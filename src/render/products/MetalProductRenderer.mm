@@ -283,8 +283,8 @@ std::expected<ProductPass, std::string> MakePass(id<MTLDevice> device,
   }
   ProductPipeline tile;
   ProductPipeline panorama;
-  const bool composite = products.Tile != nullptr && !products.Panoramas.empty();
-  if (products.Tile != nullptr) {
+  const bool composite = !products.Tiles.empty() && !products.Panoramas.empty();
+  if (!products.Tiles.empty()) {
     const auto pipeline = MakePipeline(
         device, library, composite ? ProductDraw::TileForComposition : ProductDraw::Tile);
     if (!pipeline) { return std::unexpected(pipeline.error()); }
@@ -334,6 +334,7 @@ struct TileMesh {
   id<MTLBuffer> Vertices = nil;
   id<MTLBuffer> Indices = nil;
   size_t IndexCount = 0;
+  Mat4 WorldFromTile;
 };
 
 void DrawTile(id<MTLRenderCommandEncoder> draw,
@@ -487,7 +488,7 @@ void DrawPanorama(id<MTLRenderCommandEncoder> draw,
 }
 
 struct ProductResources {
-  TileMesh Mesh;
+  std::vector<TileMesh> Meshes;
   std::vector<PanoramaTextures> Panoramas;
   size_t Bytes = 0;
 };
@@ -495,19 +496,22 @@ struct ProductResources {
 std::expected<ProductResources, std::string> UploadProducts(id<MTLDevice> device,
                                                             const MetalProductInputs &products) {
   ProductResources resources;
-  if (const auto *const tile = products.Tile; tile != nullptr) {
-    const auto vertices = std::as_bytes(std::span(tile->Vertices));
-    const auto indices = std::as_bytes(std::span(tile->Indices));
-    resources.Mesh = {.Vertices = [device newBufferWithBytes:vertices.data()
-                                                      length:vertices.size()
-                                                     options:MTLResourceStorageModeShared],
-                      .Indices = [device newBufferWithBytes:indices.data()
-                                                     length:indices.size()
-                                                    options:MTLResourceStorageModeShared],
-                      .IndexCount = tile->Indices.size()};
-    if (resources.Mesh.Vertices == nil || resources.Mesh.Indices == nil) {
+  resources.Meshes.reserve(products.Tiles.size());
+  for (const auto &tile : products.Tiles) {
+    const auto vertices = std::as_bytes(std::span(tile.Product.Vertices));
+    const auto indices = std::as_bytes(std::span(tile.Product.Indices));
+    const TileMesh mesh{.Vertices = [device newBufferWithBytes:vertices.data()
+                                                        length:vertices.size()
+                                                       options:MTLResourceStorageModeShared],
+                        .Indices = [device newBufferWithBytes:indices.data()
+                                                       length:indices.size()
+                                                      options:MTLResourceStorageModeShared],
+                        .IndexCount = tile.Product.Indices.size(),
+                        .WorldFromTile = tile.WorldFromTile};
+    if (mesh.Vertices == nil || mesh.Indices == nil) {
       return std::unexpected("Metal tile upload failed");
     }
+    resources.Meshes.push_back(mesh);
     resources.Bytes += vertices.size() + indices.size();
   }
   resources.Panoramas.reserve(products.Panoramas.size());
@@ -534,17 +538,18 @@ std::expected<ProductResources, std::string> UploadProducts(id<MTLDevice> device
 std::expected<id<MTLCommandBuffer>, std::string> SubmitProducts(const ProductPass &pass,
                                                                 const ProductResources &resources,
                                                                 const MetalProductView &view) {
-  std::optional<ClipMatrix> clip;
-  if (pass.Tile.Draw != nil) {
-    const auto packed = MetalClip(view.TileClip);
-    if (!packed) { return std::unexpected(packed.error()); }
-    clip = *packed;
-  }
   @autoreleasepool {
     const id<MTLCommandBuffer> command = [pass.Queue commandBuffer];
     const id<MTLRenderCommandEncoder> draw = [command renderCommandEncoderWithDescriptor:pass.Pass];
     if (draw == nil) { return std::unexpected("Metal could not encode the product frame"); }
-    if (clip) { DrawTile(draw, pass.Tile, resources.Mesh, *clip); }
+    for (const auto &mesh : resources.Meshes) {
+      const auto clip = MetalClip(view.ClipFromWorld * mesh.WorldFromTile);
+      if (!clip) {
+        [draw endEncoding];
+        return std::unexpected(clip.error());
+      }
+      DrawTile(draw, pass.Tile, mesh, *clip);
+    }
     if (pass.Panorama.Draw != nil) {
       const auto &active = resources.Panoramas[view.PanoramaIndex];
       const auto &next = view.Panorama.NextWeight > 0 ? resources.Panoramas.back() : active;
@@ -563,7 +568,7 @@ RenderMetalProducts(const MetalProductInputs &products,
                     size_t count,
                     const MetalProductViewAt &viewAt,
                     bool readImage) {
-  if (products.Tile == nullptr && products.Panoramas.empty()) {
+  if (products.Tiles.empty() && products.Panoramas.empty()) {
     return std::unexpected("Metal product capture requires an input product");
   }
   @autoreleasepool {

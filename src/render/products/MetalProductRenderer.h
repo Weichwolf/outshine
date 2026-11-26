@@ -56,13 +56,18 @@ struct PanoramaView {
   double CoverageFadeM = 0;
 };
 
+struct MetalSurface {
+  const SurfaceTile &Product;
+  Mat4 WorldFromTile;
+};
+
 struct MetalProductInputs {
-  const SurfaceTile *Tile = nullptr;
+  std::span<const MetalSurface> Tiles;
   std::span<const FarPanorama> Panoramas;
 };
 
 struct MetalProductView {
-  Mat4 TileClip;
+  Mat4 ClipFromWorld;
   PanoramaView Panorama;
   size_t PanoramaIndex = 0;
 };
