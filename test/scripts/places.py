@@ -50,7 +50,7 @@ def keep_latest(image, directory, name):
 
 
 def benchmark_report(prepared, view, options, work, frames, angular="0,0,0",
-                     linear="0,0,0", timeout=None):
+                     linear="0,0,0", timeout=None, *, tile_product=None, asset_cache=None):
     work.mkdir(parents=True, exist_ok=True)
     image = work / "image.png"
     report_path = work / "benchmark.json"
@@ -69,21 +69,26 @@ def benchmark_report(prepared, view, options, work, frames, angular="0,0,0",
         angular,
         "--linear-velocity",
         linear,
-        "--preload-seconds",
-        str(options.preload_seconds),
         "--image",
         str(image),
         "--output",
         str(report_path),
     ]
-    if not options.online:
-        command.append("--offline")
-    if options.cache_dir:
-        command.extend(("--cache-dir", str(options.cache_dir)))
+    if tile_product is not None:
+        command.extend(("--tile-product", str(tile_product)))
+    else:
+        command.extend(("--preload-seconds", str(options.preload_seconds)))
+        if not options.online:
+            command.append("--offline")
+        if options.cache_dir:
+            command.extend(("--cache-dir", str(options.cache_dir)))
+        if asset_cache is not None:
+            command.extend(("--asset-cache-dir", str(asset_cache)))
+    profile_world = tile_product is None and getattr(options, "bench", False)
     (work / "command.json").write_text(json.dumps(command, indent=2) + "\n")
     with (work / "run.log").open("w") as log:
         environment = dict(os.environ)
-        if getattr(options, "bench", False):
+        if profile_world:
             for old in work.glob("gpu-profile.*.json"):
                 if old.is_file() and not old.is_symlink():
                     old.unlink()
@@ -112,9 +117,14 @@ def benchmark_report(prepared, view, options, work, frames, angular="0,0,0",
     report = json.loads(report_path.read_text())
     if report.get("benchmark_version") != 2 or report.get("mode") != "scenario":
         raise RuntimeError(f"{work.name}: unsupported benchmark report; {report_path}")
-    if getattr(options, "bench", False):
+    if profile_world:
         read_profile = read_metal_profile if options.bench_profile == "a18" else read_vulkan_profile
-        report["gpu_profile"] = read_profile(work, report)
+        profile = read_profile(work, report)
+        report["gpu_profile"] = profile
+        report["pass_times"] = {
+            "scope": profile["time_basis"],
+            "passes": profile.get("encoders") or profile.get("gpu_passes"),
+        }
         report_path.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
     return report
 
