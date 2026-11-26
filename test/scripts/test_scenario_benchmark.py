@@ -32,7 +32,7 @@ PRODUCT_SCENE = """<scenario>
 
 
 def write_panorama(root, anchor=(0, 100, 0), radius=0, colour=(1, 0, 0), revision='0',
-                   axial_near=0, overlap_end=0, lighting=None):
+                   axial_near=0, overlap_end=0, lighting=None, depth=10):
     root.mkdir(exist_ok=True)
     product = {
         'version': 1, 'representation': 'colour_radial_depth_cubemap',
@@ -43,13 +43,13 @@ def write_panorama(root, anchor=(0, 100, 0), radius=0, colour=(1, 0, 0), revisio
         'axial_near_m': axial_near,
         'axial_overlap_end_m': overlap_end,
         'maximum_range_m': 100, 'maximum_eye_translation_m': radius,
-        'reference_exposure': 1, 'opaque_texels': [4] * 6,
+        'reference_exposure': 1, 'opaque_texels': [4 if depth > 0 else 0] * 6,
     }
     if lighting is not None:
         product['surface_lighting'] = lighting
     (root / 'panorama.json').write_text(json.dumps(product))
-    (root / 'colour.rgba16f').write_bytes(struct.pack('<4e', *colour, 1) * 24)
-    (root / 'depth.r32f').write_bytes(struct.pack('<f', 10) * 24)
+    (root / 'colour.rgba16f').write_bytes(struct.pack('<4e', *colour, depth > 0) * 24)
+    (root / 'depth.r32f').write_bytes(struct.pack('<f', depth) * 24)
 
 
 class ScenarioBenchmark(unittest.TestCase):
@@ -387,7 +387,10 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(report['traffic']['upload_bytes'], 2 * 24 * 12)
             self.assertEqual(report['traffic']['source_delivery_bytes'], 0)
 
-            write_panorama(root / 'mixed', colour=(.5, .5, 0))
+            write_panorama(root / 'first', radius=6, depth=0)
+            write_panorama(root / 'next', anchor=(8, 100, 0), radius=6, colour=(0, 1, 0),
+                           revision='1', depth=0)
+            write_panorama(root / 'mixed', colour=(.5, .5, 0), depth=0)
             control = self.invoke('--scenario', str(scene), '--frames', '1',
                                   '--panorama-product', str(root / 'mixed'), '--image', str(image))
             self.assertEqual(control.returncode, 0, control.stderr)
@@ -397,12 +400,25 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(image.read_bytes(), midpoint_pixels)
 
+            for first_depth, next_depth in ((30, 0), (30, 60), (0, .5)):
+                write_panorama(root / 'first', radius=6, depth=first_depth)
+                write_panorama(root / 'next', anchor=(8, 100, 0), radius=6, colour=(0, 1, 0),
+                               revision='1', depth=next_depth)
+                control = self.invoke('--scenario', str(scene), '--frames', '4',
+                                      '--linear-velocity', '30,0,0',
+                                      '--panorama-product', str(root / 'first'), '--image', str(image))
+                self.assertEqual(control.returncode, 0, control.stderr)
+                foreground = image.read_bytes()
+                result = self.invoke(*middle)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(image.read_bytes(), foreground)
+
             write_panorama(root / 'first', radius=2)
             write_panorama(root / 'next', anchor=(8, 100, 0), radius=4, revision='1')
             rejected = self.invoke(*flight)
             self.assertEqual(rejected.returncode, 1, rejected.stderr)
             self.assertIn('domains leave a gap', rejected.stderr)
-            self.assertEqual(image.read_bytes(), midpoint_pixels)
+            self.assertEqual(image.read_bytes(), foreground)
 
     def test_runtime_failure_preserves_both_outputs(self):
         with tempfile.TemporaryDirectory(prefix='outshine-benchmark-failure-') as folder:

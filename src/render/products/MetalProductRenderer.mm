@@ -197,6 +197,21 @@ struct PanoramaPixel {
   float forwardM;
   bool opaqueAtAnchor;
 };
+float anchorColourWeight(PanoramaRay first, PanoramaRay next, float travel,
+                         float3 ray, constant PanoramaUniform &view) {
+  const float firstM = first.distanceM;
+  const float nextM = next.distanceM;
+  if (firstM <= 0.0 || nextM <= 0.0) {
+    if (firstM != nextM) { return float(nextM > firstM); }
+    if (first.opaqueAtAnchor != next.opaqueAtAnchor) { return float(!next.opaqueAtAnchor); }
+    return first.opaqueAtAnchor ? step(0.5, travel) : travel;
+  }
+  const float3 baseline = view.nextEyeAndWeight.xyz - view.eyeOffsetM.xyz;
+  const float baselinePixelsM = length(cross(baseline, ray)) * view.display.w;
+  const float disparityPx = baselinePixelsM * abs(firstM - nextM) / (firstM * nextM);
+  const float separation = smoothstep(0.5, 1.0, disparityPx);
+  return mix(travel, float(nextM < firstM), separation);
+}
 PanoramaPixel panoramaPixel(PanoramaRaster in, constant PanoramaUniform &view,
                             texturecube<half> colour, texturecube<float> distanceM,
                             texturecube<half> nextColour, texturecube<float> nextDistanceM) {
@@ -212,8 +227,10 @@ PanoramaPixel panoramaPixel(PanoramaRaster in, constant PanoramaUniform &view,
   if (weight > 0.0) {
     const PanoramaRay next =
         reprojectPanorama(ray, nextDistanceM, view.nextEyeAndWeight.xyz, view.display.w);
-    opaqueAtAnchor = opaqueAtAnchor || next.opaqueAtAnchor;
-    linear = mix(linear, float3(nextColour.sample(linearColour, next.direction).rgb), weight);
+    const float nextWeight = anchorColourWeight(projected, next, weight, ray, view);
+    opaqueAtAnchor = (nextWeight < 1.0 && projected.opaqueAtAnchor) ||
+                     (nextWeight > 0.0 && next.opaqueAtAnchor);
+    linear = mix(linear, float3(nextColour.sample(linearColour, next.direction).rgb), nextWeight);
     if (next.distanceM > 0.0) {
       distance = distance > 0.0 ? min(distance, next.distanceM) : next.distanceM;
     }

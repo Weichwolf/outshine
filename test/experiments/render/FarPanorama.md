@@ -70,7 +70,10 @@ exposure and lighting. Declare overlapping translation domains, then add `--pano
 to a flight that starts in the first domain and ends in the second. Before drawing,
 the benchmark intersects both domains with the flight segment, rejects a coverage gap
 and uploads both products. It uses one far draw per frame. Within the reported overlap
-window, it reprojects both products, blends scene-linear colour before the display
-transform and keeps the nearest valid depth. Outside the overlap it samples one
-product. The two resident 512px products together cost 36 MiB of texture payload.
+window, it reprojects both products and keeps the nearest valid depth. It blends
+scene-linear colour when the depths agree to half a pixel of anchor disparity.
+At one pixel of disparity the foreground determines the colour. A resolved surface
+also takes priority over sky and failed reprojections. If both depths are absent,
+the sample classified as sky takes priority over an unresolved surface. Outside
+the overlap it samples one product. Two resident 512px products use 36 MiB.
 Capture, disk reads and uploads are measured outside the frame window.
