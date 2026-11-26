@@ -871,6 +871,84 @@ compressed reads from 22.09 to 22.27 MB including the shared panorama.
 The Tokyo endpoints match visually and in the decoded RGB comparison.
 The two city timing ranges overlap. These are prepared-renderer runs.
 
+## Compare the three representations with the same views
+
+Clone the prepared bank for the geometry control. Remove building group
+manifests and card view entries from that clone. Leave the canopy
+manifests and prototypes so a missing card falls back to the instanced
+mesh. Replace pre-existing panorama entries in both controls with the
+same clipped and lit exterior. Check the selected revision in each report.
+
+For the cube-only control, capture the indexed cut at the matching cube
+anchor with a 0.1 m near plane and pack the six faces as usual. Composite
+the nearer sample into the exterior on each captured ray, retaining the
+existing sky and any farther canopy already in the exterior. Publish
+the result in a separate store with only the panorama body.
+
+```sh
+python3 -B test/experiments/render/compose_panorama_overlap.py \
+  "$exterior" "$packed_interior" "$complete" --standalone
+outshine cache import-panorama "$cube_store" "$revision" "$complete"
+outshine benchmark --scenario "$camera" --frames 120 --angular-velocity '0,-90,0' \
+  --product-store "$cube_store" --product-revision "$revision" --image "$png" --output "$report"
+```
+
+Three paired sets of 120 unpaced frames on A18 Pro Metal used the same
+720p30 camera steps at 240 km range. The Tokyo path translates 16 m. At
+Körbersee the closest sampled hillside is 0.88 m from the anchor, so the
+standalone cube admits only 0.44 m of translation. Use a 0.4 m move for
+that comparison and keep the hillside native for the normal 16 m path.
+
+| Place and motion | GPU p99 geometry / cards / cube | Peak triangles geometry / cards / cube |
+|---|---:|---:|
+| Tokyo still | 5.63 / 5.63 / 0.50 ms | 997k / 935k / 1 |
+| Tokyo turn | 7.52 / 5.78 / 0.50 ms | 1,251k / 1,119k / 1 |
+| Tokyo flight | 5.64 / 5.43 / 1.95 ms | 1,013k / 945k / 1 |
+| Körbersee still | 5.05 / 1.03 / 1.00 ms | 3,284k / 123k / 1 |
+| Körbersee turn | 4.44 / 1.12 / 0.50 ms | 3,284k / 123k / 1 |
+| Körbersee flight | 5.13 / 2.50 / 1.23 ms | 3,284k / 123k / 1 |
+
+The native inner capture took 313 ms in Tokyo and 58 ms at Körbersee
+including its uploads and six file writes. Packing took 198 and 40 ms
+respectively. These times reuse the exterior cube and exclude initial
+terrain and skyline generation. Colour and silhouette look similar
+between the opened stills. The cube softens roof edges and reveals its
+angular texels around a nearby hillside during translation.
+
+In the normal 16 m paced Körbersee trial with live cut replacement,
+three geometry / card pairs gave 16.34 / 2.70 ms GPU p99. Both swapped
+at frame 1. Median read, decode and upload readiness was 5.90 / 10.56 ms,
+with 5.41 / 6.92 MB of total compressed reads for the flight. The child
+cut made the steady frames considerably cheaper while taking longer to
+prepare. The cube-only control omits the native hillside and has a
+different translation domain.
+
+### Depth precision and stored traffic
+
+`--standalone --half-depth-focal-px 800` rounds radial depth to scaled
+binary16 precision while retaining the existing float32 attachment
+contract. Scaling by four fits the 240 km range. Compare
+`asin(b / r)` for each original and rounded radius at the translation
+domain edge `b`. At the supplied focal length, reject if the angular
+shift exceeds a quarter pixel equivalent. The check bounds errors
+within a sampled layer. Image tests still cover discontinuities.
+
+| Place | Compressed reads geometry / cards / cube | Cube with rounded depth | Worst angular shift |
+|---|---:|---:|---:|
+| Tokyo | 66.51 / 61.47 / 20.47 MB | 12.57 MB | 0.0153 px |
+| Körbersee | 4.75 / 5.50 / 6.64 MB | 3.86 MB | 0.191 px |
+
+The observed RGB mean absolute error over the 720p final flight frame
+was 0.0086 of 255 in Tokyo and 0.00045 at Körbersee. Four Tokyo pixels
+changed by more than 15 of 255 in at least one channel. The upload stays
+75.50 MB and 18.87 MB respectively because the texture format is
+unchanged. Paired GPU medians hardly moved and flight p99 varied.
+An exact exit when reprojected depth repeated cut scalar lookup steps,
+but three paired GPU p50s were consistently slower on A18 Pro and the
+exit was discarded. Narrowing canopy bank reads remains open. In this
+cut, its 30 cards read more SSD bytes and upload more than the shared
+tree prototype and its small instance tables.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).
