@@ -22,8 +22,8 @@ ANGLES = DENSE + PROBES
 METRICS = ("coverage_iou", "missing_fraction", "extra_fraction", "shared_depth_p95_m")
 
 
-def compare_angle(maps, vectors, frames, view, side, half_extent):
-    target = raster_card(maps[view], frames[view], frames[view], side)
+def compare_angle(maps, control, vectors, frames, view, side, half_extent):
+    target = raster_card(control, frames[view], frames[view], side)
     previews = [target]
     rows = {}
     for layout in (BASE, MEDIUM, DENSE):
@@ -38,8 +38,14 @@ def compare_angle(maps, vectors, frames, view, side, half_extent):
     return rows, previews
 
 
-def evaluate(root, output):
+def evaluate(root, output, reference):
     manifest, vectors, data = fields(root, ANGLES)
+    if reference is None:
+        held_out = data
+    else:
+        original, _, held_out = fields(reference, ANGLES)
+        if any(manifest[key] != original[key] for key in ("pixels", "centre_m", "half_extent_m")):
+            raise ValueError("control and reconstruction must use the same projection")
     frames = [basis(v) for v in vectors]
     print("side views drawn " + " ".join(METRICS))
     for block in (2, 4):
@@ -47,7 +53,8 @@ def evaluate(root, output):
         maps = [reduce_field(field, block) for field in data]
         scores = {}
         for view in range(len(DENSE), len(ANGLES)):
-            rows, previews = compare_angle(maps, vectors, frames, view, side,
+            control = reduce_field(held_out[view], block)
+            rows, previews = compare_angle(maps, control, vectors, frames, view, side,
                                            manifest["half_extent_m"])
             for key, values in rows.items():
                 scores.setdefault(key, []).append(values)
@@ -66,6 +73,7 @@ def main():
     comparison = modes.add_parser("evaluate")
     comparison.add_argument("capture", type=Path)
     comparison.add_argument("output", type=Path)
+    comparison.add_argument("--reference", type=Path)
     composition = modes.add_parser("compose")
     composition.add_argument("tree", type=Path)
     composition.add_argument("stand", type=Path)
@@ -77,7 +85,7 @@ def main():
         return
     args.output.mkdir()
     if args.mode == "evaluate":
-        evaluate(args.capture, args.output)
+        evaluate(args.capture, args.output, args.reference)
     else:
         hierarchical(args.tree, args.stand, args.output, ANGLES)
 

@@ -171,6 +171,22 @@ full stand. The measurements cover one species and one placement. Forest
 products still need world placement, fractional coverage and native motion
 validation.
 
+```sh
+cmake --build build --target outshine_experiment_compose_groups
+mkdir "$probe/composed"
+build/outshine_experiment_compose_groups "$probe/canopy-tree" \
+  "$probe/canopy-stand/group.json" "$probe/composed" 32
+python3 -B "$canopy" evaluate "$probe/composed" "$probe/native-canopy-results" \
+  --reference "$probe/canopy-stand"
+```
+
+The C++ baker copies the nearest transformed depth sample, along with its
+normal and material. Each source view is reused for translated or uniformly
+scaled instances. Three runs on A18 Pro composed all 64 views in a median
+24.55 ms after reading the reusable atlas, before fitting, encoding and writing
+the cards. Two 32-texel cards selected from 29 composed directions retained a
+median coverage IoU of 0.750 against the 11 directly rendered held-out views.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).

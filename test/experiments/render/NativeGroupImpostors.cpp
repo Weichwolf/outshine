@@ -1,6 +1,5 @@
 #include "Box.h"
-#include "ByteArchive.h"
-#include "GroupImpostorBake.h"
+#include "GroupImpostorProbeFields.h"
 #include "GroupImpostorView.h"
 #include "ImpostorBaker.h"
 #include "Species.h"
@@ -122,35 +121,6 @@ bool Views(ImpostorCapture &capture, const char *path) {
   return file.eof() && !capture.ViewDirections.empty();
 }
 
-bool SaveView(const std::filesystem::path &path, const ImpostorAtlas::View &view) {
-  constexpr size_t kTexelBytes = sizeof(uint32_t) + 9 * sizeof(float);
-  ByteWriter output(view.Texels.size() * kTexelBytes);
-  for (size_t at = 0; at < view.Texels.size(); ++at) {
-    const auto &texel = view.Texels[at];
-    const auto &material = view.Materials[at];
-    if (!output.Number(texel.Surface) || !output.Number(texel.Depth)) { return false; }
-    for (const float component : texel.Normal) {
-      if (!output.Number(component)) { return false; }
-    }
-    for (const float component : material.BaseColour) {
-      if (!output.Number(component)) { return false; }
-    }
-    if (!output.Number(material.Roughness) || !output.Number(material.Metalness)) { return false; }
-  }
-  return WriteFileAtomically(path.string(), std::as_bytes(output.Bytes())).has_value();
-}
-
-bool SaveCard(const std::filesystem::path &path,
-              const ImpostorAtlas &atlas,
-              size_t view,
-              uint32_t side) {
-  const auto card = BakeGroupImpostorView(atlas, view, side);
-  if (!card) { return false; }
-  const auto bytes = EncodeGroupImpostorView(*card);
-  if (!bytes || !DecodeGroupImpostorView(*bytes)) { return false; }
-  return WriteFileAtomically(path.string(), std::as_bytes(std::span(*bytes))).has_value();
-}
-
 template <class T> std::optional<T> PositiveArgument(std::string_view text) {
   T value = 0;
   const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value);
@@ -232,9 +202,9 @@ int Run(int argc, const char *const *argv) {
   for (size_t at = 0; at < atlas->Views().size(); ++at) {
     const auto &view = atlas->Views()[at];
     directions.push_back(view.TowardEye.Axis);
-    if (!SaveView(directory / (std::to_string(at) + ".field"), view)) { return 1; }
+    if (!GroupProbe::SaveView(directory / (std::to_string(at) + ".field"), view)) { return 1; }
     if (at < *cardViews &&
-        !SaveCard(directory / (std::to_string(at) + ".card"), *atlas, at, *cardSide)) {
+        !GroupProbe::SaveCard(directory / (std::to_string(at) + ".card"), *atlas, at, *cardSide)) {
       return 1;
     }
   }
