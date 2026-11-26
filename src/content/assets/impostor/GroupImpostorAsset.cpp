@@ -353,21 +353,24 @@ std::expected<GroupImpostorLookup, std::string> LoadGroupImpostor(
 }
 
 namespace {
-std::expected<AttachedCanopyGroup, std::string> ReadAttachedGroup(const AssetCache &cache,
-                                                                  const AssetRecord &record,
-                                                                  const GroupImpostorDemand &demand,
-                                                                  CanopyMeshBank &bank,
-                                                                  AttachedCanopyLookup &result) {
+std::expected<std::optional<AttachedCanopyGroup>, std::string>
+ReadAttachedGroup(const AssetCache &cache,
+                  const AssetRecord &record,
+                  const CanopyCutDemand &cut,
+                  CanopyMeshBank &bank,
+                  AttachedCanopyLookup &result) {
   const auto loaded = cache.Load(record.Key, GroupImpostorManifestBytesMost);
   if (!loaded) { return std::unexpected("canopy manifest read failed"); }
-  if (!*loaded) { return AttachedCanopyGroup{.Group = {}, .Near = {}, .AvailableViews = 0}; }
+  if (!*loaded) { return std::nullopt; }
   const auto content = (**loaded).Bytes();
   result.RequestedBytes += content.size();
   const auto json = Json::parse(content.begin(), content.end(), nullptr, false);
   const auto manifest = ParseGroupImpostorManifest(json);
   if (!manifest || manifest->CanopyCell.empty() || !HasViews(json, manifest->Directions.size())) {
-    return AttachedCanopyGroup{.Group = {}, .Near = {}, .AvailableViews = 0};
+    return std::nullopt;
   }
+  if (!SurfaceCoversTile(cut.Ground, manifest->Coverage)) { return std::nullopt; }
+  const auto &demand = cut.Impostors;
   const auto eye = LocalEye(*manifest, demand.EyeEcef);
   const auto ramp =
       ImpostorProjectionRamp(manifest->HalfExtentM, manifest->Side, demand.FocalPixels);
@@ -382,7 +385,11 @@ std::expected<AttachedCanopyGroup, std::string> ReadAttachedGroup(const AssetCac
   }
   const size_t views = manifest->Directions.size();
   if (mesh && mode == ImpostorDistanceMode::Geometry) {
-    return AttachedCanopyGroup{.Group = {}, .Near = std::move(mesh), .AvailableViews = views};
+    return AttachedCanopyGroup{.Key = record.Key,
+                               .Origin = manifest->Origin,
+                               .Group = {},
+                               .Near = std::move(mesh),
+                               .AvailableViews = views};
   }
   std::optional<ResidentGroupImpostor> cards;
   const auto needed = SelectImpostorDirections(manifest->Directions, eye);
@@ -402,36 +409,38 @@ std::expected<AttachedCanopyGroup, std::string> ReadAttachedGroup(const AssetCac
     if (!near) { return std::unexpected(near.error()); }
     mesh = std::move(*near);
   }
-  return AttachedCanopyGroup{
-      .Group = std::move(cards), .Near = std::move(mesh), .AvailableViews = views};
+  if (!cards && !mesh) { return std::nullopt; }
+  return AttachedCanopyGroup{.Key = record.Key,
+                             .Origin = manifest->Origin,
+                             .Group = std::move(cards),
+                             .Near = std::move(mesh),
+                             .AvailableViews = views};
 }
 }
 
-std::expected<AttachedCanopyLookup, std::string>
-LoadAttachedCanopy(const AssetCache &cache,
-                   const AssetRecord &surface,
-                   const GroupImpostorDemand &demand,
-                   CanopyMeshBank &bank) {
-  if (!surface.Tile) { return AttachedCanopyLookup{}; }
-  auto records = cache.Select({.Bounds = surface.Bounds,
+std::expected<AttachedCanopyLookup, std::string> LoadCanopyCut(const AssetCache &cache,
+                                                               const CanopyCutDemand &demand) {
+  auto records = cache.Select({.Bounds = demand.Bounds,
                                .Kind = CanopyImpostorManifestKind,
-                               .Level = surface.Level,
+                               .Level = std::nullopt,
                                .Radius = std::nullopt,
                                .Planes = {},
-                               .Parent = surface.Key,
-                               .TileRevision = surface.Tile->Revision,
-                               .BoundTilesOnly = true});
+                               .TileRevision = demand.Revision,
+                               .SpatialFirst = true,
+                               .BoundTilesOnly = true,
+                               .BoundParentOnly = true});
   if (!records) { return std::unexpected("canopy spatial index lookup failed"); }
   std::ranges::sort(*records, {}, &AssetRecord::Key);
   AttachedCanopyLookup result;
+  CanopyMeshBank bank;
   for (const auto &record : *records) {
     if (record.ByteCount > GroupImpostorManifestBytesMost ||
-        std::ranges::binary_search(demand.PanoramaGroups, record.Key)) {
+        std::ranges::binary_search(demand.Impostors.PanoramaGroups, record.Key)) {
       continue;
     }
     auto group = ReadAttachedGroup(cache, record, demand, bank, result);
     if (!group) { return std::unexpected(group.error()); }
-    if (group->Group || group->Near) { result.Groups.push_back(std::move(*group)); }
+    if (*group) { result.Groups.push_back(std::move(**group)); }
   }
   return result;
 }

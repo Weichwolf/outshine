@@ -59,6 +59,7 @@ struct BenchmarkSurfaceStream {
   std::optional<size_t> FirstRefinedFrame;
   size_t Tiles = 0;
   size_t ReusedTiles = 0;
+  size_t InitialCanopySites = 0;
   size_t Triangles = 0;
   size_t DecodedBytes = 0;
   double ReadyMs = 0;
@@ -76,6 +77,7 @@ struct BenchmarkGroupCoverage {
   std::array<size_t, 2> SurfaceEndpointTriangles{};
   std::array<size_t, 2> GroupEndpointTriangles{};
   size_t RequestedBytes = 0;
+  size_t CanopySites = 0;
   size_t CanopyMeshGroups = 0;
   size_t CanopyInstances = 0;
   size_t CanopyRequestedBytes = 0;

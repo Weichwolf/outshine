@@ -64,5 +64,8 @@ struct SurfaceCoverageInterval {
 [[nodiscard]] std::optional<std::vector<SurfaceCoverageInterval>>
 SurfaceCoverage(std::span<const SurfaceTile> tiles);
 
+[[nodiscard]] bool SurfaceCoversTile(std::span<const SurfaceCoverageInterval> coverage,
+                                     Data::TileId tile);
+
 }
 #endif

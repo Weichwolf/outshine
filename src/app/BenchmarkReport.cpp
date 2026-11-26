@@ -241,8 +241,9 @@ ReportJson RenderedContent(const ScenarioBenchmarkReport &report) {
   if (!report.Tiles.empty() && report.Panorama) {
     auto near = TileContent(report.Tiles);
     const auto triangles = near["triangles_per_frame"].get<size_t>();
-    if (report.GroupCoverage.CanopyMeshGroups > 0) {
-      near["canopy"] = {{"mesh_groups", report.GroupCoverage.CanopyMeshGroups},
+    if (report.GroupCoverage.CanopySites > 0) {
+      near["canopy"] = {{"sites", report.GroupCoverage.CanopySites},
+                        {"mesh_groups", report.GroupCoverage.CanopyMeshGroups},
                         {"instances", report.GroupCoverage.CanopyInstances}};
     }
     const auto &groups = report.GroupCoverage;
@@ -324,6 +325,7 @@ void ReportRenderPath(const ScenarioBenchmarkReport &report, ReportJson &json) {
         {"first_refined_frame",
          stream.FirstRefinedFrame ? ReportJson(*stream.FirstRefinedFrame) : ReportJson(nullptr)},
         {"initial_tiles", report.Tiles.size()},
+        {"initial_canopy_sites", report.SurfaceStream->InitialCanopySites},
         {"refined_tiles", stream.Tiles},
         {"reused_tiles", stream.ReusedTiles},
         {"refined_triangles", stream.Triangles},

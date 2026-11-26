@@ -338,6 +338,7 @@ BenchmarkGroupCoverage DescribeGroups(const SurfaceCutLookup &cut) {
   BenchmarkGroupCoverage coverage;
   coverage.Groups = cut.Groups.size();
   coverage.RequestedBytes = cut.GroupRequestedBytes;
+  coverage.CanopySites = cut.CanopySites.size();
   coverage.CanopyMeshGroups = cut.Canopy.size();
   coverage.CanopyRequestedBytes = cut.CanopyRequestedBytes;
   for (const auto &mesh : cut.Canopy) { coverage.CanopyInstances += mesh.Near.Instances.size(); }
@@ -409,7 +410,7 @@ PrepareSurfaceReplacement(const ScenarioBenchmarkOptions &options,
                           const ScenarioBenchmarkReport &report,
                           LongitudeLatitude origin,
                           std::span<const FarPanorama> panoramas,
-                          std::span<const SurfaceTile> active,
+                          const SurfaceCutLookup &active,
                           SurfaceReadCost &cost) {
   const auto readAt = BenchmarkClock::now();
   auto cut = PrepareTiles(options, &cache, report, origin, panoramas);
@@ -418,9 +419,12 @@ PrepareSurfaceReplacement(const ScenarioBenchmarkOptions &options,
   cost.RequestedBytes = cut->RequestedBytes;
   cost.Groups = DescribeGroups(*cut);
   for (const auto &tile : cut->Products) { cost.DecodedBytes += tile.StoredBytes; }
-  const auto coverage = SurfaceCoverage(active);
+  const auto coverage = SurfaceCoverage(active.Products);
   if (!coverage || SurfaceCoverage(cut->Products) != coverage) {
     return std::unexpected("replacement surface cut changed the prepared coverage");
+  }
+  if (!std::ranges::includes(cut->CanopySites, active.CanopySites)) {
+    return std::unexpected("replacement cut lost active canopy sites");
   }
   Render::MetalPlacedCut placed;
   placed.Tiles.reserve(cut->Products.size() + cut->Canopy.size());
@@ -514,7 +518,7 @@ MeasureProducts(const ScenarioBenchmarkOptions &options,
     stream.FrameSeconds = 1.0 / report.Motion.RateHz;
     stream.Load = [&] {
       return PrepareSurfaceReplacement(
-          options, **cache, report, origin, panoramas, cut->Products, refinement);
+          options, **cache, report, origin, panoramas, *cut, refinement);
     };
   }
   auto frames =
@@ -538,6 +542,7 @@ MeasureProducts(const ScenarioBenchmarkOptions &options,
     report.SurfaceStream = {.FirstRefinedFrame = transition.FirstFrame,
                             .Tiles = transition.Tiles,
                             .ReusedTiles = transition.ReusedTiles,
+                            .InitialCanopySites = cut->CanopySites.size(),
                             .Triangles = transition.Triangles,
                             .DecodedBytes = refinement.DecodedBytes,
                             .ReadyMs = transition.ReadyMs,

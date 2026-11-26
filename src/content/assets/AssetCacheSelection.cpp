@@ -264,6 +264,10 @@ AssetCache::Select(const AssetQuery &query) const {
   if (query.Level) { sql += " AND a.level=?"; }
   if (query.Parent) { sql += " AND a.parent=?"; }
   if (query.TileRevision) { sql += " AND t.revision=?"; }
+  if (query.BoundParentOnly) {
+    sql += " AND EXISTS(SELECT 1 FROM assets p JOIN asset_requests b ON b.asset_id=p.id "
+           "WHERE p.key=a.parent)";
+  }
   auto prepared = AssetSql::Prepare(State_->Database, sql.c_str(), statement);
   if (!prepared) { return std::unexpected(prepared.error()); }
   const auto bound = BindSelection(statement.Value, query);

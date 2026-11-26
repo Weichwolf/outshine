@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_CONTENT_ASSETS_IMPOSTOR_GROUPIMPOSTORASSET_H
 #define OUTSHINE_CONTENT_ASSETS_IMPOSTOR_GROUPIMPOSTORASSET_H
 
+#include "Box.h"
 #include "CanopyMeshAsset.h"
 #include "GroupImpostorView.h"
 #include "ImpostorViewDemand.h"
@@ -51,6 +52,8 @@ struct GroupImpostorImport {
 };
 
 struct AttachedCanopyGroup {
+  std::string Key;
+  LongitudeLatitude Origin;
   std::optional<ResidentGroupImpostor> Group;
   std::optional<CanopyMesh> Near;
   size_t AvailableViews;
@@ -68,11 +71,15 @@ ImportGroupImpostor(AssetCache &cache, const GroupImpostorImport &source);
 [[nodiscard]] std::expected<GroupImpostorLookup, std::string> LoadGroupImpostor(
     const AssetCache &cache, const AssetRecord &surface, const GroupImpostorDemand &demand);
 
+struct CanopyCutDemand {
+  std::string_view Revision;
+  Box Bounds;
+  std::span<const SurfaceCoverageInterval> Ground;
+  const GroupImpostorDemand &Impostors;
+};
+
 [[nodiscard]] std::expected<AttachedCanopyLookup, std::string>
-LoadAttachedCanopy(const AssetCache &cache,
-                   const AssetRecord &surface,
-                   const GroupImpostorDemand &demand,
-                   CanopyMeshBank &bank);
+LoadCanopyCut(const AssetCache &cache, const CanopyCutDemand &demand);
 
 }
 #endif

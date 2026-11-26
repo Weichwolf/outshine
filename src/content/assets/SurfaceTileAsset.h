@@ -54,6 +54,7 @@ struct SurfaceCutLookup {
   std::vector<SurfaceTile> Products;
   std::vector<SurfaceCutGroup> Groups;
   std::vector<SurfaceCutCanopy> Canopy;
+  std::vector<std::string> CanopySites;
   size_t RequestedBytes = 0;
   size_t GroupRequestedBytes = 0;
   size_t CanopyRequestedBytes = 0;

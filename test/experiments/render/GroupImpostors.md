@@ -303,9 +303,27 @@ At A18 Pro 720p30, three paired runs with the same camera measured median
 GPU p99 of 1.98 / 4.12 ms for the flight and 1.79 / 2.96 ms for the full
 turn, with indexed meshes enabled in the second run. At the flight endpoint
 the affected groups covered 757 pixels versus 788 with cards, at 0.642
-intersection over union against the same background. Thin crown coverage,
-mesh scaling in dense forests and continuity across terrain refinement
-remain open.
+intersection over union against the same background. Thin crown coverage and
+mesh scaling in dense forests remain open.
+
+## Stable sites across terrain refinement
+
+The loader queries canopy footprints once over the swept eye domain. It checks
+the bound source version and complete quadtree ground coverage. The site uses
+its baked origin with either a covering terrain ancestor or its refined
+partition. A staged cut has to retain every active site key before activation.
+The prepared set assigns each plant to one source site.
+
+In the Körbersee card-only replay the old cut had 6 sites over 9 coarse terrain
+tiles and 14 sites over the 24 refined tiles. The new cut kept the same 14 sites
+at both stages. Comparing the eight affected sites against matching terrain
+controls gave 1,561 / 1,615 covered pixels and 0.946 IoU across the terrain switch.
+Unbinding their source tile excluded all eight while keeping the other six.
+
+Three paired A18 Pro 720p30 runs measured GPU p99 at 4.12 / 4.14 ms on the
+16 m flight and 2.99 / 2.99 ms on the 360° turn. The refined still and the motion
+endpoint PNGs were pixel-identical across versions. The refined cut activated
+at frame 1 in every motion run.
 
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
