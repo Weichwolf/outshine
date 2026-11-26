@@ -184,10 +184,18 @@ private:
     Cut_.GroupRequestedBytes += replacement->RequestedBytes;
     if (!replacement->Product) { return false; }
     auto &group = *replacement->Product;
-    Cut_.Groups.push_back({.Origin = group.Ground.Origin,
+    auto ground = std::move(group.Ground);
+    if (!ground) {
+      auto mesh = ReadRecord(Cache_, Revision_, record, Cut_.RequestedBytes);
+      if (!mesh) { return std::unexpected(mesh.error()); }
+      if (!*mesh) { return false; }
+      ground = std::move(*mesh);
+    }
+    Cut_.Groups.push_back({.Origin = ground->Origin,
                            .Group = std::move(group.Group),
-                           .AvailableViews = group.AvailableViews});
-    Cut_.Products.push_back(std::move(group.Ground));
+                           .AvailableViews = group.AvailableViews,
+                           .SurfaceIndex = Cut_.Products.size()});
+    Cut_.Products.push_back(std::move(*ground));
     return true;
   }
 

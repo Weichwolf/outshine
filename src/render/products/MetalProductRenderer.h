@@ -4,6 +4,7 @@
 #include "Mat4.h"
 #include "FarPanorama.h"
 #include "GroupImpostorView.h"
+#include "ImpostorViewDemand.h"
 #include "SurfaceTile.h"
 #include <cstddef>
 #include <cstdint>
@@ -25,7 +26,9 @@ struct MetalProductFrameSample {
   double RenderMs = 0;
   double SyncWaitMs = 0;
   std::optional<double> GpuMs;
+  size_t TileTriangles = 0;
   size_t GroupTriangles = 0;
+  size_t BlendingGroups = 0;
   bool Refined = true;
 };
 
@@ -74,6 +77,7 @@ struct PanoramaView {
 struct MetalSurface {
   const SurfaceTile &Product;
   Mat4 WorldFromTile;
+  std::optional<size_t> HandoffGroup;
 };
 
 struct MetalPlacedSurface {
@@ -94,6 +98,7 @@ struct MetalImpostorGroup {
   Mat4 WorldFromTile;
   Vec3 CentreM;
   double HalfExtentM;
+  std::optional<ImpostorDistanceRamp> Handoff;
 };
 
 struct MetalProductInputs {

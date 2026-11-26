@@ -254,8 +254,12 @@ ReportJson RenderedContent(const ScenarioBenchmarkReport &report) {
       content["mid"] = {{"groups", groups.Groups},
                         {"resident_views", groups.ResidentViews},
                         {"available_views", groups.AvailableViews},
-                        {"peak_triangles_per_frame", groups.PeakTriangles}};
-      content["peak_triangles_per_frame"] = 1 + triangles + groups.PeakTriangles;
+                        {"peak_triangles_per_frame", groups.PeakTriangles},
+                        {"handoff_groups", groups.HandoffGroups},
+                        {"blended_frames", groups.BlendedFrames},
+                        {"endpoint_triangles", groups.GroupEndpointTriangles}};
+      content["near"]["endpoint_triangles"] = groups.SurfaceEndpointTriangles;
+      content["peak_triangles_per_frame"] = 1 + groups.PeakSurfaceAndGroupTriangles;
     }
     return content;
   }

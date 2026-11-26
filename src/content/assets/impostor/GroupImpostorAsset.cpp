@@ -97,20 +97,6 @@ ImpostorEyeSweep LocalEye(const GroupImpostorManifest &manifest, const ImpostorE
   return {.Begin = local(sweep.Begin), .End = local(sweep.End)};
 }
 
-double DistanceToSweep(const ImpostorEyeSweep &eye) {
-  const auto segment = eye.End - eye.Begin;
-  const double squared = Dot(segment, segment);
-  const double t = squared > 0 ? std::clamp(-Dot(eye.Begin, segment) / squared, 0.0, 1.0) : 0;
-  return Length(eye.Begin + segment * t);
-}
-
-bool FitsProjection(const GroupImpostorManifest &group, const ImpostorEyeSweep &eye, double focal) {
-  constexpr double kMaxProjectedTexelPx = 1.0;
-  const double clear = DistanceToSweep(eye) - std::numbers::sqrt3 * group.HalfExtentM;
-  const double texel = 2.0 * group.HalfExtentM / group.Side;
-  return clear > 0 && focal > 0 && texel * focal <= clear * kMaxProjectedTexelPx;
-}
-
 size_t OverlayBytes(const SurfaceTile &surface) {
   const size_t ground = static_cast<size_t>(surface.GridSide) * surface.GridSide;
   if (ground == 0 || ground >= surface.Vertices.size() ||
@@ -277,15 +263,21 @@ std::expected<GroupImpostorLookup, std::string> LoadGroupImpostor(
   }
   const auto meshBytes = json["overlay_bytes"].get<size_t>();
   if (meshBytes == 0 || meshBytes >= surface.ByteCount) { return result; }
+  if (demand.FocalPixels <= 0) { return result; }
   const auto eye = LocalEye(*manifest, demand.EyeEcef);
-  if (!FitsProjection(*manifest, eye, demand.FocalPixels)) { return result; }
+  const auto ramp =
+      ImpostorProjectionRamp(manifest->HalfExtentM, manifest->Side, demand.FocalPixels);
+  const auto mode = ClassifyImpostorSweep(eye, ramp);
+  if (mode == ImpostorDistanceMode::Geometry) { return result; }
   const auto needed = SelectImpostorDirections(manifest->Directions, eye);
   if (needed.size() < 2) { return result; }
   const auto records = ReadViewRecords(cache, json["card_assets"], needed, meshBytes);
   if (!records) { return std::unexpected(records.error()); }
   if (records->empty()) { return result; }
-  ResidentGroupImpostor group{
-      .CentreM = manifest->CentreM, .HalfExtentM = manifest->HalfExtentM, .Views = {}};
+  ResidentGroupImpostor group{.CentreM = manifest->CentreM,
+                              .HalfExtentM = manifest->HalfExtentM,
+                              .Views = {},
+                              .Handoff = {}};
   group.Views.reserve(needed.size());
   for (size_t at = 0; at < records->size(); ++at) {
     const auto &record = (*records)[at];
@@ -297,10 +289,16 @@ std::expected<GroupImpostorLookup, std::string> LoadGroupImpostor(
     if (!view || !MatchesView(*view, *manifest, needed[at])) { return result; }
     group.Views.push_back(std::move(*view));
   }
-  auto terrain = ReadGround(cache, json["ground_asset"], *manifest, result.RequestedBytes);
-  if (!terrain) { return std::unexpected(terrain.error()); }
-  if (!*terrain) { return result; }
-  result.Product = GroupImpostorSurface{.Ground = std::move(**terrain),
+  std::optional<SurfaceTile> ground;
+  if (mode == ImpostorDistanceMode::Handoff) {
+    group.Handoff = ramp;
+  } else {
+    auto terrain = ReadGround(cache, json["ground_asset"], *manifest, result.RequestedBytes);
+    if (!terrain) { return std::unexpected(terrain.error()); }
+    if (!*terrain) { return result; }
+    ground = std::move(*terrain);
+  }
+  result.Product = GroupImpostorSurface{.Ground = std::move(ground),
                                         .Group = std::move(group),
                                         .AvailableViews = manifest->Directions.size()};
   return result;

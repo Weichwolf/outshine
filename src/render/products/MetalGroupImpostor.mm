@@ -66,8 +66,11 @@ UploadMetalGroup(id<MTLDevice> device, const MetalImpostorGroup &group, size_t &
   if (group.HalfExtentM <= 0 || !std::isfinite(group.HalfExtentM) || group.Views.size() < 2) {
     return std::unexpected("invalid group impostor bound or direction count");
   }
-  GroupResources result{
-      .Views = {}, .WorldFromTile = group.WorldFromTile, .CentreM = group.CentreM, .Light = {}};
+  GroupResources result{.Views = {},
+                        .WorldFromTile = group.WorldFromTile,
+                        .CentreM = group.CentreM,
+                        .Light = {},
+                        .Handoff = group.Handoff};
   result.Views.reserve(group.Views.size());
   for (const auto &view : group.Views) {
     const auto basis = ImpostorViewFrame::From(view.TowardEye);

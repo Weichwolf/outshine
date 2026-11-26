@@ -49,7 +49,10 @@ float4 groupColour(GroupVaryings in, constant SurfaceLight &light,
   constexpr sampler normalSampler(coord::normalized, address::clamp_to_edge,
                                    filter::nearest, mip_filter::nearest);
   const float4 alphaColour = colours.sample(colourSampler, in.uv);
-  if (alphaColour.a < 0.5) { discard_fragment(); }
+  const float weight = light.eyeAndImpostorWeight.w;
+  if (alphaColour.a < 0.5 || (weight < 1.0 && lodNoise(in.position.xy) >= weight)) {
+    discard_fragment();
+  }
   const float3 normal = groupNormal(normals.sample(normalSampler, in.uv).xy);
   const half3 albedo = half3(alphaColour.rgb / alphaColour.a);
   const Varyings surface = {in.position, in.localPosition, normal, half4(albedo, 1.0h), Overlay};

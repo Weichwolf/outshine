@@ -156,12 +156,13 @@ int main(int argc, const char *const *argv) {
   auto ground = *surface;
   if (!RetainSurfaceGround(ground)) { return 1; }
   const auto view = Flight(group.CentreM, path);
-  const MetalSurface full{.Product = *surface, .WorldFromTile = {}};
-  const MetalSurface base{.Product = ground, .WorldFromTile = {}};
+  const MetalSurface full{.Product = *surface, .WorldFromTile = {}, .HandoffGroup = {}};
+  const MetalSurface base{.Product = ground, .WorldFromTile = {}, .HandoffGroup = {}};
   const MetalImpostorGroup proxy{.Views = group.Views,
                                  .WorldFromTile = {},
                                  .CentreM = group.CentreM,
-                                 .HalfExtentM = group.HalfExtentM};
+                                 .HalfExtentM = group.HalfExtentM,
+                                 .Handoff = {}};
   return Trial("geometry",
                {.Tiles = std::span(&full, 1), .Panoramas = {}, .Groups = {}},
                view,

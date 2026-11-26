@@ -26,10 +26,11 @@ struct ResidentGroupImpostor {
   Vec3 CentreM;
   double HalfExtentM;
   std::vector<GroupImpostorView> Views;
+  std::optional<ImpostorDistanceRamp> Handoff;
 };
 
 struct GroupImpostorSurface {
-  SurfaceTile Ground;
+  std::optional<SurfaceTile> Ground;
   ResidentGroupImpostor Group;
   size_t AvailableViews;
 };

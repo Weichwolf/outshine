@@ -41,6 +41,7 @@ struct SurfaceCutGroup {
   LongitudeLatitude Origin;
   ResidentGroupImpostor Group;
   size_t AvailableViews;
+  size_t SurfaceIndex;
 };
 
 struct SurfaceCutLookup {

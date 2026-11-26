@@ -3,6 +3,7 @@
 
 #include "Vec3.h"
 #include <cstddef>
+#include <cstdint>
 #include <span>
 #include <vector>
 
@@ -12,6 +13,20 @@ struct ImpostorEyeSweep {
   Vec3 Begin;
   Vec3 End;
 };
+
+struct ImpostorDistanceRamp {
+  double BeginM;
+  double EndM;
+
+  [[nodiscard]] float Weight(double distanceM) const;
+};
+
+enum class ImpostorDistanceMode { Geometry, Handoff, Impostor };
+
+[[nodiscard]] ImpostorDistanceRamp
+ImpostorProjectionRamp(double halfExtentM, uint32_t side, double focalPixels);
+[[nodiscard]] ImpostorDistanceMode ClassifyImpostorSweep(const ImpostorEyeSweep &eye,
+                                                         const ImpostorDistanceRamp &ramp);
 
 [[nodiscard]] std::vector<size_t> SelectImpostorDirections(std::span<const Vec3> directions,
                                                            const ImpostorEyeSweep &eye);

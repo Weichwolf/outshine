@@ -102,7 +102,26 @@ and replacing their overlays before upload.
 The prepared surface fixture covers a limited footprint and leaves surrounding
 buildings missing in the clipped near region in both variants. This run checks
 independent view residency, shared scene depth and retained silhouettes. Full
-city coverage and near-to-mid switching during movement remain open.
+city coverage remains open.
+
+## Near-to-mid handoff
+
+Admission starts at one projected texel using distance to a conservative group
+bound. A cubic ramp completes at 0.985 projected pixels. Crossing sweeps retain
+the full tile and selected cards. Complementary screen-space masks share the
+same depth test, so coincident coverage survives while the actual occluder in
+each pixel supplies depth. Full group weight submits only the terrain indices
+from the tile. Only the cards and separate ground are loaded for an entirely
+mid-distance sweep.
+
+At 720p30, a 36 m Tokyo flight with a 43.29° vertical field of view crossed a
+20.1 m band around one of the two groups. The frame report showed 71 blended
+frames in either direction. Near and group submissions combined fell from
+101,664 to 93,470 triangles while retreating, with 103,478 at peak overlap,
+plus one panorama triangle in each case. The three-run median GPU p99 for
+geometry and groups was 3.91 / 3.90 ms while retreating and 4.07 / 1.96 ms
+while approaching. The two directions give different timing gains. Inspected
+snapshots preserve the block outline with small roof and facade differences.
 
 Compositing the single spruce captures at the 25 roots reaches 82% median and
 64% worst coverage overlap against the direct stand captures. One native bake of

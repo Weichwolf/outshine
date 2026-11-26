@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
+#include <numbers>
 #include <span>
 #include <utility>
 #include <vector>
@@ -53,6 +55,33 @@ void AdmitPair(std::span<const DirectionScore> scores,
   }
 }
 
+}
+
+float ImpostorDistanceRamp::Weight(double distanceM) const {
+  const double t = std::clamp((distanceM - BeginM) / (EndM - BeginM), 0.0, 1.0);
+  return static_cast<float>(t * t * (3.0 - 2.0 * t));
+}
+
+ImpostorDistanceRamp ImpostorProjectionRamp(double halfExtentM, uint32_t side, double focalPixels) {
+  constexpr double peakTexelPx = 1.0;
+  constexpr double fadedTexelPx = 0.985;
+  const double extent = std::numbers::sqrt3 * halfExtentM;
+  const double pixelsAtOneMetre = 2.0 * halfExtentM * focalPixels / side;
+  return {.BeginM = extent + pixelsAtOneMetre / peakTexelPx,
+          .EndM = extent + pixelsAtOneMetre / fadedTexelPx};
+}
+
+ImpostorDistanceMode ClassifyImpostorSweep(const ImpostorEyeSweep &eye,
+                                           const ImpostorDistanceRamp &ramp) {
+  if (std::max(Dot(eye.Begin, eye.Begin), Dot(eye.End, eye.End)) <= ramp.BeginM * ramp.BeginM) {
+    return ImpostorDistanceMode::Geometry;
+  }
+  const auto segment = eye.End - eye.Begin;
+  const double length2 = Dot(segment, segment);
+  const double t = length2 > 0 ? std::clamp(-Dot(eye.Begin, segment) / length2, 0.0, 1.0) : 0;
+  const auto nearest = eye.Begin + segment * t;
+  return Dot(nearest, nearest) >= ramp.EndM * ramp.EndM ? ImpostorDistanceMode::Impostor
+                                                        : ImpostorDistanceMode::Handoff;
 }
 
 std::vector<size_t> SelectImpostorDirections(std::span<const Vec3> directions,

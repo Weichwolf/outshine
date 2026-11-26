@@ -2,11 +2,13 @@
 #define OUTSHINE_RENDER_PRODUCTS_METALGROUPIMPOSTOR_H
 
 #include "Mat4.h"
+#include "ImpostorViewDemand.h"
 #include "Vec3.h"
 #import <Metal/Metal.h>
 #include <array>
 #include <cstddef>
 #include <expected>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -29,6 +31,7 @@ struct GroupResources {
   Mat4 WorldFromTile;
   Vec3 CentreM;
   std::array<float, 16> Light;
+  std::optional<ImpostorDistanceRamp> Handoff;
 };
 
 [[nodiscard]] std::expected<GroupResources, std::string>

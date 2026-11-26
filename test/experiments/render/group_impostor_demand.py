@@ -19,6 +19,37 @@ def needed_views(directions, eye_start, eye_end):
     return np.unique(chosen)
 
 
+def projection_ramp(half_extent, texels, focal):
+    bound = np.sqrt(3.) * half_extent
+    clear_distance = 2. * half_extent * focal / texels
+    return bound + clear_distance, bound + clear_distance / .985
+
+
+def impostor_weight(distance, ramp):
+    a, b = ramp
+    weight = np.clip((distance - a) / (b - a), 0., 1.)
+    return weight * weight * (3. - 2. * weight)
+
+
+def validate_handoff():
+    ramp = projection_ramp(94., 128, 880.)
+    delta = ramp[1] - ramp[0]
+    retreat = np.linspace(ramp[0] - delta, ramp[1] + delta, 120)
+    weights = impostor_weight(retreat, ramp)
+    np.testing.assert_allclose(impostor_weight(retreat[::-1], ramp)[::-1], weights)
+    assert weights[0] == 0. and weights[-1] == 1.
+    assert np.all(np.diff(weights) >= 0.)
+    grid = np.indices((256, 256), dtype=np.float32)
+    noise = np.mod(np.float32(52.9829189) * np.mod(
+        grid[1] * np.float32(.06711056) + grid[0] * np.float32(.00583715), 1.), 1.)
+    for target in (.1, .25, .5, .75, .9):
+        group = noise < target
+        mesh = noise >= target
+        assert np.count_nonzero(group ^ mesh) == noise.size
+        assert abs(np.mean(group) - target) < .005
+    print(f"complementary masks through a {delta:.1f} m handoff band")
+
+
 def validate():
     ring = np.linspace(0., 2 * np.pi, 12, endpoint=False)
     directions = np.stack((np.cos(ring), np.zeros(len(ring)), np.sin(ring)), axis=1)
@@ -43,3 +74,4 @@ def validate():
 
 if __name__ == "__main__":
     validate()
+    validate_handoff()

@@ -97,10 +97,19 @@ void CaptureProductSamples(ScenarioBenchmarkReport &report,
   report.GpuTiming.RenderedFrames = static_cast<double>(frames.Samples.size());
   report.Frames.reserve(frames.Samples.size());
   report.GpuSamples.reserve(frames.Samples.size());
+  auto &group = report.GroupCoverage;
+  if (!frames.Samples.empty()) {
+    group.SurfaceEndpointTriangles = {frames.Samples.front().TileTriangles,
+                                      frames.Samples.back().TileTriangles};
+    group.GroupEndpointTriangles = {frames.Samples.front().GroupTriangles,
+                                    frames.Samples.back().GroupTriangles};
+  }
   for (size_t frame = 0; frame < frames.Samples.size(); ++frame) {
     const auto &sample = frames.Samples[frame];
-    report.GroupCoverage.PeakTriangles =
-        std::max(report.GroupCoverage.PeakTriangles, sample.GroupTriangles);
+    group.PeakTriangles = std::max(group.PeakTriangles, sample.GroupTriangles);
+    group.PeakSurfaceAndGroupTriangles =
+        std::max(group.PeakSurfaceAndGroupTriangles, sample.TileTriangles + sample.GroupTriangles);
+    if (sample.BlendingGroups > 0) { ++group.BlendedFrames; }
     report.Frames.push_back({.WallMs = sample.WallMs,
                              .RenderMs = sample.RenderMs,
                              .SyncWaitMs = sample.SyncWaitMs,
@@ -315,7 +324,8 @@ PlaceTiles(const SurfaceCutLookup &cut, ScenarioBenchmarkReport &report, Longitu
   report.TileRequestedBytes = cut.RequestedBytes;
   report.Tiles.reserve(cut.Products.size());
   for (const auto &tile : cut.Products) {
-    placed.push_back({.Product = tile, .WorldFromTile = TilePlacement(tile.Origin, world)});
+    placed.push_back(
+        {.Product = tile, .WorldFromTile = TilePlacement(tile.Origin, world), .HandoffGroup = {}});
     report.Tiles.push_back(
         {.Address = {static_cast<uint32_t>(tile.Coverage.Zoom), tile.Coverage.X, tile.Coverage.Y},
          .OriginLonLat = {tile.Origin.LongitudeDeg, tile.Origin.LatitudeDeg},
@@ -324,6 +334,10 @@ PlaceTiles(const SurfaceCutLookup &cut, ScenarioBenchmarkReport &report, Longitu
          .OverlayTriangles = (tile.Indices.size() - tile.GroundIndices) / 3,
          .GeometricErrorM = tile.GeometricErrorM,
          .StoredBytes = tile.StoredBytes});
+  }
+  for (size_t at = 0; at < cut.Groups.size(); ++at) {
+    const auto &group = cut.Groups[at];
+    if (group.Group.Handoff) { placed[group.SurfaceIndex].HandoffGroup = at; }
   }
   return placed;
 }
@@ -340,10 +354,12 @@ std::vector<Render::MetalImpostorGroup> PlaceGroups(const SurfaceCutLookup &cut,
   for (const auto &group : cut.Groups) {
     coverage.AvailableViews += group.AvailableViews;
     coverage.ResidentViews += group.Group.Views.size();
+    if (group.Group.Handoff) { ++coverage.HandoffGroups; }
     placed.push_back({.Views = group.Group.Views,
                       .WorldFromTile = TilePlacement(group.Origin, world),
                       .CentreM = group.Group.CentreM,
-                      .HalfExtentM = group.Group.HalfExtentM});
+                      .HalfExtentM = group.Group.HalfExtentM,
+                      .Handoff = group.Group.Handoff});
   }
   return placed;
 }

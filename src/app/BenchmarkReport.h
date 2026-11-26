@@ -70,6 +70,11 @@ struct BenchmarkGroupCoverage {
   size_t ResidentViews = 0;
   size_t AvailableViews = 0;
   size_t PeakTriangles = 0;
+  size_t PeakSurfaceAndGroupTriangles = 0;
+  size_t HandoffGroups = 0;
+  size_t BlendedFrames = 0;
+  std::array<size_t, 2> SurfaceEndpointTriangles{};
+  std::array<size_t, 2> GroupEndpointTriangles{};
   size_t RequestedBytes = 0;
 };
 

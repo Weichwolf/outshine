@@ -26,7 +26,7 @@ using SurfaceColourRanges = std::array<uint32_t, 4>;
 
 struct SurfaceShadingUniform {
   SurfaceLightUniform Light;
-  std::array<float, 4> EyeM;
+  std::array<float, 4> EyeAndImpostorWeight;
 };
 
 static_assert(sizeof(SurfaceVertex) == 6 * sizeof(float) &&
@@ -35,7 +35,8 @@ static_assert(sizeof(SurfaceVertex) == 6 * sizeof(float) &&
 static_assert(sizeof(ClipMatrix) == 64 && sizeof(uint32_t) == 4);
 static_assert(sizeof(SurfaceColour) == 4);
 static_assert(sizeof(SurfaceShadingUniform) == kSurfaceShadingBytes &&
-              offsetof(SurfaceShadingUniform, EyeM) == 64 && sizeof(SurfaceColourRanges) == 16);
+              offsetof(SurfaceShadingUniform, EyeAndImpostorWeight) == 64 &&
+              sizeof(SurfaceColourRanges) == 16);
 NSString *const kShader = @R"(
 #include <metal_stdlib>
 using namespace metal;
@@ -55,7 +56,7 @@ struct SurfaceLight {
   float4 direct;
   float4 sky;
   float4 ground;
-  float4 eyeM;
+  float4 eyeAndImpostorWeight;
 };
 enum SurfaceMaterial : uint { Fallback, Preview, TerrainMaterial, Overlay };
 vertex Varyings tile_vertex(uint index [[vertex_id]],
@@ -79,7 +80,7 @@ float3 groundRadiance(Varyings in, float3 normal, constant SurfaceLight &light, 
   constexpr float f0 = 0.04;
   const float nl = saturate(dot(normal, light.sun.xyz));
   if (nl <= 0.0) { return (1.0 - f0) * albedo * ambient; }
-  const float3 toEye = light.eyeM.xyz - in.localPosition;
+  const float3 toEye = light.eyeAndImpostorWeight.xyz - in.localPosition;
   const float3 view = toEye * rsqrt(max(dot(toEye, toEye), 1e-12));
   const float3 axis = light.sun.xyz + view;
   const float3 halfway = axis * rsqrt(max(dot(axis, axis), 1e-12));
@@ -115,8 +116,18 @@ float4 tileColour(Varyings in, constant SurfaceLight &light) {
       mix(float3(0.26, 0.22, 0.17), float3(0.13, 0.20, 0.10), smoothstep(0.45, 0.92, normal.y));
   return float4(diffuse * reflectance, 1.0);
 }
+float lodNoise(float2 pixel) {
+  return fract(52.9829189 * fract(dot(floor(pixel), float2(0.06711056, 0.00583715))));
+}
+void keepTileFragment(Varyings in, constant SurfaceLight &light) {
+  const float weight = light.eyeAndImpostorWeight.w;
+  if (in.material == Overlay && weight > 0.0 && lodNoise(in.position.xy) < weight) {
+    discard_fragment();
+  }
+}
 fragment float4 tile_fragment(Varyings in [[stage_in]],
                               constant SurfaceLight &light [[buffer(0)]]) {
+  keepTileFragment(in, light);
   return tileColour(in, light);
 }
 struct TileFragment {
@@ -125,6 +136,7 @@ struct TileFragment {
 };
 fragment TileFragment tile_composite_fragment(Varyings in [[stage_in]],
                                                constant SurfaceLight &light [[buffer(0)]]) {
+  keepTileFragment(in, light);
   return {tileColour(in, light), in.position.z};
 }
 struct PanoramaUniform {
@@ -450,6 +462,8 @@ struct TileMesh {
   id<MTLBuffer> Indices = nil;
   id<MTLBuffer> Colours = nil;
   size_t IndexCount = 0;
+  size_t GroundIndexCount = 0;
+  std::optional<size_t> HandoffGroup;
   SurfaceColourRanges ColourRanges{};
   SurfaceLightUniform Light{};
   Mat4 WorldFromTile;
@@ -465,22 +479,24 @@ Vec3f TileDirection(const Mat4 &placement, const Vec3 &direction) {
   return {{component(0), component(1), component(2)}};
 }
 
-SurfaceShadingUniform FrameShading(const TileMesh &mesh, const Vec3 &eye) {
-  SurfaceShadingUniform shading{.Light = mesh.Light, .EyeM = {}};
+SurfaceShadingUniform FrameShading(const TileMesh &mesh, const Vec3 &eye, float weight) {
+  SurfaceShadingUniform shading{.Light = mesh.Light, .EyeAndImpostorWeight = {0, 0, 0, weight}};
   if (mesh.ColourRanges[2] == 0 && mesh.Light[3] > 0) {
     const auto &p = mesh.WorldFromTile;
     const auto local = TileDirection(p, eye - Vec3{{p[12], p[13], p[14]}});
-    shading.EyeM = {local[0], local[1], local[2], 0};
+    shading.EyeAndImpostorWeight = {local[0], local[1], local[2], weight};
   }
   return shading;
 }
 
-void DrawTile(id<MTLRenderCommandEncoder> draw,
-              const ProductPipeline &pipeline,
-              const TileMesh &mesh,
-              const ClipMatrix &clip,
-              const Vec3 &eye) {
-  const auto shading = FrameShading(mesh, eye);
+size_t DrawTile(id<MTLRenderCommandEncoder> draw,
+                const ProductPipeline &pipeline,
+                const TileMesh &mesh,
+                const ClipMatrix &clip,
+                const Vec3 &eye,
+                float weight) {
+  const auto shading = FrameShading(mesh, eye, weight);
+  const size_t indexCount = weight >= 1.0f ? mesh.GroundIndexCount : mesh.IndexCount;
   [draw setRenderPipelineState:pipeline.Draw];
   [draw setDepthStencilState:pipeline.Depth];
   [draw setVertexBuffer:mesh.Vertices offset:0 atIndex:0];
@@ -489,10 +505,11 @@ void DrawTile(id<MTLRenderCommandEncoder> draw,
   [draw setVertexBytes:mesh.ColourRanges.data() length:sizeof(mesh.ColourRanges) atIndex:3];
   [draw setFragmentBytes:&shading length:sizeof(shading) atIndex:0];
   [draw drawIndexedPrimitives:MTLPrimitiveTypeTriangle
-                   indexCount:mesh.IndexCount
+                   indexCount:indexCount
                     indexType:MTLIndexTypeUInt32
                   indexBuffer:mesh.Indices
             indexBufferOffset:0];
+  return indexCount / 3;
 }
 
 std::expected<std::optional<double>, std::string> RetireFrame(id<MTLCommandBuffer> command) {
@@ -696,6 +713,8 @@ std::expected<TileMesh, std::string> UploadTile(id<MTLDevice> device,
                                                      length:colours.size()
                                                     options:MTLResourceStorageModeShared],
                 .IndexCount = tile.Product.Indices.size(),
+                .GroundIndexCount = tile.Product.GroundIndices,
+                .HandoffGroup = tile.HandoffGroup,
                 .ColourRanges = {firstColour, firstOverlay, firstLit, 0},
                 .Light = PackLight(tile.WorldFromTile, firstLit < count ? light : nullptr),
                 .WorldFromTile = tile.WorldFromTile};
@@ -712,6 +731,9 @@ std::expected<ProductResources, std::string> UploadProducts(id<MTLDevice> device
   ProductResources resources;
   resources.Meshes.reserve(products.Tiles.size());
   for (const auto &tile : products.Tiles) {
+    if (tile.HandoffGroup && *tile.HandoffGroup >= products.Groups.size()) {
+      return std::unexpected("surface handoff references an unavailable group");
+    }
     const auto mesh = UploadTile(device, tile, light, resources.Bytes);
     if (!mesh) { return std::unexpected(mesh.error()); }
     resources.Meshes.push_back(*mesh);
@@ -782,10 +804,11 @@ PreparedSurfaceReplacement PrepareReplacement(id<MTLDevice> device,
         prepared.Meshes.push_back(resident[static_cast<size_t>(same - active.begin())]);
         ++prepared.Transition.ReusedTiles;
       } else {
-        auto mesh = UploadTile(device,
-                               {.Product = tile.Product, .WorldFromTile = tile.WorldFromTile},
-                               light,
-                               prepared.Bytes);
+        auto mesh = UploadTile(
+            device,
+            {.Product = tile.Product, .WorldFromTile = tile.WorldFromTile, .HandoffGroup = {}},
+            light,
+            prepared.Bytes);
         if (!mesh) {
           prepared.Transition.Error = mesh.error();
           return prepared;
@@ -806,6 +829,12 @@ void RecordReplacement(PreparedSurfaceReplacement &replacement, MetalProductFram
   frames.Transition = std::move(replacement.Transition);
 }
 
+float GroupWeight(const GroupResources &group, const Vec3 &eye) {
+  if (!group.Handoff) { return 1.0f; }
+  const auto centre = group.WorldFromTile.TransformPoint(group.CentreM);
+  return group.Handoff->Weight(Length(eye - centre));
+}
+
 std::expected<id<MTLCommandBuffer>, std::string> SubmitProducts(const ProductPass &pass,
                                                                 const ProductResources &resources,
                                                                 const MetalProductView &view,
@@ -820,13 +849,18 @@ std::expected<id<MTLCommandBuffer>, std::string> SubmitProducts(const ProductPas
         [draw endEncoding];
         return std::unexpected(clip.error());
       }
-      DrawTile(draw, pass.Tile, mesh, *clip, view.EyeM);
+      const float weight =
+          mesh.HandoffGroup ? GroupWeight(resources.Groups[*mesh.HandoffGroup], view.EyeM) : 0;
+      sample.TileTriangles += DrawTile(draw, pass.Tile, mesh, *clip, view.EyeM, weight);
     }
     if (pass.Group.Draw != nil) {
       [draw setRenderPipelineState:pass.Group.Draw];
       [draw setDepthStencilState:pass.Group.Depth];
     }
     for (const auto &group : resources.Groups) {
+      const float weight = GroupWeight(group, view.EyeM);
+      if (weight <= 0.0f) { continue; }
+      if (weight < 1.0f) { ++sample.BlendingGroups; }
       const auto clip = MetalClip(view.ClipFromWorld * group.WorldFromTile);
       if (!clip) {
         [draw endEncoding];
@@ -834,8 +868,8 @@ std::expected<id<MTLCommandBuffer>, std::string> SubmitProducts(const ProductPas
       }
       const auto &p = group.WorldFromTile;
       const auto local = TileDirection(p, view.EyeM - Vec3{{p[12], p[13], p[14]}});
-      const SurfaceShadingUniform shading{.Light = group.Light,
-                                          .EyeM = {local[0], local[1], local[2], 0}};
+      const SurfaceShadingUniform shading{
+          .Light = group.Light, .EyeAndImpostorWeight = {local[0], local[1], local[2], weight}};
       [draw setVertexBytes:clip->data() length:sizeof(*clip) atIndex:1];
       [draw setFragmentBytes:&shading length:sizeof(shading) atIndex:0];
       sample.GroupTriangles += EncodeMetalGroup(draw, group, {{local[0], local[1], local[2]}});
