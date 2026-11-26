@@ -19,10 +19,14 @@ def pack(tile):
     if tile["version"] != 1 or len(revision) != 64 or len(positions) != len(normals):
         raise ValueError("invalid version-one surface tile")
     minimum, maximum = tile["bounds_eus_m"]
+    grid_side = tile.get("grid_side", 0)
     payload = bytearray(HEADER.pack(
-        b"OUTSHST1", *tile["coverage"], *tile["origin_lon_lat"], revision, *minimum, *maximum,
+        b"OUTSHST2" if grid_side else b"OUTSHST1",
+        *tile["coverage"], *tile["origin_lon_lat"], revision, *minimum, *maximum,
         tile["geometric_error_m"], len(positions), len(indices),
     ))
+    if grid_side:
+        payload += INDEX.pack(grid_side)
     for position, normal in zip(positions, normals):
         payload += VERTEX.pack(*position, *normal)
     for index in indices:

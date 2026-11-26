@@ -24,7 +24,7 @@ struct SurfaceTile {
   static constexpr size_t MaximumVertices = 65536;
   static constexpr size_t MaximumIndices = 6 * MaximumVertices;
   static constexpr size_t MaximumPackedBytes =
-      164 + 6 * sizeof(float) * MaximumVertices + sizeof(uint32_t) * MaximumIndices;
+      168 + 6 * sizeof(float) * MaximumVertices + sizeof(uint32_t) * MaximumIndices;
 
   Data::TileId Coverage;
   LongitudeLatitude Origin;
@@ -33,6 +33,7 @@ struct SurfaceTile {
   Vec3 MinimumM;
   Vec3 MaximumM;
   double GeometricErrorM = 0;
+  uint32_t GridSide = 0;
   std::vector<SurfaceVertex> Vertices;
   std::vector<uint32_t> Indices;
 };

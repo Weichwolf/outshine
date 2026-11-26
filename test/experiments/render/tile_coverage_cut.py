@@ -7,6 +7,10 @@ def children(tile):
     level, x, y = tile
     return tuple((level + 1, 2 * x + dx, 2 * y + dy) for dy in (0, 1) for dx in (0, 1))
 
+def edge_coordinate(fine_cell, level_gap, sample, segments):
+    scale = 1 << level_gap
+    return ((fine_cell % scale) * segments + sample) / scale
+
 
 def complete_tiles(ready):
     """Certify a cell from its resident product or the union of its four quadrants."""

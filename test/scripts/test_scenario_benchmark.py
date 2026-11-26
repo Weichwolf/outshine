@@ -476,7 +476,7 @@ class ScenarioBenchmark(unittest.TestCase):
                 source = root / f'{identity}.json'
                 packed = root / f'{identity}.surface'
                 source.write_text(json.dumps({
-                    'version': 1, 'coverage': address, 'origin_lon_lat': [0, 0],
+                    'version': 1, 'grid_side': 2, 'coverage': address, 'origin_lon_lat': [0, 0],
                     'revision': identity * 64, 'bounds_eus_m': [[-10, 90, -5], [10, 110, -5]],
                     'geometric_error_m': 1,
                     'vertices_eus_m': [[-10, 90, -5], [10, 90, -5], [10, 110, -5], [-10, 110, -5]],
@@ -542,8 +542,8 @@ class ScenarioBenchmark(unittest.TestCase):
                 path.write_text(json.dumps({
                     'version': 1, 'coverage': address, 'origin_lon_lat': [0, 0],
                     'revision': '1' * 64, 'geometric_error_m': 10, 'bounds_eus_m': bounds,
-                    'vertices_eus_m': [bounds[0], [xmax, ymin, -4], bounds[1], [xmin, ymax, -4]],
-                    'normals_eus': [[0, 0, 1]] * 4, 'indices': [0, 1, 2, 0, 2, 3],
+                    'vertices_eus_m': [bounds[0], [xmax, ymin, -4], [xmin, ymax, -4], bounds[1]],
+                    'normals_eus': [[0, 0, 1]] * 4, 'indices': [0, 1, 3, 0, 3, 2],
                 }))
                 subprocess.run([sys.executable, '-B',
                                 str(ROOT / 'test/experiments/render/pack_surface_tile.py'),

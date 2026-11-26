@@ -2,6 +2,7 @@
 #include "AssetCache.h"
 #include "AssetPublication.h"
 #include "Sha256.h"
+#include "SurfaceTileStitch.h"
 #include "TangentFrame.h"
 #include "TileGeodesy.h"
 #include <algorithm>
@@ -242,7 +243,9 @@ LoadSurfaceCut(AssetCache &cache, std::string_view revision, const SurfaceCutDem
        .BoundTilesOnly = true});
   if (!records) { return std::unexpected("surface cut index query failed"); }
   std::ranges::sort(*records, {}, &AssetRecord::RequestKey);
-  return CutLoader(cache, revision, demand).Load(*records);
+  auto cut = CutLoader(cache, revision, demand).Load(*records);
+  if (cut) { StitchSurfaceTiles(cut->Products); }
+  return cut;
 }
 
 }
