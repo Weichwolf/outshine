@@ -7,7 +7,6 @@ from pathlib import Path
 from time import perf_counter
 
 import numpy as np
-
 from far_cubemap import DOWN, FORWARD, from_device_depth
 
 FACES = ("px", "nx", "py", "ny", "pz", "nz")
@@ -21,6 +20,19 @@ def attachment(path, shape):
     if not np.isfinite(values).all():
         raise ValueError(f"{path}: nonfinite pixel")
     return values
+
+
+def write_product(output, product, colour, depth):
+    product.pop("revision", None)
+    product["opaque_texels"] = [int(np.count_nonzero(face)) for face in depth]
+    revision = hashlib.sha256(json.dumps(product, sort_keys=True).encode("utf-8"))
+    revision.update(colour)
+    revision.update(depth)
+    product["revision"] = revision.hexdigest()
+    output.mkdir()
+    colour.tofile(output / "colour.rgba16f")
+    depth.tofile(output / "depth.r32f")
+    (output / "panorama.json").write_text(json.dumps(product, indent=2, allow_nan=False) + "\n")
 
 
 def pack(capture, output, exposure=None, translation_m=0, overlap_end_m=None):
@@ -53,7 +65,8 @@ def pack(capture, output, exposure=None, translation_m=0, overlap_end_m=None):
         colour[index, ..., 3] = covered
 
     if exposure is None:
-        luminance = colour[..., :3].astype(np.float32) @ [0.2126, 0.7152, 0.0722]
+        luminance = np.sum(colour[..., :3].astype(np.float32) * [0.2126, 0.7152, 0.0722],
+                           axis=-1)
         metered = float(np.median(luminance))
         exposure = .18 / metered if metered > 0 else 1.0
     if not np.isfinite(exposure) or exposure <= 0:
@@ -73,7 +86,6 @@ def pack(capture, output, exposure=None, translation_m=0, overlap_end_m=None):
         "depth_encoding": "r32f_radial_metres_le_zero_without_geometry",
         "colour_bytes": colour.nbytes,
         "depth_bytes": depth.nbytes,
-        "opaque_texels": [int(np.count_nonzero(face)) for face in depth],
         "declaration_sha256": manifest["declaration_sha256"],
         "source_declarations": manifest["source_declarations"],
     }
@@ -85,15 +97,7 @@ def pack(capture, output, exposure=None, translation_m=0, overlap_end_m=None):
             **{channel: [value * exposure for value in light[channel]]
                for channel in ("direct", "sky", "ground")},
         }
-    revision = hashlib.sha256(json.dumps(product, sort_keys=True).encode("utf-8"))
-    revision.update(colour)
-    revision.update(depth)
-    product["revision"] = revision.hexdigest()
-
-    output.mkdir()
-    colour.tofile(output / "colour.rgba16f")
-    depth.tofile(output / "depth.r32f")
-    (output / "panorama.json").write_text(json.dumps(product, indent=2, allow_nan=False) + "\n")
+    write_product(output, product, colour, depth)
     print(json.dumps({
         "revision": product["revision"],
         "package_bytes": colour.nbytes + depth.nbytes,
