@@ -154,16 +154,21 @@ def view_package(store, key):
     return canopy_package(store, key, "render-group-impostor-view-v1", 32 * 1024**2)
 
 
+def card_side(manifest, view):
+    return manifest["card_sides"][view] if "card_sides" in manifest else manifest["card_side"]
+
+
 def outside_overlap(store, manifest, centre, rotation, panorama):
     axis = np.argmax(np.abs(centre))
     sign = np.sign(centre[axis])
-    half, side = manifest["half_extent_m"], manifest["card_side"]
+    half = manifest["half_extent_m"]
     margin = panorama["maximum_eye_translation_m"]
     overlap = panorama["axial_overlap_end_m"] + margin
     far = panorama["maximum_range_m"] - margin
     if abs(centre[axis]) <= overlap:
         return False
-    for toward, key in zip(manifest["directions"], manifest["card_assets"]):
+    for view, (toward, key) in enumerate(zip(manifest["directions"], manifest["card_assets"])):
+        side = card_side(manifest, view)
         patches, _, _ = card_payload(view_package(store, key), side, toward)
         axes = card_axes(centre, half, side, rotation, toward)
         for patch in patches:
@@ -181,7 +186,7 @@ def draw_group(target, store, key, panorama, frame, samples, owner):
     eye, world = frame
     rotation = world.T @ local
     centre = world.T @ (origin - eye) + rotation @ manifest["centre_m"]
-    half, side = manifest["half_extent_m"], manifest["card_side"]
+    half = manifest["half_extent_m"]
     directions = np.asarray(manifest["directions"])
     views = np.argsort(directions @ (rotation.T @ centre), kind="stable")[:2]
     light = panorama["surface_lighting"]
@@ -192,6 +197,7 @@ def draw_group(target, store, key, panorama, frame, samples, owner):
     painted = False
     for view in views:
         toward = directions[view]
+        side = card_side(manifest, view)
         raw = view_package(store, manifest["card_assets"][view])
         patches, texture = lit_card(raw, side, toward, sun, lighting)
         axes = card_axes(centre, half, side, rotation, toward)

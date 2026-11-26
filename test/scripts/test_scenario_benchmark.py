@@ -749,16 +749,17 @@ class ScenarioBenchmark(unittest.TestCase):
             canopy = root / 'canopy'
             canopy.mkdir()
             directions = [(0, 0, 1), (0, 1, 0)]
-            side = 8
+            sides = [8, 16]
             (canopy / 'group.json').write_text(json.dumps({
                 'surface': {'coverage': [0, 0, 0], 'origin_lon_lat': [0, 0], 'revision': '1' * 64},
                 'centre_m': [0, 100, -3], 'half_extent_m': 0.6, 'canopy_cell': 'c' * 64,
-                'card_side': side, 'card_views': len(directions), 'directions': directions,
+                'card_side': min(sides), 'card_sides': sides,
+                'card_views': len(directions), 'directions': directions,
             }))
-            texels = (4 * side * side - 1) // 3
-            body = (struct.pack('<4H3f', 0, 0, side, side, 0.5, 0, 0)
-                    + bytes((10, 190, 20, 255)) * texels + bytes((128, 128, 0, 0)) * texels)
-            for index, axis in enumerate(directions):
+            for index, (axis, side) in enumerate(zip(directions, sides)):
+                texels = (4 * side * side - 1) // 3
+                body = (struct.pack('<4H3f', 0, 0, side, side, 0.5, 0, 0)
+                        + bytes((10, 190, 20, 255)) * texels + bytes((128, 128, 0, 0)) * texels)
                 header = struct.pack('<8sII3d', b'OUTSHIV1', side, 1, *axis)
                 (canopy / f'{index}.card').write_bytes(header + body)
             installed = subprocess.run([str(CLIENT), 'cache', 'import-group',

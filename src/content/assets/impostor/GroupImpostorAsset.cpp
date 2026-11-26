@@ -43,7 +43,7 @@ PreparePackage(AssetCache &cache, const AssetRecord &record, std::span<const uin
 }
 
 bool MatchesView(const GroupImpostorView &view, const GroupImpostorManifest &manifest, size_t at) {
-  return view.Side == manifest.Side && view.TowardEye == manifest.Directions[at];
+  return view.Side == manifest.SideOf(at) && view.TowardEye == manifest.Directions[at];
 }
 
 std::string PackageKey(std::span<const uint8_t> bytes) {

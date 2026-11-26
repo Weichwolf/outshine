@@ -30,6 +30,23 @@ std::optional<double> Number(const Json &value, double limit) {
   return Inside(number, limit) ? std::optional(number) : std::nullopt;
 }
 
+bool ReadViewSides(const Json &root, size_t count, GroupImpostorManifest &manifest) {
+  const auto sides = root.find("card_sides");
+  if (sides == root.end()) { return true; }
+  if (!sides->is_array() || sides->size() != count) { return false; }
+  manifest.ViewSides.reserve(count);
+  for (const auto &value : *sides) {
+    if (!value.is_number_unsigned()) { return false; }
+    const auto side = value.get<uint64_t>();
+    if (side < manifest.Side || side > GroupImpostorView::MaximumSide ||
+        !GroupImpostorView::ValidSide(static_cast<uint32_t>(side))) {
+      return false;
+    }
+    manifest.ViewSides.push_back(static_cast<uint32_t>(side));
+  }
+  return true;
+}
+
 std::optional<Vec3> Vector(const Json &value) {
   if (!value.is_array() || value.size() != 3) { return std::nullopt; }
   Vec3 result;
@@ -97,7 +114,9 @@ std::optional<GroupImpostorManifest> ParseGroupImpostorManifest(const Json &root
                                .Side = static_cast<uint32_t>(side),
                                .SurfaceRevision = revision,
                                .Directions = {},
+                               .ViewSides = {},
                                .CanopyCell = {}};
+  if (!ReadViewSides(root, views, result)) { return std::nullopt; }
   if (const auto texel = root.find("maximum_projected_texel_px"); texel != root.end()) {
     constexpr double kLargestProjectedTexelPx = 2;
     const auto limit = Number(*texel, kLargestProjectedTexelPx);

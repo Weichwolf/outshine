@@ -31,7 +31,12 @@ struct GroupImpostorManifest {
   double MaximumTexelPx = 1;
   std::string SurfaceRevision;
   std::vector<Vec3> Directions;
+  std::vector<uint32_t> ViewSides;
   std::string CanopyCell;
+
+  [[nodiscard]] uint32_t SideOf(size_t view) const {
+    return ViewSides.empty() ? Side : ViewSides[view];
+  }
 };
 
 [[nodiscard]] std::optional<GroupImpostorManifest>

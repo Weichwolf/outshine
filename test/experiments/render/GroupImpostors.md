@@ -1000,11 +1000,21 @@ canopy pixels in geometry, 4,514 in full cards and 5,290 in compact
 cards using the green-pixel rule above. Coverage IoU against the
 instanced mesh moves from 0.550 to 0.540. The compact canopy is denser
 and softer. In the separate 82° holdout, coverage IoU falls from 0.574
-to 0.448. Keep full cards for steep views pending per-direction sizing.
+to 0.448 when all directions are halved.
 The prepared 39° field-of-view flight kept the same 65 handoff frames
 and finished below 27 ms GPU p99 in both variants. The compact mode
 is selectable. Its SSD margin against instancing is small, and the
 textures still require more upfront upload.
+
+The compact option now keeps the full capture side and depth for view
+rings at 30° elevation or above. The manifest's `card_sides` records
+each side. The base side still controls the distance ramp, and only the
+selected directions are read. The 82° holdout recovered 0.574 coverage
+IoU against fine geometry. The ordinary 720p30 flight opens only the
+0° and 6° rings. Across three paired runs it reads 5,407,995 B and has
+2.36 ms GPU p99 versus 6,002,519 B and 2.75 ms with uniform full cards.
+Peak triangles stay at 59,771. The three-pair turn moves from 2.69 to
+1.84 ms GPU p99.
 
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),

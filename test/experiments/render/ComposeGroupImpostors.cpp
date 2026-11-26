@@ -146,21 +146,28 @@ std::optional<std::vector<GroupImpostorInstance>> ReadInstances(const Json &mani
   return placed;
 }
 
-bool Emit(const ImpostorAtlas &atlas,
-          const std::filesystem::path &folder,
-          uint32_t cardSide,
-          GroupImpostorDepth depth) {
+std::optional<Json> Emit(const ImpostorAtlas &atlas,
+                         const std::filesystem::path &folder,
+                         uint32_t cardSide,
+                         bool compact) {
+  constexpr double kElevatedRing = 0.5;
+  auto sides = Json::array();
   for (size_t at = 0; at < atlas.Views().size(); ++at) {
     const auto name = std::to_string(at);
-    if (depth == GroupImpostorDepth::Captured &&
-        !GroupProbe::SaveView(folder / (name + ".field"), atlas.Views()[at])) {
-      return false;
+    const auto &view = atlas.Views()[at];
+    if (!compact && !GroupProbe::SaveView(folder / (name + ".field"), view)) {
+      return std::nullopt;
     }
-    if (!GroupProbe::SaveCard(folder / (name + ".card"), atlas, at, cardSide, depth)) {
-      return false;
+    const bool full = compact && view.TowardEye[1] >= kElevatedRing;
+    const auto side = full ? std::min(2 * cardSide, GroupImpostorView::MaximumSide) : cardSide;
+    const auto depth =
+        compact && !full ? GroupImpostorDepth::Compact : GroupImpostorDepth::Captured;
+    if (!GroupProbe::SaveCard(folder / (name + ".card"), atlas, at, side, depth)) {
+      return std::nullopt;
     }
+    sides.push_back(side);
   }
-  return true;
+  return sides;
 }
 
 std::optional<uint32_t> CardSide(const Json &manifest, const char *overrideSide, int captureSide) {
@@ -214,8 +221,8 @@ int Run(const char *const *arguments) {
   const auto elapsed =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began);
   const std::filesystem::path folder(arguments[3]);
-  const auto depth = compact ? GroupImpostorDepth::Compact : GroupImpostorDepth::Captured;
-  if (!Emit(*atlas, folder, *side, depth)) { return 1; }
+  auto sides = Emit(*atlas, folder, *side, compact);
+  if (!sides) { return 1; }
   auto axes = Json::array();
   for (const auto &view : atlas->Views()) { axes.push_back(view.TowardEye.Axis); }
   if (manifest.contains("canopy_cell")) { manifest["layout_sha256"] = Sha256Hex(*layout); }
@@ -223,7 +230,11 @@ int Run(const char *const *arguments) {
   manifest.erase("tree_scales");
   manifest["directions"] = std::move(axes);
   manifest["card_side"] = *side;
-  if (compact) { manifest["maximum_projected_texel_px"] = 2.0; }
+  manifest.erase("card_sides");
+  if (compact) {
+    manifest["maximum_projected_texel_px"] = 2.0;
+    manifest["card_sides"] = std::move(*sides);
+  }
   manifest["card_views"] = atlas->Views().size();
   manifest["composition_ms"] = elapsed.count();
   const auto text = manifest.dump(2);
