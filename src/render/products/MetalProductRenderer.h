@@ -83,10 +83,23 @@ struct MetalSurface {
 struct MetalPlacedSurface {
   SurfaceTile Product;
   Mat4 WorldFromTile;
+  std::optional<size_t> HandoffGroup;
 };
 
-using MetalSurfaceLoad =
-    std::function<std::expected<std::vector<MetalPlacedSurface>, std::string>()>;
+struct MetalPlacedImpostorGroup {
+  std::vector<GroupImpostorView> Views;
+  Mat4 WorldFromTile;
+  Vec3 CentreM;
+  double HalfExtentM;
+  std::optional<ImpostorDistanceRamp> Handoff;
+};
+
+struct MetalPlacedCut {
+  std::vector<MetalPlacedSurface> Tiles;
+  std::vector<MetalPlacedImpostorGroup> Groups;
+};
+
+using MetalSurfaceLoad = std::function<std::expected<MetalPlacedCut, std::string>()>;
 
 struct MetalSurfaceStream {
   MetalSurfaceLoad Load;

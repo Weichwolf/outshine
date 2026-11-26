@@ -393,11 +393,13 @@ MakePipeline(id<MTLDevice> device, id<MTLLibrary> library, ProductDraw mode, boo
   return ProductPipeline{.Draw = pipeline, .Depth = depth};
 }
 
-std::expected<ProductPass, std::string> MakePass(id<MTLDevice> device,
-                                                 const MetalProductInputs &products) {
+std::expected<ProductPass, std::string>
+MakePass(id<MTLDevice> device, const MetalProductInputs &products, bool streaming) {
   NSError *error = nil;
+  const bool hasGroups = streaming || !products.Groups.empty();
+  const bool hasTiles = streaming || !products.Tiles.empty();
   NSString *const source =
-      products.Groups.empty() ? kShader : [kShader stringByAppendingString:GroupImpostorShader];
+      hasGroups ? [kShader stringByAppendingString:GroupImpostorShader] : kShader;
   const id<MTLLibrary> library = [device newLibraryWithSource:source options:nil error:&error];
   if (library == nil) {
     return std::unexpected(MetalError(error, "Metal failed to create product shaders"));
@@ -405,14 +407,13 @@ std::expected<ProductPass, std::string> MakePass(id<MTLDevice> device,
   ProductPipeline tile;
   ProductPipeline group;
   ProductPipeline panorama;
-  const bool composite =
-      (!products.Tiles.empty() || !products.Groups.empty()) && !products.Panoramas.empty();
-  if (!products.Tiles.empty()) {
+  const bool composite = (hasTiles || hasGroups) && !products.Panoramas.empty();
+  if (hasTiles) {
     const auto pipeline = MakePipeline(device, library, ProductDraw::Tile, composite);
     if (!pipeline) { return std::unexpected(pipeline.error()); }
     tile = *pipeline;
   }
-  if (!products.Groups.empty()) {
+  if (hasGroups) {
     const auto pipeline = MakePipeline(device, library, ProductDraw::Group, composite);
     if (!pipeline) { return std::unexpected(pipeline.error()); }
     group = *pipeline;
@@ -725,6 +726,15 @@ std::expected<TileMesh, std::string> UploadTile(id<MTLDevice> device,
   return mesh;
 }
 
+std::expected<GroupResources, std::string> UploadLitGroup(id<MTLDevice> device,
+                                                          const MetalImpostorGroup &group,
+                                                          const PanoramaLighting *light,
+                                                          size_t &bytes) {
+  auto uploaded = UploadMetalGroup(device, group, bytes);
+  if (uploaded) { uploaded->Light = PackLight(group.WorldFromTile, light); }
+  return uploaded;
+}
+
 std::expected<ProductResources, std::string> UploadProducts(id<MTLDevice> device,
                                                             const MetalProductInputs &products,
                                                             const PanoramaLighting *light) {
@@ -758,9 +768,8 @@ std::expected<ProductResources, std::string> UploadProducts(id<MTLDevice> device
   }
   resources.Groups.reserve(products.Groups.size());
   for (const auto &group : products.Groups) {
-    auto uploaded = UploadMetalGroup(device, group, resources.Bytes);
+    auto uploaded = UploadLitGroup(device, group, light, resources.Bytes);
     if (!uploaded) { return std::unexpected(uploaded.error()); }
-    uploaded->Light = PackLight(group.WorldFromTile, light);
     resources.Groups.push_back(std::move(*uploaded));
   }
   return resources;
@@ -778,6 +787,7 @@ bool MatchesSurface(const MetalSurface &active, const MetalPlacedSurface &replac
 
 struct PreparedSurfaceReplacement {
   std::vector<TileMesh> Meshes;
+  std::vector<GroupResources> Groups;
   MetalSurfaceTransition Transition;
   size_t Bytes = 0;
 };
@@ -791,24 +801,30 @@ PreparedSurfaceReplacement PrepareReplacement(id<MTLDevice> device,
     const auto start = Clock::now();
     auto candidate = stream.Load();
     PreparedSurfaceReplacement prepared;
-    if (!candidate || candidate->empty()) {
+    if (!candidate || candidate->Tiles.empty()) {
       prepared.Transition.Error = candidate ? "empty replacement surface cut" : candidate.error();
       return prepared;
     }
     const auto upload = Clock::now();
-    prepared.Meshes.reserve(candidate->size());
-    for (const auto &tile : *candidate) {
+    prepared.Meshes.reserve(candidate->Tiles.size());
+    for (const auto &tile : candidate->Tiles) {
+      if (tile.HandoffGroup && *tile.HandoffGroup >= candidate->Groups.size()) {
+        prepared.Transition.Error = "replacement surface handoff references an unavailable group";
+        return prepared;
+      }
       const auto same = std::ranges::find_if(
           active, [&](const MetalSurface &surface) { return MatchesSurface(surface, tile); });
       if (same != active.end()) {
         prepared.Meshes.push_back(resident[static_cast<size_t>(same - active.begin())]);
+        prepared.Meshes.back().HandoffGroup = tile.HandoffGroup;
         ++prepared.Transition.ReusedTiles;
       } else {
-        auto mesh = UploadTile(
-            device,
-            {.Product = tile.Product, .WorldFromTile = tile.WorldFromTile, .HandoffGroup = {}},
-            light,
-            prepared.Bytes);
+        auto mesh = UploadTile(device,
+                               {.Product = tile.Product,
+                                .WorldFromTile = tile.WorldFromTile,
+                                .HandoffGroup = tile.HandoffGroup},
+                               light,
+                               prepared.Bytes);
         if (!mesh) {
           prepared.Transition.Error = mesh.error();
           return prepared;
@@ -816,6 +832,22 @@ PreparedSurfaceReplacement PrepareReplacement(id<MTLDevice> device,
         prepared.Meshes.push_back(*mesh);
       }
       prepared.Transition.Triangles += tile.Product.Indices.size() / 3;
+    }
+    prepared.Groups.reserve(candidate->Groups.size());
+    for (const auto &group : candidate->Groups) {
+      auto uploaded = UploadLitGroup(device,
+                                     {.Views = group.Views,
+                                      .WorldFromTile = group.WorldFromTile,
+                                      .CentreM = group.CentreM,
+                                      .HalfExtentM = group.HalfExtentM,
+                                      .Handoff = group.Handoff},
+                                     light,
+                                     prepared.Bytes);
+      if (!uploaded) {
+        prepared.Transition.Error = uploaded.error();
+        return prepared;
+      }
+      prepared.Groups.push_back(std::move(*uploaded));
     }
     prepared.Transition.Tiles = prepared.Meshes.size();
     prepared.Transition.ReadyMs = ElapsedMs(start);
@@ -900,7 +932,7 @@ RenderMetalProducts(const MetalProductInputs &products,
     const auto began = Clock::now();
     const id<MTLDevice> device = MTLCreateSystemDefaultDevice();
     if (device == nil) { return std::unexpected("Metal device unavailable"); }
-    const auto pass = MakePass(device, products);
+    const auto pass = MakePass(device, products, static_cast<bool>(stream.Load));
     if (!pass) { return std::unexpected(pass.error()); }
     MetalProductFrames frames;
     const char *const name = device.name.UTF8String;
@@ -926,6 +958,7 @@ RenderMetalProducts(const MetalProductInputs &products,
         auto replacement = pending.get();
         if (replacement.Transition.Error.empty()) {
           resources->Meshes.swap(replacement.Meshes);
+          resources->Groups.swap(replacement.Groups);
           replacement.Transition.FirstFrame = frame;
         }
         RecordReplacement(replacement, frames);

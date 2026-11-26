@@ -296,7 +296,7 @@ std::expected<SurfaceCutLookup, std::string> PrepareTiles(const ScenarioBenchmar
         {.SweptEyeEcef = eye,
          .RadiusM = radius + panoramas.front().MaximumTranslationM,
          .FocalPixels = preferCoarse ? 0 : projection->FocalPixels,
-         .GroupDemand = options.StreamProducts
+         .GroupDemand = preferCoarse
                             ? std::nullopt
                             : std::optional(GroupImpostorDemand{
                                   .EyeEcef = sweep, .FocalPixels = projection->FocalPixels})});
@@ -314,6 +314,25 @@ std::expected<SurfaceCutLookup, std::string> PrepareTiles(const ScenarioBenchmar
     cut.Products.push_back(std::move(*direct));
   }
   return cut;
+}
+
+void BindGroupHandoffs(std::span<const SurfaceCutGroup> groups, auto &tiles) {
+  for (size_t at = 0; at < groups.size(); ++at) {
+    const auto &group = groups[at];
+    if (group.Group.Handoff) { tiles[group.SurfaceIndex].HandoffGroup = at; }
+  }
+}
+
+BenchmarkGroupCoverage DescribeGroups(const SurfaceCutLookup &cut) {
+  BenchmarkGroupCoverage coverage;
+  coverage.Groups = cut.Groups.size();
+  coverage.RequestedBytes = cut.GroupRequestedBytes;
+  for (const auto &group : cut.Groups) {
+    coverage.AvailableViews += group.AvailableViews;
+    coverage.ResidentViews += group.Group.Views.size();
+    if (group.Group.Handoff) { ++coverage.HandoffGroups; }
+  }
+  return coverage;
 }
 
 std::vector<Render::MetalSurface>
@@ -335,26 +354,16 @@ PlaceTiles(const SurfaceCutLookup &cut, ScenarioBenchmarkReport &report, Longitu
          .GeometricErrorM = tile.GeometricErrorM,
          .StoredBytes = tile.StoredBytes});
   }
-  for (size_t at = 0; at < cut.Groups.size(); ++at) {
-    const auto &group = cut.Groups[at];
-    if (group.Group.Handoff) { placed[group.SurfaceIndex].HandoffGroup = at; }
-  }
+  BindGroupHandoffs(cut.Groups, placed);
   return placed;
 }
 
 std::vector<Render::MetalImpostorGroup> PlaceGroups(const SurfaceCutLookup &cut,
-                                                    ScenarioBenchmarkReport &report,
                                                     LongitudeLatitude origin) {
   std::vector<Render::MetalImpostorGroup> placed;
   placed.reserve(cut.Groups.size());
   const auto world = TangentFrame::At(origin);
-  auto &coverage = report.GroupCoverage;
-  coverage.Groups = cut.Groups.size();
-  coverage.RequestedBytes = cut.GroupRequestedBytes;
   for (const auto &group : cut.Groups) {
-    coverage.AvailableViews += group.AvailableViews;
-    coverage.ResidentViews += group.Group.Views.size();
-    if (group.Group.Handoff) { ++coverage.HandoffGroups; }
     placed.push_back({.Views = group.Group.Views,
                       .WorldFromTile = TilePlacement(group.Origin, world),
                       .CentreM = group.Group.CentreM,
@@ -368,9 +377,10 @@ struct SurfaceReadCost {
   size_t RequestedBytes = 0;
   size_t DecodedBytes = 0;
   double Ms = 0;
+  BenchmarkGroupCoverage Groups;
 };
 
-std::expected<std::vector<Render::MetalPlacedSurface>, std::string>
+std::expected<Render::MetalPlacedCut, std::string>
 PrepareSurfaceReplacement(const ScenarioBenchmarkOptions &options,
                           AssetCache &cache,
                           const ScenarioBenchmarkReport &report,
@@ -383,17 +393,28 @@ PrepareSurfaceReplacement(const ScenarioBenchmarkOptions &options,
   cost.Ms = BenchmarkElapsedMs(readAt);
   if (!cut) { return std::unexpected(cut.error()); }
   cost.RequestedBytes = cut->RequestedBytes;
+  cost.Groups = DescribeGroups(*cut);
   for (const auto &tile : cut->Products) { cost.DecodedBytes += tile.StoredBytes; }
   const auto coverage = SurfaceCoverage(active);
   if (!coverage || SurfaceCoverage(cut->Products) != coverage) {
     return std::unexpected("replacement surface cut changed the prepared coverage");
   }
-  std::vector<Render::MetalPlacedSurface> placed;
-  placed.reserve(cut->Products.size());
+  Render::MetalPlacedCut placed;
+  placed.Tiles.reserve(cut->Products.size());
+  placed.Groups.reserve(cut->Groups.size());
   const auto world = TangentFrame::At(origin);
   for (auto &tile : cut->Products) {
     const auto placement = TilePlacement(tile.Origin, world);
-    placed.push_back({.Product = std::move(tile), .WorldFromTile = placement});
+    placed.Tiles.push_back(
+        {.Product = std::move(tile), .WorldFromTile = placement, .HandoffGroup = {}});
+  }
+  BindGroupHandoffs(cut->Groups, placed.Tiles);
+  for (auto &group : cut->Groups) {
+    placed.Groups.push_back({.Views = std::move(group.Group.Views),
+                             .WorldFromTile = TilePlacement(group.Origin, world),
+                             .CentreM = group.Group.CentreM,
+                             .HalfExtentM = group.Group.HalfExtentM,
+                             .Handoff = group.Group.Handoff});
   }
   return placed;
 }
@@ -447,7 +468,8 @@ MeasureProducts(const ScenarioBenchmarkOptions &options,
   if (options.StreamProducts && cut->Products.empty()) {
     return std::unexpected("streaming tiles requires resident fallback coverage");
   }
-  const auto groups = PlaceGroups(*cut, report, origin);
+  report.GroupCoverage = DescribeGroups(*cut);
+  const auto groups = PlaceGroups(*cut, origin);
   const auto tiles = PlaceTiles(*cut, report, origin);
   report.ProductReadMs = BenchmarkElapsedMs(loadAt);
   const auto viewAt = [&](size_t frame) {
@@ -474,6 +496,10 @@ MeasureProducts(const ScenarioBenchmarkOptions &options,
     const auto &transition = *frames->Transition;
     report.TileRequestedBytes += refinement.RequestedBytes;
     report.ProductReadMs += refinement.Ms;
+    const size_t groupRequested =
+        report.GroupCoverage.RequestedBytes + refinement.Groups.RequestedBytes;
+    if (transition.FirstFrame) { report.GroupCoverage = refinement.Groups; }
+    report.GroupCoverage.RequestedBytes = groupRequested;
     report.SurfaceStream = {.FirstRefinedFrame = transition.FirstFrame,
                             .Tiles = transition.Tiles,
                             .ReusedTiles = transition.ReusedTiles,

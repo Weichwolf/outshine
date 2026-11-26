@@ -123,6 +123,16 @@ geometry and groups was 3.91 / 3.90 ms while retreating and 4.07 / 1.96 ms
 while approaching. The two directions give different timing gains. Inspected
 snapshots preserve the block outline with small roof and facade differences.
 
+With `--stream-products`, the renderer keeps the initial resident cut until the
+worker has loaded and uploaded every tile and group in the replacement. Both
+resource lists are switched together. In three paced 720p30 flights the initial
+12 tiles gave way to 27 tiles and two groups at frame 1, with 11 tile buffers
+reused. The median GPU p99 across the paired runs was 2.85 ms for geometry and
+2.81 ms for groups. The final grouped frame matched the fully preloaded path.
+A one-frame run kept the initial cut even though the replacement loaded. Removing
+a required view from the indexed package kept that group's geometry and allowed
+the independent group to activate.
+
 Compositing the single spruce captures at the 25 roots reaches 82% median and
 64% worst coverage overlap against the direct stand captures. One native bake of
 24 views took 0.98 s for the tree and 21.02 s for the stand. The Python composition
