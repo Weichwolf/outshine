@@ -1,7 +1,10 @@
 #include "CacheCommand.h"
+#include "AssetCache.h"
 #include "AssetCacheTrim.h"
+#include "ReadTextFile.h"
 #include "SourceCacheTrim.h"
 #include "SqliteFileBudget.h"
+#include "SurfaceTileAsset.h"
 #include <algorithm>
 #include <array>
 #include <charconv>
@@ -42,6 +45,7 @@ struct OptionValue {
 void Usage() {
   std::println("Usage: outshine cache trim [options]\n"
                "       outshine cache limit [--assets-mib N] [--root PATH]\n"
+               "       outshine cache import-surface DATABASE REVISION TILE...\n"
                "  --assets-mib N   total compressed package budget across asset databases\n"
                "  --sources-mib N  source-file budget, including cached absence records\n"
                "  --root PATH      cache parent containing assets/ and sources/\n"
@@ -199,6 +203,32 @@ void Report(std::string_view name, const CacheTrimResult &result, bool apply, do
 }
 
 namespace {
+int ImportSurface(std::span<const char *const> arguments) {
+  if (arguments.size() < 3 || !IsSurfaceTileSetRevision(arguments[1])) {
+    std::println(stderr, "Usage: outshine cache import-surface DATABASE REVISION TILE...");
+    return 2;
+  }
+  const auto cache = AssetCache::Open(arguments.front());
+  if (!cache) {
+    std::println(stderr, "outshine: could not open the surface tile store");
+    return 1;
+  }
+  for (const char *path : arguments.subspan(2)) {
+    const auto input = ReadTextFile(path, SurfaceTile::MaximumPackedBytes);
+    if (!input) {
+      std::println(stderr, "outshine: {}", input.error());
+      return 1;
+    }
+    const auto stored = PublishSurfaceTile(
+        **cache, arguments[1], {reinterpret_cast<const uint8_t *>(input->data()), input->size()});
+    if (!stored) {
+      std::println(stderr, "outshine: {}: {}", path, stored.error());
+      return 1;
+    }
+  }
+  return 0;
+}
+
 int TrimCommand(std::span<const char *const> arguments) {
   if (arguments.empty() || std::ranges::any_of(arguments, [](const char *arg) {
         return std::string_view(arg) == "--help";
@@ -251,6 +281,9 @@ int TrimCommand(std::span<const char *const> arguments) {
 }
 
 int RunCacheCommand(std::span<const char *const> arguments) {
+  if (!arguments.empty() && std::string_view(arguments.front()) == "import-surface") {
+    return ImportSurface(arguments.subspan(1));
+  }
   if (!arguments.empty() && std::string_view(arguments.front()) == "limit") {
     return Limit(arguments.subspan(1));
   }

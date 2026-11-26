@@ -193,6 +193,19 @@ eine explizite Z/X/Y-Seite aus einer Ground-Region mit eingebetteten Seiten oder
 vollständigen Terrain-Pack (`--kind ground-terrain-pack`). Der Export verwendet die gespeicherten Höhen und die Triangulierung des
 Terrain-Meshers. Die Fehlerschranke bezieht sich auf die Triangulierung derselben Höhenzellen.
 
-Dieselbe Szenariodatei und Framezahl ohne `--tile-product` messen den gewohnten Weltpfad.
+Für den SSD-Vergleich importiert der Client gepackte Kacheln unter einer gemeinsamen
+SHA-256-Revision, die Quellen und Generatorversion identifiziert.
+
+```sh
+python3 -B test/experiments/render/pack_surface_tile.py "$tile" "$packed"
+build/outshine cache import-surface "$database" "$revision" "$packed"
+build/outshine benchmark --scenario "$scenario" --product-store "$database" \
+  --product-revision "$revision" --frames 30 --image "$image" --output "$report"
+```
+
+Der SSD-Pfad wählt vor der Messung anhand der Kamerazelle die feinste verfügbare Kachel.
+Fehlt ihre Nutzlast oder scheitert die Validierung, prüft er die übergeordnete Kachel.
+Der Bericht erfasst angeforderte Bytes, physisch gelesene Paketbytes, dekodierte Bytes
+und GPU-Upload. Ohne Produktparameter misst dieselbe Szene den gewohnten Weltpfad.
 Der Kachelbericht enthält Szene-Hash, Kachelrevision, Start- und Endkamera, Initialisierung,
 Upload und GPU-Zeit pro Frame. Die GPU-Zeit umfasst den Metal-Command-Buffer des Kachelpasses.

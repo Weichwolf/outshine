@@ -36,6 +36,8 @@ struct BenchmarkTileCoverage {
   size_t Triangles = 0;
   double GeometricErrorM = 0;
   size_t StoredBytes = 0;
+  std::optional<uint64_t> StoreReadBytes;
+  size_t RequestedBytes = 0;
 };
 
 struct BenchmarkPanoramaCoverage {

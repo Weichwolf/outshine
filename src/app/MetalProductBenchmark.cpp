@@ -4,18 +4,23 @@
 #include <string>
 
 #ifdef __APPLE__
+#include "AssetCache.h"
 #include "BenchmarkInput.h"
 #include "BenchmarkMotion.h"
 #include "BenchmarkReport.h"
 #include "GeodeticCamera.h"
 #include "MetalProductRenderer.h"
+#include "SurfaceTileAsset.h"
+#include "TileGeodesy.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <string_view>
 #include <optional>
+#include <system_error>
 #include <utility>
 #include <vector>
 #endif
@@ -219,27 +224,64 @@ PreparePanoramas(const ScenarioBenchmarkOptions &options,
   return prepared;
 }
 
+std::expected<SurfaceTile, std::string> ReadIndexedTile(const ScenarioBenchmarkOptions &options,
+                                                        const Vec3 &position,
+                                                        LongitudeLatitude origin,
+                                                        BenchmarkTileCoverage &coverage) {
+  std::error_code error;
+  if (!std::filesystem::is_regular_file(options.ProductStore, error)) {
+    return std::unexpected("prepared product store must be an existing database");
+  }
+  const auto cache = AssetCache::Open(std::string(options.ProductStore));
+  if (!cache) { return std::unexpected("could not open the prepared product store"); }
+  const auto eye = TangentFrame::At(origin).ToEcefPosition(
+      {.EastM = position[0], .NorthM = -position[2], .UpM = position[1]});
+  const auto geo = Ground::EcefToGeoWgs84({.X = eye[0], .Y = eye[1], .Z = eye[2]});
+  auto tile = LoadSurfaceTileAt(**cache,
+                                options.ProductRevision,
+                                {.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg});
+  if (!tile) { return std::unexpected(tile.error()); }
+  if (!tile->Product) {
+    return std::unexpected("prepared product store has no terrain at the camera");
+  }
+  coverage.StoreReadBytes = (*cache)->PackageBytesRead();
+  coverage.RequestedBytes = tile->RequestedBytes;
+  return std::move(*tile->Product);
+}
+
+std::expected<std::optional<SurfaceTile>, std::string>
+PrepareTile(const ScenarioBenchmarkOptions &options,
+            ScenarioBenchmarkReport &report,
+            LongitudeLatitude origin) {
+  const bool indexed = !options.ProductStore.empty();
+  if (options.TileProduct.empty() && !indexed) { return std::nullopt; }
+  BenchmarkTileCoverage traffic{};
+  auto tile = indexed ? ReadIndexedTile(options, report.Start.PositionM, origin, traffic)
+                      : ReadSurfaceTile(options.TileProduct);
+  if (!tile) { return std::unexpected(tile.error()); }
+  report.Tile = BenchmarkTileCoverage{
+      .Address = {static_cast<uint32_t>(tile->Coverage.Zoom), tile->Coverage.X, tile->Coverage.Y},
+      .OriginLonLat = {tile->Origin.LongitudeDeg, tile->Origin.LatitudeDeg},
+      .Revision = tile->Revision,
+      .Triangles = tile->Indices.size() / 3,
+      .GeometricErrorM = tile->GeometricErrorM,
+      .StoredBytes = tile->StoredBytes,
+      .StoreReadBytes = traffic.StoreReadBytes,
+      .RequestedBytes = indexed ? traffic.RequestedBytes : tile->StoredBytes};
+  return std::move(*tile);
+}
+
 std::expected<Render::MetalProductFrames, std::string>
 MeasureProducts(const ScenarioBenchmarkOptions &options,
                 ScenarioBenchmarkReport &report,
                 const BenchmarkMotion &motion,
                 LongitudeLatitude origin) {
   const auto loadAt = BenchmarkClock::now();
-  std::optional<SurfaceTile> tile;
+  const auto loadedTile = PrepareTile(options, report, origin);
+  if (!loadedTile) { return std::unexpected(loadedTile.error()); }
+  const auto &tile = *loadedTile;
   Mat4 placement;
-  if (!options.TileProduct.empty()) {
-    auto input = ReadSurfaceTile(options.TileProduct);
-    if (!input) { return std::unexpected(input.error()); }
-    tile = std::move(*input);
-    placement = TilePlacement(*tile, origin);
-    report.Tile = BenchmarkTileCoverage{
-        .Address = {static_cast<uint32_t>(tile->Coverage.Zoom), tile->Coverage.X, tile->Coverage.Y},
-        .OriginLonLat = {tile->Origin.LongitudeDeg, tile->Origin.LatitudeDeg},
-        .Revision = tile->Revision,
-        .Triangles = tile->Indices.size() / 3,
-        .GeometricErrorM = tile->GeometricErrorM,
-        .StoredBytes = tile->StoredBytes};
-  }
+  if (tile) { placement = TilePlacement(*tile, origin); }
   const auto prepared = PreparePanoramas(options, report, origin);
   if (!prepared) { return std::unexpected(prepared.error()); }
   report.ProductReadMs = BenchmarkElapsedMs(loadAt);

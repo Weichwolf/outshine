@@ -34,6 +34,8 @@ enum class Argument : uint8_t {
   AssetCache,
   Geometry,
   TileProduct,
+  ProductStore,
+  ProductRevision,
   PanoramaProduct,
   NextPanorama,
   Panorama,
@@ -59,6 +61,8 @@ constexpr std::array kFlags{Flag{.Name = "--output", .Kind = Argument::Output},
                             Flag{.Name = "--asset-cache-dir", .Kind = Argument::AssetCache},
                             Flag{.Name = "--geometry-output", .Kind = Argument::Geometry},
                             Flag{.Name = "--tile-product", .Kind = Argument::TileProduct},
+                            Flag{.Name = "--product-store", .Kind = Argument::ProductStore},
+                            Flag{.Name = "--product-revision", .Kind = Argument::ProductRevision},
                             Flag{.Name = "--panorama-output", .Kind = Argument::Panorama},
                             Flag{.Name = "--panorama-product", .Kind = Argument::PanoramaProduct},
                             Flag{.Name = "--panorama-next", .Kind = Argument::NextPanorama},
@@ -96,6 +100,8 @@ ApplyValue(BenchmarkOptions &options, Argument kind, std::string_view value) noe
     case Argument::Panorama: scenario.PanoramaDirectory = value; break;
     case Argument::Geometry: scenario.GeometryDirectory = value; break;
     case Argument::TileProduct: scenario.TileProduct = value; break;
+    case Argument::ProductStore: scenario.ProductStore = value; break;
+    case Argument::ProductRevision: scenario.ProductRevision = value; break;
     case Argument::AssetCache: scenario.AssetCacheDirectory = value; break;
     case Argument::Cache: scenario.CacheDirectory = value; break;
     case Argument::Overrides: {
@@ -144,8 +150,13 @@ ValidateCombination(const BenchmarkOptions &options) noexcept {
   if (!options.Scenario->NextPanorama.empty() && options.Scenario->PanoramaProduct.empty()) {
     return std::unexpected("--panorama-next requires --panorama-product");
   }
-  const bool prepared =
-      !options.Scenario->TileProduct.empty() || !options.Scenario->PanoramaProduct.empty();
+  const bool stored = !options.Scenario->ProductStore.empty();
+  const bool revision = !options.Scenario->ProductRevision.empty();
+  if (stored != revision || (stored && !options.Scenario->TileProduct.empty())) {
+    return std::unexpected("--product-store requires --product-revision and an implicit tile");
+  }
+  const bool prepared = stored || !options.Scenario->TileProduct.empty() ||
+                        !options.Scenario->PanoramaProduct.empty();
   if (prepared && (!options.Scenario->CacheDirectory.empty() ||
                    !options.Scenario->AssetCacheDirectory.empty() || options.Scenario->Offline ||
                    !options.Scenario->GeometryDirectory.empty())) {

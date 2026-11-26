@@ -5,6 +5,7 @@ import json
 import math
 import os
 from pathlib import Path
+import sqlite3
 import struct
 import subprocess
 import sys
@@ -405,6 +406,66 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(result.stdout, '')
             self.assertEqual(output.read_text(), 'previous JSON')
             self.assertEqual(image.read_bytes(), b'previous PNG')
+
+    @unittest.skipUnless(os.uname().sysname == 'Darwin', 'native Metal product renderer')
+    def test_indexed_tile_reads_only_selected_body_and_uses_parent_on_corruption(self):
+        with tempfile.TemporaryDirectory(prefix='outshine-benchmark-tile-index-') as folder:
+            root = Path(folder)
+            scene = root / 'view.scenario'
+            scene.write_text(PRODUCT_SCENE)
+            database = root / 'prepared.sqlite'
+            revision = 'a' * 64
+            files = []
+            for identity, address in (('1', [0, 0, 0]), ('2', [1, 1, 1]), ('3', [2, 0, 0])):
+                source = root / f'{identity}.json'
+                packed = root / f'{identity}.surface'
+                source.write_text(json.dumps({
+                    'version': 1, 'coverage': address, 'origin_lon_lat': [0, 0],
+                    'revision': identity * 64, 'bounds_eus_m': [[-10, 90, -5], [10, 110, -5]],
+                    'geometric_error_m': 1,
+                    'vertices_eus_m': [[-10, 90, -5], [10, 90, -5], [10, 110, -5], [-10, 110, -5]],
+                    'normals_eus': [[0, 0, 1]] * 4, 'indices': [0, 1, 2, 0, 2, 3],
+                }))
+                packer = ROOT / 'test/experiments/render/pack_surface_tile.py'
+                subprocess.run([sys.executable, '-B', str(packer), str(source), str(packed)],
+                               check=True)
+                files.append(str(packed))
+            imported = subprocess.run([str(CLIENT), 'cache', 'import-surface', str(database),
+                                       revision, *files], capture_output=True, text=True, timeout=60,
+                                      check=False)
+            self.assertEqual(imported.returncode, 0, imported.stderr)
+            arguments = ('--scenario', str(scene), '--frames', '1', '--product-store',
+                         str(database), '--product-revision', revision)
+            selected = self.invoke(*arguments)
+            self.assertEqual(selected.returncode, 0, selected.stderr)
+            report = json.loads(selected.stdout)
+            self.assertEqual(report['rendered_content']['address'], [1, 1, 1])
+            self.assertEqual(report['traffic']['source_delivery_bytes'], 0)
+            self.assertEqual(report['traffic']['tile_decoded_bytes'], Path(files[1]).stat().st_size)
+            self.assertEqual(report['traffic']['tile_requested_bytes'], Path(files[1]).stat().st_size)
+            with sqlite3.connect(database) as cache:
+                child, stored = cache.execute(
+                    'SELECT b.key,length(b.bytes) FROM assets a, package_bodies b, asset_requests r '
+                    'WHERE a.package=b.key AND r.asset_id=a.id AND a.level=1 AND a.parent IN '
+                    '(SELECT request_key FROM asset_requests WHERE asset_id='
+                    '(SELECT id FROM assets WHERE level=0))'
+                ).fetchone()
+                self.assertEqual(report['traffic']['asset_read_bytes'], stored)
+                cache.execute('UPDATE package_bodies SET bytes=zeroblob(?) WHERE key=?',
+                              (stored, child))
+            parent = self.invoke(*arguments)
+            self.assertEqual(parent.returncode, 0, parent.stderr)
+            self.assertEqual(json.loads(parent.stdout)['rendered_content']['address'], [0, 0, 0])
+            repaired = subprocess.run([str(CLIENT), 'cache', 'import-surface', str(database),
+                                       revision, files[1]], capture_output=True, text=True,
+                                      timeout=60, check=False)
+            self.assertEqual(repaired.returncode, 0, repaired.stderr)
+            selected_again = self.invoke(*arguments)
+            self.assertEqual(selected_again.returncode, 0, selected_again.stderr)
+            self.assertEqual(json.loads(selected_again.stdout)['rendered_content']['address'],
+                             [1, 1, 1])
+            alias = self.invoke(*arguments, '--image', str(database))
+            self.assertEqual(alias.returncode, 2, alias.stderr)
 
 
 if __name__ == '__main__':
