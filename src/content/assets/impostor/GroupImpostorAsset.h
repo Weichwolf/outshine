@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <expected>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -21,6 +22,7 @@ struct GroupImpostorDemand {
   ImpostorEyeSweep EyeEcef;
   double FocalPixels = 0;
   bool ReplaceSurface = true;
+  std::span<const std::string> PanoramaGroups;
 };
 
 struct ResidentGroupImpostor {
@@ -64,7 +66,7 @@ ImportGroupImpostor(AssetCache &cache, const GroupImpostorImport &source);
     const AssetCache &cache, const AssetRecord &surface, const GroupImpostorDemand &demand);
 
 [[nodiscard]] std::expected<AttachedCanopyLookup, std::string> LoadAttachedCanopy(
-    const AssetCache &cache, const AssetRecord &surface, const ImpostorEyeSweep &eye);
+    const AssetCache &cache, const AssetRecord &surface, const GroupImpostorDemand &demand);
 
 }
 #endif

@@ -336,9 +336,8 @@ std::expected<GroupImpostorLookup, std::string> LoadGroupImpostor(
   return result;
 }
 
-std::expected<AttachedCanopyLookup, std::string> LoadAttachedCanopy(const AssetCache &cache,
-                                                                    const AssetRecord &surface,
-                                                                    const ImpostorEyeSweep &eye) {
+std::expected<AttachedCanopyLookup, std::string> LoadAttachedCanopy(
+    const AssetCache &cache, const AssetRecord &surface, const GroupImpostorDemand &demand) {
   if (!surface.Tile) { return AttachedCanopyLookup{}; }
   auto records = cache.Select({.Bounds = surface.Bounds,
                                .Kind = CanopyImpostorManifestKind,
@@ -352,7 +351,10 @@ std::expected<AttachedCanopyLookup, std::string> LoadAttachedCanopy(const AssetC
   std::ranges::sort(*records, {}, &AssetRecord::Key);
   AttachedCanopyLookup result;
   for (const auto &record : *records) {
-    if (record.ByteCount > GroupImpostorManifestBytesMost) { continue; }
+    if (record.ByteCount > GroupImpostorManifestBytesMost ||
+        std::ranges::binary_search(demand.PanoramaGroups, record.Key)) {
+      continue;
+    }
     const auto loaded = cache.Load(record.Key, GroupImpostorManifestBytesMost);
     if (!loaded) { return std::unexpected("canopy manifest read failed"); }
     if (!*loaded) { continue; }
@@ -363,7 +365,8 @@ std::expected<AttachedCanopyLookup, std::string> LoadAttachedCanopy(const AssetC
     if (!manifest || manifest->CanopyCell.empty() || !HasViews(json, manifest->Directions.size())) {
       continue;
     }
-    const auto needed = SelectImpostorDirections(manifest->Directions, LocalEye(*manifest, eye));
+    const auto needed =
+        SelectImpostorDirections(manifest->Directions, LocalEye(*manifest, demand.EyeEcef));
     if (needed.size() < 2) { continue; }
     auto group = ReadViews(cache,
                            *manifest,

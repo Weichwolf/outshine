@@ -212,8 +212,37 @@ three paired 120-frame A18 Pro runs at 720p30 was 1.65 / 1.75 ms in a 360° turn
 and 1.87 / 1.88 ms in a 16 m retreat, with the canopy enabled in the second
 run of each pair. Initial shared uploads rose by 764,460 bytes. The refined
 cut activated at frame 1 in each replay. The shots show visible stipple in
-thin crowns. Canopy near/far handoffs and continuity across ground refinement
-still require acceptance.
+thin crowns. Near geometry and continuity across ground refinement still
+require acceptance.
+
+## Canopy in the far panorama
+
+`compose_canopy_panorama.py` reads the bound groups and their exact card assets
+from a prepared store. It rasterizes the two closest directions over the
+linear colour and radial depth cube with four coverage samples per texel.
+The terrain and cards resolve depth in metres. The resolved colour averages
+the four samples and leaf depth represents texels with at least half coverage.
+The prototype uses the panorama's irradiance and exposure for matching shade.
+
+```sh
+python3 -B test/experiments/render/compose_canopy_panorama.py \
+  "$terrain_panorama" "$canopy_panorama" "$database" "$revision"
+outshine cache import-panorama "$database" "$revision" "$canopy_panorama"
+```
+
+Set `ZSTD_LIBRARY` to the system libzstd path if Python cannot discover it.
+The bake records a group only when it contributes to the cube and all its
+card bounds clear the overlap plus the eye translation radius. The loader
+skips those exact descriptor keys before reading manifests and cards. During
+an anchor blend the keys must be present in both panoramas.
+
+At Körbersee, with 512 px faces and a 700–900 m overlap, each anchor recorded
+five groups. At 720p30 the cut retained 14 of 19 groups. Peak card triangles
+fell from 6,942 to 5,186, requested group bytes from 883,405 to 590,253.
+Three paired A18 Pro runs measured GPU p99 at 1.77 / 1.78 ms for a 360° turn
+and 2.31 / 2.28 ms for a 32 m flight across two anchors. The paired PNGs
+at rest, during the anchor blend and at the motion endpoints were identical.
+A missing key in the second anchor retained that group's cards.
 
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),

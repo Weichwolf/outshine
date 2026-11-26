@@ -179,7 +179,7 @@ private:
 
   [[nodiscard]] std::expected<void, std::string> AttachCanopy(const AssetRecord &record) {
     if (!Demand_.GroupDemand) { return {}; }
-    auto canopy = LoadAttachedCanopy(Cache_, record, Demand_.GroupDemand->EyeEcef);
+    auto canopy = LoadAttachedCanopy(Cache_, record, *Demand_.GroupDemand);
     if (!canopy) { return std::unexpected(canopy.error()); }
     Cut_.GroupRequestedBytes += canopy->RequestedBytes;
     const size_t surface = Cut_.Products.size() - 1;

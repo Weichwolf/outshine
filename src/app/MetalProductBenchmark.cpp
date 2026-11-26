@@ -268,6 +268,16 @@ std::expected<SurfaceTileLookup, std::string> ReadIndexedTile(AssetCache &cache,
       cache, revision, {.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg});
 }
 
+std::vector<std::string> CommonPanoramaGroups(std::span<const FarPanorama> panoramas) {
+  auto common = panoramas.front().BakedGroups;
+  std::erase_if(common, [&](const auto &key) {
+    return std::ranges::any_of(panoramas.subspan(1), [&](const auto &panorama) {
+      return !std::ranges::binary_search(panorama.BakedGroups, key);
+    });
+  });
+  return common;
+}
+
 std::expected<SurfaceCutLookup, std::string> PrepareTiles(const ScenarioBenchmarkOptions &options,
                                                           AssetCache *cache,
                                                           const ScenarioBenchmarkReport &report,
@@ -290,6 +300,7 @@ std::expected<SurfaceCutLookup, std::string> PrepareTiles(const ScenarioBenchmar
                                ? projection->AxialOverlapEndM
                                : projection->AxialNearM + projection->CoverageFadeM;
     const double radius = std::numbers::sqrt3 * handoff;
+    const auto baked = CommonPanoramaGroups(panoramas);
     return LoadSurfaceCut(
         *cache,
         options.ProductRevision,
@@ -298,7 +309,8 @@ std::expected<SurfaceCutLookup, std::string> PrepareTiles(const ScenarioBenchmar
          .FocalPixels = preferCoarse ? 0 : projection->FocalPixels,
          .GroupDemand = GroupImpostorDemand{.EyeEcef = sweep,
                                             .FocalPixels = projection->FocalPixels,
-                                            .ReplaceSurface = !preferCoarse}});
+                                            .ReplaceSurface = !preferCoarse,
+                                            .PanoramaGroups = baked}});
   }
   SurfaceCutLookup cut;
   if (cache != nullptr) {
