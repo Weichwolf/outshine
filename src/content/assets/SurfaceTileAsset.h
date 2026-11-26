@@ -2,6 +2,7 @@
 #define OUTSHINE_CONTENT_ASSETS_SURFACETILEASSET_H
 
 #include "SurfaceTile.h"
+#include "Box.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -9,6 +10,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace outshine {
 
@@ -24,6 +26,20 @@ struct SurfaceTileLookup {
 
 [[nodiscard]] std::expected<SurfaceTileLookup, std::string>
 LoadSurfaceTileAt(AssetCache &cache, std::string_view revision, LongitudeLatitude location);
+
+struct SurfaceCutDemand {
+  Box SweptEyeEcef;
+  double RadiusM = 0;
+  double FocalPixels = 0;
+};
+
+struct SurfaceCutLookup {
+  std::vector<SurfaceTile> Products;
+  size_t RequestedBytes = 0;
+};
+
+[[nodiscard]] std::expected<SurfaceCutLookup, std::string>
+LoadSurfaceCut(AssetCache &cache, std::string_view revision, const SurfaceCutDemand &demand);
 
 }
 

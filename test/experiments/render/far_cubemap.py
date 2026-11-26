@@ -40,6 +40,21 @@ def anchor_weight(fractions, overlap):
     return t**2 * (3 - 2 * t)
 
 
+def anchor_colour_weight(first_m, next_m, travel_weight, perpendicular_baseline_px_m,
+                         first_opaque=False, next_opaque=False):
+    """Resolve the radiance weight of the second anchor for a common camera ray."""
+    first, second = np.broadcast_arrays(first_m, next_m)
+    covered = (first > 0) & (second > 0)
+    disparity = np.divide(abs(first - second) * perpendicular_baseline_px_m, first * second,
+                          out=np.zeros(first.shape, dtype=float), where=covered)
+    t = np.clip(2 * (disparity - .5), 0, 1)
+    separation = t * t * (3 - 2 * t)
+    shared = (1 - separation) * travel_weight + separation * (second < first)
+    fallback = np.where(first_opaque != next_opaque, np.logical_not(next_opaque),
+                        np.where(first_opaque, travel_weight >= .5, travel_weight))
+    return np.where(covered, shared, np.where(first == second, fallback, second > first))
+
+
 def directions(side):
     coords = (np.arange(side) + .5) * (2 / side) - 1
     return unit(FORWARD[:, None, None] + coords[None, None, :, None] * RIGHT[:, None, None] +

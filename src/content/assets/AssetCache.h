@@ -35,6 +35,14 @@ struct AssetQuery {
   std::optional<std::string_view> Parent = std::nullopt;
   std::optional<std::string_view> TileRevision = std::nullopt;
   bool SpatialFirst = false;
+  bool BoundTilesOnly = false;
+};
+
+struct AssetTileChildren {
+  std::string_view ParentRequest;
+  std::string_view Kind;
+  std::string_view Revision;
+  uint32_t Level = 0;
 };
 
 enum class AssetCacheError { InvalidInput, Storage, Busy, UnsupportedVersion, CapacityExceeded };
@@ -170,6 +178,9 @@ public:
 
   [[nodiscard]] std::expected<std::vector<AssetRecord>, AssetCacheError>
   Select(const AssetQuery &query) const;
+
+  [[nodiscard]] std::expected<std::vector<AssetRecord>, AssetCacheError>
+  SelectTileChildren(const AssetTileChildren &query) const;
 
   [[nodiscard]] std::expected<void, AssetCacheError> Remove(std::string_view key);
 

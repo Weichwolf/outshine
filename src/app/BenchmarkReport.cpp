@@ -193,7 +193,25 @@ ReportJson TileContent(const BenchmarkTileCoverage &tile) {
           {"revision", tile.Revision},
           {"geometric_error_m", tile.GeometricErrorM},
           {"draws_per_frame", 1},
+          {"overlay_triangles_per_frame", tile.OverlayTriangles},
           {"triangles_per_frame", tile.Triangles}};
+}
+
+ReportJson TileContent(std::span<const BenchmarkTileCoverage> tiles) {
+  if (tiles.size() == 1) { return TileContent(tiles.front()); }
+  auto records = ReportJson::array();
+  size_t triangles = 0;
+  size_t overlayTriangles = 0;
+  for (const auto &tile : tiles) {
+    records.push_back(TileContent(tile));
+    triangles += tile.Triangles;
+    overlayTriangles += tile.OverlayTriangles;
+  }
+  return {{"kind", "opaque_surface_cut"},
+          {"tiles", std::move(records)},
+          {"draws_per_frame", tiles.size()},
+          {"overlay_triangles_per_frame", overlayTriangles},
+          {"triangles_per_frame", triangles}};
 }
 
 ReportJson PanoramaContent(const BenchmarkPanoramaCoverage &bake) {
@@ -201,6 +219,8 @@ ReportJson PanoramaContent(const BenchmarkPanoramaCoverage &bake) {
           {"face_px", bake.Side},
           {"anchor_eus_m", bake.AnchorM.Axis},
           {"revision", bake.Revision},
+          {"axial_near_m", bake.AxialNearM},
+          {"axial_overlap_end_m", bake.AxialOverlapEndM},
           {"maximum_range_m", bake.MaximumRangeM},
           {"maximum_eye_translation_m", bake.MaximumTranslationM},
           {"draws_per_frame", 1},
@@ -218,25 +238,29 @@ ReportJson PanoramaContent(const BenchmarkPanoramaCoverage &bake,
 }
 
 ReportJson RenderedContent(const ScenarioBenchmarkReport &report) {
-  if (report.Tile && report.Panorama) {
+  if (!report.Tiles.empty() && report.Panorama) {
+    auto near = TileContent(report.Tiles);
+    const auto triangles = near["triangles_per_frame"].get<size_t>();
     return {{"kind", "near_far_composition"},
-            {"near", TileContent(*report.Tile)},
+            {"near", std::move(near)},
             {"far", PanoramaContent(*report.Panorama, report.PanoramaHandoff)},
-            {"draws_per_frame", 2},
-            {"triangles_per_frame", 1 + report.Tile->Triangles}};
+            {"draws_per_frame", 1 + report.Tiles.size()},
+            {"triangles_per_frame", 1 + triangles}};
   }
   if (report.Panorama) { return PanoramaContent(*report.Panorama, report.PanoramaHandoff); }
-  if (report.Tile) { return TileContent(*report.Tile); }
+  if (!report.Tiles.empty()) { return TileContent(report.Tiles); }
   return {{"kind", "scenario_world"}};
 }
 
 ReportJson BenchmarkTraffic(const ScenarioBenchmarkReport &report) {
-  if (report.Panorama || report.Tile) {
+  if (report.Panorama || !report.Tiles.empty()) {
     const bool indexed = report.ProductStoreReadBytes.has_value();
     const size_t panoramaBytes =
         (report.Panorama ? report.Panorama->StoredBytes : 0) +
         (report.PanoramaHandoff ? report.PanoramaHandoff->Next.StoredBytes : 0);
-    const uint64_t tileBytes = report.Tile ? report.Tile->StoredBytes : 0;
+    uint64_t tileBytes = 0;
+    for (const auto &tile : report.Tiles) { tileBytes += tile.StoredBytes; }
+    if (report.SurfaceStream) { tileBytes += report.SurfaceStream->DecodedBytes; }
     const uint64_t bytes = report.ProductStoreReadBytes.value_or(tileBytes) +
                            (report.IndexedPanoramaRequestedBytes ? 0 : panoramaBytes);
     return {
@@ -248,11 +272,12 @@ ReportJson BenchmarkTraffic(const ScenarioBenchmarkReport &report) {
         {"tile_requested_bytes", report.TileRequestedBytes},
         {"panorama_requested_bytes", report.IndexedPanoramaRequestedBytes.value_or(panoramaBytes)},
         {"panorama_decoded_bytes", panoramaBytes},
-        {"tile_decoded_bytes",
-         report.Tile ? ReportJson(report.Tile->StoredBytes) : ReportJson(nullptr)},
+        {"tile_decoded_bytes", report.Tiles.empty() ? ReportJson(nullptr) : ReportJson(tileBytes)},
         {"asset_read_ms", report.ProductReadMs},
         {"upload_bytes", report.ProductUploadBytes},
-        {"upload_scope", "initial shared product buffers and textures"},
+        {"upload_scope",
+         report.SurfaceStream ? "initial and staged shared product resources"
+                              : "initial shared product buffers and textures"},
         {"upload_ms", report.ProductUploadMs}};
   }
   const auto bytes = std::ranges::find_if(report.Measures, [](const auto &metric) {
@@ -265,6 +290,34 @@ ReportJson BenchmarkTraffic(const ScenarioBenchmarkReport &report) {
            bytes == report.Measures.end() ? ReportJson(nullptr) : ReportJson(bytes->Value)},
           {"upload_scope", "bytes offered in the last reported geometry rebuild"},
           {"upload_ms", nullptr}};
+}
+
+void ReportRenderPath(const ScenarioBenchmarkReport &report, ReportJson &json) {
+  if (report.SurfaceStream) {
+    const auto &stream = *report.SurfaceStream;
+    json["surface_stream"] = {
+        {"first_refined_frame",
+         stream.FirstRefinedFrame ? ReportJson(*stream.FirstRefinedFrame) : ReportJson(nullptr)},
+        {"initial_tiles", report.Tiles.size()},
+        {"refined_tiles", stream.Tiles},
+        {"reused_tiles", stream.ReusedTiles},
+        {"refined_triangles", stream.Triangles},
+        {"ready_ms", stream.ReadyMs},
+        {"error", stream.Error}};
+  }
+  if (!report.Tiles.empty() || report.Panorama) {
+    auto &timing = json["gpu_times"];
+    timing["scope"] = report.Panorama ? "command buffer containing one far panorama pass"
+                                      : "command buffer containing one opaque tile pass";
+    std::string_view pass = report.Panorama ? "far_panorama" : "opaque_tile";
+    if (!report.Tiles.empty() && report.Panorama) {
+      timing["scope"] = "command buffer containing the depth-composited near and far pass";
+      pass = "near_far_composition";
+    }
+    json["pass_times"] = {{"scope", timing["scope"]}, {"passes", {{pass, timing["frame"]}}}};
+  } else {
+    json["gpu_times"]["scope"] = "frame submissions recorded by the world renderer";
+  }
 }
 
 ReportJson LoadJson(const std::optional<std::array<double, 3>> &value) {
@@ -287,7 +340,7 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
       std::ranges::count_if(report.Frames, [](const auto &frame) { return !frame.Refined; });
   const bool contentComplete =
       measurementComplete && unrefined == 0 && report.FinalWorldBlockers.empty();
-  const bool worldComplete = contentComplete && !report.Tile && !report.Panorama;
+  const bool worldComplete = contentComplete && report.Tiles.empty() && !report.Panorama;
   const bool cpuPass = measurementComplete && !cpu["frame"].is_null() &&
                        cpu["frame"]["p99_ms"].get<double>() <= budgetMs;
   ReportJson gpuPass = gpu["complete"].get<bool>()
@@ -306,9 +359,9 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
   for (const auto &gap : report.WorldGaps) {
     worldGaps.push_back({{"first_frame", gap.FirstFrame}, {"blockers", gap.Blockers}});
   }
-  std::string_view renderPath = report.Tile ? "metal_tile" : "world";
+  std::string_view renderPath = report.Tiles.empty() ? "world" : "metal_tile";
   if (report.Panorama) { renderPath = "metal_panorama"; }
-  if (report.Panorama && report.Tile) { renderPath = "metal_near_far"; }
+  if (report.Panorama && !report.Tiles.empty()) { renderPath = "metal_near_far"; }
   ReportJson json{
       {"benchmark_version", 2},
       {"mode", "scenario"},
@@ -342,7 +395,7 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
        {{"width_px", report.Frame.WidthPx},
         {"height_px", report.Frame.HeightPx},
         {"fps", report.Motion.RateHz},
-        {"pacing", "unpaced"},
+        {"pacing", report.SurfaceStream ? "realtime" : "unpaced"},
         {"budget_ms", budgetMs}}},
       {"motion",
        {{"frames", report.Motion.Frames},
@@ -357,7 +410,7 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
        {{"setup", report.SetupMs},
         {"preload", report.PreloadMs},
         {"path_preparation", report.PathPreparationMs},
-        {"unpaced_window", report.WindowMs},
+        {report.SurfaceStream ? "paced_window" : "unpaced_window", report.WindowMs},
         {"final_gpu_flush", report.FlushMs},
         {"final_inspection", report.InspectionMs},
         {"final_image", report.ImageMs},
@@ -375,19 +428,7 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
       {"cpu_times", std::move(cpu)},
       {"gpu_times", std::move(gpu)},
       {"metrics", std::move(metrics)}};
-  if (report.Tile || report.Panorama) {
-    auto &timing = json["gpu_times"];
-    timing["scope"] = report.Panorama ? "command buffer containing one far panorama pass"
-                                      : "command buffer containing one opaque tile pass";
-    std::string_view pass = report.Panorama ? "far_panorama" : "opaque_tile";
-    if (report.Tile && report.Panorama) {
-      timing["scope"] = "command buffer containing the depth-composited near and far pass";
-      pass = "near_far_composition";
-    }
-    json["pass_times"] = {{"scope", timing["scope"]}, {"passes", {{pass, timing["frame"]}}}};
-  } else {
-    json["gpu_times"]["scope"] = "frame submissions recorded by the world renderer";
-  }
+  ReportRenderPath(report, json);
   return json.dump(2, ' ', false, ReportJson::error_handler_t::replace) + '\n';
 }
 

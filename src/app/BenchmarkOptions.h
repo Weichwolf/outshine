@@ -25,6 +25,7 @@ struct ScenarioBenchmarkOptions {
   BenchmarkMotionInput Motion;
   double PreloadSeconds = kDefaultPreloadSeconds;
   bool Offline = false;
+  bool StreamProducts = false;
 };
 
 struct BenchmarkOptions {

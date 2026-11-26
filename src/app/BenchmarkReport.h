@@ -34,6 +34,7 @@ struct BenchmarkTileCoverage {
   std::array<double, 2> OriginLonLat;
   std::string Revision;
   size_t Triangles = 0;
+  size_t OverlayTriangles = 0;
   double GeometricErrorM = 0;
   size_t StoredBytes = 0;
 };
@@ -42,6 +43,8 @@ struct BenchmarkPanoramaCoverage {
   size_t Side = 0;
   Vec3 AnchorM;
   std::string Revision;
+  double AxialNearM = 0;
+  double AxialOverlapEndM = 0;
   double MaximumRangeM = 0;
   double MaximumTranslationM = 0;
   size_t StoredBytes = 0;
@@ -50,6 +53,16 @@ struct BenchmarkPanoramaCoverage {
 struct BenchmarkPanoramaHandoff {
   BenchmarkPanoramaCoverage Next;
   std::array<double, 2> BlendWindowFrames{};
+};
+
+struct BenchmarkSurfaceStream {
+  std::optional<size_t> FirstRefinedFrame;
+  size_t Tiles = 0;
+  size_t ReusedTiles = 0;
+  size_t Triangles = 0;
+  size_t DecodedBytes = 0;
+  double ReadyMs = 0;
+  std::string Error;
 };
 
 struct ScenarioBenchmarkReport {
@@ -62,9 +75,10 @@ struct ScenarioBenchmarkReport {
   BenchmarkMotionInput Motion;
   Camera Start;
   Camera Finish;
-  std::optional<BenchmarkTileCoverage> Tile;
+  std::vector<BenchmarkTileCoverage> Tiles;
   std::optional<BenchmarkPanoramaCoverage> Panorama;
   std::optional<BenchmarkPanoramaHandoff> PanoramaHandoff;
+  std::optional<BenchmarkSurfaceStream> SurfaceStream;
   std::optional<uint64_t> ProductStoreReadBytes;
   std::optional<size_t> IndexedPanoramaRequestedBytes;
   size_t TileRequestedBytes = 0;

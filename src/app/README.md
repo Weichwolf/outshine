@@ -193,6 +193,21 @@ eine explizite Z/X/Y-Seite aus einer Ground-Region mit eingebetteten Seiten oder
 vollständigen Terrain-Pack (`--kind ground-terrain-pack`). Der Export verwendet die gespeicherten Höhen und die Triangulierung des
 Terrain-Meshers. Die Fehlerschranke bezieht sich auf die Triangulierung derselben Höhenzellen.
 
+Gebäude aus vorbereiteten Quellkacheln werden beim Offline-Bake einer Geländekachel
+je Detailstufe zugeordnet. Die Zuordnung hält vollständige Gebäude zusammen und prüft
+die Gebäudemengen bei jedem vollständigen Ersatz einer Elternkachel. Wo die Daten
+vorliegen, lassen sich Gebäudeschlüssel wiederholen und der Bereich per
+`--extent WEST SOUTH EAST NORTH` begrenzen. Das Werkzeug benötigt Python ab 3.10.
+Passt die Detailgeometrie nicht ins Kachelformat, schreibt das Werkzeug die vollständigen
+Gebäudehüllen dieser Kachel.
+
+```sh
+cmake --build build --target outshine_experiment_surface_buildings
+python3 -B test/experiments/render/bake_surface_buildings.py "$asset_cache" \
+  "$geometry_cache" build/outshine_experiment_surface_buildings "$output_dir" "$grid" \
+  --building-key "$building_key" --fine-level "$fine_level"
+```
+
 Für den SSD-Vergleich importiert der Client gepackte Kacheln und Fernpanoramen unter einer gemeinsamen
 SHA-256-Revision, die Quellen und Generatorversion identifiziert.
 
@@ -204,8 +219,25 @@ build/outshine benchmark --scenario "$scenario" --product-store "$database" \
   --product-revision "$revision" --frames 30 --image "$image" --output "$report"
 ```
 
-Der SSD-Pfad wählt vor der Messung die feinste verfügbare Kachel der Kamerazelle.
-Fehlt ihre Nutzlast oder scheitert die Validierung, prüft er die übergeordnete Kachel.
+Für den Materialvergleich übernimmt der experimentelle Bake die Bodenklassen und
+Materialrezepte einer Ground-Region mit eingebetteten Seiten. Pro Rasterpunkt speichert
+er drei Byte lineare Farbe und ein Byte Rauheit. Geometrie und Gebäudefarben bleiben erhalten.
+
+```sh
+cmake --build build --target outshine_experiment_surface_ground
+python3 -B test/experiments/render/bake_surface_ground.py "$cache" "$region_key" \
+  build/outshine_experiment_surface_ground "$output_dir" "$packed"
+```
+
+Der SSD-Pfad wählt bei einer Tiefen-Cubemap mit Nahgrenze einen Kachelschnitt für den
+Kamerapfad. Die räumliche Suche liefert Startpunkte. Die Hierarchiesuche ergänzt Eltern und
+fehlende Geschwister für eine vollständige Abdeckung. Fehlt eine Kindkachel oder ist sie
+beschädigt, bleibt die übergeordnete Kachel.
+`--stream-products` startet die Messung mit groben Kacheln und taktet die Frames nach der
+Szenariorate. Ein Worker liest und lädt den feineren Schnitt in Metal-Puffer. Der Renderer
+wechselt an einer Framegrenze, sobald die Puffer fertig sind und die gleiche Fläche abdecken.
+`surface_stream` meldet die Vorbereitungszeit, wiederverwendete Puffer und den ersten Frame mit
+dem feineren Schnitt. Ohne die Option liegt der gewählte Schnitt vor dem ersten Frame bereit.
 Panoramen decken die ganze Flugstrecke mit einer Aufnahme oder zwei kompatiblen
 Aufnahmen ab. Für einen direkten Vergleich akzeptiert der Benchmark weiterhin
 `--panorama-product` und `--panorama-next`.

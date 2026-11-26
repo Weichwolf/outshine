@@ -20,8 +20,10 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <numbers>
 #include <string_view>
 #include <optional>
+#include <span>
 #include <system_error>
 #include <utility>
 #include <vector>
@@ -99,7 +101,7 @@ void CaptureProductSamples(ScenarioBenchmarkReport &report,
     report.Frames.push_back({.WallMs = sample.WallMs,
                              .RenderMs = sample.RenderMs,
                              .SyncWaitMs = sample.SyncWaitMs,
-                             .Refined = true});
+                             .Refined = sample.Refined});
     if (sample.GpuMs) {
       report.GpuSamples.push_back(
           {.Device = frames.DeviceId, .Submission = frame + 1, .ElapsedMs = *sample.GpuMs});
@@ -120,6 +122,7 @@ Vec3 PanoramaOffset(const Camera &pose, const FarPanorama &panorama) {
 std::expected<Render::PanoramaView, std::string>
 MakePanoramaView(const Camera &pose, Extent frame, const FarPanorama &panorama) {
   const double aspect = static_cast<double>(frame.WidthPx) / frame.HeightPx;
+  constexpr double kBlendTexels = 8;
   Mat4 basis;
   Mat4 projection;
   if (pose.Orthographic || !pose.modelMatrix(basis) || !pose.projectionMatrix(aspect, projection)) {
@@ -133,7 +136,11 @@ MakePanoramaView(const Camera &pose, Extent frame, const FarPanorama &panorama) 
       .FocalPixels = static_cast<double>(frame.HeightPx) * projection[5] * 0.5,
       .DepthScaleM = -projection[14] * 0.5,
       .DepthBias = -(1.0 + projection[10]) * 0.5,
-      .Exposure = panorama.ReferenceExposure};
+      .Exposure = panorama.ReferenceExposure,
+      .AxialNearM = panorama.AxialNearM,
+      .AxialOverlapEndM = panorama.AxialOverlapEndM,
+      .CoverageFadeM =
+          panorama.AxialNearM * (2 * kBlendTexels) / static_cast<double>(panorama.Side)};
 }
 
 std::expected<std::array<double, 2>, std::string> PanoramaOverlap(
@@ -144,9 +151,12 @@ std::expected<std::array<double, 2>, std::string> PanoramaOverlap(
   if (length <= kPoseRoundoffM || !first.Domain().Covers(start) || !next.Domain().Covers(finish)) {
     return std::unexpected("panorama handoff requires a flight covered at both endpoints");
   }
-  if (first.Side != next.Side || first.MaximumRangeM != next.MaximumRangeM ||
-      first.ReferenceExposure != next.ReferenceExposure) {
-    return std::unexpected("panorama handoff requires matching resolution, range and exposure");
+  if (first.Side != next.Side || first.AxialNearM != next.AxialNearM ||
+      first.AxialOverlapEndM != next.AxialOverlapEndM ||
+      first.MaximumRangeM != next.MaximumRangeM ||
+      first.ReferenceExposure != next.ReferenceExposure || first.Lighting != next.Lighting) {
+    return std::unexpected(
+        "panorama handoff requires matching resolution, clip range, exposure and lighting");
   }
   const PanoramaRay ray{.OriginM = start, .Direction = (finish - start) * (1.0 / length)};
   const double exit = first.Domain().Along(ray)[1];
@@ -162,6 +172,8 @@ BenchmarkPanoramaCoverage PanoramaCoverage(const FarPanorama &panorama) {
   return {.Side = panorama.Side,
           .AnchorM = panorama.AnchorM,
           .Revision = panorama.Revision,
+          .AxialNearM = panorama.AxialNearM,
+          .AxialOverlapEndM = panorama.AxialOverlapEndM,
           .MaximumRangeM = panorama.MaximumRangeM,
           .MaximumTranslationM = panorama.MaximumTranslationM,
           .StoredBytes = panorama.Colour.size() + panorama.Depth.size()};
@@ -244,33 +256,125 @@ std::expected<SurfaceTileLookup, std::string> ReadIndexedTile(AssetCache &cache,
       cache, revision, {.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg});
 }
 
-std::expected<std::optional<SurfaceTile>, std::string>
-PrepareTile(const ScenarioBenchmarkOptions &options,
-            AssetCache *cache,
-            ScenarioBenchmarkReport &report,
-            LongitudeLatitude origin) {
-  SurfaceTileLookup found;
+std::expected<SurfaceCutLookup, std::string> PrepareTiles(const ScenarioBenchmarkOptions &options,
+                                                          AssetCache *cache,
+                                                          const ScenarioBenchmarkReport &report,
+                                                          LongitudeLatitude origin,
+                                                          std::span<const FarPanorama> panoramas,
+                                                          bool preferCoarse = false) {
+  if (cache != nullptr && !panoramas.empty() && panoramas.front().AxialNearM > 0) {
+    const auto projection = MakePanoramaView(report.Start, report.Frame, panoramas.front());
+    if (!projection) { return std::unexpected(projection.error()); }
+    const auto frame = TangentFrame::At(origin);
+    Box eye;
+    for (const auto &pose : {report.Start.PositionM, report.Finish.PositionM}) {
+      eye.Cover(frame.ToEcefPosition({.EastM = pose[0], .NorthM = -pose[2], .UpM = pose[1]}));
+    }
+    const double handoff = projection->AxialOverlapEndM > 0
+                               ? projection->AxialOverlapEndM
+                               : projection->AxialNearM + projection->CoverageFadeM;
+    const double radius = std::numbers::sqrt3 * handoff;
+    return LoadSurfaceCut(*cache,
+                          options.ProductRevision,
+                          {.SweptEyeEcef = eye,
+                           .RadiusM = radius + panoramas.front().MaximumTranslationM,
+                           .FocalPixels = preferCoarse ? 0 : projection->FocalPixels});
+  }
+  SurfaceCutLookup cut;
   if (cache != nullptr) {
     auto indexed = ReadIndexedTile(*cache, options.ProductRevision, report.Start.PositionM, origin);
     if (!indexed) { return std::unexpected(indexed.error()); }
-    found = std::move(*indexed);
+    cut.RequestedBytes = indexed->RequestedBytes;
+    if (indexed->Product) { cut.Products.push_back(std::move(*indexed->Product)); }
   } else if (!options.TileProduct.empty()) {
     auto direct = ReadSurfaceTile(options.TileProduct);
     if (!direct) { return std::unexpected(direct.error()); }
-    found.RequestedBytes = direct->StoredBytes;
-    found.Product = std::move(*direct);
+    cut.RequestedBytes = direct->StoredBytes;
+    cut.Products.push_back(std::move(*direct));
   }
-  report.TileRequestedBytes = found.RequestedBytes;
-  const auto &tile = found.Product;
-  if (!tile) { return std::nullopt; }
-  report.Tile = BenchmarkTileCoverage{
-      .Address = {static_cast<uint32_t>(tile->Coverage.Zoom), tile->Coverage.X, tile->Coverage.Y},
-      .OriginLonLat = {tile->Origin.LongitudeDeg, tile->Origin.LatitudeDeg},
-      .Revision = tile->Revision,
-      .Triangles = tile->Indices.size() / 3,
-      .GeometricErrorM = tile->GeometricErrorM,
-      .StoredBytes = tile->StoredBytes};
-  return std::move(found.Product);
+  return cut;
+}
+
+std::vector<Render::MetalSurface>
+PlaceTiles(const SurfaceCutLookup &cut, ScenarioBenchmarkReport &report, LongitudeLatitude origin) {
+  std::vector<Render::MetalSurface> placed;
+  placed.reserve(cut.Products.size());
+  report.TileRequestedBytes = cut.RequestedBytes;
+  report.Tiles.reserve(cut.Products.size());
+  for (const auto &tile : cut.Products) {
+    placed.push_back({.Product = tile, .WorldFromTile = TilePlacement(tile, origin)});
+    report.Tiles.push_back(
+        {.Address = {static_cast<uint32_t>(tile.Coverage.Zoom), tile.Coverage.X, tile.Coverage.Y},
+         .OriginLonLat = {tile.Origin.LongitudeDeg, tile.Origin.LatitudeDeg},
+         .Revision = tile.Revision,
+         .Triangles = tile.Indices.size() / 3,
+         .OverlayTriangles = (tile.Indices.size() - tile.GroundIndices) / 3,
+         .GeometricErrorM = tile.GeometricErrorM,
+         .StoredBytes = tile.StoredBytes});
+  }
+  return placed;
+}
+
+struct SurfaceReadCost {
+  size_t RequestedBytes = 0;
+  size_t DecodedBytes = 0;
+  double Ms = 0;
+};
+
+std::expected<std::vector<Render::MetalPlacedSurface>, std::string>
+PrepareSurfaceReplacement(const ScenarioBenchmarkOptions &options,
+                          AssetCache &cache,
+                          const ScenarioBenchmarkReport &report,
+                          LongitudeLatitude origin,
+                          std::span<const FarPanorama> panoramas,
+                          std::span<const SurfaceTile> active,
+                          SurfaceReadCost &cost) {
+  const auto readAt = BenchmarkClock::now();
+  auto cut = PrepareTiles(options, &cache, report, origin, panoramas);
+  cost.Ms = BenchmarkElapsedMs(readAt);
+  if (!cut) { return std::unexpected(cut.error()); }
+  cost.RequestedBytes = cut->RequestedBytes;
+  for (const auto &tile : cut->Products) { cost.DecodedBytes += tile.StoredBytes; }
+  const auto coverage = SurfaceCoverage(active);
+  if (!coverage || SurfaceCoverage(cut->Products) != coverage) {
+    return std::unexpected("replacement surface cut changed the prepared coverage");
+  }
+  std::vector<Render::MetalPlacedSurface> placed;
+  placed.reserve(cut->Products.size());
+  for (auto &tile : cut->Products) {
+    const auto placement = TilePlacement(tile, origin);
+    placed.push_back({.Product = std::move(tile), .WorldFromTile = placement});
+  }
+  return placed;
+}
+
+std::expected<Render::MetalProductView, std::string>
+ProductViewAt(const BenchmarkMotion &motion,
+              Extent extent,
+              const PreparedPanoramas &prepared,
+              bool hasTiles,
+              size_t frame) {
+  const double aspect = static_cast<double>(extent.WidthPx) / extent.HeightPx;
+  const auto &panoramas = prepared.Products;
+  const auto pose = motion.At(frame);
+  if (!pose) { return std::unexpected(std::string(pose.error())); }
+  Render::MetalProductView view{};
+  view.EyeM = pose->PositionM;
+  if (hasTiles && !pose->clipMatrix(aspect, view.ClipFromWorld)) {
+    return std::unexpected("invalid tile camera");
+  }
+  if (!panoramas.empty()) {
+    const double blend = prepared.NextWeight(frame);
+    view.PanoramaIndex = blend >= 1 ? 1 : 0;
+    const auto projected = MakePanoramaView(*pose, extent, panoramas[view.PanoramaIndex]);
+    if (!projected) { return std::unexpected(projected.error()); }
+    view.Panorama = *projected;
+    if (blend > 0 && blend < 1) {
+      view.Panorama.NextEyeOffsetM = PanoramaOffset(*pose, panoramas.back());
+      view.Panorama.NextWeight = blend;
+    }
+  }
+  return view;
 }
 
 std::expected<Render::MetalProductFrames, std::string>
@@ -281,44 +385,53 @@ MeasureProducts(const ScenarioBenchmarkOptions &options,
   const auto loadAt = BenchmarkClock::now();
   const auto cache = OpenStore(options.ProductStore);
   if (!cache) { return std::unexpected(cache.error()); }
-  const auto loadedTile = PrepareTile(options, cache->get(), report, origin);
-  if (!loadedTile) { return std::unexpected(loadedTile.error()); }
-  const auto &tile = *loadedTile;
-  Mat4 placement;
-  if (tile) { placement = TilePlacement(*tile, origin); }
   const auto prepared = PreparePanoramas(options, cache->get(), report, origin);
   if (!prepared) { return std::unexpected(prepared.error()); }
-  if (*cache) { report.ProductStoreReadBytes = (*cache)->PackageBytesRead(); }
-  report.ProductReadMs = BenchmarkElapsedMs(loadAt);
   const auto &panoramas = prepared->Products;
-  const double aspect = static_cast<double>(report.Frame.WidthPx) / report.Frame.HeightPx;
-  const auto viewAt = [&](size_t frame) -> std::expected<Render::MetalProductView, std::string> {
-    const auto pose = motion.At(frame);
-    if (!pose) { return std::unexpected(std::string(pose.error())); }
-    Render::MetalProductView view{};
-    if (tile) {
-      Mat4 clip;
-      if (!pose->clipMatrix(aspect, clip)) { return std::unexpected("invalid tile camera"); }
-      view.TileClip = clip * placement;
-    }
-    if (!panoramas.empty()) {
-      const double blend = prepared->NextWeight(frame);
-      view.PanoramaIndex = blend >= 1 ? 1 : 0;
-      const auto projected = MakePanoramaView(*pose, report.Frame, panoramas[view.PanoramaIndex]);
-      if (!projected) { return std::unexpected(projected.error()); }
-      view.Panorama = *projected;
-      if (blend > 0 && blend < 1) {
-        view.Panorama.NextEyeOffsetM = PanoramaOffset(*pose, panoramas.back());
-        view.Panorama.NextWeight = blend;
-      }
-    }
-    return view;
+  if (options.StreamProducts &&
+      (!*cache || panoramas.empty() || panoramas.front().AxialNearM <= 0)) {
+    return std::unexpected("streaming tiles requires a prepared store and a clipped far panorama");
+  }
+  const auto cut =
+      PrepareTiles(options, cache->get(), report, origin, panoramas, options.StreamProducts);
+  if (!cut) { return std::unexpected(cut.error()); }
+  if (options.StreamProducts && cut->Products.empty()) {
+    return std::unexpected("streaming tiles requires resident fallback coverage");
+  }
+  const auto tiles = PlaceTiles(*cut, report, origin);
+  report.ProductReadMs = BenchmarkElapsedMs(loadAt);
+  const auto viewAt = [&](size_t frame) {
+    return ProductViewAt(motion, report.Frame, *prepared, !tiles.empty(), frame);
   };
   report.PreloadMs = BenchmarkElapsedMs(loadAt);
-  return Render::RenderMetalProducts({.Tile = tile ? &*tile : nullptr, .Panoramas = panoramas},
-                                     report.Motion.Frames,
-                                     viewAt,
-                                     !options.Image.empty());
+  SurfaceReadCost refinement;
+  Render::MetalSurfaceStream stream;
+  if (options.StreamProducts) {
+    stream.FrameSeconds = 1.0 / report.Motion.RateHz;
+    stream.Load = [&] {
+      return PrepareSurfaceReplacement(
+          options, **cache, report, origin, panoramas, cut->Products, refinement);
+    };
+  }
+  auto frames = Render::RenderMetalProducts({.Tiles = tiles, .Panoramas = panoramas},
+                                            report.Motion.Frames,
+                                            viewAt,
+                                            !options.Image.empty(),
+                                            stream);
+  if (*cache) { report.ProductStoreReadBytes = (*cache)->PackageBytesRead(); }
+  if (frames && frames->Transition) {
+    const auto &transition = *frames->Transition;
+    report.TileRequestedBytes += refinement.RequestedBytes;
+    report.ProductReadMs += refinement.Ms;
+    report.SurfaceStream = {.FirstRefinedFrame = transition.FirstFrame,
+                            .Tiles = transition.Tiles,
+                            .ReusedTiles = transition.ReusedTiles,
+                            .Triangles = transition.Triangles,
+                            .DecodedBytes = refinement.DecodedBytes,
+                            .ReadyMs = transition.ReadyMs,
+                            .Error = transition.Error};
+  }
+  return frames;
 }
 
 }
@@ -351,7 +464,8 @@ RunMetalProductBenchmark(const ScenarioBenchmarkOptions &options) {
   const auto frames = MeasureProducts(options, report, *motion, origin);
   if (!frames) { return std::unexpected(frames.error()); }
   report.ProductUploadBytes = frames->UploadedBytes;
-  report.ProductUploadMs = frames->UploadMs;
+  report.ProductUploadMs =
+      frames->UploadMs + (frames->Transition ? frames->Transition->UploadMs : 0);
   report.SetupMs += frames->SetupMs;
   report.PreloadMs += frames->UploadMs;
   CaptureProductSamples(report, *frames);

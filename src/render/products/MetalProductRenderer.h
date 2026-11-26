@@ -24,6 +24,17 @@ struct MetalProductFrameSample {
   double RenderMs = 0;
   double SyncWaitMs = 0;
   std::optional<double> GpuMs;
+  bool Refined = true;
+};
+
+struct MetalSurfaceTransition {
+  std::optional<size_t> FirstFrame;
+  size_t Tiles = 0;
+  size_t ReusedTiles = 0;
+  size_t Triangles = 0;
+  double ReadyMs = 0;
+  double UploadMs = 0;
+  std::string Error;
 };
 
 struct MetalProductFrames {
@@ -37,6 +48,7 @@ struct MetalProductFrames {
   size_t UploadedBytes = 0;
   double WindowMs = 0;
   double FlushMs = 0;
+  std::optional<MetalSurfaceTransition> Transition;
   std::vector<MetalProductFrameSample> Samples;
   std::vector<uint8_t> Rgba;
 };
@@ -52,15 +64,37 @@ struct PanoramaView {
   double DepthBias;
   double Exposure;
   double NextWeight = 0;
+  double AxialNearM = 0;
+  double AxialOverlapEndM = 0;
+  double CoverageFadeM = 0;
+};
+
+struct MetalSurface {
+  const SurfaceTile &Product;
+  Mat4 WorldFromTile;
+};
+
+struct MetalPlacedSurface {
+  SurfaceTile Product;
+  Mat4 WorldFromTile;
+};
+
+using MetalSurfaceLoad =
+    std::function<std::expected<std::vector<MetalPlacedSurface>, std::string>()>;
+
+struct MetalSurfaceStream {
+  MetalSurfaceLoad Load;
+  double FrameSeconds = 0;
 };
 
 struct MetalProductInputs {
-  const SurfaceTile *Tile = nullptr;
+  std::span<const MetalSurface> Tiles;
   std::span<const FarPanorama> Panoramas;
 };
 
 struct MetalProductView {
-  Mat4 TileClip;
+  Mat4 ClipFromWorld;
+  Vec3 EyeM;
   PanoramaView Panorama;
   size_t PanoramaIndex = 0;
 };
@@ -71,7 +105,8 @@ using MetalProductViewAt = std::function<std::expected<MetalProductView, std::st
 RenderMetalProducts(const MetalProductInputs &products,
                     size_t count,
                     const MetalProductViewAt &viewAt,
-                    bool readImage);
+                    bool readImage,
+                    const MetalSurfaceStream &stream = {});
 
 }
 #endif

@@ -23,6 +23,12 @@ Cube faces follow +X, -X, +Y, -Y, +Z, -Z in east/up/south coordinates. The packe
 reversed perspective depth to radial metres and mirrors the right-handed capture camera
 rows into cube storage. It retains scene-linear RGB, opaque coverage, source declarations
 and a payload-derived revision. The capture records native GPU, readback and writing costs.
+Captures with a fixed scenario clock also carry sun direction, spectral sky diffuse and
+first-order ground bounce. The packer scales the three light terms with the same exposure
+used for far RGB. Metal uses them to light the prepared building overlays and the terrain
+grid in the same display transform. The terrain uses its packed base colour and roughness
+with a dielectric GGX sun lobe. The roughness occupies the fourth byte of the grid's
+material stream. Older surface tiles keep their preview illumination.
 
 ## Native rotation control
 
@@ -49,14 +55,25 @@ use the same reversed-depth buffer. The tile covers nearer samples and reproject
 while valid panorama depth covers tile samples behind it. Benchmark reports distinguish
 this two-product composition from a complete world render.
 
+For a wider transition, capture inside the planned handoff and pack with
+`--overlap-end-m` set to its axial end. Retain terrain coverage through that end.
+The compositor normalises the near and far weights where their depths agree and
+orders the layers by depth where they separate. An opaque anchor texel fills an
+unresolved reprojection beyond the handoff. A sky texel leaves valid near geometry
+visible. The 250–350 m trial uses the 350 m near-geometry reach already prepared for
+the city capture. Both distances are stored in the product and reported separately.
+
 ## Anchor handoff
 
-Capture a second panorama in the same tangent frame with matching range, resolution and
-exposure. Declare overlapping translation domains, then add `--panorama-next "$next"`
+Capture a second panorama in the same tangent frame with matching range, resolution,
+exposure and lighting. Declare overlapping translation domains, then add `--panorama-next "$next"`
 to a flight that starts in the first domain and ends in the second. Before drawing,
 the benchmark intersects both domains with the flight segment, rejects a coverage gap
 and uploads both products. It uses one far draw per frame. Within the reported overlap
-window, it reprojects both products, blends scene-linear colour before the display
-transform and keeps the nearest valid depth. Outside the overlap it samples one
-product. The two resident 512px products together cost 36 MiB of texture payload.
+window, it reprojects both products and keeps the nearest valid depth. It blends
+scene-linear colour when the depths agree to half a pixel of anchor disparity.
+At one pixel of disparity the foreground determines the colour. A resolved surface
+also takes priority over sky and failed reprojections. If both depths are absent,
+the sample classified as sky takes priority over an unresolved surface. Outside
+the overlap it samples one product. Two resident 512px products use 36 MiB.
 Capture, disk reads and uploads are measured outside the frame window.

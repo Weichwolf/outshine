@@ -37,7 +37,7 @@ def header(reader):
     return anchor
 
 
-def prepared(reader, terrain_fields=False):
+def prepared(reader, terrain_fields=False, terrain_parts=False):
     local, count, source, first_hole, holes, _ = (reader.number("I") for _ in range(6))
     cell = reader.number("I")
     reader.skip(32)
@@ -55,6 +55,12 @@ def prepared(reader, terrain_fields=False):
             "origin_point": reader.number("I"),
             "height_asl_m": reader.number("d"),
         }
+        if terrain_parts:
+            for _ in range(reader.number("Q")):
+                reader.number("d")
+                array(reader, 16)
+                for _ in range(reader.number("Q")):
+                    array(reader, 16)
     geographic_bounds = tuple(reader.number("d") for _ in range(4))
     first_corner = reader.number("Q")
     base, seat, area, across = (reader.number("d") for _ in range(4))
@@ -137,8 +143,8 @@ def read_plans(data):
         raise ValueError("bounded native source index required")
     reader = Reader(data, number_limit=16777216)
     magic, version = reader.number("I"), reader.number("I")
-    if magic != 0x31425350 or version not in (8, 9):
-        raise ValueError("explicitly supported prepared index schema 8 or 9 required")
+    if magic != 0x31425350 or version not in (8, 9, 10):
+        raise ValueError("explicitly supported prepared index schema 8, 9 or 10 required")
     anchor = header(reader)
     points, _ = array(reader, 8)
     holes, _ = array(reader, 9)
@@ -146,7 +152,10 @@ def read_plans(data):
     count = reader.number("Q")
     if count > 262144:
         raise ValueError("bounded source record count required")
-    records = [prepared(reader, terrain_fields=version >= 9) for _ in range(count)]
+    records = [
+        prepared(reader, terrain_fields=version >= 9, terrain_parts=version >= 10)
+        for _ in range(count)
+    ]
     if reader.number("Q") != len(records):
         raise ValueError("selection summaries must cover all enriched source records")
     summaries = [summary(reader) for _ in records]
