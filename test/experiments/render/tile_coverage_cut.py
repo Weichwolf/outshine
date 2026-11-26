@@ -12,6 +12,25 @@ def edge_coordinate(fine_cell, level_gap, sample, segments):
     return ((fine_cell % scale) * segments + sample) / scale
 
 
+def coverage_intervals(tiles, depth=30):
+    intervals = []
+    for level, x, y in tiles:
+        key = 0
+        for bit in reversed(range(level)):
+            key = (4 * key) + ((x >> bit) & 1) + 2 * ((y >> bit) & 1)
+        stride = 4 ** (depth - level)
+        intervals.append((key * stride, (key + 1) * stride))
+    union = []
+    for least, most in sorted(intervals):
+        if union and least < union[-1][1]:
+            raise ValueError("overlapping tiles in a cut")
+        if union and least == union[-1][1]:
+            union[-1] = (union[-1][0], most)
+        else:
+            union.append((least, most))
+    return union
+
+
 def complete_tiles(ready):
     """Certify a cell from its resident product or the union of its four quadrants."""
     complete = set(ready)

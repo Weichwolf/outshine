@@ -1,9 +1,18 @@
 import unittest
 
-from tile_coverage_cut import children, coverage_cut, edge_coordinate
+from tile_coverage_cut import children, coverage_cut, coverage_intervals, edge_coordinate
 
 
 class CoverageCut(unittest.TestCase):
+    def test_atomic_replacement_preserves_coverage_at_every_level(self):
+        roots = [(4, 15, 8), (4, 0, 8), (4, 7, 1)]
+        refined = [q for t in roots for q in children(t)]
+        refined.extend(children(refined.pop(-2)))
+        self.assertEqual(coverage_intervals(roots), coverage_intervals(refined))
+        self.assertNotEqual(coverage_intervals(roots), coverage_intervals(refined[:-1]))
+        with self.assertRaises(ValueError):
+            coverage_intervals(refined + roots)
+
     def test_a_shared_boundary_is_sampled_on_the_coarser_edge(self):
         half = [edge_coordinate(4, 1, n, 4) for n in range(5)]
         other = [edge_coordinate(5, 1, n, 4) for n in range(5)]

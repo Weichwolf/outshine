@@ -2,10 +2,14 @@
 #include "Units.h"
 
 #import <Metal/Metal.h>
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <future>
 #include <optional>
+#include <thread>
+#include <utility>
 
 namespace outshine::Render {
 namespace {
@@ -376,8 +380,10 @@ std::expected<std::optional<double>, std::string> RetireFrame(id<MTLCommandBuffe
 }
 
 template <typename Submit>
-std::expected<void, std::string>
-MeasureCapture(size_t count, const Submit &submitAt, MetalProductFrames &frames) {
+std::expected<void, std::string> MeasureCapture(size_t count,
+                                                const Submit &submitAt,
+                                                double frameSeconds,
+                                                MetalProductFrames &frames) {
   std::array<id<MTLCommandBuffer>, MetalProductFramesInFlight> pending{};
   frames.Samples.resize(count);
   const auto finish = [&](size_t frame) -> std::expected<void, std::string> {
@@ -389,7 +395,15 @@ MeasureCapture(size_t count, const Submit &submitAt, MetalProductFrames &frames)
     return {};
   };
   const auto windowAt = Clock::now();
+  const auto available = std::chrono::duration<double>(Clock::time_point::max() - windowAt);
+  if (frameSeconds > 0 && !(frameSeconds * static_cast<double>(count) < available.count())) {
+    return std::unexpected("paced product capture exceeds the clock range");
+  }
   for (size_t frame = 0; frame < count; ++frame) {
+    if (frameSeconds > 0) {
+      const auto offset = std::chrono::duration<double>(static_cast<double>(frame) * frameSeconds);
+      std::this_thread::sleep_until(windowAt + std::chrono::duration_cast<Clock::duration>(offset));
+    }
     const auto frameAt = Clock::now();
     auto &sample = frames.Samples[frame];
     const auto renderAt = Clock::now();
@@ -503,34 +517,41 @@ struct ProductResources {
   size_t Bytes = 0;
 };
 
+std::expected<TileMesh, std::string>
+UploadTile(id<MTLDevice> device, const MetalSurface &tile, size_t &bytes) {
+  const auto vertices = std::as_bytes(std::span(tile.Product.Vertices));
+  const auto indices = std::as_bytes(std::span(tile.Product.Indices));
+  const auto colours = std::as_bytes(std::span(tile.Product.Colours));
+  TileMesh mesh{.Vertices = [device newBufferWithBytes:vertices.data()
+                                                length:vertices.size()
+                                               options:MTLResourceStorageModeShared],
+                .Indices = [device newBufferWithBytes:indices.data()
+                                               length:indices.size()
+                                              options:MTLResourceStorageModeShared],
+                .Colours = colours.empty()
+                               ? nil
+                               : [device newBufferWithBytes:colours.data()
+                                                     length:colours.size()
+                                                    options:MTLResourceStorageModeShared],
+                .IndexCount = tile.Product.Indices.size(),
+                .FirstColour = static_cast<uint32_t>(tile.Product.Vertices.size() -
+                                                     tile.Product.Colours.size()),
+                .WorldFromTile = tile.WorldFromTile};
+  if (mesh.Vertices == nil || mesh.Indices == nil || (!colours.empty() && mesh.Colours == nil)) {
+    return std::unexpected("Metal tile upload failed");
+  }
+  bytes += vertices.size() + indices.size() + colours.size();
+  return mesh;
+}
+
 std::expected<ProductResources, std::string> UploadProducts(id<MTLDevice> device,
                                                             const MetalProductInputs &products) {
   ProductResources resources;
   resources.Meshes.reserve(products.Tiles.size());
   for (const auto &tile : products.Tiles) {
-    const auto vertices = std::as_bytes(std::span(tile.Product.Vertices));
-    const auto indices = std::as_bytes(std::span(tile.Product.Indices));
-    const auto colours = std::as_bytes(std::span(tile.Product.Colours));
-    const TileMesh mesh{.Vertices = [device newBufferWithBytes:vertices.data()
-                                                        length:vertices.size()
-                                                       options:MTLResourceStorageModeShared],
-                        .Indices = [device newBufferWithBytes:indices.data()
-                                                       length:indices.size()
-                                                      options:MTLResourceStorageModeShared],
-                        .Colours = colours.empty()
-                                       ? nil
-                                       : [device newBufferWithBytes:colours.data()
-                                                             length:colours.size()
-                                                            options:MTLResourceStorageModeShared],
-                        .IndexCount = tile.Product.Indices.size(),
-                        .FirstColour = static_cast<uint32_t>(tile.Product.Vertices.size() -
-                                                             tile.Product.Colours.size()),
-                        .WorldFromTile = tile.WorldFromTile};
-    if (mesh.Vertices == nil || mesh.Indices == nil || (!colours.empty() && mesh.Colours == nil)) {
-      return std::unexpected("Metal tile upload failed");
-    }
-    resources.Meshes.push_back(mesh);
-    resources.Bytes += vertices.size() + indices.size() + colours.size();
+    const auto mesh = UploadTile(device, tile, resources.Bytes);
+    if (!mesh) { return std::unexpected(mesh.error()); }
+    resources.Meshes.push_back(*mesh);
   }
   resources.Panoramas.reserve(products.Panoramas.size());
   for (const auto &panorama : products.Panoramas) {
@@ -551,6 +572,65 @@ std::expected<ProductResources, std::string> UploadProducts(id<MTLDevice> device
     resources.Bytes += panorama.Colour.size() + panorama.Depth.size();
   }
   return resources;
+}
+
+bool MatchesSurface(const MetalSurface &active, const MetalPlacedSurface &replacement) {
+  const auto &front = active.Product;
+  const auto &back = replacement.Product;
+  return front.Coverage == back.Coverage && front.Revision == back.Revision &&
+         active.WorldFromTile == replacement.WorldFromTile && front.Indices == back.Indices &&
+         front.Colours == back.Colours &&
+         std::ranges::equal(std::as_bytes(std::span(front.Vertices)),
+                            std::as_bytes(std::span(back.Vertices)));
+}
+
+struct PreparedSurfaceReplacement {
+  std::vector<TileMesh> Meshes;
+  MetalSurfaceTransition Transition;
+  size_t Bytes = 0;
+};
+
+PreparedSurfaceReplacement PrepareReplacement(id<MTLDevice> device,
+                                              const MetalSurfaceStream &stream,
+                                              std::span<const MetalSurface> active,
+                                              std::span<const TileMesh> resident) {
+  @autoreleasepool {
+    const auto start = Clock::now();
+    auto candidate = stream.Load();
+    PreparedSurfaceReplacement prepared;
+    if (!candidate || candidate->empty()) {
+      prepared.Transition.Error = candidate ? "empty replacement surface cut" : candidate.error();
+      return prepared;
+    }
+    const auto upload = Clock::now();
+    prepared.Meshes.reserve(candidate->size());
+    for (const auto &tile : *candidate) {
+      const auto same = std::ranges::find_if(
+          active, [&](const MetalSurface &surface) { return MatchesSurface(surface, tile); });
+      if (same != active.end()) {
+        prepared.Meshes.push_back(resident[static_cast<size_t>(same - active.begin())]);
+        ++prepared.Transition.ReusedTiles;
+      } else {
+        auto mesh = UploadTile(
+            device, {.Product = tile.Product, .WorldFromTile = tile.WorldFromTile}, prepared.Bytes);
+        if (!mesh) {
+          prepared.Transition.Error = mesh.error();
+          return prepared;
+        }
+        prepared.Meshes.push_back(*mesh);
+      }
+      prepared.Transition.Triangles += tile.Product.Indices.size() / 3;
+    }
+    prepared.Transition.Tiles = prepared.Meshes.size();
+    prepared.Transition.ReadyMs = ElapsedMs(start);
+    prepared.Transition.UploadMs = ElapsedMs(upload);
+    return prepared;
+  }
+}
+
+void RecordReplacement(PreparedSurfaceReplacement &replacement, MetalProductFrames &frames) {
+  frames.UploadedBytes += replacement.Bytes;
+  frames.Transition = std::move(replacement.Transition);
 }
 
 std::expected<id<MTLCommandBuffer>, std::string> SubmitProducts(const ProductPass &pass,
@@ -585,7 +665,8 @@ std::expected<MetalProductFrames, std::string>
 RenderMetalProducts(const MetalProductInputs &products,
                     size_t count,
                     const MetalProductViewAt &viewAt,
-                    bool readImage) {
+                    bool readImage,
+                    const MetalSurfaceStream &stream) {
   if (products.Tiles.empty() && products.Panoramas.empty()) {
     return std::unexpected("Metal product capture requires an input product");
   }
@@ -600,11 +681,28 @@ RenderMetalProducts(const MetalProductInputs &products,
     frames.Device = name != nullptr ? name : "Metal";
     frames.SetupMs = ElapsedMs(began);
     const auto upload = Clock::now();
-    const auto resources = UploadProducts(device, products);
+    auto resources = UploadProducts(device, products);
     if (!resources) { return std::unexpected(resources.error()); }
     frames.UploadMs = ElapsedMs(upload);
     frames.UploadedBytes = resources->Bytes;
+    std::future<PreparedSurfaceReplacement> pending;
+    if (stream.Load) {
+      pending = std::async(std::launch::async, [&] {
+        return PrepareReplacement(device, stream, products.Tiles, resources->Meshes);
+      });
+    }
     const auto submit = [&](size_t frame) -> std::expected<id<MTLCommandBuffer>, std::string> {
+      if (frame > 0 && pending.valid() &&
+          pending.wait_for(Clock::duration::zero()) == std::future_status::ready) {
+        auto replacement = pending.get();
+        if (replacement.Transition.Error.empty()) {
+          resources->Meshes.swap(replacement.Meshes);
+          replacement.Transition.FirstFrame = frame;
+        }
+        RecordReplacement(replacement, frames);
+      }
+      frames.Samples[frame].Refined =
+          !stream.Load || (frames.Transition && frames.Transition->FirstFrame.has_value());
       const auto view = viewAt(frame);
       if (!view) { return std::unexpected(view.error()); }
       if (!resources->Panoramas.empty() && view->PanoramaIndex >= resources->Panoramas.size()) {
@@ -612,8 +710,13 @@ RenderMetalProducts(const MetalProductInputs &products,
       }
       return SubmitProducts(*pass, *resources, *view);
     };
-    if (const auto measured = MeasureCapture(count, submit, frames); !measured) {
+    if (const auto measured = MeasureCapture(count, submit, stream.FrameSeconds, frames);
+        !measured) {
       return std::unexpected(measured.error());
+    }
+    if (pending.valid()) {
+      auto replacement = pending.get();
+      RecordReplacement(replacement, frames);
     }
     FinishCapture(device, *pass, frames, readImage);
     return frames;

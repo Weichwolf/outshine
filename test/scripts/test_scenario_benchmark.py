@@ -569,10 +569,12 @@ class ScenarioBenchmark(unittest.TestCase):
                                         capture_output=True, text=True, check=False, timeout=30)
                 self.assertEqual(result.returncode, 0, result.stderr)
 
-            def capture():
-                result = self.invoke('--scenario', str(scene), '--frames', '1', '--product-store',
+            def capture(stream=False):
+                extra = ('--stream-products',) if stream else ()
+                result = self.invoke('--scenario', str(scene), '--frames', '12' if stream else '1',
+                                     '--product-store',
                                      str(database), '--product-revision', revision,
-                                     '--panorama-product', str(far), '--image', str(image))
+                                     '--panorama-product', str(far), '--image', str(image), *extra)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 return json.loads(result.stdout)
 
@@ -582,6 +584,12 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(partial['rendered_content']['near']['address'], [0, 0, 0])
             self.assertEqual(partial['rendered_content']['near']['overlay_triangles_per_frame'], 1)
             self.assertEqual(partial['traffic']['tile_requested_bytes'], parent.stat().st_size)
+            waiting = capture(stream=True)
+            self.assertEqual(waiting['surface_stream']['initial_tiles'], 1)
+            self.assertEqual(waiting['surface_stream']['refined_tiles'], 1)
+            self.assertEqual(waiting['surface_stream']['reused_tiles'], 1)
+            self.assertEqual(waiting['traffic']['upload_bytes'], partial['traffic']['upload_bytes'])
+            self.assertEqual(image.read_bytes(), pixels)
 
             publish(children[3])
             full = capture()
@@ -589,6 +597,15 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(full['rendered_content']['near']['overlay_triangles_per_frame'], 1)
             self.assertEqual(full['traffic']['tile_requested_bytes'],
                              sum(tile.stat().st_size for tile in children))
+            self.assertEqual(image.read_bytes(), pixels)
+            promoted = capture(stream=True)
+            transition = promoted['surface_stream']
+            self.assertEqual(transition['initial_tiles'], 1)
+            self.assertEqual(transition['refined_tiles'], 4)
+            self.assertEqual(transition['error'], '')
+            self.assertGreaterEqual(transition['first_refined_frame'], 1)
+            self.assertEqual(promoted['unrefined_frames'], transition['first_refined_frame'])
+            self.assertEqual(promoted['profile']['pacing'], 'realtime')
             self.assertEqual(image.read_bytes(), pixels)
             with sqlite3.connect(database) as store:
                 store.execute('UPDATE package_bodies SET bytes=zeroblob(length(bytes)) '

@@ -204,8 +204,13 @@ build/outshine benchmark --scenario "$scenario" --product-store "$database" \
   --product-revision "$revision" --frames 30 --image "$image" --output "$report"
 ```
 
-Der SSD-Pfad wählt vor der Messung die feinste verfügbare Kachel der Kamerazelle.
-Fehlt ihre Nutzlast oder scheitert die Validierung, prüft er die übergeordnete Kachel.
+Der SSD-Pfad wählt bei einer Tiefen-Cubemap mit Nahgrenze einen Kachelschnitt für den
+Kamerapfad. Fehlt eine Kindkachel oder ist sie beschädigt, bleibt die übergeordnete Kachel.
+`--stream-products` startet die Messung mit groben Kacheln und taktet die Frames nach der
+Szenariorate. Ein Worker liest und lädt den feineren Schnitt in Metal-Puffer. Der Renderer
+wechselt an einer Framegrenze, sobald die Puffer fertig sind und die gleiche Fläche abdecken.
+`surface_stream` meldet die Vorbereitungszeit, wiederverwendete Puffer und den ersten Frame mit
+dem feineren Schnitt. Ohne die Option liegt der gewählte Schnitt vor dem ersten Frame bereit.
 Panoramen decken die ganze Flugstrecke mit einer Aufnahme oder zwei kompatiblen
 Aufnahmen ab. Für einen direkten Vergleich akzeptiert der Benchmark weiterhin
 `--panorama-product` und `--panorama-next`.

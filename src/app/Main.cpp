@@ -181,6 +181,7 @@ void Usage(std::string_view verb = {}) {
         "  --product-store <database>    select terrain and panoramas from the prepared asset "
         "index\n"
         "  --product-revision <sha256>   select an imported set of prepared assets\n"
+        "  --stream-products             pace the flight and refine resident tiles during it\n"
         "  --panorama-product <directory>  render one prepared Metal cubemap at 1280x720\n"
         "  --panorama-next <directory>   hand off to a second prepared cubemap during flight\n"
         "  --panorama-output <new-dir>    capture six linear colour and reversed-depth cube faces\n"

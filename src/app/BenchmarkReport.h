@@ -53,6 +53,16 @@ struct BenchmarkPanoramaHandoff {
   std::array<double, 2> BlendWindowFrames{};
 };
 
+struct BenchmarkSurfaceStream {
+  std::optional<size_t> FirstRefinedFrame;
+  size_t Tiles = 0;
+  size_t ReusedTiles = 0;
+  size_t Triangles = 0;
+  size_t DecodedBytes = 0;
+  double ReadyMs = 0;
+  std::string Error;
+};
+
 struct ScenarioBenchmarkReport {
   std::string Scenario;
   std::string DeclarationSha256;
@@ -66,6 +76,7 @@ struct ScenarioBenchmarkReport {
   std::vector<BenchmarkTileCoverage> Tiles;
   std::optional<BenchmarkPanoramaCoverage> Panorama;
   std::optional<BenchmarkPanoramaHandoff> PanoramaHandoff;
+  std::optional<BenchmarkSurfaceStream> SurfaceStream;
   std::optional<uint64_t> ProductStoreReadBytes;
   std::optional<size_t> IndexedPanoramaRequestedBytes;
   size_t TileRequestedBytes = 0;

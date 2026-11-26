@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -47,6 +48,15 @@ struct SurfaceTile {
 [[nodiscard]] std::expected<SurfaceTile, std::string> ReadSurfaceTile(std::string_view path);
 [[nodiscard]] std::expected<SurfaceTile, std::string>
 DecodePackedSurfaceTile(std::span<const uint8_t> bytes);
+
+struct SurfaceCoverageInterval {
+  uint64_t Begin;
+  uint64_t End;
+  [[nodiscard]] bool operator==(const SurfaceCoverageInterval &) const = default;
+};
+
+[[nodiscard]] std::optional<std::vector<SurfaceCoverageInterval>>
+SurfaceCoverage(std::span<const SurfaceTile> tiles);
 
 }
 #endif

@@ -36,6 +36,7 @@ enum class Argument : uint8_t {
   TileProduct,
   ProductStore,
   ProductRevision,
+  StreamProducts,
   PanoramaProduct,
   NextPanorama,
   Panorama,
@@ -63,6 +64,7 @@ constexpr std::array kFlags{Flag{.Name = "--output", .Kind = Argument::Output},
                             Flag{.Name = "--tile-product", .Kind = Argument::TileProduct},
                             Flag{.Name = "--product-store", .Kind = Argument::ProductStore},
                             Flag{.Name = "--product-revision", .Kind = Argument::ProductRevision},
+                            Flag{.Name = "--stream-products", .Kind = Argument::StreamProducts},
                             Flag{.Name = "--panorama-output", .Kind = Argument::Panorama},
                             Flag{.Name = "--panorama-product", .Kind = Argument::PanoramaProduct},
                             Flag{.Name = "--panorama-next", .Kind = Argument::NextPanorama},
@@ -136,6 +138,7 @@ ApplyValue(BenchmarkOptions &options, Argument kind, std::string_view value) noe
     }
     case Argument::Output:
     case Argument::Validation:
+    case Argument::StreamProducts:
     case Argument::Offline: return std::unexpected("benchmark argument requires no value here");
   }
   return {};
@@ -155,6 +158,9 @@ ValidateCombination(const BenchmarkOptions &options) noexcept {
   if (stored != revision || (stored && !options.Scenario->TileProduct.empty())) {
     return std::unexpected(
         "--product-store requires --product-revision and selects terrain by location");
+  }
+  if (options.Scenario->StreamProducts && !stored) {
+    return std::unexpected("--stream-products requires --product-store");
   }
   const bool prepared = stored || !options.Scenario->TileProduct.empty() ||
                         !options.Scenario->PanoramaProduct.empty();
@@ -205,9 +211,10 @@ ReadBenchmarkOptions(std::span<const char *const> arguments) noexcept {
       options.GpuValidation = true;
       continue;
     }
-    if (flag->Kind == Argument::Offline) {
+    if (flag->Kind == Argument::Offline || flag->Kind == Argument::StreamProducts) {
       if (!options.Scenario) { options.Scenario.emplace(); }
-      options.Scenario->Offline = true;
+      (flag->Kind == Argument::Offline ? options.Scenario->Offline
+                                       : options.Scenario->StreamProducts) = true;
       continue;
     }
     ++at;

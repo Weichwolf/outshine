@@ -152,7 +152,8 @@ private:
     const auto &record = *node.Record;
     const auto error = record.Tile ? record.Tile->ErrorM : std::nullopt;
     const double distance = Clearance(record.Bounds, Demand_.SweptEyeEcef);
-    const bool refine = !error || *error * Demand_.FocalPixels > distance * kMaxErrorPx;
+    const bool refine = Demand_.FocalPixels > 0 &&
+                        (!error || *error * Demand_.FocalPixels > distance * kMaxErrorPx);
     if (refine) {
       const auto children = VisitChildren(node);
       if (!children || *children) { return children; }
