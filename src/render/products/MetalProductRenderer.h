@@ -51,15 +51,23 @@ struct PanoramaView {
   double Exposure;
 };
 
-using PanoramaViewAt = std::function<std::expected<PanoramaView, std::string>(size_t)>;
+struct MetalProductInputs {
+  const SurfaceTile *Tile = nullptr;
+  const FarPanorama *Panorama = nullptr;
+};
 
-[[nodiscard]] std::expected<MetalProductFrames, std::string> RenderMetalPanorama(
-    const FarPanorama &panorama, size_t count, const PanoramaViewAt &viewAt, bool readImage);
+struct MetalProductView {
+  Mat4 TileClip;
+  PanoramaView Panorama;
+};
 
-using TileClipAt = std::function<std::expected<Mat4, std::string>(size_t)>;
+using MetalProductViewAt = std::function<std::expected<MetalProductView, std::string>(size_t)>;
 
 [[nodiscard]] std::expected<MetalProductFrames, std::string>
-RenderMetalTile(const SurfaceTile &tile, size_t count, const TileClipAt &clipAt, bool readImage);
+RenderMetalProducts(const MetalProductInputs &products,
+                    size_t count,
+                    const MetalProductViewAt &viewAt,
+                    bool readImage);
 
 }
 #endif

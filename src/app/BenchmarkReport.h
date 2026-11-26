@@ -36,8 +36,6 @@ struct BenchmarkTileCoverage {
   size_t Triangles = 0;
   double GeometricErrorM = 0;
   size_t StoredBytes = 0;
-  size_t UploadBytes = 0;
-  double UploadMs = 0;
 };
 
 struct BenchmarkPanoramaCoverage {
@@ -47,8 +45,6 @@ struct BenchmarkPanoramaCoverage {
   double MaximumRangeM = 0;
   double MaximumTranslationM = 0;
   size_t StoredBytes = 0;
-  size_t UploadBytes = 0;
-  double UploadMs = 0;
 };
 
 struct ScenarioBenchmarkReport {
@@ -63,6 +59,8 @@ struct ScenarioBenchmarkReport {
   Camera Finish;
   std::optional<BenchmarkTileCoverage> Tile;
   std::optional<BenchmarkPanoramaCoverage> Panorama;
+  size_t ProductUploadBytes = 0;
+  double ProductUploadMs = 0;
   Loading Prepared;
   Loading Finished;
   double SetupMs = 0;

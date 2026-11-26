@@ -13,6 +13,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
+#include <optional>
+#include <utility>
 #endif
 
 namespace outshine::App {
@@ -100,38 +102,6 @@ void CaptureProductSamples(ScenarioBenchmarkReport &report,
   }
 }
 
-std::expected<Render::MetalProductFrames, std::string>
-MeasureTileProduct(const ScenarioBenchmarkOptions &options,
-                   ScenarioBenchmarkReport &report,
-                   const BenchmarkMotion &motion,
-                   LongitudeLatitude origin) {
-  const auto loadAt = BenchmarkClock::now();
-  const auto tile = ReadSurfaceTile(options.TileProduct);
-  if (!tile) { return std::unexpected(tile.error()); }
-  const auto placement = TilePlacement(*tile, origin);
-  const double aspect = static_cast<double>(report.Frame.WidthPx) / report.Frame.HeightPx;
-  const auto clipAt = [&](size_t frame) -> std::expected<Mat4, std::string> {
-    const auto pose = motion.At(frame);
-    Mat4 clip;
-    if (!pose || !pose->clipMatrix(aspect, clip)) { return std::unexpected("invalid tile camera"); }
-    return clip * placement;
-  };
-  report.PreloadMs = BenchmarkElapsedMs(loadAt);
-  const auto frames =
-      Render::RenderMetalTile(*tile, report.Motion.Frames, clipAt, !options.Image.empty());
-  if (!frames) { return std::unexpected(frames.error()); }
-  report.Tile = BenchmarkTileCoverage{
-      .Address = {static_cast<uint32_t>(tile->Coverage.Zoom), tile->Coverage.X, tile->Coverage.Y},
-      .OriginLonLat = {tile->Origin.LongitudeDeg, tile->Origin.LatitudeDeg},
-      .Revision = tile->Revision,
-      .Triangles = tile->Indices.size() / 3,
-      .GeometricErrorM = tile->GeometricErrorM,
-      .StoredBytes = tile->StoredBytes,
-      .UploadBytes = frames->UploadedBytes,
-      .UploadMs = frames->UploadMs};
-  return frames;
-}
-
 std::expected<Render::PanoramaView, std::string>
 MakePanoramaView(const Camera &pose, Extent frame, const FarPanorama &panorama) {
   const double aspect = static_cast<double>(frame.WidthPx) / frame.HeightPx;
@@ -152,40 +122,76 @@ MakePanoramaView(const Camera &pose, Extent frame, const FarPanorama &panorama) 
       .Exposure = panorama.ReferenceExposure};
 }
 
+bool CoversMotion(const FarPanorama &panorama,
+                  const ScenarioBenchmarkReport &report,
+                  LongitudeLatitude origin) {
+  const double radius = panorama.MaximumTranslationM + kPoseRoundoffM;
+  return panorama.Origin.LongitudeDeg == origin.LongitudeDeg &&
+         panorama.Origin.LatitudeDeg == origin.LatitudeDeg &&
+         Length(report.Start.PositionM - panorama.AnchorM) <= radius &&
+         Length(report.Finish.PositionM - panorama.AnchorM) <= radius;
+}
+
 std::expected<Render::MetalProductFrames, std::string>
-MeasurePanoramaProduct(const ScenarioBenchmarkOptions &options,
-                       ScenarioBenchmarkReport &report,
-                       const BenchmarkMotion &motion,
-                       LongitudeLatitude origin) {
+MeasureProducts(const ScenarioBenchmarkOptions &options,
+                ScenarioBenchmarkReport &report,
+                const BenchmarkMotion &motion,
+                LongitudeLatitude origin) {
   const auto loadAt = BenchmarkClock::now();
-  const auto panorama = ReadFarPanorama(options.PanoramaProduct);
-  if (!panorama) { return std::unexpected(panorama.error()); }
-  if (panorama->Origin.LongitudeDeg != origin.LongitudeDeg ||
-      panorama->Origin.LatitudeDeg != origin.LatitudeDeg ||
-      Length(report.Start.PositionM - panorama->AnchorM) >
-          panorama->MaximumTranslationM + kPoseRoundoffM ||
-      Length(report.Finish.PositionM - panorama->AnchorM) >
-          panorama->MaximumTranslationM + kPoseRoundoffM) {
-    return std::unexpected("camera path exceeds the prepared far panorama translation domain");
+  std::optional<SurfaceTile> tile;
+  std::optional<FarPanorama> panorama;
+  Mat4 placement;
+  if (!options.TileProduct.empty()) {
+    auto input = ReadSurfaceTile(options.TileProduct);
+    if (!input) { return std::unexpected(input.error()); }
+    tile = std::move(*input);
+    placement = TilePlacement(*tile, origin);
+    report.Tile = BenchmarkTileCoverage{
+        .Address = {static_cast<uint32_t>(tile->Coverage.Zoom), tile->Coverage.X, tile->Coverage.Y},
+        .OriginLonLat = {tile->Origin.LongitudeDeg, tile->Origin.LatitudeDeg},
+        .Revision = tile->Revision,
+        .Triangles = tile->Indices.size() / 3,
+        .GeometricErrorM = tile->GeometricErrorM,
+        .StoredBytes = tile->StoredBytes};
   }
-  const auto viewAt = [&](size_t frame) -> std::expected<Render::PanoramaView, std::string> {
+  if (!options.PanoramaProduct.empty()) {
+    auto input = ReadFarPanorama(options.PanoramaProduct);
+    if (!input) { return std::unexpected(input.error()); }
+    panorama = std::move(*input);
+    if (!CoversMotion(*panorama, report, origin)) {
+      return std::unexpected("camera path exceeds the prepared far panorama translation domain");
+    }
+    report.Panorama =
+        BenchmarkPanoramaCoverage{.Side = panorama->Side,
+                                  .AnchorM = panorama->AnchorM,
+                                  .Revision = panorama->Revision,
+                                  .MaximumRangeM = panorama->MaximumRangeM,
+                                  .MaximumTranslationM = panorama->MaximumTranslationM,
+                                  .StoredBytes = panorama->Colour.size() + panorama->Depth.size()};
+  }
+  const double aspect = static_cast<double>(report.Frame.WidthPx) / report.Frame.HeightPx;
+  const auto viewAt = [&](size_t frame) -> std::expected<Render::MetalProductView, std::string> {
     const auto pose = motion.At(frame);
     if (!pose) { return std::unexpected(std::string(pose.error())); }
-    return MakePanoramaView(*pose, report.Frame, *panorama);
+    Render::MetalProductView view{};
+    if (tile) {
+      Mat4 clip;
+      if (!pose->clipMatrix(aspect, clip)) { return std::unexpected("invalid tile camera"); }
+      view.TileClip = clip * placement;
+    }
+    if (panorama) {
+      const auto projected = MakePanoramaView(*pose, report.Frame, *panorama);
+      if (!projected) { return std::unexpected(projected.error()); }
+      view.Panorama = *projected;
+    }
+    return view;
   };
   report.PreloadMs = BenchmarkElapsedMs(loadAt);
-  auto frames =
-      Render::RenderMetalPanorama(*panorama, report.Motion.Frames, viewAt, !options.Image.empty());
-  if (!frames) { return std::unexpected(frames.error()); }
-  report.Panorama =
-      BenchmarkPanoramaCoverage{.Side = panorama->Side,
-                                .AnchorM = panorama->AnchorM,
-                                .Revision = panorama->Revision,
-                                .MaximumRangeM = panorama->MaximumRangeM,
-                                .StoredBytes = panorama->Colour.size() + panorama->Depth.size(),
-                                .UploadBytes = frames->UploadedBytes,
-                                .UploadMs = frames->UploadMs};
-  return frames;
+  return Render::RenderMetalProducts(
+      {.Tile = tile ? &*tile : nullptr, .Panorama = panorama ? &*panorama : nullptr},
+      report.Motion.Frames,
+      viewAt,
+      !options.Image.empty());
 }
 
 }
@@ -215,10 +221,10 @@ RunMetalProductBenchmark(const ScenarioBenchmarkOptions &options) {
   report.Finish = *finish;
   report.SetupMs = BenchmarkElapsedMs(setupAt);
 
-  const auto frames = options.PanoramaProduct.empty()
-                          ? MeasureTileProduct(options, report, *motion, origin)
-                          : MeasurePanoramaProduct(options, report, *motion, origin);
+  const auto frames = MeasureProducts(options, report, *motion, origin);
   if (!frames) { return std::unexpected(frames.error()); }
+  report.ProductUploadBytes = frames->UploadedBytes;
+  report.ProductUploadMs = frames->UploadMs;
   report.SetupMs += frames->SetupMs;
   report.PreloadMs += frames->UploadMs;
   CaptureProductSamples(report, *frames);

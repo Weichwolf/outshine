@@ -265,6 +265,64 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertIn('distinct files', result.stderr)
             self.assertEqual(depth.read_bytes(), b'previous depth')
 
+    @unittest.skipUnless(os.uname().sysname == 'Darwin', 'native Metal product renderer')
+    def test_far_depth_orders_prepared_near_geometry(self):
+        scene = """<scenario>
+          <world lat="0" lon="0"/>
+          <render widthPx="1280" heightPx="720" fps="30"/>
+          <views><view id="station" nearM="1" farM="100" fovDeg="60">
+            <at lat="0" lon="0" heightM="100" samplesHeight="no" bearingDeg="0"/>
+          </view></views>
+        </scenario>"""
+        with tempfile.TemporaryDirectory(prefix='outshine-benchmark-near-far-') as folder:
+            root = Path(folder)
+            source = root / 'view.scenario'
+            source.write_text(scene)
+            tile = root / 'tile.json'
+            panorama = root / 'panorama.json'
+            image = root / 'frame.png'
+            report = root / 'report.json'
+            panorama.write_text(json.dumps({
+                'version': 1, 'representation': 'colour_radial_depth_cubemap',
+                'face_order': ['px', 'nx', 'py', 'ny', 'pz', 'nz'], 'face_px': 2,
+                'colour_encoding': 'rgba16f_linear_le_a_opaque_coverage',
+                'depth_encoding': 'r32f_radial_metres_le_zero_without_geometry',
+                'origin_lon_lat': [0, 0], 'anchor_eus_m': [0, 100, 0], 'revision': '0' * 64,
+                'maximum_range_m': 100, 'maximum_eye_translation_m': 0,
+                'reference_exposure': 1, 'opaque_texels': [4] * 6,
+            }))
+            (root / 'colour.rgba16f').write_bytes(struct.pack('<4e', 1, 0, 0, 1) * 24)
+            (root / 'depth.r32f').write_bytes(struct.pack('<f', 10) * 24)
+
+            def draw(*products):
+                result = self.invoke('--scenario', str(source), '--frames', '1',
+                                     '--image', str(image), '--output', str(report), *products)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                return image.read_bytes(), json.loads(report.read_text())
+
+            far = ('--panorama-product', folder)
+            near = ('--tile-product', str(tile))
+            background, _ = draw(*far)
+            for distance in (2, 20):
+                # Both quads fill the viewport. Compare whole images to check every depth test.
+                z = -distance
+                half_side = distance * 2
+                bounds = [[-half_side, 100-half_side, z], [half_side, 100+half_side, z]]
+                tile.write_text(json.dumps({
+                    'version': 1, 'coverage': [0, 0, 0], 'origin_lon_lat': [0, 0],
+                    'revision': '1' * 64, 'bounds_eus_m': bounds, 'geometric_error_m': 0,
+                    'vertices_eus_m': [bounds[0], [half_side, 100-half_side, z],
+                                       bounds[1], [-half_side, 100+half_side, z]],
+                    'normals_eus': [[0, 0, 1]] * 4, 'indices': [0, 1, 2, 0, 2, 3],
+                }))
+                foreground, _ = draw(*near)
+                composite, metadata = draw(*far, *near)
+                self.assertNotEqual(foreground, background)
+                self.assertEqual(composite, foreground if distance == 2 else background)
+                self.assertEqual(metadata['render_path'], 'metal_near_far')
+                self.assertEqual(metadata['rendered_content']['draws_per_frame'], 2)
+                self.assertFalse(metadata['world_complete'])
+
     def test_runtime_failure_preserves_both_outputs(self):
         with tempfile.TemporaryDirectory(prefix='outshine-benchmark-failure-') as folder:
             output = Path(folder) / 'result.json'

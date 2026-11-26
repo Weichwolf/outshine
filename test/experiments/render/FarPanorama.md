@@ -37,9 +37,14 @@ outshine benchmark --scenario "$view" --panorama-product "$product" \
 
 This mode uploads the two cube textures once and draws one fullscreen triangle per
 frame. It samples colour across cube faces, samples depth at the nearest texel and writes
-reversed scene depth. It reads the prepared product directly. The benchmark records the
-asset range, native submission times, bytes read, upload cost and memory. Set `--translation-domain-m` when packing a validated local replay radius. The
-runtime checks the complete linear camera path against that radius before submission.
+reversed scene depth. The benchmark records the asset range, native submission times,
+bytes read, upload cost and memory. Set `--translation-domain-m` when packing a validated
+local replay radius. The runtime checks the complete linear camera path against that radius
+before submission.
 During translation it iterates radial-depth reprojection up to three times. The fallback
-for an unstable ray is its rotation-only colour with zero geometry depth. Intermediate
-and near products can cover those samples when their composition is integrated.
+for an unstable ray is its rotation-only colour with zero geometry depth.
+
+Add `--tile-product "$tile"` to draw a prepared near tile in the same pass. Both products
+use the same reversed-depth buffer. The tile covers nearer samples and reprojection holes,
+while valid panorama depth covers tile samples behind it. Benchmark reports distinguish
+this two-product composition from a complete world render.

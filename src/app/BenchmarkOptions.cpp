@@ -140,9 +140,6 @@ ValidateCombination(const BenchmarkOptions &options) noexcept {
   }
   const bool prepared =
       !options.Scenario->TileProduct.empty() || !options.Scenario->PanoramaProduct.empty();
-  if (!options.Scenario->TileProduct.empty() && !options.Scenario->PanoramaProduct.empty()) {
-    return std::unexpected("choose one prepared product for this benchmark");
-  }
   if (prepared && (!options.Scenario->CacheDirectory.empty() ||
                    !options.Scenario->AssetCacheDirectory.empty() || options.Scenario->Offline ||
                    !options.Scenario->GeometryDirectory.empty())) {

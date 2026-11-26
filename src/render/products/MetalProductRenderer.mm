@@ -149,10 +149,15 @@ MTLTextureDescriptor *Texture(MTLPixelFormat format, MTLStorageMode storage) {
   return desc;
 }
 
+struct ProductPipeline {
+  id<MTLRenderPipelineState> Draw = nil;
+  id<MTLDepthStencilState> Depth = nil;
+};
+
 struct ProductPass {
   id<MTLCommandQueue> Queue;
-  id<MTLRenderPipelineState> Pipeline;
-  id<MTLDepthStencilState> DepthState;
+  ProductPipeline Tile;
+  ProductPipeline Panorama;
   MTLRenderPassDescriptor *Pass;
   id<MTLTexture> Color;
 };
@@ -162,12 +167,9 @@ std::string MetalError(NSError *error, const char *fallback) {
   return reason != nullptr ? reason : fallback;
 }
 
-std::expected<ProductPass, std::string> MakePass(id<MTLDevice> device, bool panorama = false) {
+std::expected<ProductPipeline, std::string>
+MakePipeline(id<MTLDevice> device, id<MTLLibrary> library, bool panorama) {
   NSError *error = nil;
-  const id<MTLLibrary> library = [device newLibraryWithSource:kShader options:nil error:&error];
-  if (library == nil) {
-    return std::unexpected(MetalError(error, "Metal failed to create a tile shader or pipeline"));
-  }
   auto *const descriptor = [[MTLRenderPipelineDescriptor alloc] init];
   descriptor.vertexFunction =
       [library newFunctionWithName:panorama ? @"panorama_vertex" : @"tile_vertex"];
@@ -178,12 +180,36 @@ std::expected<ProductPass, std::string> MakePass(id<MTLDevice> device, bool pano
   const id<MTLRenderPipelineState> pipeline =
       [device newRenderPipelineStateWithDescriptor:descriptor error:&error];
   if (pipeline == nil) {
-    return std::unexpected(MetalError(error, "Metal failed to create a tile shader or pipeline"));
+    return std::unexpected(MetalError(error, "Metal failed to create a product pipeline"));
   }
   auto *const depthSpec = [[MTLDepthStencilDescriptor alloc] init];
   depthSpec.depthCompareFunction =
       panorama ? MTLCompareFunctionGreaterEqual : MTLCompareFunctionGreater;
   depthSpec.depthWriteEnabled = YES;
+  const id<MTLDepthStencilState> depth = [device newDepthStencilStateWithDescriptor:depthSpec];
+  if (depth == nil) { return std::unexpected("Metal could not allocate product depth state"); }
+  return ProductPipeline{.Draw = pipeline, .Depth = depth};
+}
+
+std::expected<ProductPass, std::string> MakePass(id<MTLDevice> device,
+                                                 const MetalProductInputs &products) {
+  NSError *error = nil;
+  const id<MTLLibrary> library = [device newLibraryWithSource:kShader options:nil error:&error];
+  if (library == nil) {
+    return std::unexpected(MetalError(error, "Metal failed to create product shaders"));
+  }
+  ProductPipeline tile;
+  ProductPipeline panorama;
+  if (products.Tile != nullptr) {
+    const auto pipeline = MakePipeline(device, library, false);
+    if (!pipeline) { return std::unexpected(pipeline.error()); }
+    tile = *pipeline;
+  }
+  if (products.Panorama != nullptr) {
+    const auto pipeline = MakePipeline(device, library, true);
+    if (!pipeline) { return std::unexpected(pipeline.error()); }
+    panorama = *pipeline;
+  }
   auto *const pass = [MTLRenderPassDescriptor renderPassDescriptor];
   pass.colorAttachments[0].texture = [device
       newTextureWithDescriptor:Texture(MTLPixelFormatRGBA8Unorm_sRGB, MTLStorageModeShared)];
@@ -197,48 +223,41 @@ std::expected<ProductPass, std::string> MakePass(id<MTLDevice> device, bool pano
   pass.depthAttachment.clearDepth = 0.0;
   pass.depthAttachment.storeAction = MTLStoreActionDontCare;
   ProductPass result{.Queue = [device newCommandQueue],
-                     .Pipeline = pipeline,
-                     .DepthState = [device newDepthStencilStateWithDescriptor:depthSpec],
+                     .Tile = tile,
+                     .Panorama = panorama,
                      .Pass = pass,
                      .Color = pass.colorAttachments[0].texture};
-  if (result.Queue == nil || result.DepthState == nil || result.Color == nil ||
-      pass.depthAttachment.texture == nil) {
-    return std::unexpected("Metal could not allocate the tile pass");
+  if (result.Queue == nil || result.Color == nil || pass.depthAttachment.texture == nil) {
+    return std::unexpected("Metal could not allocate the product pass");
   }
   return result;
 }
 
 struct TileMesh {
-  id<MTLBuffer> Vertices;
-  id<MTLBuffer> Indices;
-  size_t IndexCount;
+  id<MTLBuffer> Vertices = nil;
+  id<MTLBuffer> Indices = nil;
+  size_t IndexCount = 0;
 };
 
-std::expected<id<MTLCommandBuffer>, std::string>
-SubmitTile(const ProductPass &pass, const TileMesh &mesh, const ClipMatrix &clip) {
-  @autoreleasepool {
-    const id<MTLCommandBuffer> command = [pass.Queue commandBuffer];
-    const id<MTLRenderCommandEncoder> draw = [command renderCommandEncoderWithDescriptor:pass.Pass];
-    if (draw == nil) { return std::unexpected("Metal could not encode the tile frame"); }
-    [draw setRenderPipelineState:pass.Pipeline];
-    [draw setDepthStencilState:pass.DepthState];
-    [draw setVertexBuffer:mesh.Vertices offset:0 atIndex:0];
-    [draw setVertexBytes:clip.data() length:sizeof(clip) atIndex:1];
-    [draw drawIndexedPrimitives:MTLPrimitiveTypeTriangle
-                     indexCount:mesh.IndexCount
-                      indexType:MTLIndexTypeUInt32
-                    indexBuffer:mesh.Indices
-              indexBufferOffset:0];
-    [draw endEncoding];
-    [command commit];
-    return command;
-  }
+void DrawTile(id<MTLRenderCommandEncoder> draw,
+              const ProductPipeline &pipeline,
+              const TileMesh &mesh,
+              const ClipMatrix &clip) {
+  [draw setRenderPipelineState:pipeline.Draw];
+  [draw setDepthStencilState:pipeline.Depth];
+  [draw setVertexBuffer:mesh.Vertices offset:0 atIndex:0];
+  [draw setVertexBytes:clip.data() length:sizeof(clip) atIndex:1];
+  [draw drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+                   indexCount:mesh.IndexCount
+                    indexType:MTLIndexTypeUInt32
+                  indexBuffer:mesh.Indices
+            indexBufferOffset:0];
 }
 
-std::expected<std::optional<double>, std::string> RetireTile(id<MTLCommandBuffer> command) {
+std::expected<std::optional<double>, std::string> RetireFrame(id<MTLCommandBuffer> command) {
   [command waitUntilCompleted];
   if (command.status != MTLCommandBufferStatusCompleted) {
-    return std::unexpected("Metal tile command failed");
+    return std::unexpected("Metal product command failed");
   }
   const double began = command.GPUStartTime;
   const double end = command.GPUEndTime;
@@ -255,7 +274,7 @@ MeasureCapture(size_t count, const Submit &submitAt, MetalProductFrames &frames)
   frames.Samples.resize(count);
   const auto finish = [&](size_t frame) -> std::expected<void, std::string> {
     auto &command = pending[frame % pending.size()];
-    const auto elapsed = RetireTile(command);
+    const auto elapsed = RetireFrame(command);
     if (!elapsed) { return std::unexpected(elapsed.error()); }
     frames.Samples[frame].GpuMs = *elapsed;
     command = nil;
@@ -354,20 +373,79 @@ PanoramaUniform PackView(const PanoramaView &view) {
           vector(view.EyeOffsetM)};
 }
 
-std::expected<id<MTLCommandBuffer>, std::string> SubmitPanorama(const ProductPass &pass,
-                                                                const PanoramaTextures &textures,
-                                                                const PanoramaView &view) {
+void DrawPanorama(id<MTLRenderCommandEncoder> draw,
+                  const ProductPipeline &pipeline,
+                  const PanoramaTextures &textures,
+                  const PanoramaView &view) {
+  const auto packed = PackView(view);
+  [draw setRenderPipelineState:pipeline.Draw];
+  [draw setDepthStencilState:pipeline.Depth];
+  [draw setFragmentTexture:textures.Colour atIndex:0];
+  [draw setFragmentTexture:textures.Depth atIndex:1];
+  [draw setFragmentBytes:packed.data() length:sizeof(packed) atIndex:0];
+  [draw drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+}
+
+struct ProductResources {
+  TileMesh Mesh;
+  PanoramaTextures Textures = {.Colour = nil, .Depth = nil};
+  size_t Bytes = 0;
+};
+
+std::expected<ProductResources, std::string> UploadProducts(id<MTLDevice> device,
+                                                            const MetalProductInputs &products) {
+  ProductResources resources;
+  if (const auto *const tile = products.Tile; tile != nullptr) {
+    const auto vertices = std::as_bytes(std::span(tile->Vertices));
+    const auto indices = std::as_bytes(std::span(tile->Indices));
+    resources.Mesh = {.Vertices = [device newBufferWithBytes:vertices.data()
+                                                      length:vertices.size()
+                                                     options:MTLResourceStorageModeShared],
+                      .Indices = [device newBufferWithBytes:indices.data()
+                                                     length:indices.size()
+                                                    options:MTLResourceStorageModeShared],
+                      .IndexCount = tile->Indices.size()};
+    if (resources.Mesh.Vertices == nil || resources.Mesh.Indices == nil) {
+      return std::unexpected("Metal tile upload failed");
+    }
+    resources.Bytes += vertices.size() + indices.size();
+  }
+  if (const auto *const panorama = products.Panorama; panorama != nullptr) {
+    resources.Textures = {.Colour = UploadCube(device,
+                                               MTLPixelFormatRGBA16Float,
+                                               panorama->Side,
+                                               FarPanorama::ColourBytesPerTexel,
+                                               panorama->Colour),
+                          .Depth = UploadCube(device,
+                                              MTLPixelFormatR32Float,
+                                              panorama->Side,
+                                              FarPanorama::DepthBytesPerTexel,
+                                              panorama->Depth)};
+    if (resources.Textures.Colour == nil || resources.Textures.Depth == nil) {
+      return std::unexpected("Metal panorama upload failed");
+    }
+    resources.Bytes += panorama->Colour.size() + panorama->Depth.size();
+  }
+  return resources;
+}
+
+std::expected<id<MTLCommandBuffer>, std::string> SubmitProducts(const ProductPass &pass,
+                                                                const ProductResources &resources,
+                                                                const MetalProductView &view) {
+  std::optional<ClipMatrix> clip;
+  if (pass.Tile.Draw != nil) {
+    const auto packed = MetalClip(view.TileClip);
+    if (!packed) { return std::unexpected(packed.error()); }
+    clip = *packed;
+  }
   @autoreleasepool {
     const id<MTLCommandBuffer> command = [pass.Queue commandBuffer];
     const id<MTLRenderCommandEncoder> draw = [command renderCommandEncoderWithDescriptor:pass.Pass];
-    if (draw == nil) { return std::unexpected("Metal could not encode the panorama frame"); }
-    const auto packed = PackView(view);
-    [draw setRenderPipelineState:pass.Pipeline];
-    [draw setDepthStencilState:pass.DepthState];
-    [draw setFragmentTexture:textures.Colour atIndex:0];
-    [draw setFragmentTexture:textures.Depth atIndex:1];
-    [draw setFragmentBytes:packed.data() length:sizeof(packed) atIndex:0];
-    [draw drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+    if (draw == nil) { return std::unexpected("Metal could not encode the product frame"); }
+    if (pass.Panorama.Draw != nil) {
+      DrawPanorama(draw, pass.Panorama, resources.Textures, view.Panorama);
+    }
+    if (clip) { DrawTile(draw, pass.Tile, resources.Mesh, *clip); }
     [draw endEncoding];
     [command commit];
     return command;
@@ -377,81 +455,32 @@ std::expected<id<MTLCommandBuffer>, std::string> SubmitPanorama(const ProductPas
 }
 
 std::expected<MetalProductFrames, std::string>
-RenderMetalTile(const SurfaceTile &tile, size_t count, const TileClipAt &clipAt, bool readImage) {
-  @autoreleasepool {
-    const auto began = Clock::now();
-    const id<MTLDevice> device = MTLCreateSystemDefaultDevice();
-    if (device == nil) { return std::unexpected("Metal device unavailable"); }
-    const auto pass = MakePass(device);
-    if (!pass) { return std::unexpected(pass.error()); }
-    MetalProductFrames frames;
-    const char *const name = device.name.UTF8String;
-    frames.Device = name != nullptr ? name : "Metal";
-    frames.SetupMs = ElapsedMs(began);
-    const auto upload = Clock::now();
-    const auto vertexBytes = std::as_bytes(std::span(tile.Vertices));
-    const auto indexBytes = std::as_bytes(std::span(tile.Indices));
-    const TileMesh mesh{.Vertices = [device newBufferWithBytes:vertexBytes.data()
-                                                        length:vertexBytes.size()
-                                                       options:MTLResourceStorageModeShared],
-                        .Indices = [device newBufferWithBytes:indexBytes.data()
-                                                       length:indexBytes.size()
-                                                      options:MTLResourceStorageModeShared],
-                        .IndexCount = tile.Indices.size()};
-    if (mesh.Vertices == nil || mesh.Indices == nil) {
-      return std::unexpected("Metal tile upload failed");
-    }
-    frames.UploadMs = ElapsedMs(upload);
-    frames.UploadedBytes = vertexBytes.size() + indexBytes.size();
-    const auto submit = [&](size_t frame) -> std::expected<id<MTLCommandBuffer>, std::string> {
-      const auto matrix = clipAt(frame);
-      if (!matrix) { return std::unexpected(matrix.error()); }
-      const auto clip = MetalClip(*matrix);
-      if (!clip) { return std::unexpected(clip.error()); }
-      return SubmitTile(*pass, mesh, *clip);
-    };
-    if (const auto measured = MeasureCapture(count, submit, frames); !measured) {
-      return std::unexpected(measured.error());
-    }
-    FinishCapture(device, *pass, frames, readImage);
-    return frames;
+RenderMetalProducts(const MetalProductInputs &products,
+                    size_t count,
+                    const MetalProductViewAt &viewAt,
+                    bool readImage) {
+  if (products.Tile == nullptr && products.Panorama == nullptr) {
+    return std::unexpected("Metal product capture requires an input product");
   }
-}
-
-std::expected<MetalProductFrames, std::string> RenderMetalPanorama(const FarPanorama &panorama,
-                                                                   size_t count,
-                                                                   const PanoramaViewAt &viewAt,
-                                                                   bool readImage) {
   @autoreleasepool {
     const auto began = Clock::now();
     const id<MTLDevice> device = MTLCreateSystemDefaultDevice();
     if (device == nil) { return std::unexpected("Metal device unavailable"); }
-    const auto pass = MakePass(device, true);
+    const auto pass = MakePass(device, products);
     if (!pass) { return std::unexpected(pass.error()); }
     MetalProductFrames frames;
     const char *const name = device.name.UTF8String;
     frames.Device = name != nullptr ? name : "Metal";
     frames.SetupMs = ElapsedMs(began);
     const auto upload = Clock::now();
-    const PanoramaTextures textures{.Colour = UploadCube(device,
-                                                         MTLPixelFormatRGBA16Float,
-                                                         panorama.Side,
-                                                         FarPanorama::ColourBytesPerTexel,
-                                                         panorama.Colour),
-                                    .Depth = UploadCube(device,
-                                                        MTLPixelFormatR32Float,
-                                                        panorama.Side,
-                                                        FarPanorama::DepthBytesPerTexel,
-                                                        panorama.Depth)};
-    if (textures.Colour == nil || textures.Depth == nil) {
-      return std::unexpected("Metal panorama upload failed");
-    }
+    const auto resources = UploadProducts(device, products);
+    if (!resources) { return std::unexpected(resources.error()); }
     frames.UploadMs = ElapsedMs(upload);
-    frames.UploadedBytes = panorama.Colour.size() + panorama.Depth.size();
+    frames.UploadedBytes = resources->Bytes;
     const auto submit = [&](size_t frame) -> std::expected<id<MTLCommandBuffer>, std::string> {
       const auto view = viewAt(frame);
       if (!view) { return std::unexpected(view.error()); }
-      return SubmitPanorama(*pass, textures, *view);
+      return SubmitProducts(*pass, *resources, *view);
     };
     if (const auto measured = MeasureCapture(count, submit, frames); !measured) {
       return std::unexpected(measured.error());

@@ -186,20 +186,7 @@ ReportJson LoadingJson(const Loading &loading) {
           {"sources", std::move(sources)}};
 }
 
-ReportJson RenderedContent(const ScenarioBenchmarkReport &report) {
-  if (report.Panorama) {
-    const auto &bake = *report.Panorama;
-    return {{"kind", "far_colour_depth_cubemap"},
-            {"face_px", bake.Side},
-            {"anchor_eus_m", bake.AnchorM.Axis},
-            {"revision", bake.Revision},
-            {"maximum_range_m", bake.MaximumRangeM},
-            {"maximum_eye_translation_m", bake.MaximumTranslationM},
-            {"draws_per_frame", 1},
-            {"triangles_per_frame", 1}};
-  }
-  if (!report.Tile) { return {{"kind", "scenario_world"}}; }
-  const auto &tile = *report.Tile;
+ReportJson TileContent(const BenchmarkTileCoverage &tile) {
   return {{"kind", "single_opaque_tile"},
           {"address", tile.Address},
           {"origin_lon_lat", tile.OriginLonLat},
@@ -209,22 +196,41 @@ ReportJson RenderedContent(const ScenarioBenchmarkReport &report) {
           {"triangles_per_frame", tile.Triangles}};
 }
 
-ReportJson BenchmarkTraffic(const ScenarioBenchmarkReport &report) {
-  if (report.Panorama) {
-    return {{"source_delivery_bytes", 0},
-            {"asset_read_bytes", report.Panorama->StoredBytes},
-            {"asset_read_scope", "prepared panorama texture payload"},
-            {"upload_bytes", report.Panorama->UploadBytes},
-            {"upload_scope", "initial shared colour and depth cube textures"},
-            {"upload_ms", report.Panorama->UploadMs}};
+ReportJson PanoramaContent(const BenchmarkPanoramaCoverage &bake) {
+  return {{"kind", "far_colour_depth_cubemap"},
+          {"face_px", bake.Side},
+          {"anchor_eus_m", bake.AnchorM.Axis},
+          {"revision", bake.Revision},
+          {"maximum_range_m", bake.MaximumRangeM},
+          {"maximum_eye_translation_m", bake.MaximumTranslationM},
+          {"draws_per_frame", 1},
+          {"triangles_per_frame", 1}};
+}
+
+ReportJson RenderedContent(const ScenarioBenchmarkReport &report) {
+  if (report.Tile && report.Panorama) {
+    return {{"kind", "near_far_composition"},
+            {"near", TileContent(*report.Tile)},
+            {"far", PanoramaContent(*report.Panorama)},
+            {"draws_per_frame", 2},
+            {"triangles_per_frame", 1 + report.Tile->Triangles}};
   }
-  if (report.Tile) {
+  if (report.Panorama) { return PanoramaContent(*report.Panorama); }
+  if (report.Tile) { return TileContent(*report.Tile); }
+  return {{"kind", "scenario_world"}};
+}
+
+ReportJson BenchmarkTraffic(const ScenarioBenchmarkReport &report) {
+  if (report.Panorama || report.Tile) {
+    size_t bytes = 0;
+    if (report.Panorama) { bytes += report.Panorama->StoredBytes; }
+    if (report.Tile) { bytes += report.Tile->StoredBytes; }
     return {{"source_delivery_bytes", 0},
-            {"asset_read_bytes", report.Tile->StoredBytes},
-            {"asset_read_scope", "prepared tile file payload"},
-            {"upload_bytes", report.Tile->UploadBytes},
-            {"upload_scope", "initial shared vertex and index buffers"},
-            {"upload_ms", report.Tile->UploadMs}};
+            {"asset_read_bytes", bytes},
+            {"asset_read_scope", "prepared product payloads"},
+            {"upload_bytes", report.ProductUploadBytes},
+            {"upload_scope", "initial shared product buffers and textures"},
+            {"upload_ms", report.ProductUploadMs}};
   }
   const auto bytes = std::ranges::find_if(report.Measures, [](const auto &metric) {
     return metric.Name == "rebuild: bytes offered for upload";
@@ -279,6 +285,7 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
   }
   std::string_view renderPath = report.Tile ? "metal_tile" : "world";
   if (report.Panorama) { renderPath = "metal_panorama"; }
+  if (report.Panorama && report.Tile) { renderPath = "metal_near_far"; }
   ReportJson json{
       {"benchmark_version", 2},
       {"mode", "scenario"},
@@ -349,7 +356,11 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
     auto &timing = json["gpu_times"];
     timing["scope"] = report.Panorama ? "command buffer containing one far panorama pass"
                                       : "command buffer containing one opaque tile pass";
-    const std::string_view pass = report.Panorama ? "far_panorama" : "opaque_tile";
+    std::string_view pass = report.Panorama ? "far_panorama" : "opaque_tile";
+    if (report.Tile && report.Panorama) {
+      timing["scope"] = "command buffer containing the depth-composited near and far pass";
+      pass = "near_far_composition";
+    }
     json["pass_times"] = {{"scope", timing["scope"]}, {"passes", {{pass, timing["frame"]}}}};
   } else {
     json["gpu_times"]["scope"] = "frame submissions recorded by the world renderer";
