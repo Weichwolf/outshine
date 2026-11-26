@@ -34,7 +34,8 @@ def preview(product, report, output, pose, displacement):
     elapsed_ms = (perf_counter() - began) * 1000
     rgb = colour[index][..., :3].astype(np.float32)
     exposure = next((value["value"] for value in report["metrics"]
-                     if value["name"] == "the exposure the picture applied"), None)
+                     if value["name"] == "the exposure the picture applied"),
+                    manifest.get("reference_exposure"))
     if exposure is None or not np.isfinite(exposure) or exposure <= 0:
         raise ValueError("the comparison camera must report a positive exposure")
     lit = rgb * exposure

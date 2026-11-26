@@ -18,6 +18,7 @@
 namespace outshine::App {
 #ifdef __APPLE__
 namespace {
+constexpr double kPoseRoundoffM = 1e-6;
 
 std::expected<Camera, std::string> TileCamera(const Scenario::Document &document,
                                               std::string_view selected,
@@ -139,10 +140,13 @@ MakePanoramaView(const Camera &pose, Extent frame, const FarPanorama &panorama) 
   if (pose.Orthographic || !pose.modelMatrix(basis) || !pose.projectionMatrix(aspect, projection)) {
     return std::unexpected("far panorama requires a valid perspective camera");
   }
+  const auto offset = pose.PositionM - panorama.AnchorM;
   return Render::PanoramaView{
       .Forward = {{-basis[8], -basis[9], -basis[10]}},
       .RightSpan = Vec3{{basis[0], basis[1], basis[2]}} * (1.0 / projection[0]),
       .UpSpan = Vec3{{basis[4], basis[5], basis[6]}} * (1.0 / projection[5]),
+      .EyeOffsetM = Length(offset) > kPoseRoundoffM ? offset : Vec3{},
+      .FocalPixels = static_cast<double>(frame.HeightPx) * projection[5] * 0.5,
       .DepthScaleM = -projection[14] * 0.5,
       .DepthBias = -(1.0 + projection[10]) * 0.5,
       .Exposure = panorama.ReferenceExposure};
@@ -156,12 +160,13 @@ MeasurePanoramaProduct(const ScenarioBenchmarkOptions &options,
   const auto loadAt = BenchmarkClock::now();
   const auto panorama = ReadFarPanorama(options.PanoramaProduct);
   if (!panorama) { return std::unexpected(panorama.error()); }
-  constexpr double kPoseRoundoffM = 1e-6;
   if (panorama->Origin.LongitudeDeg != origin.LongitudeDeg ||
       panorama->Origin.LatitudeDeg != origin.LatitudeDeg ||
-      Length(report.Start.PositionM - panorama->AnchorM) > kPoseRoundoffM ||
-      report.Motion.LinearVelocityMps != Vec3{}) {
-    return std::unexpected("far panorama control requires rotation at the baked geographic anchor");
+      Length(report.Start.PositionM - panorama->AnchorM) >
+          panorama->MaximumTranslationM + kPoseRoundoffM ||
+      Length(report.Finish.PositionM - panorama->AnchorM) >
+          panorama->MaximumTranslationM + kPoseRoundoffM) {
+    return std::unexpected("camera path exceeds the prepared far panorama translation domain");
   }
   const auto viewAt = [&](size_t frame) -> std::expected<Render::PanoramaView, std::string> {
     const auto pose = motion.At(frame);

@@ -55,6 +55,7 @@ def reproject(depth, rays, eye_delta, focal_px):
     if distance2 == 0:
         return index, depth[index].astype(np.float64), np.ones(rays.shape[:-1], bool)
     sky = depth[index] == 0
+    active = ~sky
     stable = np.zeros_like(sky)
     distance = np.zeros(sky.shape)
     for _ in range(3):
@@ -66,7 +67,8 @@ def reproject(depth, rays, eye_delta, focal_px):
         new_radius = depth[new_index].astype(np.float64)
         finite = (radial > 0) & (new_radius > 0) & (discriminant > 0) & (distance > 0)
         inverse_change = abs(new_radius - radial) / np.maximum(new_radius * radial, 1)
-        stable = finite & (inverse_change * np.sqrt(across2) * focal_px < .5)
+        active &= finite
+        stable = active & (inverse_change * np.sqrt(across2) * focal_px < .5)
         index = new_index
     rad = depth[index].astype(np.float64)
     distance = np.sqrt(np.maximum(rad**2 - across2, 0)) - eye_dot

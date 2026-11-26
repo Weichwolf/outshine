@@ -16,8 +16,8 @@ python3 -B test/experiments/render/preview_far_panorama.py "$product" "$comparis
 The comparison is a standard world benchmark JSON with the same geographic anchor and
 camera exposure. The preview checks rotation and optional eye offsets against actual
 captured colour and depth. It preserves zero depth for absent geometry. The reference
-rejects unstable depth reprojection at disocclusions. Its rotation-only product domain
-remains in effect until translated native views are measured.
+rejects unstable depth reprojection at disocclusions. The default product domain
+allows rotation at the anchor.
 
 Cube faces follow +X, -X, +Y, -Y, +Z, -Z in east/up/south coordinates. The packer converts
 reversed perspective depth to radial metres and mirrors the right-handed capture camera
@@ -38,5 +38,8 @@ outshine benchmark --scenario "$view" --panorama-product "$product" \
 This mode uploads the two cube textures once and draws one fullscreen triangle per
 frame. It samples colour across cube faces, samples depth at the nearest texel and writes
 reversed scene depth. It reads the prepared product directly. The benchmark records the
-asset range, native submission times, bytes read, upload cost and memory. The control
-accepts camera rotation at the anchor.
+asset range, native submission times, bytes read, upload cost and memory. Set `--translation-domain-m` when packing a validated local replay radius. The
+runtime checks the complete linear camera path against that radius before submission.
+During translation it iterates radial-depth reprojection up to three times. The fallback
+for an unstable ray is its rotation-only colour with zero geometry depth. Intermediate
+and near products can cover those samples when their composition is integrated.

@@ -23,7 +23,7 @@ def attachment(path, shape):
     return values
 
 
-def pack(capture, output, exposure=None):
+def pack(capture, output, exposure=None, translation_m=0):
     began = perf_counter()
     manifest = json.loads((capture / "capture.json").read_text())
     side = manifest["face_px"]
@@ -33,6 +33,8 @@ def pack(capture, output, exposure=None):
             or manifest["depth"] != "reversed_perspective_f32_le"
             or len(manifest["faces"]) != len(FACES)):
         raise ValueError("unsupported far panorama capture")
+    if not 0 <= translation_m < near:
+        raise ValueError("translation domain must be within the axial near plane")
     colour = np.empty((6, side, side, 4), dtype="<f2")
     depth = np.empty((6, side, side), dtype="<f4")
     maximum = np.finfo(np.float16).max
@@ -63,7 +65,7 @@ def pack(capture, output, exposure=None):
         "anchor_eus_m": manifest["eye_eus_m"],
         "axial_near_m": near,
         "maximum_range_m": far,
-        "maximum_eye_translation_m": 0,
+        "maximum_eye_translation_m": translation_m,
         "reference_exposure": exposure,
         "colour_encoding": "rgba16f_linear_le_a_opaque_coverage",
         "depth_encoding": "r32f_radial_metres_le_zero_without_geometry",
@@ -98,8 +100,10 @@ def main():
     parser.add_argument("capture", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--exposure", type=float, help="reference exposure from the world benchmark")
+    parser.add_argument("--translation-domain-m", type=float, default=0,
+                        help="declared radius for a bounded translated replay")
     options = parser.parse_args()
-    pack(options.capture, options.output, options.exposure)
+    pack(options.capture, options.output, options.exposure, options.translation_domain_m)
 
 
 if __name__ == "__main__":

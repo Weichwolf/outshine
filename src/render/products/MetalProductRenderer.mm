@@ -50,6 +50,7 @@ struct PanoramaUniform {
   float4 rightSpan;
   float4 upSpan;
   float4 display;
+  float4 eyeOffsetM;
 };
 struct PanoramaRaster {
   float4 position [[position]];
@@ -64,18 +65,58 @@ struct PanoramaFragment {
   float4 colour [[color(0)]];
   float depth [[depth(any)]];
 };
+struct PanoramaRay {
+  float3 direction;
+  float distanceM;
+};
+PanoramaRay reprojectPanorama(float3 ray, texturecube<float> depth,
+                             constant PanoramaUniform &view) {
+  constexpr sampler pointDepth(coord::normalized, filter::nearest);
+  float radius = depth.sample(pointDepth, ray).r;
+  const float3 eye = view.eyeOffsetM.xyz;
+  const float eye2 = dot(eye, eye);
+  if (radius <= 0.0 || eye2 == 0.0) {
+    return {ray, max(radius, 0.0)};
+  }
+  const float toward = dot(ray, eye);
+  const float across2 = max(eye2 - toward * toward, 0.0);
+  const float pixelsTimesBaseline = sqrt(across2) * view.display.w;
+  float3 lookup = ray;
+  bool stable = false;
+  for (uint iteration = 0; iteration < 3; ++iteration) {
+    const float discriminant = radius * radius - across2;
+    if (discriminant <= 0.0) {
+      return {ray, 0.0};
+    }
+    const float distance = sqrt(discriminant) - toward;
+    if (distance <= 0.0) {
+      return {ray, 0.0};
+    }
+    lookup = normalize(eye + distance * ray);
+    const float next = depth.sample(pointDepth, lookup).r;
+    if (next <= 0.0) {
+      return {ray, 0.0};
+    }
+    const float inverseChange = abs(next - radius) / (next * radius);
+    stable = inverseChange * pixelsTimesBaseline < 0.5;
+    radius = next;
+  }
+  const float discriminant = radius * radius - across2;
+  return stable && discriminant > 0.0
+      ? PanoramaRay{lookup, max(sqrt(discriminant) - toward, 0.0)}
+      : PanoramaRay{ray, 0.0};
+}
 fragment PanoramaFragment panorama_fragment(PanoramaRaster in [[stage_in]],
                                              constant PanoramaUniform &view [[buffer(0)]],
                                              texturecube<half> colour [[texture(0)]],
                                              texturecube<float> distanceM [[texture(1)]]) {
   constexpr sampler linearColour(coord::normalized, filter::linear);
-  constexpr sampler pointDepth(coord::normalized, filter::nearest);
   float3 ray = normalize(view.forward.xyz + in.ndc.x * view.rightSpan.xyz +
                          in.ndc.y * view.upSpan.xyz);
-  float radius = distanceM.sample(pointDepth, ray).r;
-  float forwardM = radius * dot(view.forward.xyz, ray);
+  const PanoramaRay projected = reprojectPanorama(ray, distanceM, view);
+  float forwardM = projected.distanceM * dot(view.forward.xyz, ray);
   float depth = forwardM > 0.0 ? saturate(view.display.x / forwardM - view.display.y) : 0.0;
-  float3 x = float3(colour.sample(linearColour, ray).rgb) * view.display.z;
+  float3 x = float3(colour.sample(linearColour, projected.direction).rgb) * view.display.z;
   float3 filmic = saturate((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14));
   return {float4(filmic, 1.0), depth};
 }
@@ -293,8 +334,8 @@ struct PanoramaTextures {
   id<MTLTexture> Depth;
 };
 
-using PanoramaUniform = std::array<std::array<float, 4>, 4>;
-static_assert(sizeof(PanoramaUniform) == sizeof(ClipMatrix));
+using PanoramaUniform = std::array<std::array<float, 4>, 5>;
+static_assert(sizeof(PanoramaUniform) == size_t{5} * 4 * sizeof(float));
 
 PanoramaUniform PackView(const PanoramaView &view) {
   const auto vector = [](const Vec3 &axis) {
@@ -309,7 +350,8 @@ PanoramaUniform PackView(const PanoramaView &view) {
           {static_cast<float>(view.DepthScaleM),
            static_cast<float>(view.DepthBias),
            static_cast<float>(view.Exposure),
-           0.0f}};
+           static_cast<float>(view.FocalPixels)},
+          vector(view.EyeOffsetM)};
 }
 
 std::expected<id<MTLCommandBuffer>, std::string> SubmitPanorama(const ProductPass &pass,

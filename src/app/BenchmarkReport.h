@@ -45,6 +45,7 @@ struct BenchmarkPanoramaCoverage {
   Vec3 AnchorM;
   std::string Revision;
   double MaximumRangeM = 0;
+  double MaximumTranslationM = 0;
   size_t StoredBytes = 0;
   size_t UploadBytes = 0;
   double UploadMs = 0;

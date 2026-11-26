@@ -194,6 +194,7 @@ ReportJson RenderedContent(const ScenarioBenchmarkReport &report) {
             {"anchor_eus_m", bake.AnchorM.Axis},
             {"revision", bake.Revision},
             {"maximum_range_m", bake.MaximumRangeM},
+            {"maximum_eye_translation_m", bake.MaximumTranslationM},
             {"draws_per_frame", 1},
             {"triangles_per_frame", 1}};
   }

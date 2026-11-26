@@ -44,6 +44,8 @@ struct PanoramaView {
   Vec3 Forward;
   Vec3 RightSpan;
   Vec3 UpSpan;
+  Vec3 EyeOffsetM;
+  double FocalPixels;
   double DepthScaleM;
   double DepthBias;
   double Exposure;
