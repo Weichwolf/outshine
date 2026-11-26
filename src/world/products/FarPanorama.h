@@ -1,0 +1,34 @@
+#ifndef OUTSHINE_WORLD_PRODUCTS_FARPANORAMA_H
+#define OUTSHINE_WORLD_PRODUCTS_FARPANORAMA_H
+
+#include "Earth.h"
+#include "Vec3.h"
+#include <array>
+#include <cstddef>
+#include <expected>
+#include <string>
+#include <string_view>
+
+namespace outshine {
+
+struct FarPanorama {
+  static constexpr size_t FaceCount = 6;
+  static constexpr size_t ColourBytesPerTexel = 8;
+  static constexpr size_t DepthBytesPerTexel = 4;
+
+  size_t Side = 0;
+  LongitudeLatitude Origin;
+  Vec3 AnchorM;
+  double MaximumRangeM = 0;
+  double MaximumTranslationM = 0;
+  double ReferenceExposure = 0;
+  std::string Revision;
+  std::array<size_t, FaceCount> OpaqueTexels{};
+  std::string Colour;
+  std::string Depth;
+};
+
+[[nodiscard]] std::expected<FarPanorama, std::string> ReadFarPanorama(std::string_view directory);
+
+}
+#endif

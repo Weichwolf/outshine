@@ -34,6 +34,7 @@ enum class Argument : uint8_t {
   AssetCache,
   Geometry,
   TileProduct,
+  PanoramaProduct,
   Panorama,
   Image
 };
@@ -58,6 +59,7 @@ constexpr std::array kFlags{Flag{.Name = "--output", .Kind = Argument::Output},
                             Flag{.Name = "--geometry-output", .Kind = Argument::Geometry},
                             Flag{.Name = "--tile-product", .Kind = Argument::TileProduct},
                             Flag{.Name = "--panorama-output", .Kind = Argument::Panorama},
+                            Flag{.Name = "--panorama-product", .Kind = Argument::PanoramaProduct},
                             Flag{.Name = "--image", .Kind = Argument::Image}};
 
 std::expected<Vec3, std::string_view> ReadVelocity(std::string_view value) noexcept {
@@ -87,6 +89,7 @@ ApplyValue(BenchmarkOptions &options, Argument kind, std::string_view value) noe
     case Argument::Scenario: scenario.Source = value; break;
     case Argument::View: scenario.View = value; break;
     case Argument::Image: scenario.Image = value; break;
+    case Argument::PanoramaProduct: scenario.PanoramaProduct = value; break;
     case Argument::Panorama: scenario.PanoramaDirectory = value; break;
     case Argument::Geometry: scenario.GeometryDirectory = value; break;
     case Argument::TileProduct: scenario.TileProduct = value; break;
@@ -135,15 +138,19 @@ ValidateCombination(const BenchmarkOptions &options) noexcept {
   if (options.Scenario->Source.empty() || options.Scenario->Motion.Frames == 0) {
     return std::unexpected("scenario benchmark requires --scenario and --frames");
   }
-  if (!options.Scenario->TileProduct.empty() &&
-      (!options.Scenario->CacheDirectory.empty() ||
-       !options.Scenario->AssetCacheDirectory.empty() || options.Scenario->Offline ||
-       !options.Scenario->GeometryDirectory.empty())) {
-    return std::unexpected(
-        "--tile-product reads prepared inputs without source cache or geometry export options");
+  const bool prepared =
+      !options.Scenario->TileProduct.empty() || !options.Scenario->PanoramaProduct.empty();
+  if (!options.Scenario->TileProduct.empty() && !options.Scenario->PanoramaProduct.empty()) {
+    return std::unexpected("choose one prepared product for this benchmark");
+  }
+  if (prepared && (!options.Scenario->CacheDirectory.empty() ||
+                   !options.Scenario->AssetCacheDirectory.empty() || options.Scenario->Offline ||
+                   !options.Scenario->GeometryDirectory.empty())) {
+    return std::unexpected("the Metal product benchmark reads prepared inputs without source cache "
+                           "or geometry export options");
   }
   if (!options.Scenario->PanoramaDirectory.empty() &&
-      (!options.Scenario->TileProduct.empty() || !options.Scenario->GeometryDirectory.empty() ||
+      (prepared || !options.Scenario->GeometryDirectory.empty() ||
        !options.Scenario->Image.empty() || options.Scenario->Motion.Frames != 1 ||
        options.Scenario->Motion.LinearVelocityMps != Vec3{} ||
        options.Scenario->Motion.AngularVelocityDegS != Vec3{} ||

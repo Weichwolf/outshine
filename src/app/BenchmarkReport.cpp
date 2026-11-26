@@ -187,6 +187,16 @@ ReportJson LoadingJson(const Loading &loading) {
 }
 
 ReportJson RenderedContent(const ScenarioBenchmarkReport &report) {
+  if (report.Panorama) {
+    const auto &bake = *report.Panorama;
+    return {{"kind", "far_colour_depth_cubemap"},
+            {"face_px", bake.Side},
+            {"anchor_eus_m", bake.AnchorM.Axis},
+            {"revision", bake.Revision},
+            {"maximum_range_m", bake.MaximumRangeM},
+            {"draws_per_frame", 1},
+            {"triangles_per_frame", 1}};
+  }
   if (!report.Tile) { return {{"kind", "scenario_world"}}; }
   const auto &tile = *report.Tile;
   return {{"kind", "single_opaque_tile"},
@@ -199,6 +209,14 @@ ReportJson RenderedContent(const ScenarioBenchmarkReport &report) {
 }
 
 ReportJson BenchmarkTraffic(const ScenarioBenchmarkReport &report) {
+  if (report.Panorama) {
+    return {{"source_delivery_bytes", 0},
+            {"asset_read_bytes", report.Panorama->StoredBytes},
+            {"asset_read_scope", "prepared panorama texture payload"},
+            {"upload_bytes", report.Panorama->UploadBytes},
+            {"upload_scope", "initial shared colour and depth cube textures"},
+            {"upload_ms", report.Panorama->UploadMs}};
+  }
   if (report.Tile) {
     return {{"source_delivery_bytes", 0},
             {"asset_read_bytes", report.Tile->StoredBytes},
@@ -239,7 +257,7 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
       std::ranges::count_if(report.Frames, [](const auto &frame) { return !frame.Refined; });
   const bool contentComplete =
       measurementComplete && unrefined == 0 && report.FinalWorldBlockers.empty();
-  const bool worldComplete = contentComplete && !report.Tile;
+  const bool worldComplete = contentComplete && !report.Tile && !report.Panorama;
   const bool cpuPass = measurementComplete && !cpu["frame"].is_null() &&
                        cpu["frame"]["p99_ms"].get<double>() <= budgetMs;
   ReportJson gpuPass = gpu["complete"].get<bool>()
@@ -258,10 +276,12 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
   for (const auto &gap : report.WorldGaps) {
     worldGaps.push_back({{"first_frame", gap.FirstFrame}, {"blockers", gap.Blockers}});
   }
+  std::string_view renderPath = report.Tile ? "metal_tile" : "world";
+  if (report.Panorama) { renderPath = "metal_panorama"; }
   ReportJson json{
       {"benchmark_version", 2},
       {"mode", "scenario"},
-      {"render_path", report.Tile ? "metal_tile" : "world"},
+      {"render_path", renderPath},
       {"rendered_content", RenderedContent(report)},
       {"content_complete", contentComplete},
       {"traffic", BenchmarkTraffic(report)},
@@ -324,11 +344,12 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
       {"cpu_times", std::move(cpu)},
       {"gpu_times", std::move(gpu)},
       {"metrics", std::move(metrics)}};
-  if (report.Tile) {
+  if (report.Tile || report.Panorama) {
     auto &timing = json["gpu_times"];
-    timing["scope"] = "command buffer containing one opaque tile pass";
-    json["pass_times"] = {{"scope", timing["scope"]},
-                          {"passes", {{"opaque_tile", timing["frame"]}}}};
+    timing["scope"] = report.Panorama ? "command buffer containing one far panorama pass"
+                                      : "command buffer containing one opaque tile pass";
+    const std::string_view pass = report.Panorama ? "far_panorama" : "opaque_tile";
+    json["pass_times"] = {{"scope", timing["scope"]}, {"passes", {{pass, timing["frame"]}}}};
   } else {
     json["gpu_times"]["scope"] = "frame submissions recorded by the world renderer";
   }

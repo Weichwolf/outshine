@@ -40,6 +40,16 @@ struct BenchmarkTileCoverage {
   double UploadMs = 0;
 };
 
+struct BenchmarkPanoramaCoverage {
+  size_t Side = 0;
+  Vec3 AnchorM;
+  std::string Revision;
+  double MaximumRangeM = 0;
+  size_t StoredBytes = 0;
+  size_t UploadBytes = 0;
+  double UploadMs = 0;
+};
+
 struct ScenarioBenchmarkReport {
   std::string Scenario;
   std::string DeclarationSha256;
@@ -51,6 +61,7 @@ struct ScenarioBenchmarkReport {
   Camera Start;
   Camera Finish;
   std::optional<BenchmarkTileCoverage> Tile;
+  std::optional<BenchmarkPanoramaCoverage> Panorama;
   Loading Prepared;
   Loading Finished;
   double SetupMs = 0;

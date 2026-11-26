@@ -1,7 +1,7 @@
 #include "BenchmarkCommand.h"
 #include "BenchmarkOptions.h"
 #include "BenchmarkScenario.h"
-#include "TileBenchmark.h"
+#include "MetalProductBenchmark.h"
 #include "Calibration.h"
 #include "WriteFileAtomically.h"
 
@@ -48,8 +48,9 @@ std::expected<void, std::string> CheckOutputPaths(const BenchmarkOptions &option
 
 std::expected<std::string, std::string> ExecuteBenchmark(const BenchmarkOptions &options) {
   if (options.Scenario) {
-    return options.Scenario->TileProduct.empty() ? RunScenarioBenchmark(*options.Scenario)
-                                                 : RunTileBenchmark(*options.Scenario);
+    return options.Scenario->TileProduct.empty() && options.Scenario->PanoramaProduct.empty()
+               ? RunScenarioBenchmark(*options.Scenario)
+               : RunMetalProductBenchmark(*options.Scenario);
   }
   const auto report = Diagnostics::Calibration::Run(options.GpuValidation);
   if (!report) { return std::unexpected(report.error().Message); }

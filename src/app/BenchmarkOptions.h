@@ -16,6 +16,7 @@ struct ScenarioBenchmarkOptions {
   std::string_view GeometryDirectory;
   std::string_view PanoramaDirectory;
   std::string_view TileProduct;
+  std::string_view PanoramaProduct;
   std::string_view CacheDirectory;
   std::string_view AssetCacheDirectory;
   BenchmarkMotionInput Motion;

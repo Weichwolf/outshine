@@ -23,3 +23,20 @@ Cube faces follow +X, -X, +Y, -Y, +Z, -Z in east/up/south coordinates. The packe
 reversed perspective depth to radial metres and mirrors the right-handed capture camera
 rows into cube storage. It retains scene-linear RGB, opaque coverage, source declarations
 and a payload-derived revision. The capture records native GPU, readback and writing costs.
+
+## Native rotation control
+
+Create a 1280×720 scenario with the same world origin and an absolute camera at the
+capture anchor. Use the original lens for the display view. Pass the comparable world
+exposure with `pack_far_panorama.py --exposure` for paired colour checks.
+
+```sh
+outshine benchmark --scenario "$view" --panorama-product "$product" \
+  --frames 30 --angular-velocity 0,-360,0 --image "$png" --output "$report"
+```
+
+This mode uploads the two cube textures once and draws one fullscreen triangle per
+frame. It samples colour across cube faces, samples depth at the nearest texel and writes
+reversed scene depth. It reads the prepared product directly. The benchmark records the
+asset range, native submission times, bytes read, upload cost and memory. The control
+accepts camera rotation at the anchor.

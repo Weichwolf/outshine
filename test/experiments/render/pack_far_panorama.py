@@ -23,7 +23,7 @@ def attachment(path, shape):
     return values
 
 
-def pack(capture, output):
+def pack(capture, output, exposure=None):
     began = perf_counter()
     manifest = json.loads((capture / "capture.json").read_text())
     side = manifest["face_px"]
@@ -48,6 +48,12 @@ def pack(capture, output):
         np.clip(image[..., :3], 0, maximum, out=colour[index, ..., :3])
         colour[index, ..., 3] = covered
 
+    if exposure is None:
+        luminance = colour[..., :3].astype(np.float32) @ [0.2126, 0.7152, 0.0722]
+        metered = float(np.median(luminance))
+        exposure = .18 / metered if metered > 0 else 1.0
+    if not np.isfinite(exposure) or exposure <= 0:
+        raise ValueError("positive reference exposure required")
     product = {
         "version": 1,
         "representation": "colour_radial_depth_cubemap",
@@ -58,6 +64,7 @@ def pack(capture, output):
         "axial_near_m": near,
         "maximum_range_m": far,
         "maximum_eye_translation_m": 0,
+        "reference_exposure": exposure,
         "colour_encoding": "rgba16f_linear_le_a_opaque_coverage",
         "depth_encoding": "r32f_radial_metres_le_zero_without_geometry",
         "colour_bytes": colour.nbytes,
@@ -90,8 +97,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("capture", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--exposure", type=float, help="reference exposure from the world benchmark")
     options = parser.parse_args()
-    pack(options.capture, options.output)
+    pack(options.capture, options.output, options.exposure)
 
 
 if __name__ == "__main__":
