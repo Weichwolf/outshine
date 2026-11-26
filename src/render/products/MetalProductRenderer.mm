@@ -15,18 +15,25 @@ namespace outshine::Render {
 namespace {
 using Clock = std::chrono::steady_clock;
 constexpr size_t kMatrixWords = 16;
+constexpr size_t kSurfaceShadingBytes = 80;
 constexpr auto kClearColor = std::array{0.18, 0.25, 0.34};
 constexpr size_t kChannels = 4;
 using ClipMatrix = std::array<float, kMatrixWords>;
 using SurfaceLightUniform = std::array<float, 16>;
-using SurfaceColourRanges = std::array<uint32_t, 2>;
+using SurfaceColourRanges = std::array<uint32_t, 4>;
+
+struct SurfaceShadingUniform {
+  SurfaceLightUniform Light;
+  std::array<float, 4> EyeM;
+};
 
 static_assert(sizeof(SurfaceVertex) == 6 * sizeof(float) &&
               alignof(SurfaceVertex) == alignof(float) &&
               offsetof(SurfaceVertex, Normal) == 3 * sizeof(float));
 static_assert(sizeof(ClipMatrix) == 64 && sizeof(uint32_t) == 4);
 static_assert(sizeof(SurfaceColour) == 4);
-static_assert(sizeof(SurfaceLightUniform) == 64 && sizeof(SurfaceColourRanges) == 8);
+static_assert(sizeof(SurfaceShadingUniform) == kSurfaceShadingBytes &&
+              offsetof(SurfaceShadingUniform, EyeM) == 64 && sizeof(SurfaceColourRanges) == 16);
 
 NSString *const kShader = @R"(
 #include <metal_stdlib>
@@ -37,41 +44,74 @@ struct SurfaceVertex {
 };
 struct Varyings {
   float4 position [[position]];
+  float3 localPosition;
   float3 normal;
   half4 colour;
-  uint overlay [[flat]];
+  uint material [[flat]];
 };
 struct SurfaceLight {
   float4 sun;
   float4 direct;
   float4 sky;
   float4 ground;
+  float4 eyeM;
 };
+enum SurfaceMaterial : uint { Fallback, Preview, TerrainMaterial, Overlay };
 vertex Varyings tile_vertex(uint index [[vertex_id]],
                             const device SurfaceVertex *vertices [[buffer(0)]],
                             constant float4x4 &clip [[buffer(1)]],
                             const device uchar4 *colours [[buffer(2)]],
-                            constant uint2 &colourRanges [[buffer(3)]]) {
+                            constant uint4 &colourRanges [[buffer(3)]]) {
   SurfaceVertex point = vertices[index];
   const half4 colour = index < colourRanges.x ? half4(0.0h) :
       half4(colours[index - colourRanges.x]) / 255.0h;
-  return {clip * float4(point.position, 1.0), point.normal, colour, index >= colourRanges.y};
+  const uint material = index < colourRanges.x ? Fallback :
+      (index >= colourRanges.y ? Overlay : (index >= colourRanges.z ? TerrainMaterial : Preview));
+  return {clip * float4(point.position, 1.0), point.position, point.normal, colour, material};
 }
 float3 filmic(float3 x) {
+  x = min(x, 16.0);
   return saturate((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14));
+}
+float3 groundRadiance(Varyings in, float3 normal, constant SurfaceLight &light, float3 ambient) {
+  const float3 albedo = float3(in.colour.rgb);
+  constexpr float f0 = 0.04;
+  const float nl = saturate(dot(normal, light.sun.xyz));
+  if (nl <= 0.0) { return (1.0 - f0) * albedo * ambient; }
+  const float3 toEye = light.eyeM.xyz - in.localPosition;
+  const float3 view = toEye * rsqrt(max(dot(toEye, toEye), 1e-12));
+  const float3 axis = light.sun.xyz + view;
+  const float3 halfway = axis * rsqrt(max(dot(axis, axis), 1e-12));
+  const float nv = max(1e-6, saturate(dot(normal, view)));
+  const float nh = saturate(dot(normal, halfway));
+  const float grazing = 1.0 - saturate(dot(view, halfway));
+  const float squareGrazing = grazing * grazing;
+  const float fresnel = f0 + (1.0 - f0) * squareGrazing * squareGrazing * grazing;
+  const float roughness = max(0.04, float(in.colour.a));
+  const float alpha = roughness * roughness;
+  const float a2 = alpha * alpha;
+  const float denominator = (1.0 - nh) * (1.0 + nh) + nh * nh * a2;
+  const float distribution = a2 / (denominator * denominator);
+  const float visibility = 0.5 / (nl * sqrt(nv * nv * (1.0 - a2) + a2) +
+                                  nv * sqrt(nl * nl * (1.0 - a2) + a2));
+  const float3 diffuse = (1.0 - fresnel) * albedo;
+  return (diffuse + fresnel * distribution * visibility) * (light.direct.xyz * nl) +
+      diffuse * ambient;
 }
 float4 tileColour(Varyings in, constant SurfaceLight &light) {
   float3 normal = normalize(in.normal);
-  if (in.overlay && light.sun.w > 0.0) {
+  if (in.material >= TerrainMaterial && light.sun.w > 0.0) {
     const float3 ambient = mix(light.ground.xyz, light.sky.xyz, 0.5 + 0.5 * normal.y);
+    if (in.material == TerrainMaterial) {
+      return float4(filmic(groundRadiance(in, normal, light, ambient)), 1.0);
+    }
     const float3 direct = light.direct.xyz * max(0.0, dot(normal, light.sun.xyz));
     return float4(filmic(float3(in.colour.rgb) * (ambient + direct)), 1.0);
   }
   const float3 previewLight = normalize(float3(-0.55, 0.65, 0.45));
   float diffuse = 0.35 + 0.65 * max(0.0, dot(normal, previewLight));
-  float3 reflectance = mix(float3(0.26, 0.22, 0.17), float3(0.13, 0.20, 0.10),
-                           smoothstep(0.45, 0.92, normal.y));
-  reflectance = mix(reflectance, float3(in.colour.rgb), float(in.colour.a));
+  const float3 reflectance = in.material != Fallback ? float3(in.colour.rgb) :
+      mix(float3(0.26, 0.22, 0.17), float3(0.13, 0.20, 0.10), smoothstep(0.45, 0.92, normal.y));
   return float4(diffuse * reflectance, 1.0);
 }
 fragment float4 tile_fragment(Varyings in [[stage_in]],
@@ -391,17 +431,39 @@ struct TileMesh {
   Mat4 WorldFromTile;
 };
 
+Vec3f TileDirection(const Mat4 &placement, const Vec3 &direction) {
+  const auto component = [&](size_t axis) {
+    const size_t column = axis * 4;
+    return static_cast<float>(placement[column] * direction[0] +
+                              placement[column + 1] * direction[1] +
+                              placement[column + 2] * direction[2]);
+  };
+  return {{component(0), component(1), component(2)}};
+}
+
+SurfaceShadingUniform FrameShading(const TileMesh &mesh, const Vec3 &eye) {
+  SurfaceShadingUniform shading{.Light = mesh.Light, .EyeM = {}};
+  if (mesh.ColourRanges[2] == 0 && mesh.Light[3] > 0) {
+    const auto &p = mesh.WorldFromTile;
+    const auto local = TileDirection(p, eye - Vec3{{p[12], p[13], p[14]}});
+    shading.EyeM = {local[0], local[1], local[2], 0};
+  }
+  return shading;
+}
+
 void DrawTile(id<MTLRenderCommandEncoder> draw,
               const ProductPipeline &pipeline,
               const TileMesh &mesh,
-              const ClipMatrix &clip) {
+              const ClipMatrix &clip,
+              const Vec3 &eye) {
+  const auto shading = FrameShading(mesh, eye);
   [draw setRenderPipelineState:pipeline.Draw];
   [draw setDepthStencilState:pipeline.Depth];
   [draw setVertexBuffer:mesh.Vertices offset:0 atIndex:0];
   [draw setVertexBytes:clip.data() length:sizeof(clip) atIndex:1];
   [draw setVertexBuffer:mesh.Colours == nil ? mesh.Vertices : mesh.Colours offset:0 atIndex:2];
   [draw setVertexBytes:mesh.ColourRanges.data() length:sizeof(mesh.ColourRanges) atIndex:3];
-  [draw setFragmentBytes:mesh.Light.data() length:sizeof(mesh.Light) atIndex:0];
+  [draw setFragmentBytes:&shading length:sizeof(shading) atIndex:0];
   [draw drawIndexedPrimitives:MTLPrimitiveTypeTriangle
                    indexCount:mesh.IndexCount
                     indexType:MTLIndexTypeUInt32
@@ -565,15 +627,11 @@ struct ProductResources {
 
 SurfaceLightUniform PackLight(const Mat4 &worldFromTile, const PanoramaLighting *light) {
   if (light == nullptr) { return {}; }
-  const auto toward = [&](size_t axis) {
-    const size_t column = axis * 4;
-    return static_cast<float>(worldFromTile[column] * light->ToSun[0] +
-                              worldFromTile[column + 1] * light->ToSun[1] +
-                              worldFromTile[column + 2] * light->ToSun[2]);
-  };
-  return {toward(0),
-          toward(1),
-          toward(2),
+  const auto toward =
+      TileDirection(worldFromTile, {{light->ToSun[0], light->ToSun[1], light->ToSun[2]}});
+  return {toward[0],
+          toward[1],
+          toward[2],
           1,
           light->Direct[0],
           light->Direct[1],
@@ -600,6 +658,7 @@ std::expected<TileMesh, std::string> UploadTile(id<MTLDevice> device,
   const auto firstColour = count - static_cast<uint32_t>(tile.Product.Colours.size());
   const uint32_t firstOverlay =
       tile.Product.GridSide > 0 ? tile.Product.GridSide * tile.Product.GridSide : count;
+  const uint32_t firstLit = tile.Product.GroundRoughness ? 0 : firstOverlay;
   TileMesh mesh{.Vertices = [device newBufferWithBytes:vertices.data()
                                                 length:vertices.size()
                                                options:MTLResourceStorageModeShared],
@@ -612,8 +671,8 @@ std::expected<TileMesh, std::string> UploadTile(id<MTLDevice> device,
                                                      length:colours.size()
                                                     options:MTLResourceStorageModeShared],
                 .IndexCount = tile.Product.Indices.size(),
-                .ColourRanges = {firstColour, firstOverlay},
-                .Light = PackLight(tile.WorldFromTile, firstOverlay < count ? light : nullptr),
+                .ColourRanges = {firstColour, firstOverlay, firstLit, 0},
+                .Light = PackLight(tile.WorldFromTile, firstLit < count ? light : nullptr),
                 .WorldFromTile = tile.WorldFromTile};
   if (mesh.Vertices == nil || mesh.Indices == nil || (!colours.empty() && mesh.Colours == nil)) {
     return std::unexpected("Metal tile upload failed");
@@ -658,7 +717,7 @@ bool MatchesSurface(const MetalSurface &active, const MetalPlacedSurface &replac
   const auto &back = replacement.Product;
   return front.Coverage == back.Coverage && front.Revision == back.Revision &&
          active.WorldFromTile == replacement.WorldFromTile && front.Indices == back.Indices &&
-         front.Colours == back.Colours &&
+         front.GroundRoughness == back.GroundRoughness && front.Colours == back.Colours &&
          std::ranges::equal(std::as_bytes(std::span(front.Vertices)),
                             std::as_bytes(std::span(back.Vertices)));
 }
@@ -728,7 +787,7 @@ std::expected<id<MTLCommandBuffer>, std::string> SubmitProducts(const ProductPas
         [draw endEncoding];
         return std::unexpected(clip.error());
       }
-      DrawTile(draw, pass.Tile, mesh, *clip);
+      DrawTile(draw, pass.Tile, mesh, *clip, view.EyeM);
     }
     if (pass.Panorama.Draw != nil) {
       const auto &active = resources.Panoramas[view.PanoramaIndex];

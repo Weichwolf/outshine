@@ -205,8 +205,8 @@ build/outshine benchmark --scenario "$scenario" --product-store "$database" \
 ```
 
 Für den Materialvergleich übernimmt der experimentelle Bake die Bodenklassen und
-Materialfarben einer Ground-Region mit eingebetteten Seiten. Er speichert die lineare
-Farbe mit vier Bytes pro Rasterpunkt. Geometrie und Gebäudefarben bleiben erhalten.
+Materialrezepte einer Ground-Region mit eingebetteten Seiten. Pro Rasterpunkt speichert
+er drei Byte lineare Farbe und ein Byte Rauheit. Geometrie und Gebäudefarben bleiben erhalten.
 
 ```sh
 cmake --build build --target outshine_experiment_surface_ground

@@ -25,8 +25,10 @@ rows into cube storage. It retains scene-linear RGB, opaque coverage, source dec
 and a payload-derived revision. The capture records native GPU, readback and writing costs.
 Captures with a fixed scenario clock also carry sun direction, spectral sky diffuse and
 first-order ground bounce. The packer scales the three light terms with the same exposure
-used for far RGB. Metal uses them to light the prepared building overlays in the same
-display transform. The regular terrain grid has its own illumination path.
+used for far RGB. Metal uses them to light the prepared building overlays and the terrain
+grid in the same display transform. The terrain uses its packed base colour and roughness
+with a dielectric GGX sun lobe. The roughness occupies the fourth byte of the grid's
+material stream. Older surface tiles keep their preview illumination.
 
 ## Native rotation control
 

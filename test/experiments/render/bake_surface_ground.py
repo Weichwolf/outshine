@@ -1,4 +1,4 @@
-"""Bake the source ground palette into the regular grid of prepared surface tiles."""
+"""Bake the source ground albedo and roughness into prepared surface grids."""
 
 import argparse
 from pathlib import Path
@@ -7,7 +7,7 @@ import tempfile
 
 import numpy as np
 
-from pack_surface_tile import with_ground_colours
+from pack_surface_tile import with_ground_material
 from terrain_cached_page import package, page_prefix
 
 
@@ -19,7 +19,7 @@ def smooth(unit):
     return t * t * (3.0 - 2.0 * t)
 
 
-def ground_colour(palette, samples):
+def ground_material(palette, samples):
     if len(palette) < 4:
         raise ValueError("missing source ground palette")
     rows, rock, _, layers = map(int, palette.view("<u4")[:4])
@@ -28,7 +28,7 @@ def ground_colour(palette, samples):
     if (not 0 <= rock < rows or layers != surfaces_at + 8 * (rows + 1)
             or len(palette) != layers + 8 * (rows + 1)):
         raise ValueError("unsupported source ground palette layout")
-    colours = palette[4:slopes_at].reshape(-1, 4)[:, :3]
+    material = palette[4:slopes_at].reshape(-1, 4)
     limits = palette[slopes_at:surfaces_at]
     state = palette[surfaces_at:layers].reshape(-1, 8)
     if not np.isfinite(palette[4:]).all() or not np.isfinite(palette[2]) or palette[2] < 0:
@@ -41,7 +41,7 @@ def ground_colour(palette, samples):
         else:
             weight = (slope_delta > 0).astype(float)
         weight[row == rock] = 1
-        return colours[row] * (1 - weight[:, None]) + colours[rock] * weight[:, None]
+        return material[row] * (1 - weight[:, None]) + material[rock] * weight[:, None]
 
     first, second = (np.where((samples[field] >= 0) & (samples[field] < rows),
                              samples[field], rows) for field in ("class", "other"))
@@ -50,10 +50,8 @@ def ground_colour(palette, samples):
     edge = samples["edge"]
     ratio = np.divide(edge, reach, out=np.zeros_like(edge), where=reach > 0)
     weight = np.where(reach > 0, smooth(.5 + .5 * ratio), .5 + .5 * np.sign(edge))
-    rgb = tint(second) * (1 - weight[:, None]) + tint(first) * weight[:, None]
-    result = np.full((len(rgb), 4), 255, dtype=np.uint8)
-    result[:, :3] = np.rint(255 * np.clip(rgb, 0, 1)).astype(np.uint8)
-    return result.tobytes()
+    rgba = tint(second) * (1 - weight[:, None]) + tint(first) * weight[:, None]
+    return np.rint(255 * np.clip(rgba, [0, 0, 0, .04], 1)).astype(np.uint8).tobytes()
 
 
 def main():
@@ -75,7 +73,7 @@ def main():
         palette = np.fromfile(work / "palette.f32", dtype="<f4")
         for tile in args.tiles:
             samples = np.fromfile(work / (tile.name + ".ground"), dtype=SAMPLE)
-            data = with_ground_colours(tile.read_bytes(), ground_colour(palette, samples))
+            data = with_ground_material(tile.read_bytes(), ground_material(palette, samples))
             with (args.output / tile.name).open("xb") as output:
                 output.write(data)
 

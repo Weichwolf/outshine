@@ -28,6 +28,10 @@ def pack(tile):
         if not grid_side or len(colours) not in (len(positions), len(positions) - grid_side**2):
             raise ValueError("material colours must cover the overlay or all vertices")
         magic = b"OUTSHST4" if len(colours) == len(positions) else b"OUTSHST3"
+    if tile.get("ground_roughness", False):
+        if magic != b"OUTSHST4":
+            raise ValueError("ground roughness requires a complete material stream")
+        magic = b"OUTSHST5"
     payload = bytearray(HEADER.pack(
         magic,
         *tile["coverage"], *tile["origin_lon_lat"], revision, *minimum, *maximum,
@@ -47,7 +51,7 @@ def pack(tile):
     return payload
 
 
-def with_ground_colours(packed, ground):
+def with_ground_material(packed, ground):
     header = list(HEADER.unpack_from(packed))
     magic, vertices, indices = header[0], header[-2], header[-1]
     if magic not in (b"OUTSHST2", b"OUTSHST3"):
@@ -60,7 +64,7 @@ def with_ground_colours(packed, ground):
         raise ValueError("invalid ground grid size")
     if len(ground) != grid * COLOUR.size or len(packed) != end + (vertices - grid) * COLOUR.size:
         raise ValueError("material colour payload does not match vertex counts")
-    header[0] = b"OUTSHST4"
+    header[0] = b"OUTSHST5"
     header[6] = hashlib.sha256(packed + ground).hexdigest().encode("ascii")
     body = packed[HEADER.size:end]
     if not split:

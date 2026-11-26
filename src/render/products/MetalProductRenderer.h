@@ -94,6 +94,7 @@ struct MetalProductInputs {
 
 struct MetalProductView {
   Mat4 ClipFromWorld;
+  Vec3 EyeM;
   PanoramaView Panorama;
   size_t PanoramaIndex = 0;
 };

@@ -40,6 +40,7 @@ struct SurfaceTile {
   double GeometricErrorM = 0;
   uint32_t GridSide = 0;
   uint32_t GroundIndices = 0;
+  bool GroundRoughness = false;
   std::vector<SurfaceVertex> Vertices;
   std::vector<uint32_t> Indices;
   std::vector<SurfaceColour> Colours;

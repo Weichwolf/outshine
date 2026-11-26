@@ -359,6 +359,7 @@ ProductViewAt(const BenchmarkMotion &motion,
   const auto pose = motion.At(frame);
   if (!pose) { return std::unexpected(std::string(pose.error())); }
   Render::MetalProductView view{};
+  view.EyeM = pose->PositionM;
   if (hasTiles && !pose->clipMatrix(aspect, view.ClipFromWorld)) {
     return std::unexpected("invalid tile camera");
   }

@@ -548,7 +548,8 @@ class ScenarioBenchmark(unittest.TestCase):
                     'revision': '1' * 64, 'geometric_error_m': 10, 'bounds_eus_m': bounds,
                     'vertices_eus_m': [bounds[0], [xmax, ymin, -4], [xmin, ymax, -4], bounds[1]],
                     'normals_eus': [[0, 0, 1]] * 4, 'indices': [0, 1, 3, 0, 3, 2],
-                    'colours_rgba8': [[80, 110, 45, 255]] * 4, 'ground_indices': 6,
+                    'colours_rgba8': [[80, 110, 45, 218]] * 4, 'ground_indices': 6,
+                    'ground_roughness': True,
                 }
                 if overlay:
                     recipe['bounds_eus_m'] = [bounds[0], [xmax, ymax, -2]]

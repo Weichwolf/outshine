@@ -26,15 +26,17 @@ constexpr std::string_view kPackedMagic = "OUTSHST1";
 constexpr std::string_view kGridMagic = "OUTSHST2";
 constexpr std::string_view kPaintedMagic = "OUTSHST3";
 constexpr std::string_view kGroundColourMagic = "OUTSHST4";
+constexpr std::string_view kGroundMaterialMagic = "OUTSHST5";
 constexpr uint32_t kMaximumGridSide = 256;
 
-enum class PackedSurface { Mesh, Grid, OverlayColour, AllColours };
+enum class PackedSurface { Mesh, Grid, OverlayColour, AllColours, GroundMaterial };
 
 std::optional<PackedSurface> PackedFormat(std::span<const uint8_t> magic) {
   if (std::ranges::equal(magic, kPackedMagic)) { return PackedSurface::Mesh; }
   if (std::ranges::equal(magic, kGridMagic)) { return PackedSurface::Grid; }
   if (std::ranges::equal(magic, kPaintedMagic)) { return PackedSurface::OverlayColour; }
   if (std::ranges::equal(magic, kGroundColourMagic)) { return PackedSurface::AllColours; }
+  if (std::ranges::equal(magic, kGroundMaterialMagic)) { return PackedSurface::GroundMaterial; }
   return std::nullopt;
 }
 
@@ -201,10 +203,24 @@ bool ReadPackedVertices(ByteReader &input, std::span<SurfaceVertex> vertices) {
   return true;
 }
 
+bool ValidSurfaceColours(const SurfaceTile &tile, size_t groundVertices) {
+  const auto colours = std::span(tile.Colours);
+  const size_t terrain = tile.GroundRoughness ? groundVertices : 0;
+  return std::ranges::all_of(colours.first(terrain),
+                             [](const SurfaceColour &colour) {
+                               constexpr uint8_t kMinimumRoughness = 10;
+                               return colour.back() >= kMinimumRoughness;
+                             }) &&
+         std::ranges::all_of(colours.subspan(terrain), [](const SurfaceColour &colour) {
+           return colour.back() == UINT8_MAX;
+         });
+}
+
 bool ReadPackedMesh(ByteReader &input, SurfaceTile &tile, PackedSurface format) {
   const bool hasGrid = format != PackedSurface::Mesh;
-  const bool allColours = format == PackedSurface::AllColours;
-  const bool painted = allColours || format == PackedSurface::OverlayColour;
+  tile.GroundRoughness = format == PackedSurface::GroundMaterial;
+  const bool allColours = format >= PackedSurface::AllColours;
+  const bool painted = format >= PackedSurface::OverlayColour;
   uint32_t vertices = 0;
   uint32_t indices = 0;
   if (!input.Number(vertices) || !input.Number(indices) || vertices < 3 ||
@@ -254,8 +270,7 @@ bool ReadPackedMesh(ByteReader &input, SurfaceTile &tile, PackedSurface format) 
              overlay,
              [=](uint32_t index) { return index >= groundVertices && index < vertices; }) &&
          ((vertices == groundVertices) == overlay.empty()) &&
-         std::ranges::all_of(
-             tile.Colours, [](const SurfaceColour &colour) { return colour.back() == UINT8_MAX; });
+         ValidSurfaceColours(tile, groundVertices);
 }
 }
 
