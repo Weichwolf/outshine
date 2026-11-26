@@ -63,14 +63,15 @@ in this control, yielding 668,012 uploaded bytes including ground versus
 729,704 for geometry. Device allocation increased from 5,701,632 to 5,865,472
 bytes, so the upload reduction alone does not establish a residency saving.
 The larger district has visibly broken roof details and uploads more bytes as
-cards. The full world still needs projected-size admission, selective residency,
-and continuous handoffs to geometry and the panorama.
+cards. The indexed replay adds projected-size admission and selective residency.
 
 ## Indexed world replay
 
 Import cards alongside their source surface, using the same render-set revision.
 The capture records the surface tile address and immutable revision. Import
-publishes the descriptor and independently readable views in one transaction.
+extracts the original ground grid and publishes it with the descriptor and
+independently readable views in one transaction. The descriptor is bound to the
+exact indexed source asset.
 
 ```sh
 outshine cache import-group "$database" "$revision" "$probe/block"
@@ -81,25 +82,27 @@ outshine benchmark --scenario "$camera" --frames 120 --linear-velocity '4,0,0' \
 The loader checks the projected texel size over the sweep and compares the
 selected card bytes with the overlay. Pair rankings are affine along a straight
 eye sweep. The reference checks the endpoints and the intervals between score
-crossings. An absent required view keeps the source overlay. Terrain and the
-resident group share depth with the clipped far panorama.
+crossings. The cut loads ground and selected views before committing their shared
+coverage. A missing ground or view falls back to the whole source tile. Terrain
+and the resident group share depth with the clipped far panorama.
 
 The A18 Pro replay of two Tokyo groups used 128-pixel cards and 4 of 26 available
 views at 720p30. The same 27 surface tiles and 1,510–1,760 m panorama overlap
 were used before and after. Peak triangles fell from 107,273 to 93,471, shared
-uploads from 23.84 to 23.28 MB. Compressed SSD reads rose from 4.80 to 4.86 MB
-because this slice still loads the compound surface before replacing its overlay.
+uploads from 23.84 to 23.28 MB, and compressed SSD reads from 4.80 to 4.55 MB.
+Split ground and cards produced the same frames as unpacking the original tiles
+and replacing their overlays before upload.
 
 | Motion | Median of three paired GPU p99 runs, geometry / group |
 |---|---:|
-| Still | 2.89 / 2.82 ms |
-| 360° turn | 2.63 / 1.66 ms |
-| 16 m lateral flight | 3.17 / 1.85 ms |
+| Still | 3.17 / 1.88 ms |
+| 360° turn | 0.95 / 1.09 ms |
+| 16 m lateral flight | 1.96 / 2.33 ms |
 
 The prepared surface fixture covers a limited footprint and leaves surrounding
 buildings missing in the clipped near region in both variants. This run checks
-independent view residency, shared scene depth and retained silhouettes. It
-does not establish full city coverage or a near-to-mid switch during the sweep.
+independent view residency, shared scene depth and retained silhouettes. Full
+city coverage and near-to-mid switching during movement remain open.
 
 Compositing the single spruce captures at the 25 roots reaches 82% median and
 64% worst coverage overlap against the direct stand captures. One native bake of

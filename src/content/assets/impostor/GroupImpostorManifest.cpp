@@ -122,9 +122,8 @@ Box GroupImpostorEarthBounds(const GroupImpostorManifest &manifest) {
   return earth;
 }
 
-std::string GroupImpostorRequestKey(std::string_view revision, Data::TileId tile) {
-  return Sha256Hex(std::format(
-      "{}/{}/{}/{}/{}", GroupImpostorManifestKind, revision, tile.Zoom, tile.X, tile.Y));
+std::string GroupImpostorRequestKey(std::string_view sourceKey) {
+  return Sha256Hex(std::format("{}/{}", GroupImpostorManifestKind, sourceKey));
 }
 
 }

@@ -17,6 +17,7 @@ namespace outshine {
 
 inline constexpr std::string_view GroupImpostorManifestKind = "render-group-impostor-v1";
 inline constexpr std::string_view GroupImpostorViewKind = "render-group-impostor-view-v1";
+inline constexpr std::string_view GroupImpostorGroundKind = "render-group-impostor-ground-v1";
 inline constexpr size_t GroupImpostorManifestBytesMost = size_t{16} * 1024;
 inline constexpr size_t GroupImpostorViewBytesMost = size_t{4} * 1024 * 1024;
 
@@ -34,7 +35,7 @@ struct GroupImpostorManifest {
 ParseGroupImpostorManifest(const nlohmann::json &root);
 
 [[nodiscard]] Box GroupImpostorEarthBounds(const GroupImpostorManifest &manifest);
-[[nodiscard]] std::string GroupImpostorRequestKey(std::string_view revision, Data::TileId tile);
+[[nodiscard]] std::string GroupImpostorRequestKey(std::string_view sourceKey);
 
 }
 #endif

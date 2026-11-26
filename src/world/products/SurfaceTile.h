@@ -52,6 +52,8 @@ DecodePackedSurfaceTile(std::span<const uint8_t> bytes);
 
 [[nodiscard]] bool RetainSurfaceGround(SurfaceTile &surface);
 
+[[nodiscard]] std::optional<std::vector<uint8_t>> EncodeSurfaceGround(const SurfaceTile &surface);
+
 struct SurfaceCoverageInterval {
   uint64_t Begin;
   uint64_t End;

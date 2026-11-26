@@ -15,6 +15,7 @@
 namespace outshine {
 
 class AssetCache;
+struct AssetRecord;
 
 struct GroupImpostorDemand {
   ImpostorEyeSweep EyeEcef;
@@ -27,10 +28,15 @@ struct ResidentGroupImpostor {
   std::vector<GroupImpostorView> Views;
 };
 
+struct GroupImpostorSurface {
+  SurfaceTile Ground;
+  ResidentGroupImpostor Group;
+  size_t AvailableViews;
+};
+
 struct GroupImpostorLookup {
-  std::optional<ResidentGroupImpostor> Product;
+  std::optional<GroupImpostorSurface> Product;
   size_t RequestedBytes = 0;
-  size_t AvailableViews = 0;
 };
 
 struct GroupImpostorImport {
@@ -41,11 +47,8 @@ struct GroupImpostorImport {
 [[nodiscard]] std::expected<void, std::string>
 ImportGroupImpostor(AssetCache &cache, const GroupImpostorImport &source);
 
-[[nodiscard]] std::expected<GroupImpostorLookup, std::string>
-LoadGroupImpostor(const AssetCache &cache,
-                  std::string_view revision,
-                  const SurfaceTile &surface,
-                  const GroupImpostorDemand &demand);
+[[nodiscard]] std::expected<GroupImpostorLookup, std::string> LoadGroupImpostor(
+    const AssetCache &cache, const AssetRecord &surface, const GroupImpostorDemand &demand);
 
 }
 #endif

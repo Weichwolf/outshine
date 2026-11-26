@@ -7,6 +7,7 @@
 #include "ReadTextFile.h"
 #include "Sha256.h"
 #include "SurfaceTile.h"
+#include "SurfaceTileAsset.h"
 #include "TangentFrame.h"
 #include "Vec3.h"
 #include <algorithm>
@@ -51,6 +52,7 @@ std::string PackageKey(std::span<const uint8_t> bytes) {
 std::expected<AssetRecord, std::string> StageView(AssetCache &cache,
                                                   const std::filesystem::path &path,
                                                   const GroupImpostorManifest &manifest,
+                                                  std::string_view owner,
                                                   size_t at,
                                                   std::vector<PreparedAssetWrite> &writes) {
   const auto file = ReadTextFile(path.string(), GroupImpostorViewBytesMost);
@@ -60,7 +62,6 @@ std::expected<AssetRecord, std::string> StageView(AssetCache &cache,
     return std::unexpected("group view differs from its capture manifest");
   }
   const auto payload = PackageKey(Bytes(*file));
-  const auto owner = GroupImpostorRequestKey(manifest.SurfaceRevision, manifest.Coverage);
   AssetRecord record{.Key =
                          Sha256Hex(std::format("{}/{}/{}", GroupImpostorViewKind, owner, payload)),
                      .Kind = std::string(GroupImpostorViewKind),
@@ -75,10 +76,10 @@ std::expected<AssetRecord, std::string> StageView(AssetCache &cache,
   return record;
 }
 
-std::expected<std::optional<CachedAsset>, std::string>
-ReadManifest(const AssetCache &cache, std::string_view revision, Data::TileId tile) {
+std::expected<std::optional<CachedAsset>, std::string> ReadManifest(const AssetCache &cache,
+                                                                    std::string_view sourceKey) {
   auto manifest =
-      cache.LoadRequest(GroupImpostorRequestKey(revision, tile), GroupImpostorManifestBytesMost);
+      cache.LoadRequest(GroupImpostorRequestKey(sourceKey), GroupImpostorManifestBytesMost);
   if (!manifest) {
     if (manifest.error() == AssetCacheError::CapacityExceeded) { return std::nullopt; }
     return std::unexpected("group impostor manifest lookup failed");
@@ -122,6 +123,65 @@ size_t OverlayBytes(const SurfaceTile &surface) {
          (surface.Indices.size() - surface.GroundIndices) * sizeof(uint32_t);
 }
 
+bool MatchesSurface(const SurfaceTile &surface, const GroupImpostorManifest &group) {
+  return surface.Coverage == group.Coverage && surface.Revision == group.SurfaceRevision &&
+         surface.Origin.LongitudeDeg == group.Origin.LongitudeDeg &&
+         surface.Origin.LatitudeDeg == group.Origin.LatitudeDeg;
+}
+
+std::expected<void, std::string> StageGround(AssetCache &cache,
+                                             const CachedAsset &source,
+                                             const GroupImpostorManifest &manifest,
+                                             Json &index,
+                                             std::vector<PreparedAssetWrite> &writes) {
+  const auto surface = DecodePackedSurfaceTile(source.Bytes());
+  if (!surface || !MatchesSurface(*surface, manifest)) {
+    return std::unexpected("group capture does not match its source surface");
+  }
+  const size_t overlayBytes = OverlayBytes(*surface);
+  const auto ground = EncodeSurfaceGround(*surface);
+  if (overlayBytes == 0 || !ground) {
+    return std::unexpected("group source has no separable ground");
+  }
+  const auto hash = PackageKey(*ground);
+  const auto &original = source.Record();
+  const AssetRecord record{
+      .Key = Sha256Hex(std::format("{}/{}/{}", GroupImpostorGroundKind, original.Key, hash)),
+      .Kind = std::string(GroupImpostorGroundKind),
+      .Bounds = original.Bounds,
+      .Package = hash,
+      .ByteCount = ground->size(),
+      .Level = original.Level,
+      .Parent = {}};
+  auto write = PreparePackage(cache, record, *ground);
+  if (!write) { return std::unexpected(write.error()); }
+  writes.push_back(std::move(*write));
+  index["ground_asset"] = record.Key;
+  index["source_asset"] = original.Key;
+  index["overlay_bytes"] = overlayBytes;
+  return {};
+}
+
+std::expected<std::optional<SurfaceTile>, std::string>
+ReadGround(const AssetCache &cache,
+           const Json &key,
+           const GroupImpostorManifest &manifest,
+           size_t &requestedBytes) {
+  if (!key.is_string()) { return std::nullopt; }
+  const auto &id = key.get_ref<const std::string &>();
+  if (!AssetProductKey::Parse(id)) { return std::nullopt; }
+  const auto package = cache.Load(id, SurfaceTile::MaximumPackedBytes);
+  if (!package) { return std::unexpected("group ground read failed"); }
+  if (!*package || (**package).Record().Kind != GroupImpostorGroundKind) { return std::nullopt; }
+  requestedBytes += (**package).Bytes().size();
+  auto ground = DecodePackedSurfaceTile((**package).Bytes());
+  if (!ground || !MatchesSurface(*ground, manifest) ||
+      ground->GroundIndices != ground->Indices.size()) {
+    return std::nullopt;
+  }
+  return std::move(*ground);
+}
+
 std::expected<std::vector<AssetRecord>, std::string> ReadViewRecords(const AssetCache &cache,
                                                                      const Json &keys,
                                                                      std::span<const size_t> needed,
@@ -157,11 +217,20 @@ std::expected<void, std::string> ImportGroupImpostor(AssetCache &cache,
   auto manifestJson = Json::parse(*input, nullptr, false);
   const auto manifest = ParseGroupImpostorManifest(manifestJson);
   if (!manifest) { return std::unexpected("invalid group impostor capture manifest"); }
+  const auto original = cache.LoadRequest(
+      SurfaceTileRequestKey(source.Revision, manifest->Coverage), SurfaceTile::MaximumPackedBytes);
+  if (!original || !*original) {
+    return std::unexpected("group requires its indexed source surface");
+  }
   std::vector<PreparedAssetWrite> writes;
-  writes.reserve(manifest->Directions.size() + 1);
+  writes.reserve(manifest->Directions.size() + 2);
+  const auto ground = StageGround(cache, **original, *manifest, manifestJson, writes);
+  if (!ground) { return std::unexpected(ground.error()); }
+  const auto request = GroupImpostorRequestKey((**original).Record().Key);
   auto cards = Json::array();
   for (size_t at = 0; at < manifest->Directions.size(); ++at) {
-    const auto card = StageView(cache, folder / std::format("{}.card", at), *manifest, at, writes);
+    const auto card =
+        StageView(cache, folder / std::format("{}.card", at), *manifest, request, at, writes);
     if (!card) { return std::unexpected(card.error()); }
     cards.push_back(card->Key);
   }
@@ -170,7 +239,6 @@ std::expected<void, std::string> ImportGroupImpostor(AssetCache &cache,
   if (body.size() > GroupImpostorManifestBytesMost) {
     return std::unexpected("oversized group impostor manifest");
   }
-  const auto request = GroupImpostorRequestKey(source.Revision, manifest->Coverage);
   const auto package = PackageKey(Bytes(body));
   const AssetRecord index{
       .Key = Sha256Hex(request + package),
@@ -190,29 +258,25 @@ std::expected<void, std::string> ImportGroupImpostor(AssetCache &cache,
   return {};
 }
 
-std::expected<GroupImpostorLookup, std::string>
-LoadGroupImpostor(const AssetCache &cache,
-                  std::string_view revision,
-                  const SurfaceTile &surface,
-                  const GroupImpostorDemand &demand) {
+std::expected<GroupImpostorLookup, std::string> LoadGroupImpostor(
+    const AssetCache &cache, const AssetRecord &surface, const GroupImpostorDemand &demand) {
   GroupImpostorLookup result;
-  const size_t meshBytes = OverlayBytes(surface);
-  if (meshBytes == 0) { return result; }
-  const auto loaded = ReadManifest(cache, revision, surface.Coverage);
+  const auto loaded = ReadManifest(cache, surface.Key);
   if (!loaded) { return std::unexpected(loaded.error()); }
   if (!*loaded) { return result; }
   const auto content = (**loaded).Bytes();
   result.RequestedBytes = content.size();
   const auto json = Json::parse(content.begin(), content.end(), nullptr, false);
   const auto manifest = ParseGroupImpostorManifest(json);
-  if (!manifest || manifest->Coverage != surface.Coverage ||
-      manifest->SurfaceRevision != surface.Revision ||
-      manifest->Origin.LongitudeDeg != surface.Origin.LongitudeDeg ||
-      manifest->Origin.LatitudeDeg != surface.Origin.LatitudeDeg || !json.contains("card_assets") ||
+  if (!manifest || !json.contains("source_asset") || json["source_asset"] != surface.Key ||
+      !json.contains("ground_asset") || !json.contains("overlay_bytes") ||
+      !json["overlay_bytes"].is_number_unsigned() || !json.contains("card_assets") ||
       !json["card_assets"].is_array() ||
       json["card_assets"].size() != manifest->Directions.size()) {
     return result;
   }
+  const auto meshBytes = json["overlay_bytes"].get<size_t>();
+  if (meshBytes == 0 || meshBytes >= surface.ByteCount) { return result; }
   const auto eye = LocalEye(*manifest, demand.EyeEcef);
   if (!FitsProjection(*manifest, eye, demand.FocalPixels)) { return result; }
   const auto needed = SelectImpostorDirections(manifest->Directions, eye);
@@ -233,8 +297,12 @@ LoadGroupImpostor(const AssetCache &cache,
     if (!view || !MatchesView(*view, *manifest, needed[at])) { return result; }
     group.Views.push_back(std::move(*view));
   }
-  result.AvailableViews = manifest->Directions.size();
-  result.Product = std::move(group);
+  auto terrain = ReadGround(cache, json["ground_asset"], *manifest, result.RequestedBytes);
+  if (!terrain) { return std::unexpected(terrain.error()); }
+  if (!*terrain) { return result; }
+  result.Product = GroupImpostorSurface{.Ground = std::move(**terrain),
+                                        .Group = std::move(group),
+                                        .AvailableViews = manifest->Directions.size()};
   return result;
 }
 

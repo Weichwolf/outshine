@@ -164,14 +164,30 @@ private:
   [[nodiscard]] std::expected<bool, std::string>
   VisitPartition(std::span<const AssetRecord *const> children) {
     const size_t checkpoint = Cut_.Products.size();
+    const size_t groups = Cut_.Groups.size();
     for (const auto *child : children) {
       const auto loaded = Visit(*child);
       if (!loaded) { return std::unexpected(loaded.error()); }
       if (!*loaded) {
         Cut_.Products.resize(checkpoint);
+        Cut_.Groups.resize(groups);
         return false;
       }
     }
+    return true;
+  }
+
+  [[nodiscard]] std::expected<bool, std::string> VisitGroup(const AssetRecord &record) {
+    if (!Demand_.GroupDemand) { return false; }
+    auto replacement = LoadGroupImpostor(Cache_, record, *Demand_.GroupDemand);
+    if (!replacement) { return std::unexpected(replacement.error()); }
+    Cut_.GroupRequestedBytes += replacement->RequestedBytes;
+    if (!replacement->Product) { return false; }
+    auto &group = *replacement->Product;
+    Cut_.Groups.push_back({.Origin = group.Ground.Origin,
+                           .Group = std::move(group.Group),
+                           .AvailableViews = group.AvailableViews});
+    Cut_.Products.push_back(std::move(group.Ground));
     return true;
   }
 
@@ -209,6 +225,8 @@ private:
       const auto children = VisitChildren(request, record.Level, known);
       if (!children || *children) { return children; }
     }
+    const auto group = VisitGroup(record);
+    if (!group || *group) { return group; }
     auto tile = ReadRecord(Cache_, Revision_, record, Cut_.RequestedBytes);
     if (!tile) { return std::unexpected(tile.error()); }
     if (!*tile) {
@@ -229,6 +247,10 @@ private:
   SurfaceCutLookup Cut_;
 };
 
+}
+
+std::string SurfaceTileRequestKey(std::string_view revision, Data::TileId tile) {
+  return Request(revision, tile);
 }
 
 std::expected<void, std::string>
