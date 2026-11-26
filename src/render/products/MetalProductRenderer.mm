@@ -840,7 +840,8 @@ PreparedSurfaceReplacement PrepareReplacement(id<MTLDevice> device,
                                       .WorldFromTile = group.WorldFromTile,
                                       .CentreM = group.CentreM,
                                       .HalfExtentM = group.HalfExtentM,
-                                      .Handoff = group.Handoff},
+                                      .Handoff = group.Handoff,
+                                      .FractionalCoverage = group.FractionalCoverage},
                                      light,
                                      prepared.Bytes);
       if (!uploaded) {
@@ -904,6 +905,8 @@ std::expected<id<MTLCommandBuffer>, std::string> SubmitProducts(const ProductPas
           .Light = group.Light, .EyeAndImpostorWeight = {local[0], local[1], local[2], weight}};
       [draw setVertexBytes:clip->data() length:sizeof(*clip) atIndex:1];
       [draw setFragmentBytes:&shading length:sizeof(shading) atIndex:0];
+      const uint32_t fractional = group.FractionalCoverage ? 1U : 0U;
+      [draw setFragmentBytes:&fractional length:sizeof(fractional) atIndex:1];
       sample.GroupTriangles += EncodeMetalGroup(draw, group, {{local[0], local[1], local[2]}});
     }
     if (pass.Panorama.Draw != nil) {

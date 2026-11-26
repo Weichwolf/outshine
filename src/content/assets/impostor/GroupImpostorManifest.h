@@ -16,6 +16,7 @@
 namespace outshine {
 
 inline constexpr std::string_view GroupImpostorManifestKind = "render-group-impostor-v1";
+inline constexpr std::string_view CanopyImpostorManifestKind = "render-canopy-impostor-v1";
 inline constexpr std::string_view GroupImpostorViewKind = "render-group-impostor-view-v1";
 inline constexpr std::string_view GroupImpostorGroundKind = "render-group-impostor-ground-v1";
 inline constexpr size_t GroupImpostorManifestBytesMost = size_t{16} * 1024;
@@ -29,6 +30,7 @@ struct GroupImpostorManifest {
   uint32_t Side;
   std::string SurfaceRevision;
   std::vector<Vec3> Directions;
+  std::string CanopyCell;
 };
 
 [[nodiscard]] std::optional<GroupImpostorManifest>

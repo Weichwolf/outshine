@@ -70,7 +70,8 @@ UploadMetalGroup(id<MTLDevice> device, const MetalImpostorGroup &group, size_t &
                         .WorldFromTile = group.WorldFromTile,
                         .CentreM = group.CentreM,
                         .Light = {},
-                        .Handoff = group.Handoff};
+                        .Handoff = group.Handoff,
+                        .FractionalCoverage = group.FractionalCoverage};
   result.Views.reserve(group.Views.size());
   for (const auto &view : group.Views) {
     const auto basis = ImpostorViewFrame::From(view.TowardEye);

@@ -42,7 +42,7 @@ float3 groupNormal(float2 packed) {
   if (z < 0.0) { v = (1.0 - abs(v.yx)) * select(float2(-1.0), float2(1.0), v >= 0.0); }
   return normalize(float3(v, z));
 }
-float4 groupColour(GroupVaryings in, constant SurfaceLight &light,
+float4 groupColour(GroupVaryings in, constant SurfaceLight &light, uint fractional,
                    texture2d<float> colours, texture2d<float> normals) {
   constexpr sampler colourSampler(coord::normalized, address::clamp_to_edge,
                                    filter::linear, mip_filter::linear);
@@ -50,7 +50,9 @@ float4 groupColour(GroupVaryings in, constant SurfaceLight &light,
                                    filter::nearest, mip_filter::nearest);
   const float4 alphaColour = colours.sample(colourSampler, in.uv);
   const float weight = light.eyeAndImpostorWeight.w;
-  if (alphaColour.a < 0.5 || (weight < 1.0 && lodNoise(in.position.xy) >= weight)) {
+  const float coverage = fractional != 0 ? alphaColour.a * weight
+                                          : (alphaColour.a >= 0.5 ? weight : 0.0);
+  if (coverage < 1.0 && lodNoise(in.position.xy) >= coverage) {
     discard_fragment();
   }
   const float3 normal = groupNormal(normals.sample(normalSampler, in.uv).xy);
@@ -60,15 +62,17 @@ float4 groupColour(GroupVaryings in, constant SurfaceLight &light,
 }
 fragment float4 group_fragment(GroupVaryings in [[stage_in]],
                                constant SurfaceLight &light [[buffer(0)]],
+                               constant uint &fractional [[buffer(1)]],
                                texture2d<float> colours [[texture(0)]],
                                texture2d<float> normals [[texture(1)]]) {
-  return groupColour(in, light, colours, normals);
+  return groupColour(in, light, fractional, colours, normals);
 }
 fragment TileFragment group_composite_fragment(GroupVaryings in [[stage_in]],
                                                constant SurfaceLight &light [[buffer(0)]],
+                                               constant uint &fractional [[buffer(1)]],
                                                texture2d<float> colours [[texture(0)]],
                                                texture2d<float> normals [[texture(1)]]) {
-  return {groupColour(in, light, colours, normals), in.position.z};
+  return {groupColour(in, light, fractional, colours, normals), in.position.z};
 }
 )";
 

@@ -32,6 +32,7 @@ struct GroupResources {
   Vec3 CentreM;
   std::array<float, 16> Light;
   std::optional<ImpostorDistanceRamp> Handoff;
+  bool FractionalCoverage = false;
 };
 
 [[nodiscard]] std::expected<GroupResources, std::string>

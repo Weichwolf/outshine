@@ -92,6 +92,7 @@ struct MetalPlacedImpostorGroup {
   Vec3 CentreM;
   double HalfExtentM;
   std::optional<ImpostorDistanceRamp> Handoff;
+  bool FractionalCoverage = false;
 };
 
 struct MetalPlacedCut {
@@ -112,6 +113,7 @@ struct MetalImpostorGroup {
   Vec3 CentreM;
   double HalfExtentM;
   std::optional<ImpostorDistanceRamp> Handoff;
+  bool FractionalCoverage = false;
 };
 
 struct MetalProductInputs {

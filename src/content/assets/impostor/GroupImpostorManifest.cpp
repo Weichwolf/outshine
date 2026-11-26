@@ -97,7 +97,14 @@ std::optional<GroupImpostorManifest> ParseGroupImpostorManifest(const Json &root
                                .HalfExtentM = *half,
                                .Side = static_cast<uint32_t>(side),
                                .SurfaceRevision = revision,
-                               .Directions = {}};
+                               .Directions = {},
+                               .CanopyCell = {}};
+  if (root.contains("canopy_cell")) {
+    if (!root["canopy_cell"].is_string()) { return std::nullopt; }
+    const auto &cell = root["canopy_cell"].get_ref<const std::string &>();
+    if (!AssetProductKey::Parse(cell)) { return std::nullopt; }
+    result.CanopyCell = cell;
+  }
   result.Directions.reserve(views);
   for (size_t at = 0; at < views; ++at) {
     const auto direction = Vector(root["directions"][at]);

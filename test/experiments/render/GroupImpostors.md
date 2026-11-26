@@ -167,9 +167,7 @@ Across the 64 capture and control directions, reusing the single-tree captures
 to compose 25 positions took 0.57 s in Python, including comparison. Median
 coverage IoU against the directly captured stand was 0.845, with a worst case
 of 0.634. Native capture took 2.41 s for the reusable tree and 55.29 s for the
-full stand. The measurements cover one species and one placement. Forest
-products still need world placement, fractional coverage and native motion
-validation.
+full stand. This control measures one species and one placement.
 
 ```sh
 cmake --build build --target outshine_experiment_compose_groups
@@ -186,6 +184,36 @@ scaled instances. Three runs on A18 Pro composed all 64 views in a median
 24.55 ms after reading the reusable atlas, before fitting, encoding and writing
 the cards. Two 32-texel cards selected from 29 composed directions retained a
 median coverage IoU of 0.750 against the 11 directly rendered held-out views.
+
+## Terrain-attached canopy
+
+`canopy_group_layout.py` samples roots on the actual triangles of a prepared
+surface grid using the source forest classes and declared tree densities.
+It groups two-by-two terrain cells. The replay uses one spruce prototype.
+
+```sh
+python3 -B test/experiments/render/canopy_group_layout.py \
+  "$surface" "$ground_samples" data/world/vegetation.json "$prototype/group.json" \
+  "$probe/layouts"
+mkdir "$probe/hillside"
+build/outshine_experiment_compose_groups "$prototype" "$layout" "$probe/hillside" 32
+outshine cache import-group "$database" "$revision" "$probe/hillside"
+```
+
+The descriptor binds to the exact source surface asset. Its request key
+identifies the cell, and the package key identifies the immutable payload.
+The cut loads the directions needed by the eye sweep. The shader applies
+fractional coverage and shares depth with the ground and far panorama. Deleting
+one canopy group's card bank kept all 24 ground tiles and the other 18 groups.
+
+The Körbersee replay placed 2,332 roots in 19 groups. It kept 38 of 551 views
+resident with up to 6,942 group triangles per frame. The median GPU p99 of
+three paired 120-frame A18 Pro runs at 720p30 was 1.65 / 1.75 ms in a 360° turn
+and 1.87 / 1.88 ms in a 16 m retreat, with the canopy enabled in the second
+run of each pair. Initial shared uploads rose by 764,460 bytes. The refined
+cut activated at frame 1 in each replay. The shots show visible stipple in
+thin crowns. Canopy near/far handoffs and continuity across ground refinement
+still require acceptance.
 
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),

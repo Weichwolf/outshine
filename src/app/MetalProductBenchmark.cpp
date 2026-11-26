@@ -296,10 +296,9 @@ std::expected<SurfaceCutLookup, std::string> PrepareTiles(const ScenarioBenchmar
         {.SweptEyeEcef = eye,
          .RadiusM = radius + panoramas.front().MaximumTranslationM,
          .FocalPixels = preferCoarse ? 0 : projection->FocalPixels,
-         .GroupDemand = preferCoarse
-                            ? std::nullopt
-                            : std::optional(GroupImpostorDemand{
-                                  .EyeEcef = sweep, .FocalPixels = projection->FocalPixels})});
+         .GroupDemand = GroupImpostorDemand{.EyeEcef = sweep,
+                                            .FocalPixels = projection->FocalPixels,
+                                            .ReplaceSurface = !preferCoarse}});
   }
   SurfaceCutLookup cut;
   if (cache != nullptr) {
@@ -368,7 +367,8 @@ std::vector<Render::MetalImpostorGroup> PlaceGroups(const SurfaceCutLookup &cut,
                       .WorldFromTile = TilePlacement(group.Origin, world),
                       .CentreM = group.Group.CentreM,
                       .HalfExtentM = group.Group.HalfExtentM,
-                      .Handoff = group.Group.Handoff});
+                      .Handoff = group.Group.Handoff,
+                      .FractionalCoverage = group.Group.FractionalCoverage});
   }
   return placed;
 }
@@ -414,7 +414,8 @@ PrepareSurfaceReplacement(const ScenarioBenchmarkOptions &options,
                              .WorldFromTile = TilePlacement(group.Origin, world),
                              .CentreM = group.Group.CentreM,
                              .HalfExtentM = group.Group.HalfExtentM,
-                             .Handoff = group.Group.Handoff});
+                             .Handoff = group.Group.Handoff,
+                             .FractionalCoverage = group.Group.FractionalCoverage});
   }
   return placed;
 }

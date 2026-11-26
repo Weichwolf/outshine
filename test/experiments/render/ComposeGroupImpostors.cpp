@@ -190,6 +190,8 @@ int Run(const char *const *arguments) {
   if (!Emit(*atlas, folder, cardSide)) { return 1; }
   auto axes = Json::array();
   for (const auto &view : atlas->Views()) { axes.push_back(view.TowardEye.Axis); }
+  manifest.erase("roots_m");
+  manifest.erase("tree_scales");
   manifest["directions"] = std::move(axes);
   manifest["card_side"] = cardSide;
   manifest["card_views"] = atlas->Views().size();

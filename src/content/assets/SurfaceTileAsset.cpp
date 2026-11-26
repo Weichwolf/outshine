@@ -177,8 +177,23 @@ private:
     return true;
   }
 
+  [[nodiscard]] std::expected<void, std::string> AttachCanopy(const AssetRecord &record) {
+    if (!Demand_.GroupDemand) { return {}; }
+    auto canopy = LoadAttachedCanopy(Cache_, record, Demand_.GroupDemand->EyeEcef);
+    if (!canopy) { return std::unexpected(canopy.error()); }
+    Cut_.GroupRequestedBytes += canopy->RequestedBytes;
+    const size_t surface = Cut_.Products.size() - 1;
+    for (auto &group : canopy->Groups) {
+      Cut_.Groups.push_back({.Origin = Cut_.Products[surface].Origin,
+                             .Group = std::move(group.Group),
+                             .AvailableViews = group.AvailableViews,
+                             .SurfaceIndex = surface});
+    }
+    return {};
+  }
+
   [[nodiscard]] std::expected<bool, std::string> VisitGroup(const AssetRecord &record) {
-    if (!Demand_.GroupDemand) { return false; }
+    if (!Demand_.GroupDemand || !Demand_.GroupDemand->ReplaceSurface) { return false; }
     auto replacement = LoadGroupImpostor(Cache_, record, *Demand_.GroupDemand);
     if (!replacement) { return std::unexpected(replacement.error()); }
     Cut_.GroupRequestedBytes += replacement->RequestedBytes;
@@ -196,6 +211,8 @@ private:
                            .AvailableViews = group.AvailableViews,
                            .SurfaceIndex = Cut_.Products.size()});
     Cut_.Products.push_back(std::move(*ground));
+    const auto attached = AttachCanopy(record);
+    if (!attached) { return std::unexpected(attached.error()); }
     return true;
   }
 
@@ -242,6 +259,8 @@ private:
       return VisitChildren(request, record.Level, known);
     }
     Cut_.Products.push_back(std::move(**tile));
+    const auto attached = AttachCanopy(record);
+    if (!attached) { return std::unexpected(attached.error()); }
     return true;
   }
 
