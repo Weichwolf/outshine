@@ -52,6 +52,8 @@ struct PanoramaView {
   double DepthBias;
   double Exposure;
   double NextWeight = 0;
+  double AxialNearM = 0;
+  double CoverageFadeM = 0;
 };
 
 struct MetalProductInputs {

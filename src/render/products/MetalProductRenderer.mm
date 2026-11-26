@@ -37,13 +37,23 @@ vertex Varyings tile_vertex(uint index [[vertex_id]],
   SurfaceVertex point = vertices[index];
   return {clip * float4(point.position, 1.0), point.normal};
 }
-fragment float4 tile_fragment(Varyings in [[stage_in]]) {
+float4 tileColour(Varyings in) {
   float3 normal = normalize(in.normal);
   const float3 light = normalize(float3(-0.55, 0.65, 0.45));
   float diffuse = 0.35 + 0.65 * max(0.0, dot(normal, light));
   float3 reflectance = mix(float3(0.26, 0.22, 0.17), float3(0.13, 0.20, 0.10),
                            smoothstep(0.45, 0.92, normal.y));
   return float4(diffuse * reflectance, 1.0);
+}
+fragment float4 tile_fragment(Varyings in [[stage_in]]) {
+  return tileColour(in);
+}
+struct TileFragment {
+  float4 colour [[color(0), raster_order_group(0)]];
+  float depth [[color(1), raster_order_group(0)]];
+};
+fragment TileFragment tile_composite_fragment(Varyings in [[stage_in]]) {
+  return {tileColour(in), in.position.z};
 }
 struct PanoramaUniform {
   float4 forward;
@@ -52,6 +62,7 @@ struct PanoramaUniform {
   float4 display;
   float4 eyeOffsetM;
   float4 nextEyeAndWeight;
+  float4 coverage;
 };
 struct PanoramaRaster {
   float4 position [[position]];
@@ -106,12 +117,15 @@ PanoramaRay reprojectPanorama(float3 ray, texturecube<float> depth,
       ? PanoramaRay{lookup, max(sqrt(discriminant) - toward, 0.0)}
       : PanoramaRay{ray, 0.0};
 }
-fragment PanoramaFragment panorama_fragment(PanoramaRaster in [[stage_in]],
-                                             constant PanoramaUniform &view [[buffer(0)]],
-                                             texturecube<half> colour [[texture(0)]],
-                                             texturecube<float> distanceM [[texture(1)]],
-                                             texturecube<half> nextColour [[texture(2)]],
-                                             texturecube<float> nextDistanceM [[texture(3)]]) {
+struct PanoramaPixel {
+  float3 colour;
+  float3 ray;
+  float distanceM;
+  float forwardM;
+};
+PanoramaPixel panoramaPixel(PanoramaRaster in, constant PanoramaUniform &view,
+                            texturecube<half> colour, texturecube<float> distanceM,
+                            texturecube<half> nextColour, texturecube<float> nextDistanceM) {
   constexpr sampler linearColour(coord::normalized, filter::linear);
   float3 ray = normalize(view.forward.xyz + in.ndc.x * view.rightSpan.xyz +
                          in.ndc.y * view.upSpan.xyz);
@@ -129,10 +143,53 @@ fragment PanoramaFragment panorama_fragment(PanoramaRaster in [[stage_in]],
     }
   }
   float forwardM = distance * dot(view.forward.xyz, ray);
-  float depth = forwardM > 0.0 ? saturate(view.display.x / forwardM - view.display.y) : 0.0;
   float3 x = linear * view.display.z;
   float3 filmic = saturate((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14));
-  return {float4(filmic, 1.0), depth};
+  return {filmic, ray, distance, forwardM};
+}
+float deviceDepth(float forwardM, constant PanoramaUniform &view) {
+  return forwardM > 0.0 ? saturate(view.display.x / forwardM - view.display.y) : 0.0;
+}
+fragment PanoramaFragment panorama_fragment(PanoramaRaster in [[stage_in]],
+                                             constant PanoramaUniform &view [[buffer(0)]],
+                                             texturecube<half> colour [[texture(0)]],
+                                             texturecube<float> distanceM [[texture(1)]],
+                                             texturecube<half> nextColour [[texture(2)]],
+                                             texturecube<float> nextDistanceM [[texture(3)]]) {
+  const auto pixel = panoramaPixel(in, view, colour, distanceM, nextColour, nextDistanceM);
+  return {float4(pixel.colour, 1.0), deviceDepth(pixel.forwardM, view)};
+}
+float majorAxis(float3 point) {
+  const float3 a = abs(point);
+  return max(a.x, max(a.y, a.z));
+}
+float coverageWeight(const PanoramaPixel &far, constant PanoramaUniform &view, float nearDepth) {
+  if (nearDepth <= 0.0) { return 1.0; }
+  if (far.forwardM <= 0.0) { return 0.0; }
+  const float clip = view.coverage.x;
+  const float width = view.coverage.y;
+  if (width <= 0.0) { return nearDepth > deviceDepth(far.forwardM, view) ? 0.0 : 1.0; }
+  const float nearForward = view.display.x / (nearDepth + view.display.y);
+  const float nearDistance = nearForward / dot(view.forward.xyz, far.ray);
+  const float3 eye = mix(view.eyeOffsetM.xyz, view.nextEyeAndWeight.xyz, view.nextEyeAndWeight.w);
+  const float nearAxial = majorAxis(eye + nearDistance * far.ray);
+  const float farAxial = majorAxis(eye + far.distanceM * far.ray);
+  return max(smoothstep(clip, clip + width, nearAxial),
+             smoothstep(width, 2.0 * width, nearAxial - farAxial));
+}
+fragment float4 panorama_composite_fragment(
+    PanoramaRaster in [[stage_in]],
+    constant PanoramaUniform &view [[buffer(0)]],
+    texturecube<half> colour [[texture(0)]],
+    texturecube<float> distanceM [[texture(1)]],
+    texturecube<half> nextColour [[texture(2)]],
+    texturecube<float> nextDistanceM [[texture(3)]],
+    float4 nearColour [[color(0), raster_order_group(0)]],
+    float nearDepth [[color(1), raster_order_group(0)]]) {
+  const auto pixel = panoramaPixel(in, view, colour, distanceM, nextColour, nextDistanceM);
+  const float weight = coverageWeight(pixel, view, nearDepth);
+  if (weight <= 0.0) { discard_fragment(); }
+  return float4(mix(nearColour.rgb, pixel.colour, weight), 1.0);
 }
 )";
 
@@ -181,15 +238,24 @@ std::string MetalError(NSError *error, const char *fallback) {
   return reason != nullptr ? reason : fallback;
 }
 
+enum class ProductDraw { Tile, Panorama, TileForComposition, Composition };
+
 std::expected<ProductPipeline, std::string>
-MakePipeline(id<MTLDevice> device, id<MTLLibrary> library, bool panorama) {
+MakePipeline(id<MTLDevice> device, id<MTLLibrary> library, ProductDraw mode) {
+  const bool panorama = mode == ProductDraw::Panorama || mode == ProductDraw::Composition;
+  const bool composite =
+      mode == ProductDraw::TileForComposition || mode == ProductDraw::Composition;
   NSError *error = nil;
   auto *const descriptor = [[MTLRenderPipelineDescriptor alloc] init];
   descriptor.vertexFunction =
       [library newFunctionWithName:panorama ? @"panorama_vertex" : @"tile_vertex"];
-  descriptor.fragmentFunction =
-      [library newFunctionWithName:panorama ? @"panorama_fragment" : @"tile_fragment"];
+  const std::array<NSString *, 4> fragments{@"tile_fragment",
+                                            @"panorama_fragment",
+                                            @"tile_composite_fragment",
+                                            @"panorama_composite_fragment"};
+  descriptor.fragmentFunction = [library newFunctionWithName:fragments[static_cast<size_t>(mode)]];
   descriptor.colorAttachments[0].pixelFormat = MTLPixelFormatRGBA8Unorm_sRGB;
+  if (composite) { descriptor.colorAttachments[1].pixelFormat = MTLPixelFormatR32Float; }
   descriptor.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float;
   const id<MTLRenderPipelineState> pipeline =
       [device newRenderPipelineStateWithDescriptor:descriptor error:&error];
@@ -199,7 +265,10 @@ MakePipeline(id<MTLDevice> device, id<MTLLibrary> library, bool panorama) {
   auto *const depthSpec = [[MTLDepthStencilDescriptor alloc] init];
   depthSpec.depthCompareFunction =
       panorama ? MTLCompareFunctionGreaterEqual : MTLCompareFunctionGreater;
-  depthSpec.depthWriteEnabled = YES;
+  if (mode == ProductDraw::Composition) {
+    depthSpec.depthCompareFunction = MTLCompareFunctionAlways;
+  }
+  depthSpec.depthWriteEnabled = mode != ProductDraw::Composition;
   const id<MTLDepthStencilState> depth = [device newDepthStencilStateWithDescriptor:depthSpec];
   if (depth == nil) { return std::unexpected("Metal could not allocate product depth state"); }
   return ProductPipeline{.Draw = pipeline, .Depth = depth};
@@ -214,13 +283,16 @@ std::expected<ProductPass, std::string> MakePass(id<MTLDevice> device,
   }
   ProductPipeline tile;
   ProductPipeline panorama;
+  const bool composite = products.Tile != nullptr && !products.Panoramas.empty();
   if (products.Tile != nullptr) {
-    const auto pipeline = MakePipeline(device, library, false);
+    const auto pipeline = MakePipeline(
+        device, library, composite ? ProductDraw::TileForComposition : ProductDraw::Tile);
     if (!pipeline) { return std::unexpected(pipeline.error()); }
     tile = *pipeline;
   }
   if (!products.Panoramas.empty()) {
-    const auto pipeline = MakePipeline(device, library, true);
+    const auto pipeline =
+        MakePipeline(device, library, composite ? ProductDraw::Composition : ProductDraw::Panorama);
     if (!pipeline) { return std::unexpected(pipeline.error()); }
     panorama = *pipeline;
   }
@@ -231,6 +303,17 @@ std::expected<ProductPass, std::string> MakePass(id<MTLDevice> device,
   pass.colorAttachments[0].clearColor =
       MTLClearColorMake(kClearColor[0], kClearColor[1], kClearColor[2], 1.0);
   pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+  if (composite) {
+    auto *const attachment = pass.colorAttachments[1];
+    attachment.texture =
+        [device newTextureWithDescriptor:Texture(MTLPixelFormatR32Float, MTLStorageModeMemoryless)];
+    if (attachment.texture == nil) {
+      return std::unexpected("Metal could not allocate near depth");
+    }
+    attachment.loadAction = MTLLoadActionClear;
+    attachment.clearColor = MTLClearColorMake(0, 0, 0, 0);
+    attachment.storeAction = MTLStoreActionDontCare;
+  }
   pass.depthAttachment.texture = [device
       newTextureWithDescriptor:Texture(MTLPixelFormatDepth32Float, MTLStorageModeMemoryless)];
   pass.depthAttachment.loadAction = MTLLoadActionClear;
@@ -367,8 +450,8 @@ struct PanoramaTextures {
   id<MTLTexture> Depth;
 };
 
-using PanoramaUniform = std::array<std::array<float, 4>, 6>;
-static_assert(sizeof(PanoramaUniform) == size_t{6} * 4 * sizeof(float));
+using PanoramaUniform = std::array<std::array<float, 4>, 7>;
+static_assert(sizeof(PanoramaUniform) == size_t{7} * 4 * sizeof(float));
 
 PanoramaUniform PackView(const PanoramaView &view) {
   const auto vector = [](const Vec3 &axis, float w = 0.0f) {
@@ -383,7 +466,8 @@ PanoramaUniform PackView(const PanoramaView &view) {
            static_cast<float>(view.Exposure),
            static_cast<float>(view.FocalPixels)},
           vector(view.EyeOffsetM),
-          vector(view.NextEyeOffsetM, static_cast<float>(view.NextWeight))};
+          vector(view.NextEyeOffsetM, static_cast<float>(view.NextWeight)),
+          {static_cast<float>(view.AxialNearM), static_cast<float>(view.CoverageFadeM), 0, 0}};
 }
 
 void DrawPanorama(id<MTLRenderCommandEncoder> draw,
@@ -460,12 +544,12 @@ std::expected<id<MTLCommandBuffer>, std::string> SubmitProducts(const ProductPas
     const id<MTLCommandBuffer> command = [pass.Queue commandBuffer];
     const id<MTLRenderCommandEncoder> draw = [command renderCommandEncoderWithDescriptor:pass.Pass];
     if (draw == nil) { return std::unexpected("Metal could not encode the product frame"); }
+    if (clip) { DrawTile(draw, pass.Tile, resources.Mesh, *clip); }
     if (pass.Panorama.Draw != nil) {
       const auto &active = resources.Panoramas[view.PanoramaIndex];
       const auto &next = view.Panorama.NextWeight > 0 ? resources.Panoramas.back() : active;
       DrawPanorama(draw, pass.Panorama, active, next, view.Panorama);
     }
-    if (clip) { DrawTile(draw, pass.Tile, resources.Mesh, *clip); }
     [draw endEncoding];
     [command commit];
     return command;

@@ -25,7 +25,7 @@ using Json = nlohmann::json;
 constexpr size_t kMetadataBytes = 65536;
 constexpr size_t kHashLength = 64;
 constexpr double kMaximumWorldRangeM = 240000;
-constexpr uint32_t kPackedVersion = 1;
+constexpr uint32_t kPackedVersion = 2;
 
 bool ValidHeader(const FarPanorama &panorama) {
   return panorama.Side >= 2 && panorama.Side <= FarPanorama::MaximumSide &&
@@ -35,6 +35,7 @@ bool ValidHeader(const FarPanorama &panorama) {
              panorama.AnchorM,
              [](double component) { return std::abs(component) <= Ground::kMercatorGirthM; }) &&
          panorama.MaximumRangeM > 0 && panorama.MaximumRangeM <= kMaximumWorldRangeM &&
+         panorama.AxialNearM >= 0 && panorama.AxialNearM < panorama.MaximumRangeM &&
          panorama.MaximumTranslationM >= 0 &&
          panorama.MaximumTranslationM < panorama.MaximumRangeM && panorama.ReferenceExposure > 0 &&
          panorama.ReferenceExposure <= std::numeric_limits<float>::max() &&
@@ -94,6 +95,10 @@ bool SetHeader(const Json &record, FarPanorama &panorama) {
   panorama.Origin = {.LongitudeDeg = origin[0].get<double>(),
                      .LatitudeDeg = origin[1].get<double>()};
   panorama.AnchorM = {{anchor[0].get<double>(), anchor[1].get<double>(), anchor[2].get<double>()}};
+  if (const auto near = record.find("axial_near_m"); near != record.end()) {
+    if (!near->is_number()) { return false; }
+    panorama.AxialNearM = near->get<double>();
+  }
   panorama.MaximumRangeM = record["maximum_range_m"].get<double>();
   panorama.MaximumTranslationM = record["maximum_eye_translation_m"].get<double>();
   panorama.ReferenceExposure = record["reference_exposure"].get<double>();
@@ -180,7 +185,8 @@ std::expected<std::vector<uint8_t>, std::string> EncodeFarPanorama(const FarPano
            panorama.MaximumRangeM,
            panorama.MaximumTranslationM,
            panorama.ReferenceExposure,
-           opaque) ||
+           opaque,
+           panorama.AxialNearM) ||
       !out.Text(panorama.Revision) || !out.Text(panorama.Colour) || !out.Text(panorama.Depth)) {
     return std::unexpected("far panorama could not be packed");
   }
@@ -196,7 +202,7 @@ std::expected<FarPanorama, std::string> DecodeFarPanorama(std::span<const uint8_
   uint32_t side = 0;
   std::array<uint32_t, FarPanorama::FaceCount> opaque{};
   FarPanorama panorama;
-  if (!in(version, side) || version != kPackedVersion ||
+  if (!in(version, side) || (version != 1 && version != kPackedVersion) ||
       !in(panorama.Origin.LongitudeDeg,
           panorama.Origin.LatitudeDeg,
           panorama.AnchorM.Axis,
@@ -204,6 +210,7 @@ std::expected<FarPanorama, std::string> DecodeFarPanorama(std::span<const uint8_
           panorama.MaximumTranslationM,
           panorama.ReferenceExposure,
           opaque) ||
+      (version == kPackedVersion && !in(panorama.AxialNearM)) ||
       !ReadPackedField(in, kHashLength, panorama.Revision)) {
     return std::unexpected("invalid packed far panorama header");
   }

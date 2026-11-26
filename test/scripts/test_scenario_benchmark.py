@@ -31,7 +31,8 @@ PRODUCT_SCENE = """<scenario>
 </scenario>"""
 
 
-def write_panorama(root, anchor=(0, 100, 0), radius=0, colour=(1, 0, 0), revision='0'):
+def write_panorama(root, anchor=(0, 100, 0), radius=0, colour=(1, 0, 0), revision='0',
+                   axial_near=0):
     root.mkdir(exist_ok=True)
     (root / 'panorama.json').write_text(json.dumps({
         'version': 1, 'representation': 'colour_radial_depth_cubemap',
@@ -39,6 +40,7 @@ def write_panorama(root, anchor=(0, 100, 0), radius=0, colour=(1, 0, 0), revisio
         'colour_encoding': 'rgba16f_linear_le_a_opaque_coverage',
         'depth_encoding': 'r32f_radial_metres_le_zero_without_geometry',
         'origin_lon_lat': [0, 0], 'anchor_eus_m': anchor, 'revision': revision * 64,
+        'axial_near_m': axial_near,
         'maximum_range_m': 100, 'maximum_eye_translation_m': radius,
         'reference_exposure': 1, 'opaque_texels': [4] * 6,
     }))
@@ -309,6 +311,8 @@ class ScenarioBenchmark(unittest.TestCase):
             far = ('--panorama-product', folder)
             near = ('--tile-product', str(tile))
             background, _ = draw(*far)
+            clipped = root / 'clipped'
+            write_panorama(clipped, axial_near=1)
             for distance in (2, 20):
                 # Both quads fill the viewport. Compare whole images to check every depth test.
                 z = -distance
@@ -328,6 +332,9 @@ class ScenarioBenchmark(unittest.TestCase):
                 self.assertEqual(metadata['render_path'], 'metal_near_far')
                 self.assertEqual(metadata['rendered_content']['draws_per_frame'], 2)
                 self.assertFalse(metadata['world_complete'])
+                if distance == 2:
+                    blended, _ = draw('--panorama-product', str(clipped), *near)
+                    self.assertNotIn(blended, (background, foreground))
 
             packed = root / 'tile.surface'
             packer = ROOT / 'test/experiments/render/pack_surface_tile.py'

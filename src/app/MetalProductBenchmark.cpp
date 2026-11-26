@@ -120,6 +120,7 @@ Vec3 PanoramaOffset(const Camera &pose, const FarPanorama &panorama) {
 std::expected<Render::PanoramaView, std::string>
 MakePanoramaView(const Camera &pose, Extent frame, const FarPanorama &panorama) {
   const double aspect = static_cast<double>(frame.WidthPx) / frame.HeightPx;
+  constexpr double kBlendTexels = 8;
   Mat4 basis;
   Mat4 projection;
   if (pose.Orthographic || !pose.modelMatrix(basis) || !pose.projectionMatrix(aspect, projection)) {
@@ -133,7 +134,10 @@ MakePanoramaView(const Camera &pose, Extent frame, const FarPanorama &panorama) 
       .FocalPixels = static_cast<double>(frame.HeightPx) * projection[5] * 0.5,
       .DepthScaleM = -projection[14] * 0.5,
       .DepthBias = -(1.0 + projection[10]) * 0.5,
-      .Exposure = panorama.ReferenceExposure};
+      .Exposure = panorama.ReferenceExposure,
+      .AxialNearM = panorama.AxialNearM,
+      .CoverageFadeM =
+          panorama.AxialNearM * (2 * kBlendTexels) / static_cast<double>(panorama.Side)};
 }
 
 std::expected<std::array<double, 2>, std::string> PanoramaOverlap(
@@ -144,9 +148,11 @@ std::expected<std::array<double, 2>, std::string> PanoramaOverlap(
   if (length <= kPoseRoundoffM || !first.Domain().Covers(start) || !next.Domain().Covers(finish)) {
     return std::unexpected("panorama handoff requires a flight covered at both endpoints");
   }
-  if (first.Side != next.Side || first.MaximumRangeM != next.MaximumRangeM ||
+  if (first.Side != next.Side || first.AxialNearM != next.AxialNearM ||
+      first.MaximumRangeM != next.MaximumRangeM ||
       first.ReferenceExposure != next.ReferenceExposure) {
-    return std::unexpected("panorama handoff requires matching resolution, range and exposure");
+    return std::unexpected(
+        "panorama handoff requires matching resolution, clip range and exposure");
   }
   const PanoramaRay ray{.OriginM = start, .Direction = (finish - start) * (1.0 / length)};
   const double exit = first.Domain().Along(ray)[1];

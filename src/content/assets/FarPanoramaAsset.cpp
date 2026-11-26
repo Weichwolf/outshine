@@ -29,8 +29,10 @@ std::string OriginKey(LongitudeLatitude origin) {
 }
 
 std::string ProfileKey(const FarPanorama &panorama) {
-  return Sha256Hex(
-      std::format("{}/{}/{}", panorama.Side, panorama.MaximumRangeM, panorama.ReferenceExposure));
+  auto profile =
+      std::format("{}/{}/{}", panorama.Side, panorama.MaximumRangeM, panorama.ReferenceExposure);
+  if (panorama.AxialNearM > 0) { profile += std::format("/{}", panorama.AxialNearM); }
+  return Sha256Hex(profile);
 }
 
 Vec3 ToEarth(const TangentFrame &frame, const Vec3 &eye) {

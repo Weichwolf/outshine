@@ -39,12 +39,13 @@ struct FarPanorama {
   static constexpr size_t MaximumPayloadBytes =
       MaximumSide * MaximumSide * FaceCount * (ColourBytesPerTexel + DepthBytesPerTexel);
   static constexpr size_t PackedHeaderBytes =
-      (2 + FaceCount + 3) * sizeof(uint32_t) + 8 * sizeof(double) + 64;
+      (2 + FaceCount + 3) * sizeof(uint32_t) + 9 * sizeof(double) + 64;
   static constexpr size_t MaximumPackedBytes = MaximumPayloadBytes + PackedHeaderBytes;
 
   size_t Side = 0;
   LongitudeLatitude Origin;
   Vec3 AnchorM;
+  double AxialNearM = 0;
   double MaximumRangeM = 0;
   double MaximumTranslationM = 0;
   double ReferenceExposure = 0;
