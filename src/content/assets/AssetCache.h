@@ -34,6 +34,7 @@ struct AssetQuery {
   // nullopt selects any parent; an empty address selects roots.
   std::optional<std::string_view> Parent = std::nullopt;
   std::optional<std::string_view> TileRevision = std::nullopt;
+  bool SpatialFirst = false;
 };
 
 enum class AssetCacheError { InvalidInput, Storage, Busy, UnsupportedVersion, CapacityExceeded };

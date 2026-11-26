@@ -1,4 +1,5 @@
 #include "FarPanorama.h"
+#include "BinaryValueArchive.h"
 #include "ReadTextFile.h"
 #include "Units.h"
 #include "TileGeodesy.h"
@@ -12,17 +13,37 @@
 #include <filesystem>
 #include <limits>
 #include <nlohmann/json.hpp>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace outshine {
 namespace {
 using Json = nlohmann::json;
 constexpr size_t kMetadataBytes = 65536;
-constexpr size_t kMaximumSide = 2048;
 constexpr size_t kHashLength = 64;
 constexpr double kMaximumWorldRangeM = 240000;
+constexpr uint32_t kPackedVersion = 1;
+
+bool ValidHeader(const FarPanorama &panorama) {
+  return panorama.Side >= 2 && panorama.Side <= FarPanorama::MaximumSide &&
+         std::abs(panorama.Origin.LongitudeDeg) <= kDegPerHalfTurn &&
+         std::abs(panorama.Origin.LatitudeDeg) <= kDegPerHalfTurn / 2 &&
+         std::ranges::all_of(
+             panorama.AnchorM,
+             [](double component) { return std::abs(component) <= Ground::kMercatorGirthM; }) &&
+         panorama.MaximumRangeM > 0 && panorama.MaximumRangeM <= kMaximumWorldRangeM &&
+         panorama.MaximumTranslationM >= 0 &&
+         panorama.MaximumTranslationM < panorama.MaximumRangeM && panorama.ReferenceExposure > 0 &&
+         panorama.ReferenceExposure <= std::numeric_limits<float>::max() &&
+         panorama.Revision.size() == kHashLength &&
+         std::ranges::all_of(panorama.Revision,
+                             [](unsigned char ch) { return std::isxdigit(ch) != 0; }) &&
+         std::ranges::all_of(panorama.OpaqueTexels,
+                             [&](size_t count) { return count <= panorama.Side * panorama.Side; });
+}
 
 bool BoundedVector(const Json &vector, size_t size, double limit) {
   return vector.is_array() && vector.size() == size &&
@@ -68,7 +89,7 @@ bool SetHeader(const Json &record, FarPanorama &panorama) {
     return false;
   }
   const auto side = record["face_px"].get<uint64_t>();
-  if (side < 2 || side > kMaximumSide) { return false; }
+  if (side < 2 || side > FarPanorama::MaximumSide) { return false; }
   panorama.Side = static_cast<size_t>(side);
   panorama.Origin = {.LongitudeDeg = origin[0].get<double>(),
                      .LatitudeDeg = origin[1].get<double>()};
@@ -83,14 +104,7 @@ bool SetHeader(const Json &record, FarPanorama &panorama) {
     }
     panorama.OpaqueTexels[face] = counts[face].get<size_t>();
   }
-  return std::abs(panorama.Origin.LatitudeDeg) <= kDegPerHalfTurn / 2 &&
-         panorama.MaximumRangeM > 0 && panorama.MaximumRangeM <= kMaximumWorldRangeM &&
-         panorama.MaximumTranslationM >= 0 &&
-         panorama.MaximumTranslationM < panorama.MaximumRangeM && panorama.ReferenceExposure > 0 &&
-         panorama.ReferenceExposure <= std::numeric_limits<float>::max() &&
-         panorama.Revision.size() == kHashLength &&
-         std::ranges::all_of(panorama.Revision,
-                             [](unsigned char ch) { return std::isxdigit(ch) != 0; });
+  return ValidHeader(panorama);
 }
 
 std::expected<std::string, std::string> ReadAttachment(const std::filesystem::path &path,
@@ -100,6 +114,28 @@ std::expected<std::string, std::string> ReadAttachment(const std::filesystem::pa
   if (content->size() != bytes) { return std::unexpected("far panorama attachment is truncated"); }
   return content;
 }
+
+bool ReadPackedField(BinaryValueReader &in, size_t count, std::string &field) {
+  uint32_t length = 0;
+  if (!in(length) || length != count) { return false; }
+  const auto bytes = in.In.Take(count);
+  if (!bytes) { return false; }
+  field.assign(reinterpret_cast<const char *>(bytes->data()), count);
+  return true;
+}
+}
+
+bool PanoramaDomain::Covers(const Vec3 &eye) const {
+  return Length(eye - AnchorM) <= RadiusM + RoundoffM;
+}
+
+std::array<double, 2> PanoramaDomain::Along(const PanoramaRay &ray) const {
+  const auto offset = AnchorM - ray.OriginM;
+  const double centre = Dot(offset, ray.Direction);
+  const auto across = offset - ray.Direction * centre;
+  const double radius = RadiusM + RoundoffM;
+  const double half = std::sqrt(std::max(0.0, radius * radius - Dot(across, across)));
+  return {centre - half, centre + half};
 }
 
 std::expected<FarPanorama, std::string> ReadFarPanorama(std::string_view directory) {
@@ -120,6 +156,66 @@ std::expected<FarPanorama, std::string> ReadFarPanorama(std::string_view directo
   if (!depth) { return std::unexpected(depth.error()); }
   panorama.Colour = std::move(*colour);
   panorama.Depth = std::move(*depth);
+  return panorama;
+}
+
+std::expected<std::vector<uint8_t>, std::string> EncodeFarPanorama(const FarPanorama &panorama) {
+  if (!ValidHeader(panorama)) { return std::unexpected("invalid far panorama header"); }
+  const size_t texels = FarPanorama::FaceCount * panorama.Side * panorama.Side;
+  if (panorama.Colour.size() != texels * FarPanorama::ColourBytesPerTexel ||
+      panorama.Depth.size() != texels * FarPanorama::DepthBytesPerTexel) {
+    return std::unexpected("invalid far panorama attachment sizes");
+  }
+  std::array<uint32_t, FarPanorama::FaceCount> opaque{};
+  for (size_t face = 0; face < opaque.size(); ++face) {
+    opaque[face] = static_cast<uint32_t>(panorama.OpaqueTexels[face]);
+  }
+  BinaryValueWriter out(FarPanorama::MaximumPackedBytes);
+  out.Out.Reserve(panorama.Colour.size() + panorama.Depth.size() + FarPanorama::PackedHeaderBytes);
+  if (!out(kPackedVersion,
+           static_cast<uint32_t>(panorama.Side),
+           panorama.Origin.LongitudeDeg,
+           panorama.Origin.LatitudeDeg,
+           panorama.AnchorM.Axis,
+           panorama.MaximumRangeM,
+           panorama.MaximumTranslationM,
+           panorama.ReferenceExposure,
+           opaque) ||
+      !out.Text(panorama.Revision) || !out.Text(panorama.Colour) || !out.Text(panorama.Depth)) {
+    return std::unexpected("far panorama could not be packed");
+  }
+  return std::move(out.Out).TakeBytes();
+}
+
+std::expected<FarPanorama, std::string> DecodeFarPanorama(std::span<const uint8_t> bytes) {
+  if (bytes.size() > FarPanorama::MaximumPackedBytes) {
+    return std::unexpected("packed far panorama exceeds extent limit");
+  }
+  BinaryValueReader in(bytes);
+  uint32_t version = 0;
+  uint32_t side = 0;
+  std::array<uint32_t, FarPanorama::FaceCount> opaque{};
+  FarPanorama panorama;
+  if (!in(version, side) || version != kPackedVersion ||
+      !in(panorama.Origin.LongitudeDeg,
+          panorama.Origin.LatitudeDeg,
+          panorama.AnchorM.Axis,
+          panorama.MaximumRangeM,
+          panorama.MaximumTranslationM,
+          panorama.ReferenceExposure,
+          opaque) ||
+      !ReadPackedField(in, kHashLength, panorama.Revision)) {
+    return std::unexpected("invalid packed far panorama header");
+  }
+  panorama.Side = side;
+  std::ranges::copy(opaque, panorama.OpaqueTexels.begin());
+  if (!ValidHeader(panorama)) { return std::unexpected("invalid packed far panorama domain"); }
+  const size_t texels = FarPanorama::FaceCount * panorama.Side * panorama.Side;
+  if (!ReadPackedField(in, texels * FarPanorama::ColourBytesPerTexel, panorama.Colour) ||
+      !ReadPackedField(in, texels * FarPanorama::DepthBytesPerTexel, panorama.Depth) ||
+      in.In.Remaining() != 0) {
+    return std::unexpected("invalid packed far panorama attachment sizes");
+  }
   return panorama;
 }
 }

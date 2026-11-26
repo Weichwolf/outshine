@@ -1,7 +1,12 @@
 #include "CacheCommand.h"
+#include "AssetCache.h"
 #include "AssetCacheTrim.h"
+#include "AssetPublication.h"
+#include "FarPanoramaAsset.h"
+#include "ReadTextFile.h"
 #include "SourceCacheTrim.h"
 #include "SqliteFileBudget.h"
+#include "SurfaceTileAsset.h"
 #include <algorithm>
 #include <array>
 #include <charconv>
@@ -42,6 +47,8 @@ struct OptionValue {
 void Usage() {
   std::println("Usage: outshine cache trim [options]\n"
                "       outshine cache limit [--assets-mib N] [--root PATH]\n"
+               "       outshine cache import-surface DATABASE REVISION TILE...\n"
+               "       outshine cache import-panorama DATABASE REVISION DIRECTORY...\n"
                "  --assets-mib N   total compressed package budget across asset databases\n"
                "  --sources-mib N  source-file budget, including cached absence records\n"
                "  --root PATH      cache parent containing assets/ and sources/\n"
@@ -199,6 +206,45 @@ void Report(std::string_view name, const CacheTrimResult &result, bool apply, do
 }
 
 namespace {
+struct ProductImport {
+  std::string_view Revision;
+  std::string_view Source;
+};
+
+std::expected<void, std::string> ImportSurface(AssetCache &cache, ProductImport product) {
+  const auto bytes = ReadTextFile(product.Source, SurfaceTile::MaximumPackedBytes);
+  if (!bytes) { return std::unexpected(bytes.error()); }
+  return PublishSurfaceTile(
+      cache, product.Revision, {reinterpret_cast<const uint8_t *>(bytes->data()), bytes->size()});
+}
+
+std::expected<void, std::string> ImportPanorama(AssetCache &cache, ProductImport product) {
+  const auto panorama = ReadFarPanorama(product.Source);
+  if (!panorama) { return std::unexpected(panorama.error()); }
+  return PublishFarPanorama(cache, product.Revision, *panorama);
+}
+
+int ImportProducts(std::span<const char *const> arguments,
+                   std::expected<void, std::string> (*import)(AssetCache &, ProductImport)) {
+  if (arguments.size() < 4 || !AssetProductKey::Parse(arguments[2])) {
+    std::println(stderr, "Usage: outshine cache {} DATABASE REVISION INPUT...", arguments.front());
+    return 2;
+  }
+  const auto cache = AssetCache::Open(arguments[1]);
+  if (!cache) {
+    std::println(stderr, "outshine: could not open the product store");
+    return 1;
+  }
+  for (const char *path : arguments.subspan(3)) {
+    const auto stored = import(**cache, {.Revision = arguments[2], .Source = path});
+    if (!stored) {
+      std::println(stderr, "outshine: {}: {}", path, stored.error());
+      return 1;
+    }
+  }
+  return 0;
+}
+
 int TrimCommand(std::span<const char *const> arguments) {
   if (arguments.empty() || std::ranges::any_of(arguments, [](const char *arg) {
         return std::string_view(arg) == "--help";
@@ -251,6 +297,12 @@ int TrimCommand(std::span<const char *const> arguments) {
 }
 
 int RunCacheCommand(std::span<const char *const> arguments) {
+  if (!arguments.empty() && std::string_view(arguments.front()) == "import-surface") {
+    return ImportProducts(arguments, ImportSurface);
+  }
+  if (!arguments.empty() && std::string_view(arguments.front()) == "import-panorama") {
+    return ImportProducts(arguments, ImportPanorama);
+  }
   if (!arguments.empty() && std::string_view(arguments.front()) == "limit") {
     return Limit(arguments.subspan(1));
   }

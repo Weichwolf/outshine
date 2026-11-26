@@ -65,6 +65,9 @@ struct ScenarioBenchmarkReport {
   std::optional<BenchmarkTileCoverage> Tile;
   std::optional<BenchmarkPanoramaCoverage> Panorama;
   std::optional<BenchmarkPanoramaHandoff> PanoramaHandoff;
+  std::optional<uint64_t> ProductStoreReadBytes;
+  std::optional<size_t> IndexedPanoramaRequestedBytes;
+  size_t TileRequestedBytes = 0;
   size_t ProductUploadBytes = 0;
   double ProductReadMs = 0;
   double ProductUploadMs = 0;

@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -22,6 +23,8 @@ struct SurfaceTile {
   static constexpr unsigned Version = 1;
   static constexpr size_t MaximumVertices = 65536;
   static constexpr size_t MaximumIndices = 6 * MaximumVertices;
+  static constexpr size_t MaximumPackedBytes =
+      164 + 6 * sizeof(float) * MaximumVertices + sizeof(uint32_t) * MaximumIndices;
 
   Data::TileId Coverage;
   LongitudeLatitude Origin;
@@ -35,6 +38,8 @@ struct SurfaceTile {
 };
 
 [[nodiscard]] std::expected<SurfaceTile, std::string> ReadSurfaceTile(std::string_view path);
+[[nodiscard]] std::expected<SurfaceTile, std::string>
+DecodePackedSurfaceTile(std::span<const uint8_t> bytes);
 
 }
 #endif

@@ -19,8 +19,25 @@
 namespace outshine::App {
 namespace {
 
+bool ProductStoreAliases(const std::string &store, std::string_view output) {
+  std::error_code error;
+  const auto target = std::filesystem::weakly_canonical(output, error);
+  if (error) { return false; }
+  for (const auto &file : {store, store + "-wal", store + "-shm"}) {
+    if (std::filesystem::equivalent(file, target, error) ||
+        std::filesystem::weakly_canonical(file, error) == target) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool ProductInputAliases(const ScenarioBenchmarkOptions &scenario, std::string_view output) {
   std::error_code error;
+  if (!scenario.ProductStore.empty() &&
+      ProductStoreAliases(std::string(scenario.ProductStore), output)) {
+    return true;
+  }
   if (!scenario.TileProduct.empty() &&
       std::filesystem::equivalent(scenario.TileProduct, output, error)) {
     return true;
@@ -62,7 +79,8 @@ std::expected<void, std::string> CheckOutputPaths(const BenchmarkOptions &option
 
 std::expected<std::string, std::string> ExecuteBenchmark(const BenchmarkOptions &options) {
   if (options.Scenario) {
-    return options.Scenario->TileProduct.empty() && options.Scenario->PanoramaProduct.empty()
+    return options.Scenario->TileProduct.empty() && options.Scenario->PanoramaProduct.empty() &&
+                   options.Scenario->ProductStore.empty()
                ? RunScenarioBenchmark(*options.Scenario)
                : RunMetalProductBenchmark(*options.Scenario);
   }
