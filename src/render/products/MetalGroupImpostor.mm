@@ -19,26 +19,31 @@ namespace outshine::Render {
 namespace {
 
 constexpr size_t kShaderPatchBytes = 20;
+constexpr size_t kShaderAxesBytes = 80;
 static_assert(sizeof(GroupImpostorPatch) == kShaderPatchBytes &&
               offsetof(GroupImpostorPatch, Depth) == 8 && sizeof(GroupImpostorView::Texel) == 4 &&
-              sizeof(GroupAxes) == 64);
+              sizeof(GroupAxes) == kShaderAxesBytes);
 
 GroupAxes PackAxes(const MetalImpostorGroup &group,
                    const GroupImpostorView &view,
                    const ImpostorViewFrame &basis) {
   const double half = group.HalfExtentM;
   const double alongCell = 2.0 * half / view.Side;
-  const auto row = [](const Vec3 &point, float fourth = 0) {
+  const auto region = view.TextureRegion();
+  const auto row = [](const Vec3 &point) {
     return std::array{static_cast<float>(point[0]),
                       static_cast<float>(point[1]),
                       static_cast<float>(point[2]),
-                      fourth};
+                      0.0f};
   };
-  return {row(group.CentreM + (basis.Up - basis.Right - view.TowardEye * 2.0) * half,
-              1.0f / static_cast<float>(view.Side)),
+  return {row(group.CentreM + (basis.Up - basis.Right - view.TowardEye * 2.0) * half),
           row(basis.Right * alongCell),
           row(basis.Up * -alongCell),
-          row(view.TowardEye * (4.0 * half))};
+          row(view.TowardEye * (4.0 * half)),
+          std::array{static_cast<float>(region.X),
+                     static_cast<float>(region.Y),
+                     1.0f / static_cast<float>(region.Width),
+                     1.0f / static_cast<float>(region.Height)}};
 }
 
 Box GroupViewBounds(const GroupImpostorView &view, const GroupAxes &axes) {
@@ -72,21 +77,24 @@ Box GroupViewBounds(const GroupImpostorView &view, const GroupAxes &axes) {
 
 id<MTLTexture> UploadGroupTexture(id<MTLDevice> device,
                                   MTLPixelFormat format,
-                                  uint32_t side,
+                                  const GroupImpostorTextureRegion &region,
                                   std::span<const GroupImpostorView::Texel> texels) {
   auto *const descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:format
-                                                                              width:side
-                                                                             height:side
-                                                                          mipmapped:YES];
+                                                                              width:region.Width
+                                                                             height:region.Height
+                                                                          mipmapped:NO];
+  descriptor.mipmapLevelCount = region.Levels;
   descriptor.storageMode = MTLStorageModeShared;
   const id<MTLTexture> texture = [device newTextureWithDescriptor:descriptor];
   size_t offset = 0;
-  for (size_t level = 0, dimension = side; dimension > 0; ++level, dimension /= 2) {
-    [texture replaceRegion:MTLRegionMake2D(0, 0, dimension, dimension)
+  for (size_t level = 0; level < region.Levels; ++level) {
+    const size_t width = region.Width >> level;
+    const size_t height = region.Height >> level;
+    [texture replaceRegion:MTLRegionMake2D(0, 0, width, height)
                mipmapLevel:level
                  withBytes:texels.data() + offset
-               bytesPerRow:dimension * sizeof(GroupImpostorView::Texel)];
-    offset += dimension * dimension;
+               bytesPerRow:width * sizeof(GroupImpostorView::Texel)];
+    offset += width * height;
   }
   return texture;
 }
@@ -108,10 +116,11 @@ UploadMetalGroup(id<MTLDevice> device, const MetalImpostorGroup &group, size_t &
   result.Views.reserve(group.Views.size());
   for (const auto &view : group.Views) {
     const auto basis = ImpostorViewFrame::From(view.TowardEye);
-    if (!basis || !GroupImpostorView::ValidSide(view.Side)) {
+    const auto region = view.TextureRegion();
+    if (!basis || !region.Valid(view.Side)) {
       return std::unexpected("invalid group impostor view");
     }
-    const size_t count = GroupImpostorView::MipTexels(view.Side);
+    const size_t count = region.Texels();
     if (view.AlbedoCoverage.size() != count || view.NormalMaterial.size() != count) {
       return std::unexpected("incomplete group impostor mip chain");
     }
@@ -122,9 +131,9 @@ UploadMetalGroup(id<MTLDevice> device, const MetalImpostorGroup &group, size_t &
                                                            length:patches.size()
                                                           options:MTLResourceStorageModeShared];
     const auto albedo =
-        UploadGroupTexture(device, MTLPixelFormatRGBA8Unorm_sRGB, view.Side, view.AlbedoCoverage);
+        UploadGroupTexture(device, MTLPixelFormatRGBA8Unorm_sRGB, region, view.AlbedoCoverage);
     const auto material =
-        UploadGroupTexture(device, MTLPixelFormatRGBA8Unorm, view.Side, view.NormalMaterial);
+        UploadGroupTexture(device, MTLPixelFormatRGBA8Unorm, region, view.NormalMaterial);
     if (albedo == nil || material == nil || (!patches.empty() && buffer == nil)) {
       return std::unexpected("Metal group impostor upload failed");
     }

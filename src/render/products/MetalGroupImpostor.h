@@ -16,7 +16,7 @@
 namespace outshine::Render {
 
 struct MetalImpostorGroup;
-using GroupAxes = std::array<std::array<float, 4>, 4>;
+using GroupAxes = std::array<std::array<float, 4>, 5>;
 
 struct GroupViewTextures {
   Vec3 TowardEye;

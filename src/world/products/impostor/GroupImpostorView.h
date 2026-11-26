@@ -17,6 +17,13 @@ struct GroupImpostorPatch {
   float Depth, SlopeX, SlopeY;
 };
 
+struct GroupImpostorTextureRegion {
+  uint32_t X, Y, Width, Height, Levels;
+
+  [[nodiscard]] size_t Texels() const;
+  [[nodiscard]] bool Valid(uint32_t side) const;
+};
+
 struct GroupImpostorView {
   using Texel = std::array<uint8_t, 4>;
   static constexpr uint32_t MaximumSide = 256;
@@ -34,7 +41,12 @@ struct GroupImpostorView {
   std::vector<GroupImpostorPatch> Patches;
   std::vector<Texel> AlbedoCoverage;
   std::vector<Texel> NormalMaterial;
+  std::optional<GroupImpostorTextureRegion> Crop = std::nullopt;
+
+  [[nodiscard]] GroupImpostorTextureRegion TextureRegion() const;
 };
+
+[[nodiscard]] bool CropGroupImpostorView(GroupImpostorView &view);
 
 [[nodiscard]] std::optional<std::vector<uint8_t>>
 EncodeGroupImpostorView(const GroupImpostorView &view);

@@ -480,6 +480,36 @@ one pixel. Larger banks exceed the decoded overlay-byte budget in this set.
 The larger city is now a load and coverage test. A more compact card bank
 is needed for the middle tier to replace a meaningful part of it.
 
+## Trimmed building card textures
+
+On import, the building group keeps its square capture grid and depth patches.
+Each stored texture can use a smaller power-of-two rectangle. The rectangle
+aligns to 16 capture texels and keeps a 16-texel filter border at interior
+edges. It copies the original samples through mip 4; deeper sampling clamps
+to that mip. When the padded rectangle fills the capture the format keeps
+the original square and all mips. Old square cards still decode.
+
+Forty candidate Tokyo tiles used 256-texel views. The 520 views went from
+390.92 to 245.45 MB decoded. A separate full-bank Metal control fell from
+10.13 to 5.93 MB uploaded. At 1,850 m at 20°, 43° and 83° elevation and at
+5,000 m at 43°, comparing identical square and trimmed captures gave three
+pixel-identical results and one pixel differing by 1/255. The Körbersee
+square-card flight remained pixel-identical.
+
+Three paired 720p30 runs at the original 55° Tokyo lens with the same 400
+terrain tiles and 240 km panorama:
+
+| Motion | Active groups | Peak submitted triangles | GPU p99 | Compressed reads |
+|---|---:|---:|---:|---:|
+| Full turn | 0 → 17 | 1,329,065 → 1,280,836 | 17.43 → 17.90 ms | 118.28 → 115.38 MB |
+| Lateral flight | 0 → 16 | 767,473 → 765,456 | 12.41 → 12.30 ms | 118.28 → 115.52 MB |
+
+The square bank exceeded the overlay-byte budget. The trimmed bank lowered
+retained Metal resources by about 2.7 MB after the cut. Total turn uploads
+rose from 183.07 to 191.82 MB because the initial geometry cut was also
+uploaded. A p99 gain in the whole turn remains unproven. At the replacement
+boundary the cut still includes a broad geometry preload.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).

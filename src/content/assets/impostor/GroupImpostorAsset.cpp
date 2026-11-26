@@ -57,20 +57,27 @@ std::expected<AssetRecord, std::string> StageView(AssetCache &cache,
                                                   std::vector<PreparedAssetWrite> &writes) {
   const auto file = ReadTextFile(path.string(), GroupImpostorViewBytesMost);
   if (!file) { return std::unexpected(file.error()); }
-  const auto view = DecodeGroupImpostorView(Bytes(*file));
+  auto view = DecodeGroupImpostorView(Bytes(*file));
   if (!view || !MatchesView(*view, manifest, at)) {
     return std::unexpected("group view differs from its capture manifest");
   }
-  const auto payload = PackageKey(Bytes(*file));
+  auto bytes = Bytes(*file);
+  std::optional<std::vector<uint8_t>> cropped;
+  if (manifest.CanopyCell.empty() && CropGroupImpostorView(*view)) {
+    cropped = EncodeGroupImpostorView(*view);
+    if (!cropped) { return std::unexpected("could not encode compact group view"); }
+    bytes = *cropped;
+  }
+  const auto payload = PackageKey(bytes);
   AssetRecord record{.Key =
                          Sha256Hex(std::format("{}/{}/{}", GroupImpostorViewKind, owner, payload)),
                      .Kind = std::string(GroupImpostorViewKind),
                      .Bounds = GroupImpostorEarthBounds(manifest),
                      .Package = payload,
-                     .ByteCount = file->size(),
+                     .ByteCount = bytes.size(),
                      .Level = static_cast<uint32_t>(manifest.Coverage.Zoom),
                      .Parent = {}};
-  auto write = PreparePackage(cache, record, Bytes(*file));
+  auto write = PreparePackage(cache, record, bytes);
   if (!write) { return std::unexpected(write.error()); }
   writes.push_back(std::move(*write));
   return record;

@@ -11,10 +11,11 @@ struct GroupPatch {
   float depth, slopeX, slopeY;
 };
 struct GroupAxes {
-  float4 originAndInverseSide;
+  float4 origin;
   float4 alongX;
   float4 alongY;
   float4 alongDepth;
+  float4 textureRegion;
 };
 struct GroupVaryings {
   float4 position [[position]];
@@ -32,9 +33,10 @@ vertex GroupVaryings group_vertex(uint cornerIndex [[vertex_id]], uint patchInde
   const float2 offset = float2(corners[cornerIndex]) * span;
   const float2 p = least + offset;
   const float depth = patch.depth + dot(offset, float2(patch.slopeX, patch.slopeY));
-  const float3 world = axes.originAndInverseSide.xyz + axes.alongX.xyz * p.x +
+  const float3 world = axes.origin.xyz + axes.alongX.xyz * p.x +
       axes.alongY.xyz * p.y + axes.alongDepth.xyz * depth;
-  return {clip * float4(world, 1.0), world, p * axes.originAndInverseSide.w};
+  const float2 uv = (p - axes.textureRegion.xy) * axes.textureRegion.zw;
+  return {clip * float4(world, 1.0), world, uv};
 }
 float3 groupNormal(float2 packed) {
   float2 v = packed * 2.0 - 1.0;
