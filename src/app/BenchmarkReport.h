@@ -65,6 +65,14 @@ struct BenchmarkSurfaceStream {
   std::string Error;
 };
 
+struct BenchmarkGroupCoverage {
+  size_t Groups = 0;
+  size_t ResidentViews = 0;
+  size_t AvailableViews = 0;
+  size_t PeakTriangles = 0;
+  size_t RequestedBytes = 0;
+};
+
 struct ScenarioBenchmarkReport {
   std::string Scenario;
   std::string DeclarationSha256;
@@ -79,6 +87,7 @@ struct ScenarioBenchmarkReport {
   std::optional<BenchmarkPanoramaCoverage> Panorama;
   std::optional<BenchmarkPanoramaHandoff> PanoramaHandoff;
   std::optional<BenchmarkSurfaceStream> SurfaceStream;
+  BenchmarkGroupCoverage GroupCoverage;
   std::optional<uint64_t> ProductStoreReadBytes;
   std::optional<size_t> IndexedPanoramaRequestedBytes;
   size_t TileRequestedBytes = 0;

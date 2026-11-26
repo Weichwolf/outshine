@@ -241,11 +241,23 @@ ReportJson RenderedContent(const ScenarioBenchmarkReport &report) {
   if (!report.Tiles.empty() && report.Panorama) {
     auto near = TileContent(report.Tiles);
     const auto triangles = near["triangles_per_frame"].get<size_t>();
-    return {{"kind", "near_far_composition"},
-            {"near", std::move(near)},
-            {"far", PanoramaContent(*report.Panorama, report.PanoramaHandoff)},
-            {"draws_per_frame", 1 + report.Tiles.size()},
-            {"triangles_per_frame", 1 + triangles}};
+    const auto &groups = report.GroupCoverage;
+    ReportJson content{{"kind", "near_far_composition"},
+                       {"near", std::move(near)},
+                       {"far", PanoramaContent(*report.Panorama, report.PanoramaHandoff)},
+                       {"draws_per_frame", 1 + report.Tiles.size()},
+                       {"triangles_per_frame", 1 + triangles}};
+    if (groups.Groups > 0) {
+      content["kind"] = "near_mid_far_composition";
+      content.erase("draws_per_frame");
+      content.erase("triangles_per_frame");
+      content["mid"] = {{"groups", groups.Groups},
+                        {"resident_views", groups.ResidentViews},
+                        {"available_views", groups.AvailableViews},
+                        {"peak_triangles_per_frame", groups.PeakTriangles}};
+      content["peak_triangles_per_frame"] = 1 + triangles + groups.PeakTriangles;
+    }
+    return content;
   }
   if (report.Panorama) { return PanoramaContent(*report.Panorama, report.PanoramaHandoff); }
   if (!report.Tiles.empty()) { return TileContent(report.Tiles); }
@@ -270,6 +282,7 @@ ReportJson BenchmarkTraffic(const ScenarioBenchmarkReport &report) {
          indexed ? "stored package bytes plus direct product payloads"
                  : "prepared product payloads"},
         {"tile_requested_bytes", report.TileRequestedBytes},
+        {"group_requested_bytes", report.GroupCoverage.RequestedBytes},
         {"panorama_requested_bytes", report.IndexedPanoramaRequestedBytes.value_or(panoramaBytes)},
         {"panorama_decoded_bytes", panoramaBytes},
         {"tile_decoded_bytes", report.Tiles.empty() ? ReportJson(nullptr) : ReportJson(tileBytes)},
@@ -313,6 +326,10 @@ void ReportRenderPath(const ScenarioBenchmarkReport &report, ReportJson &json) {
     if (!report.Tiles.empty() && report.Panorama) {
       timing["scope"] = "command buffer containing the depth-composited near and far pass";
       pass = "near_far_composition";
+      if (report.GroupCoverage.Groups > 0) {
+        timing["scope"] = "command buffer containing the depth-composited near, mid and far pass";
+        pass = "near_mid_far_composition";
+      }
     }
     json["pass_times"] = {{"scope", timing["scope"]}, {"passes", {{pass, timing["frame"]}}}};
   } else {

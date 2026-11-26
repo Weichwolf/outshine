@@ -302,4 +302,18 @@ std::expected<SurfaceTile, std::string> ReadSurfaceTile(std::string_view path) {
   }
   return tile;
 }
+
+bool RetainSurfaceGround(SurfaceTile &surface) {
+  const size_t grid = static_cast<size_t>(surface.GridSide) * surface.GridSide;
+  if (grid == 0 || grid > surface.Vertices.size() || surface.GroundIndices == 0 ||
+      surface.GroundIndices > surface.Indices.size() ||
+      surface.Colours.size() > surface.Vertices.size()) {
+    return false;
+  }
+  const auto firstColour = surface.Vertices.size() - surface.Colours.size();
+  surface.Vertices.resize(grid);
+  surface.Indices.resize(surface.GroundIndices);
+  surface.Colours.resize(firstColour < grid ? grid - firstColour : 0);
+  return true;
+}
 }

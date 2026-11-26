@@ -67,16 +67,6 @@ bool LoadGroup(const std::filesystem::path &folder, Group &out) {
   return true;
 }
 
-bool RemoveOverlay(SurfaceTile &surface) {
-  const size_t grid = static_cast<size_t>(surface.GridSide) * surface.GridSide;
-  if (grid == 0 || grid > surface.Vertices.size() || surface.GroundIndices == 0) { return false; }
-  const auto colourFirst = surface.Vertices.size() - surface.Colours.size();
-  surface.Vertices.resize(grid);
-  surface.Indices.resize(surface.GroundIndices);
-  surface.Colours.resize(colourFirst < grid ? grid - colourFirst : 0);
-  return true;
-}
-
 struct FlightPath {
   double DistanceM = 0;
   double ElevationDeg = 0;
@@ -164,7 +154,7 @@ int main(int argc, const char *const *argv) {
     return 2;
   }
   auto ground = *surface;
-  if (!RemoveOverlay(ground)) { return 1; }
+  if (!RetainSurfaceGround(ground)) { return 1; }
   const auto view = Flight(group.CentreM, path);
   const MetalSurface full{.Product = *surface, .WorldFromTile = {}};
   const MetalSurface base{.Product = ground, .WorldFromTile = {}};

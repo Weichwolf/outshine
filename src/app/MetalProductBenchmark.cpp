@@ -10,6 +10,7 @@
 #include "BenchmarkReport.h"
 #include "FarPanoramaAsset.h"
 #include "GeodeticCamera.h"
+#include "GroupImpostorAsset.h"
 #include "MetalProductRenderer.h"
 #include "SurfaceTileAsset.h"
 #include "TileGeodesy.h"
@@ -98,6 +99,8 @@ void CaptureProductSamples(ScenarioBenchmarkReport &report,
   report.GpuSamples.reserve(frames.Samples.size());
   for (size_t frame = 0; frame < frames.Samples.size(); ++frame) {
     const auto &sample = frames.Samples[frame];
+    report.GroupCoverage.PeakTriangles =
+        std::max(report.GroupCoverage.PeakTriangles, sample.GroupTriangles);
     report.Frames.push_back({.WallMs = sample.WallMs,
                              .RenderMs = sample.RenderMs,
                              .SyncWaitMs = sample.SyncWaitMs,
@@ -315,6 +318,53 @@ PlaceTiles(const SurfaceCutLookup &cut, ScenarioBenchmarkReport &report, Longitu
   return placed;
 }
 
+struct PlacedGroup {
+  ResidentGroupImpostor Product;
+  Mat4 Placement;
+};
+
+std::expected<std::vector<PlacedGroup>, std::string> PrepareGroups(const AssetCache &cache,
+                                                                   std::string_view revision,
+                                                                   std::span<SurfaceTile> tiles,
+                                                                   ScenarioBenchmarkReport &report,
+                                                                   LongitudeLatitude origin,
+                                                                   const FarPanorama &panorama) {
+  const auto view = MakePanoramaView(report.Start, report.Frame, panorama);
+  if (!view) { return std::unexpected(view.error()); }
+  const auto tangent = TangentFrame::At(origin);
+  const auto earth = [&](const Vec3 &p) {
+    return tangent.ToEcefPosition({.EastM = p[0], .NorthM = -p[2], .UpM = p[1]});
+  };
+  const GroupImpostorDemand demand{
+      .EyeEcef = {.Begin = earth(report.Start.PositionM), .End = earth(report.Finish.PositionM)},
+      .FocalPixels = view->FocalPixels};
+  std::vector<PlacedGroup> products;
+  for (auto &tile : tiles) {
+    auto loaded = LoadGroupImpostor(cache, revision, tile, demand);
+    if (!loaded) { return std::unexpected(loaded.error()); }
+    report.GroupCoverage.RequestedBytes += loaded->RequestedBytes;
+    if (!loaded->Product || !RetainSurfaceGround(tile)) { continue; }
+    report.GroupCoverage.AvailableViews += loaded->AvailableViews;
+    report.GroupCoverage.ResidentViews += loaded->Product->Views.size();
+    products.push_back(
+        {.Product = std::move(*loaded->Product), .Placement = TilePlacement(tile, origin)});
+  }
+  report.GroupCoverage.Groups = products.size();
+  return products;
+}
+
+std::vector<Render::MetalImpostorGroup> PlaceGroups(std::span<const PlacedGroup> products) {
+  std::vector<Render::MetalImpostorGroup> placed;
+  placed.reserve(products.size());
+  for (const auto &group : products) {
+    placed.push_back({.Views = group.Product.Views,
+                      .WorldFromTile = group.Placement,
+                      .CentreM = group.Product.CentreM,
+                      .HalfExtentM = group.Product.HalfExtentM});
+  }
+  return placed;
+}
+
 struct SurfaceReadCost {
   size_t RequestedBytes = 0;
   size_t DecodedBytes = 0;
@@ -392,12 +442,19 @@ MeasureProducts(const ScenarioBenchmarkOptions &options,
       (!*cache || panoramas.empty() || panoramas.front().AxialNearM <= 0)) {
     return std::unexpected("streaming tiles requires a prepared store and a clipped far panorama");
   }
-  const auto cut =
-      PrepareTiles(options, cache->get(), report, origin, panoramas, options.StreamProducts);
+  auto cut = PrepareTiles(options, cache->get(), report, origin, panoramas, options.StreamProducts);
   if (!cut) { return std::unexpected(cut.error()); }
   if (options.StreamProducts && cut->Products.empty()) {
     return std::unexpected("streaming tiles requires resident fallback coverage");
   }
+  std::vector<PlacedGroup> groupProducts;
+  if (*cache && !panoramas.empty() && !options.StreamProducts) {
+    auto loaded = PrepareGroups(
+        **cache, options.ProductRevision, cut->Products, report, origin, panoramas.front());
+    if (!loaded) { return std::unexpected(loaded.error()); }
+    groupProducts = std::move(*loaded);
+  }
+  const auto groups = PlaceGroups(groupProducts);
   const auto tiles = PlaceTiles(*cut, report, origin);
   report.ProductReadMs = BenchmarkElapsedMs(loadAt);
   const auto viewAt = [&](size_t frame) {
@@ -413,11 +470,12 @@ MeasureProducts(const ScenarioBenchmarkOptions &options,
           options, **cache, report, origin, panoramas, cut->Products, refinement);
     };
   }
-  auto frames = Render::RenderMetalProducts({.Tiles = tiles, .Panoramas = panoramas, .Groups = {}},
-                                            report.Motion.Frames,
-                                            viewAt,
-                                            !options.Image.empty(),
-                                            stream);
+  auto frames =
+      Render::RenderMetalProducts({.Tiles = tiles, .Panoramas = panoramas, .Groups = groups},
+                                  report.Motion.Frames,
+                                  viewAt,
+                                  !options.Image.empty(),
+                                  stream);
   if (*cache) { report.ProductStoreReadBytes = (*cache)->PackageBytesRead(); }
   if (frames && frames->Transition) {
     const auto &transition = *frames->Transition;

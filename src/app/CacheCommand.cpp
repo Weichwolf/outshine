@@ -3,6 +3,7 @@
 #include "AssetCacheTrim.h"
 #include "AssetPublication.h"
 #include "FarPanoramaAsset.h"
+#include "GroupImpostorAsset.h"
 #include "ReadTextFile.h"
 #include "SourceCacheTrim.h"
 #include "SqliteFileBudget.h"
@@ -49,6 +50,7 @@ void Usage() {
                "       outshine cache limit [--assets-mib N] [--root PATH]\n"
                "       outshine cache import-surface DATABASE REVISION TILE...\n"
                "       outshine cache import-panorama DATABASE REVISION DIRECTORY...\n"
+               "       outshine cache import-group DATABASE REVISION DIRECTORY...\n"
                "  --assets-mib N   total compressed package budget across asset databases\n"
                "  --sources-mib N  source-file budget, including cached absence records\n"
                "  --root PATH      cache parent containing assets/ and sources/\n"
@@ -224,6 +226,10 @@ std::expected<void, std::string> ImportPanorama(AssetCache &cache, ProductImport
   return PublishFarPanorama(cache, product.Revision, *panorama);
 }
 
+std::expected<void, std::string> ImportGroup(AssetCache &cache, ProductImport product) {
+  return ImportGroupImpostor(cache, {.Revision = product.Revision, .Directory = product.Source});
+}
+
 int ImportProducts(std::span<const char *const> arguments,
                    std::expected<void, std::string> (*import)(AssetCache &, ProductImport)) {
   if (arguments.size() < 4 || !AssetProductKey::Parse(arguments[2])) {
@@ -302,6 +308,9 @@ int RunCacheCommand(std::span<const char *const> arguments) {
   }
   if (!arguments.empty() && std::string_view(arguments.front()) == "import-panorama") {
     return ImportProducts(arguments, ImportPanorama);
+  }
+  if (!arguments.empty() && std::string_view(arguments.front()) == "import-group") {
+    return ImportProducts(arguments, ImportGroup);
   }
   if (!arguments.empty() && std::string_view(arguments.front()) == "limit") {
     return Limit(arguments.subspan(1));
