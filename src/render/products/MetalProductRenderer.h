@@ -74,16 +74,20 @@ struct PanoramaView {
   double CoverageFadeM = 0;
 };
 
+using MetalSurfaceInstance = std::array<float, 4>;
+
 struct MetalSurface {
   const SurfaceTile &Product;
   Mat4 WorldFromTile;
   std::optional<size_t> HandoffGroup;
+  std::span<const MetalSurfaceInstance> Instances;
 };
 
 struct MetalPlacedSurface {
   SurfaceTile Product;
   Mat4 WorldFromTile;
   std::optional<size_t> HandoffGroup;
+  std::vector<MetalSurfaceInstance> Instances;
 };
 
 struct MetalPlacedImpostorGroup {

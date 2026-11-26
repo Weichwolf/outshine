@@ -33,7 +33,7 @@ static_assert(sizeof(SurfaceVertex) == 6 * sizeof(float) &&
               alignof(SurfaceVertex) == alignof(float) &&
               offsetof(SurfaceVertex, Normal) == 3 * sizeof(float));
 static_assert(sizeof(ClipMatrix) == 64 && sizeof(uint32_t) == 4);
-static_assert(sizeof(SurfaceColour) == 4);
+static_assert(sizeof(SurfaceColour) == 4 && sizeof(MetalSurfaceInstance) == 16);
 static_assert(sizeof(SurfaceShadingUniform) == kSurfaceShadingBytes &&
               offsetof(SurfaceShadingUniform, EyeAndImpostorWeight) == 64 &&
               sizeof(SurfaceColourRanges) == 16);
@@ -59,12 +59,17 @@ struct SurfaceLight {
   float4 eyeAndImpostorWeight;
 };
 enum SurfaceMaterial : uint { Fallback, Preview, TerrainMaterial, Overlay };
-vertex Varyings tile_vertex(uint index [[vertex_id]],
+vertex Varyings tile_vertex(uint index [[vertex_id]], uint instance [[instance_id]],
                             const device SurfaceVertex *vertices [[buffer(0)]],
                             constant float4x4 &clip [[buffer(1)]],
                             const device uchar4 *colours [[buffer(2)]],
-                            constant uint4 &colourRanges [[buffer(3)]]) {
+                            constant uint4 &colourRanges [[buffer(3)]],
+                            const device float4 *instances [[buffer(4)]]) {
   SurfaceVertex point = vertices[index];
+  if (colourRanges.w != 0) {
+    const float4 placement = instances[instance];
+    point.position = packed_float3(float3(point.position) * placement.w + placement.xyz);
+  }
   const half4 colour = index < colourRanges.x ? half4(0.0h) :
       half4(colours[index - colourRanges.x]) / 255.0h;
   const uint material = index < colourRanges.x ? Fallback :
@@ -462,6 +467,8 @@ struct TileMesh {
   id<MTLBuffer> Vertices = nil;
   id<MTLBuffer> Indices = nil;
   id<MTLBuffer> Colours = nil;
+  id<MTLBuffer> Instances = nil;
+  size_t InstanceCount = 1;
   size_t IndexCount = 0;
   size_t GroundIndexCount = 0;
   std::optional<size_t> HandoffGroup;
@@ -498,19 +505,22 @@ size_t DrawTile(id<MTLRenderCommandEncoder> draw,
                 float weight) {
   const auto shading = FrameShading(mesh, eye, weight);
   const size_t indexCount = weight >= 1.0f ? mesh.GroundIndexCount : mesh.IndexCount;
+  if (indexCount == 0) { return 0; }
   [draw setRenderPipelineState:pipeline.Draw];
   [draw setDepthStencilState:pipeline.Depth];
   [draw setVertexBuffer:mesh.Vertices offset:0 atIndex:0];
   [draw setVertexBytes:clip.data() length:sizeof(clip) atIndex:1];
   [draw setVertexBuffer:mesh.Colours == nil ? mesh.Vertices : mesh.Colours offset:0 atIndex:2];
   [draw setVertexBytes:mesh.ColourRanges.data() length:sizeof(mesh.ColourRanges) atIndex:3];
+  [draw setVertexBuffer:mesh.Instances == nil ? mesh.Vertices : mesh.Instances offset:0 atIndex:4];
   [draw setFragmentBytes:&shading length:sizeof(shading) atIndex:0];
   [draw drawIndexedPrimitives:MTLPrimitiveTypeTriangle
                    indexCount:indexCount
                     indexType:MTLIndexTypeUInt32
                   indexBuffer:mesh.Indices
-            indexBufferOffset:0];
-  return indexCount / 3;
+            indexBufferOffset:0
+                instanceCount:mesh.InstanceCount];
+  return (indexCount / 3) * mesh.InstanceCount;
 }
 
 std::expected<std::optional<double>, std::string> RetireFrame(id<MTLCommandBuffer> command) {
@@ -697,32 +707,39 @@ std::expected<TileMesh, std::string> UploadTile(id<MTLDevice> device,
   const auto vertices = std::as_bytes(std::span(tile.Product.Vertices));
   const auto indices = std::as_bytes(std::span(tile.Product.Indices));
   const auto colours = std::as_bytes(std::span(tile.Product.Colours));
+  const auto instances = std::as_bytes(tile.Instances);
   const auto count = static_cast<uint32_t>(tile.Product.Vertices.size());
   const auto firstColour = count - static_cast<uint32_t>(tile.Product.Colours.size());
   const uint32_t firstOverlay =
       tile.Product.GridSide > 0 ? tile.Product.GridSide * tile.Product.GridSide : count;
   const uint32_t firstLit = tile.Product.GroundRoughness ? 0 : firstOverlay;
-  TileMesh mesh{.Vertices = [device newBufferWithBytes:vertices.data()
-                                                length:vertices.size()
-                                               options:MTLResourceStorageModeShared],
-                .Indices = [device newBufferWithBytes:indices.data()
-                                               length:indices.size()
-                                              options:MTLResourceStorageModeShared],
-                .Colours = colours.empty()
-                               ? nil
-                               : [device newBufferWithBytes:colours.data()
-                                                     length:colours.size()
-                                                    options:MTLResourceStorageModeShared],
-                .IndexCount = tile.Product.Indices.size(),
-                .GroundIndexCount = tile.Product.GroundIndices,
-                .HandoffGroup = tile.HandoffGroup,
-                .ColourRanges = {firstColour, firstOverlay, firstLit, 0},
-                .Light = PackLight(tile.WorldFromTile, firstLit < count ? light : nullptr),
-                .WorldFromTile = tile.WorldFromTile};
-  if (mesh.Vertices == nil || mesh.Indices == nil || (!colours.empty() && mesh.Colours == nil)) {
+  TileMesh mesh{
+      .Vertices = [device newBufferWithBytes:vertices.data()
+                                      length:vertices.size()
+                                     options:MTLResourceStorageModeShared],
+      .Indices = [device newBufferWithBytes:indices.data()
+                                     length:indices.size()
+                                    options:MTLResourceStorageModeShared],
+      .Colours = colours.empty() ? nil
+                                 : [device newBufferWithBytes:colours.data()
+                                                       length:colours.size()
+                                                      options:MTLResourceStorageModeShared],
+      .Instances = instances.empty() ? nil
+                                     : [device newBufferWithBytes:instances.data()
+                                                           length:instances.size()
+                                                          options:MTLResourceStorageModeShared],
+      .InstanceCount = std::max(size_t{1}, tile.Instances.size()),
+      .IndexCount = tile.Product.Indices.size(),
+      .GroundIndexCount = tile.Product.GroundIndices,
+      .HandoffGroup = tile.HandoffGroup,
+      .ColourRanges = {firstColour, firstOverlay, firstLit, instances.empty() ? 0U : 1U},
+      .Light = PackLight(tile.WorldFromTile, firstLit < count ? light : nullptr),
+      .WorldFromTile = tile.WorldFromTile};
+  if (mesh.Vertices == nil || mesh.Indices == nil || (!colours.empty() && mesh.Colours == nil) ||
+      (!instances.empty() && mesh.Instances == nil)) {
     return std::unexpected("Metal tile upload failed");
   }
-  bytes += vertices.size() + indices.size() + colours.size();
+  bytes += vertices.size() + indices.size() + colours.size() + instances.size();
   return mesh;
 }
 
@@ -780,6 +797,7 @@ bool MatchesSurface(const MetalSurface &active, const MetalPlacedSurface &replac
   const auto &back = replacement.Product;
   return front.Coverage == back.Coverage && front.Revision == back.Revision &&
          active.WorldFromTile == replacement.WorldFromTile && front.Indices == back.Indices &&
+         std::ranges::equal(active.Instances, replacement.Instances) &&
          front.GroundRoughness == back.GroundRoughness && front.Colours == back.Colours &&
          std::ranges::equal(std::as_bytes(std::span(front.Vertices)),
                             std::as_bytes(std::span(back.Vertices)));
@@ -822,7 +840,8 @@ PreparedSurfaceReplacement PrepareReplacement(id<MTLDevice> device,
         auto mesh = UploadTile(device,
                                {.Product = tile.Product,
                                 .WorldFromTile = tile.WorldFromTile,
-                                .HandoffGroup = tile.HandoffGroup},
+                                .HandoffGroup = tile.HandoffGroup,
+                                .Instances = tile.Instances},
                                light,
                                prepared.Bytes);
         if (!mesh) {
@@ -831,7 +850,8 @@ PreparedSurfaceReplacement PrepareReplacement(id<MTLDevice> device,
         }
         prepared.Meshes.push_back(*mesh);
       }
-      prepared.Transition.Triangles += tile.Product.Indices.size() / 3;
+      prepared.Transition.Triangles +=
+          (tile.Product.Indices.size() / 3) * std::max(size_t{1}, tile.Instances.size());
     }
     prepared.Groups.reserve(candidate->Groups.size());
     for (const auto &group : candidate->Groups) {

@@ -354,8 +354,10 @@ PlaceTiles(const SurfaceCutLookup &cut, ScenarioBenchmarkReport &report, Longitu
   report.TileRequestedBytes = cut.RequestedBytes;
   report.Tiles.reserve(cut.Products.size());
   for (const auto &tile : cut.Products) {
-    placed.push_back(
-        {.Product = tile, .WorldFromTile = TilePlacement(tile.Origin, world), .HandoffGroup = {}});
+    placed.push_back({.Product = tile,
+                      .WorldFromTile = TilePlacement(tile.Origin, world),
+                      .HandoffGroup = {},
+                      .Instances = {}});
     report.Tiles.push_back(
         {.Address = {static_cast<uint32_t>(tile.Coverage.Zoom), tile.Coverage.X, tile.Coverage.Y},
          .OriginLonLat = {tile.Origin.LongitudeDeg, tile.Origin.LatitudeDeg},
@@ -417,8 +419,10 @@ PrepareSurfaceReplacement(const ScenarioBenchmarkOptions &options,
   const auto world = TangentFrame::At(origin);
   for (auto &tile : cut->Products) {
     const auto placement = TilePlacement(tile.Origin, world);
-    placed.Tiles.push_back(
-        {.Product = std::move(tile), .WorldFromTile = placement, .HandoffGroup = {}});
+    placed.Tiles.push_back({.Product = std::move(tile),
+                            .WorldFromTile = placement,
+                            .HandoffGroup = {},
+                            .Instances = {}});
   }
   BindGroupHandoffs(cut->Groups, placed.Tiles);
   for (auto &group : cut->Groups) {

@@ -244,6 +244,42 @@ and 2.31 / 2.28 ms for a 32 m flight across two anchors. The paired PNGs
 at rest, during the anchor blend and at the motion endpoints were identical.
 A missing key in the second anchor retained that group's cards.
 
+## Instanced near geometry
+
+The source spruce costs 161,340 bark triangles plus 140,254 shoots at 66
+triangles each, for 9,418,104 triangles. The coarsest native bark rank has
+1,964 triangles. Shoot geometry and placement counts stay the same across
+the four existing ranks.
+
+`near_canopy_geometry.py` preserves that bark and clusters shoot area by
+voxel and dominant normal. Each oriented plane represents the projected
+coverage of its group using exponential transmittance. An independent
+orthographic comparison aligns both meshes in world space before measuring
+64×64 fractional coverage. At 0.65 m cells and 1.4 area gain, the proxy
+uses 10,928 triangles. Across 29 captured views, coverage IoU is 0.826
+at the median and 0.650 at the minimum. Axis-aligned planes showed clear
+grid patterns. The oriented planes still show thin, evenly spaced tiers
+at the closer control distance. This comparison covers one species.
+
+```sh
+build/outshine_experiment_tree_prototype "$species" "$prototype"
+python3 -B test/experiments/render/near_canopy_geometry.py \
+  "$prototype/3" "$flat_surface" "$one_tree_layout" "$tree_mesh" \
+  --cell-m .65 --coverage-gain 1.4
+build/outshine_experiment_group_impostors overlay "$tree_mesh" "$directions" 256 "$mesh_capture"
+python3 -B test/experiments/render/near_canopy_coverage.py "$source_capture" "$mesh_capture"
+build/outshine_experiment_metal_groups "$group" "$terrain" "$output" \
+  1190 12 "$tree_mesh" "$group_layout" 1260
+```
+
+The Metal control instantiates one mesh at the same 17 roots used to
+bake the Körbersee group. During the 720p30 arc, 31 of 120 frames blended
+over 17.9 m. The crossing reduced endpoint submissions from 188,125
+to 2,753 triangles, including the shared terrain. The median GPU p99 of
+three paced runs was 1.25 ms for geometry, 0.22 ms for the cards and
+1.25 ms for the handoff. Measurements use the isolated prepared tile.
+Indexed near-mesh residency and a complete forest view remain open.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).
