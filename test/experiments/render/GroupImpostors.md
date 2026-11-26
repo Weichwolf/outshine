@@ -15,7 +15,7 @@ reference=test/experiments/render/group_impostor_views.py
 python3 -B "$reference" directions > "$probe/views"
 bake=build/outshine_experiment_group_impostors
 spruce=data/world/species/spruce.json
-"$bake" buildings "$prepared_surface_tile" "$probe/views" 128 "$probe/block"
+"$bake" buildings "$prepared_surface_tile" "$probe/views" 128 "$probe/block" 64
 "$bake" tree "$spruce" "$probe/views" 256 "$probe/tree"
 "$bake" stand "$spruce" "$probe/views" 128 "$probe/stand"
 python3 -B "$reference" evaluate "$probe/block" "$probe/block-results"
@@ -37,6 +37,13 @@ Start the building runtime trial at block size. Keep the source representation
 where the oblique angles exceed the visible error budget. The district at 128
 texels can already cost more triangles than its source. The two-view spruce result
 loses too much internal canopy coverage for the same selection policy.
+
+The optional last argument also bakes each native packed card at the requested
+side. The reference reads back the packed cards. At 64 texels their coverage and
+triangle results match the building rows above to the reported precision. Across
+the block's probes, the two selected files occupy 93,976 bytes at the median and
+97,956 bytes at the peak. The full set of 13 views occupies 613,464 bytes. This
+supports making each direction an independently resident product.
 
 Compositing the single spruce captures at the 25 roots reaches 82% median and
 64% worst coverage overlap against the direct stand captures. One native bake of

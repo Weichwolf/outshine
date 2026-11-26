@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <expected>
+#include <limits>
 #include <span>
 #include <vector>
 
@@ -13,6 +14,7 @@ struct DepthSurfaceSource {
   std::span<const float> Depth;
   std::span<const uint32_t> Surface;
   double AllowedError = 0.0;
+  double MaximumSlope = std::numeric_limits<double>::infinity();
 };
 
 struct DepthSurfacePatch {

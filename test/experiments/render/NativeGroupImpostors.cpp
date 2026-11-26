@@ -1,5 +1,7 @@
 #include "Box.h"
 #include "ByteArchive.h"
+#include "GroupImpostorBake.h"
+#include "GroupImpostorView.h"
 #include "ImpostorBaker.h"
 #include "Species.h"
 #include "SurfaceTile.h"
@@ -139,13 +141,34 @@ bool SaveView(const std::filesystem::path &path, const ImpostorAtlas::View &view
   return WriteFileAtomically(path.string(), std::as_bytes(output.Bytes())).has_value();
 }
 
-int Run(const char *const *argv) {
+bool SaveCard(const std::filesystem::path &path,
+              const ImpostorAtlas &atlas,
+              size_t view,
+              uint32_t side) {
+  const auto card = BakeGroupImpostorView(atlas, view, side);
+  if (!card) { return false; }
+  const auto bytes = EncodeGroupImpostorView(*card);
+  if (!bytes || !DecodeGroupImpostorView(*bytes)) { return false; }
+  return WriteFileAtomically(path.string(), std::as_bytes(std::span(*bytes))).has_value();
+}
+
+int Run(int argc, const char *const *argv) {
   const std::string_view kind = argv[1];
   if (kind != "buildings" && kind != "stand" && kind != "tree") { return 2; }
   int pixels = 0;
   const std::string_view size = argv[4];
   const auto number = std::from_chars(size.data(), size.data() + size.size(), pixels);
   if (number.ec != std::errc{} || number.ptr != size.data() + size.size()) { return 2; }
+  uint32_t cardSide = 0;
+  if (argc == 7) {
+    const std::string_view side = argv[6];
+    const auto parsed = std::from_chars(side.data(), side.data() + side.size(), cardSide);
+    if (parsed.ec != std::errc{} || parsed.ptr != side.data() + side.size() ||
+        !GroupImpostorView::ValidSide(cardSide) || pixels <= 0 ||
+        static_cast<uint32_t>(pixels) % cardSide != 0) {
+      return 2;
+    }
+  }
   constexpr int kStandRows = 5;
   std::vector<Vec3> roots;
   const auto began = std::chrono::steady_clock::now();
@@ -178,11 +201,16 @@ int Run(const char *const *argv) {
     const auto &view = atlas->Views()[at];
     directions.push_back(view.TowardEye.Axis);
     if (!SaveView(directory / (std::to_string(at) + ".field"), view)) { return 1; }
+    if (cardSide > 0 &&
+        !SaveCard(directory / (std::to_string(at) + ".card"), *atlas, at, cardSide)) {
+      return 1;
+    }
   }
   auto rootPositions = Json::array();
   for (const auto &root : roots) { rootPositions.push_back(root.Axis); }
   const Json info{
       {"pixels", pixels},
+      {"card_side", cardSide},
       {"centre_m", atlas->CentreM().Axis},
       {"half_extent_m", atlas->HalfExtentM()},
       {"directions", std::move(directions)},
@@ -202,16 +230,17 @@ int Run(const char *const *argv) {
 }
 
 int main(int argc, const char *const *argv) {
-  if (argc != 6) {
+  if (argc != 6 && argc != 7) {
     std::cerr
-        << "group_impostors <buildings|stand|tree> <source> <directions> <pixels> <directory>\n";
+        << "group_impostors <buildings|stand|tree> <source> <directions> <pixels> <directory> "
+           "[card pixels]\n";
     return 2;
   }
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     std::cerr << SDL_GetError() << '\n';
     return 1;
   }
-  const int status = Run(argv);
+  const int status = Run(argc, argv);
   SDL_Quit();
   return status;
 }

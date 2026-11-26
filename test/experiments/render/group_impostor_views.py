@@ -3,6 +3,7 @@
 import argparse
 import json
 from pathlib import Path
+from struct import Struct
 from time import perf_counter
 
 import numpy as np
@@ -13,6 +14,8 @@ from field_view_sampling import FieldGrid
 
 TEXEL = np.dtype([("surface", "<u4"), ("depth", "<f4"), ("normal", "<f4", 3),
                  ("colour", "<f4", 3), ("roughness", "<f4"), ("metalness", "<f4")])
+CARD_HEADER = Struct("<8sII3d")
+PATCH = np.dtype([("rect", "<u2", 4), ("plane", "<f4", 3)])
 HORIZONTAL = tuple((azimuth, 0) for azimuth in range(0, 360, 45))
 UPPER = tuple((azimuth, 45) for azimuth in range(0, 360, 90)) + ((0, 90),)
 PROBES = ((22.5, 0), (67.5, 0), (157.5, 0), (247.5, 0), (13, 20),
@@ -106,6 +109,33 @@ def depth_patches(field, pixels_error):
     return (fitted, alpha, colour, normal), slopes, patches
 
 
+def native_card(path, expected_side, view):
+    data = path.read_bytes()
+    magic, side, count, *axis = CARD_HEADER.unpack_from(data)
+    if magic != b"OUTSHIV1" or side != expected_side or not np.allclose(axis, view):
+        raise ValueError("inconsistent native card header")
+    patches = np.frombuffer(data, PATCH, count, CARD_HEADER.size)
+    mip_texels = (4 * side * side - 1) // 3
+    pixel_offset = CARD_HEADER.size + count * PATCH.itemsize
+    if len(data) != pixel_offset + 8 * mip_texels:
+        raise ValueError("inconsistent native card size")
+    base = np.frombuffer(data, np.uint8, 4 * side * side, pixel_offset)
+    rgba = base.reshape(side, side, 4) / 255.
+    srgb, alpha = rgba[..., :3], rgba[..., 3]
+    linear = np.where(srgb < .04045, srgb / 12.92, ((srgb + .055) / 1.055)**2.4)
+    colour = np.divide(linear, alpha[..., None], out=np.zeros_like(linear),
+                       where=alpha[..., None] > 0.)
+    depth = np.zeros_like(alpha)
+    slopes = np.zeros((*alpha.shape, 2))
+    for (left, top, right, bottom), (origin, sx, sy) in patches:
+        x, y = np.meshgrid(np.arange(right - left) + .5, np.arange(bottom - top) + .5)
+        depth[top:bottom, left:right] = origin + sx * x + sy * y
+        slopes[top:bottom, left:right] = 2 * side * np.asarray((sx, -sy))
+    if np.any((alpha > 0.) & (depth <= 0.)):
+        raise ValueError("native patch failed to cover an occupied texel")
+    return (depth, alpha, colour, np.empty_like(colour)), slopes, count
+
+
 def raster_card(field, source, target, output_side, *, flat=False, tangent=False, planes=None):
     depth, alpha, colour, normals = field
     side = len(depth)
@@ -197,12 +227,12 @@ def evaluate(folder, output):
     n = len(HORIZONTAL)
     views = n + len(UPPER)
     rows = []
-    methods = ("ring_flat", "ring_depth", "nearest_depth", "dual_depth",
-               "nearest_tangent", "dual_tangent", "dual_patches")
     for block in (1, 2, 4):
         side = info["pixels"] // block
         reduced = [reduce_field(item, block) for item in data]
         fitted = [depth_patches(item, .5) for item in reduced[:views]]
+        native = ([native_card(folder / f"{at}.card", side, vectors[at]) for at in range(views)]
+                  if side == info.get("card_side") else None)
         for probe, current in enumerate(vectors[views:], start=views):
             target = all_bases[probe]
             order = np.argsort(-(vectors[:views] @ current))
@@ -228,11 +258,17 @@ def evaluate(folder, output):
                 "dual_tangent": dual_tilted,
                 "dual_patches": foreground(*planar),
             }
+            if native:
+                cards = [raster_card(native[index][0], all_bases[index], target, side,
+                                     planes=native[index][1]) for index in (best, next_best)]
+                candidates["native_patches"] = foreground(*cards)
             for method, result in candidates.items():
                 row = {"method": method, "side": side, "view": ANGLES[probe],
                        **statistics(result, reference, info["half_extent_m"])}
                 if method == "dual_patches":
                     row["triangles"] = 2 * (fitted[best][2] + fitted[next_best][2])
+                if method == "native_patches":
+                    row["triangles"] = 2 * (native[best][2] + native[next_best][2])
                 rows.append(row)
             if block == 2 and ANGLES[probe] in ((22.5, 0), (51, 28), (147, 85)):
                 preview((reference, candidates["ring_flat"], dual, dual_tilted,
@@ -241,11 +277,11 @@ def evaluate(folder, output):
     summary = {"native": info, "reference_ms": (perf_counter() - began) * 1000, "rows": rows}
     (output / "comparison.json").write_text(json.dumps(summary, indent=2) + "\n")
     for side in sorted({item["side"] for item in rows}, reverse=True):
-        for method in methods:
+        for method in dict.fromkeys(item["method"] for item in rows if item["side"] == side):
             selected = [item for item in rows if item["side"] == side and item["method"] == method]
             values = [item["coverage_iou"] for item in selected]
             triangles = ""
-            if method == "dual_patches":
+            if "triangles" in selected[0]:
                 triangles = f" max_triangles={max(item['triangles'] for item in selected)}"
             print(side, method,
                   f"min_iou={min(values):.3f} median_iou={np.median(values):.3f}{triangles}")
