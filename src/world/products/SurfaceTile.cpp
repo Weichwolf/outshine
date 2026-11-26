@@ -23,6 +23,7 @@ constexpr size_t kRevisionLength = 64;
 constexpr double kCoordinateLimitM = 2e7;
 constexpr std::string_view kPackedMagic = "OUTSHST1";
 constexpr std::string_view kGridMagic = "OUTSHST2";
+constexpr std::string_view kPaintedMagic = "OUTSHST3";
 constexpr uint32_t kMaximumGridSide = 256;
 
 bool UnsignedAtMost(const Json &value, uint32_t limit) {
@@ -44,10 +45,11 @@ bool InRange(double value, double low, double high) {
   return value >= low && value <= high;
 }
 
-bool ValidGrid(const SurfaceTile &tile, size_t vertices) {
+bool ValidGrid(const SurfaceTile &tile, size_t vertices, bool painted = false) {
   const size_t side = tile.GridSide;
-  return side == 0 || (side >= 2 && side <= kMaximumGridSide && side * side == vertices &&
-                       std::has_single_bit(side - 1));
+  if (side == 0) { return !painted; }
+  return side >= 2 && side <= kMaximumGridSide && std::has_single_bit(side - 1) &&
+         (painted ? side * side <= vertices : side * side == vertices);
 }
 
 bool ValidMetadata(const SurfaceTile &tile) {
@@ -128,10 +130,10 @@ bool ReadMesh(const Json &record, SurfaceTile &tile) {
   const auto &vertices = record["vertices_eus_m"];
   const auto &normals = record["normals_eus"];
   const auto &indices = record["indices"];
-  if (!vertices.is_array() || vertices.size() < 3 ||
-      vertices.size() > SurfaceTile::MaximumVertices || !indices.is_array() || indices.empty() ||
-      indices.size() % 3 != 0 || indices.size() > SurfaceTile::MaximumIndices ||
-      !ValidGrid(tile, vertices.size())) {
+  if (!vertices.is_array() || !normals.is_array() || normals.size() != vertices.size() ||
+      vertices.size() < 3 || vertices.size() > SurfaceTile::MaximumVertices ||
+      !indices.is_array() || indices.empty() || indices.size() % 3 != 0 ||
+      indices.size() > SurfaceTile::MaximumIndices || !ValidGrid(tile, vertices.size())) {
     return false;
   }
   tile.Vertices.reserve(vertices.size());
@@ -153,6 +155,7 @@ bool ReadMesh(const Json &record, SurfaceTile &tile) {
     if (!UnsignedAtMost(index, last)) { return false; }
     tile.Indices.push_back(index.get<uint32_t>());
   }
+  tile.GroundIndices = static_cast<uint32_t>(tile.Indices.size());
   return true;
 }
 
@@ -186,7 +189,7 @@ bool ReadPackedVertices(ByteReader &input, std::span<SurfaceVertex> vertices) {
   return true;
 }
 
-bool ReadPackedMesh(ByteReader &input, SurfaceTile &tile, bool hasGrid) {
+bool ReadPackedMesh(ByteReader &input, SurfaceTile &tile, bool hasGrid, bool painted) {
   uint32_t vertices = 0;
   uint32_t indices = 0;
   if (!input.Number(vertices) || !input.Number(indices) || vertices < 3 ||
@@ -194,13 +197,26 @@ bool ReadPackedMesh(ByteReader &input, SurfaceTile &tile, bool hasGrid) {
       indices > SurfaceTile::MaximumIndices || indices % 3 != 0) {
     return false;
   }
-  if ((hasGrid && !input.Number(tile.GridSide)) || !ValidGrid(tile, vertices)) { return false; }
+  if ((hasGrid && !input.Number(tile.GridSide)) || !ValidGrid(tile, vertices, painted)) {
+    return false;
+  }
+  tile.GroundIndices = indices;
+  if (painted && (!input.Number(tile.GroundIndices) || tile.GroundIndices == 0 ||
+                  tile.GroundIndices > indices || tile.GroundIndices % 3 != 0)) {
+    return false;
+  }
+  const size_t groundVertices = painted ? tile.GridSide * tile.GridSide : vertices;
   constexpr size_t kVertexBytes = 6 * sizeof(float);
   const auto vertexData = input.Take(vertices * kVertexBytes);
   const auto indexData = input.Take(indices * sizeof(uint32_t));
-  if (!vertexData || !indexData || input.Remaining() != 0) { return false; }
+  const auto colourData = input.Take((vertices - groundVertices) * sizeof(SurfaceColour));
+  if (!vertexData || !indexData || !colourData || input.Remaining() != 0) { return false; }
   tile.Vertices.resize(vertices);
   tile.Indices.resize(indices);
+  tile.Colours.resize(vertices - groundVertices);
+  if (!tile.Colours.empty()) {
+    std::memcpy(tile.Colours.data(), colourData->data(), colourData->size());
+  }
   if (std::endian::native == std::endian::little && sizeof(SurfaceVertex) == kVertexBytes) {
     std::memcpy(tile.Vertices.data(), vertexData->data(), vertexData->size());
     std::memcpy(tile.Indices.data(), indexData->data(), indexData->size());
@@ -212,10 +228,18 @@ bool ReadPackedMesh(ByteReader &input, SurfaceTile &tile, bool hasGrid) {
       if (!packedIndices.Number(index)) { return false; }
     }
   }
-  return std::ranges::all_of(
-             tile.Vertices,
-             [&](const SurfaceVertex &vertex) { return ValidVertex(vertex, tile); }) &&
-         std::ranges::all_of(tile.Indices, [vertices](uint32_t index) { return index < vertices; });
+  const auto allIndices = std::span(tile.Indices);
+  const auto ground = allIndices.first(tile.GroundIndices);
+  const auto overlay = allIndices.subspan(tile.GroundIndices);
+  return std::ranges::all_of(tile.Vertices, [&](const auto &v) { return ValidVertex(v, tile); }) &&
+         std::ranges::all_of(ground,
+                             [groundVertices](uint32_t index) { return index < groundVertices; }) &&
+         std::ranges::all_of(
+             overlay,
+             [=](uint32_t index) { return index >= groundVertices && index < vertices; }) &&
+         (tile.Colours.empty() == overlay.empty()) &&
+         std::ranges::all_of(
+             tile.Colours, [](const SurfaceColour &colour) { return colour.back() == UINT8_MAX; });
 }
 }
 
@@ -225,9 +249,10 @@ std::expected<SurfaceTile, std::string> DecodePackedSurfaceTile(std::span<const 
   SurfaceTile tile;
   tile.StoredBytes = bytes.size();
   if (!magic) { return std::unexpected("invalid packed surface tile header"); }
-  const bool hasGrid = std::ranges::equal(*magic, kGridMagic);
+  const bool painted = std::ranges::equal(*magic, kPaintedMagic);
+  const bool hasGrid = painted || std::ranges::equal(*magic, kGridMagic);
   if ((!hasGrid && !std::ranges::equal(*magic, kPackedMagic)) || !ReadPackedMetadata(input, tile) ||
-      !ReadPackedMesh(input, tile, hasGrid)) {
+      !ReadPackedMesh(input, tile, hasGrid, painted)) {
     return std::unexpected("invalid packed surface tile header or mesh");
   }
   return tile;
@@ -236,7 +261,8 @@ std::expected<SurfaceTile, std::string> DecodePackedSurfaceTile(std::span<const 
 std::expected<SurfaceTile, std::string> ReadSurfaceTile(std::string_view path) {
   const auto source = ReadTextFile(path, kFileBytesMost);
   if (!source) { return std::unexpected(source.error()); }
-  if (source->starts_with(kPackedMagic) || source->starts_with(kGridMagic)) {
+  if (source->starts_with(kPackedMagic) || source->starts_with(kGridMagic) ||
+      source->starts_with(kPaintedMagic)) {
     return DecodePackedSurfaceTile(
         {reinterpret_cast<const uint8_t *>(source->data()), source->size()});
   }

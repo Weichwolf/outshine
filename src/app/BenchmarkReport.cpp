@@ -193,6 +193,7 @@ ReportJson TileContent(const BenchmarkTileCoverage &tile) {
           {"revision", tile.Revision},
           {"geometric_error_m", tile.GeometricErrorM},
           {"draws_per_frame", 1},
+          {"overlay_triangles_per_frame", tile.OverlayTriangles},
           {"triangles_per_frame", tile.Triangles}};
 }
 
@@ -200,13 +201,16 @@ ReportJson TileContent(std::span<const BenchmarkTileCoverage> tiles) {
   if (tiles.size() == 1) { return TileContent(tiles.front()); }
   auto records = ReportJson::array();
   size_t triangles = 0;
+  size_t overlayTriangles = 0;
   for (const auto &tile : tiles) {
     records.push_back(TileContent(tile));
     triangles += tile.Triangles;
+    overlayTriangles += tile.OverlayTriangles;
   }
   return {{"kind", "opaque_surface_cut"},
           {"tiles", std::move(records)},
           {"draws_per_frame", tiles.size()},
+          {"overlay_triangles_per_frame", overlayTriangles},
           {"triangles_per_frame", triangles}};
 }
 

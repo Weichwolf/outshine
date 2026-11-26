@@ -479,8 +479,8 @@ class ScenarioBenchmark(unittest.TestCase):
                     'version': 1, 'grid_side': 2, 'coverage': address, 'origin_lon_lat': [0, 0],
                     'revision': identity * 64, 'bounds_eus_m': [[-10, 90, -5], [10, 110, -5]],
                     'geometric_error_m': 1,
-                    'vertices_eus_m': [[-10, 90, -5], [10, 90, -5], [10, 110, -5], [-10, 110, -5]],
-                    'normals_eus': [[0, 0, 1]] * 4, 'indices': [0, 1, 2, 0, 2, 3],
+                    'vertices_eus_m': [[-10, 90, -5], [10, 90, -5], [-10, 110, -5], [10, 110, -5]],
+                    'normals_eus': [[0, 0, 1]] * 4, 'indices': [0, 1, 3, 0, 3, 2],
                 }))
                 packer = ROOT / 'test/experiments/render/pack_surface_tile.py'
                 subprocess.run([sys.executable, '-B', str(packer), str(source), str(packed)],
@@ -535,23 +535,32 @@ class ScenarioBenchmark(unittest.TestCase):
             revision = 'a' * 64
             image = root / 'frame.png'
 
-            def quad(address, xmin, xmax, ymin, ymax):
+            def quad(address, xmin, xmax, ymin, ymax, overlay=False):
                 path = root / ('-'.join(map(str, address)) + '.json')
                 packed = path.with_suffix('.surface')
                 bounds = [[xmin, ymin, -4], [xmax, ymax, -4]]
-                path.write_text(json.dumps({
-                    'version': 1, 'coverage': address, 'origin_lon_lat': [0, 0],
+                recipe = {
+                    'version': 1, 'grid_side': 2, 'coverage': address, 'origin_lon_lat': [0, 0],
                     'revision': '1' * 64, 'geometric_error_m': 10, 'bounds_eus_m': bounds,
                     'vertices_eus_m': [bounds[0], [xmax, ymin, -4], [xmin, ymax, -4], bounds[1]],
                     'normals_eus': [[0, 0, 1]] * 4, 'indices': [0, 1, 3, 0, 3, 2],
-                }))
+                    'colours_rgba8': [], 'ground_indices': 6,
+                }
+                if overlay:
+                    recipe['bounds_eus_m'] = [bounds[0], [xmax, ymax, -2]]
+                    recipe['vertices_eus_m'] += [[0.5, 100.1, -2], [1, 100.1, -2], [1, 101, -2]]
+                    recipe['normals_eus'] += [[0, 0, 1]] * 3
+                    recipe['indices'] += [4, 5, 6]
+                    recipe['colours_rgba8'] = [[217, 167, 24, 255]] * 3
+                path.write_text(json.dumps(recipe))
                 subprocess.run([sys.executable, '-B',
                                 str(ROOT / 'test/experiments/render/pack_surface_tile.py'),
                                 str(path), str(packed)], check=True, timeout=20)
                 return packed
 
-            parent = quad([0, 0, 0], -10, 10, 90, 110)
-            children = [quad([1, x, y], x * 10 - 10, x * 10, 90 + y * 10, 100 + y * 10)
+            parent = quad([0, 0, 0], -10, 10, 90, 110, overlay=True)
+            children = [quad([1, x, y], x * 10 - 10, x * 10, 90 + y * 10, 100 + y * 10,
+                             overlay=x == y == 1)
                         for y in range(2) for x in range(2)]
 
             def publish(*paths):
@@ -571,11 +580,13 @@ class ScenarioBenchmark(unittest.TestCase):
             partial = capture()
             pixels = image.read_bytes()
             self.assertEqual(partial['rendered_content']['near']['address'], [0, 0, 0])
+            self.assertEqual(partial['rendered_content']['near']['overlay_triangles_per_frame'], 1)
             self.assertEqual(partial['traffic']['tile_requested_bytes'], parent.stat().st_size)
 
             publish(children[3])
             full = capture()
             self.assertEqual(full['rendered_content']['near']['draws_per_frame'], 4)
+            self.assertEqual(full['rendered_content']['near']['overlay_triangles_per_frame'], 1)
             self.assertEqual(full['traffic']['tile_requested_bytes'],
                              sum(tile.stat().st_size for tile in children))
             self.assertEqual(image.read_bytes(), pixels)

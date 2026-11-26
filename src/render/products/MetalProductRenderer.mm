@@ -19,6 +19,7 @@ static_assert(sizeof(SurfaceVertex) == 6 * sizeof(float) &&
               alignof(SurfaceVertex) == alignof(float) &&
               offsetof(SurfaceVertex, Normal) == 3 * sizeof(float));
 static_assert(sizeof(ClipMatrix) == 64 && sizeof(uint32_t) == 4);
+static_assert(sizeof(SurfaceColour) == 4);
 
 NSString *const kShader = @R"(
 #include <metal_stdlib>
@@ -30,12 +31,16 @@ struct SurfaceVertex {
 struct Varyings {
   float4 position [[position]];
   float3 normal;
+  half4 colour;
 };
 vertex Varyings tile_vertex(uint index [[vertex_id]],
                             const device SurfaceVertex *vertices [[buffer(0)]],
-                            constant float4x4 &clip [[buffer(1)]]) {
+                            constant float4x4 &clip [[buffer(1)]],
+                            const device uchar4 *colours [[buffer(2)]],
+                            constant uint &firstColour [[buffer(3)]]) {
   SurfaceVertex point = vertices[index];
-  return {clip * float4(point.position, 1.0), point.normal};
+  const half4 colour = index < firstColour ? half4(0.0h) : half4(colours[index - firstColour]) / 255.0h;
+  return {clip * float4(point.position, 1.0), point.normal, colour};
 }
 float4 tileColour(Varyings in) {
   float3 normal = normalize(in.normal);
@@ -43,6 +48,7 @@ float4 tileColour(Varyings in) {
   float diffuse = 0.35 + 0.65 * max(0.0, dot(normal, light));
   float3 reflectance = mix(float3(0.26, 0.22, 0.17), float3(0.13, 0.20, 0.10),
                            smoothstep(0.45, 0.92, normal.y));
+  reflectance = mix(reflectance, float3(in.colour.rgb), float(in.colour.a));
   return float4(diffuse * reflectance, 1.0);
 }
 fragment float4 tile_fragment(Varyings in [[stage_in]]) {
@@ -333,7 +339,9 @@ std::expected<ProductPass, std::string> MakePass(id<MTLDevice> device,
 struct TileMesh {
   id<MTLBuffer> Vertices = nil;
   id<MTLBuffer> Indices = nil;
+  id<MTLBuffer> Colours = nil;
   size_t IndexCount = 0;
+  uint32_t FirstColour = 0;
   Mat4 WorldFromTile;
 };
 
@@ -345,6 +353,8 @@ void DrawTile(id<MTLRenderCommandEncoder> draw,
   [draw setDepthStencilState:pipeline.Depth];
   [draw setVertexBuffer:mesh.Vertices offset:0 atIndex:0];
   [draw setVertexBytes:clip.data() length:sizeof(clip) atIndex:1];
+  [draw setVertexBuffer:mesh.Colours == nil ? mesh.Vertices : mesh.Colours offset:0 atIndex:2];
+  [draw setVertexBytes:&mesh.FirstColour length:sizeof(mesh.FirstColour) atIndex:3];
   [draw drawIndexedPrimitives:MTLPrimitiveTypeTriangle
                    indexCount:mesh.IndexCount
                     indexType:MTLIndexTypeUInt32
@@ -500,19 +510,27 @@ std::expected<ProductResources, std::string> UploadProducts(id<MTLDevice> device
   for (const auto &tile : products.Tiles) {
     const auto vertices = std::as_bytes(std::span(tile.Product.Vertices));
     const auto indices = std::as_bytes(std::span(tile.Product.Indices));
+    const auto colours = std::as_bytes(std::span(tile.Product.Colours));
     const TileMesh mesh{.Vertices = [device newBufferWithBytes:vertices.data()
                                                         length:vertices.size()
                                                        options:MTLResourceStorageModeShared],
                         .Indices = [device newBufferWithBytes:indices.data()
                                                        length:indices.size()
                                                       options:MTLResourceStorageModeShared],
+                        .Colours = colours.empty()
+                                       ? nil
+                                       : [device newBufferWithBytes:colours.data()
+                                                             length:colours.size()
+                                                            options:MTLResourceStorageModeShared],
                         .IndexCount = tile.Product.Indices.size(),
+                        .FirstColour = static_cast<uint32_t>(tile.Product.Vertices.size() -
+                                                             tile.Product.Colours.size()),
                         .WorldFromTile = tile.WorldFromTile};
-    if (mesh.Vertices == nil || mesh.Indices == nil) {
+    if (mesh.Vertices == nil || mesh.Indices == nil || (!colours.empty() && mesh.Colours == nil)) {
       return std::unexpected("Metal tile upload failed");
     }
     resources.Meshes.push_back(mesh);
-    resources.Bytes += vertices.size() + indices.size();
+    resources.Bytes += vertices.size() + indices.size() + colours.size();
   }
   resources.Panoramas.reserve(products.Panoramas.size());
   for (const auto &panorama : products.Panoramas) {

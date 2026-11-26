@@ -34,6 +34,7 @@ struct BenchmarkTileCoverage {
   std::array<double, 2> OriginLonLat;
   std::string Revision;
   size_t Triangles = 0;
+  size_t OverlayTriangles = 0;
   double GeometricErrorM = 0;
   size_t StoredBytes = 0;
 };

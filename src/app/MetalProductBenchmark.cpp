@@ -301,6 +301,7 @@ PlaceTiles(const SurfaceCutLookup &cut, ScenarioBenchmarkReport &report, Longitu
          .OriginLonLat = {tile.Origin.LongitudeDeg, tile.Origin.LatitudeDeg},
          .Revision = tile.Revision,
          .Triangles = tile.Indices.size() / 3,
+         .OverlayTriangles = (tile.Indices.size() - tile.GroundIndices) / 3,
          .GeometricErrorM = tile.GeometricErrorM,
          .StoredBytes = tile.StoredBytes});
   }
