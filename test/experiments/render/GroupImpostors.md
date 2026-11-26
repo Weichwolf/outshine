@@ -196,7 +196,7 @@ python3 -B test/experiments/render/canopy_group_layout.py \
   "$surface" "$ground_samples" data/world/vegetation.json "$prototype/group.json" \
   "$probe/layouts"
 mkdir "$probe/hillside"
-build/outshine_experiment_compose_groups "$prototype" "$layout" "$probe/hillside" 32
+build/outshine_experiment_compose_groups "$prototype" "$layout" "$probe/hillside"
 outshine cache import-group "$database" "$revision" "$probe/hillside"
 ```
 
@@ -419,8 +419,31 @@ At 39° vertical field of view the same 16 m flight blended one of the
 and endpoint preserve the stand silhouette at a glance, with visible grain
 inside the crowns.
 Card density shifts most of the cost from frame submission to product loading.
-A camera-independent storage policy and better angular coverage need a separate
-check before using these sizes globally.
+
+## Camera-independent card density
+
+`canopy_group_layout.py` defaults to a target of 0.8 m per texel. It divides
+the authored diameter by the pitch and rounds up to a supported side from 32
+through 256. Larger sites use the 256 cap and their actual texel footprint
+still governs the runtime transition. The native composer uses that authored
+card side. An explicit side is available for controlled comparisons.
+
+With the same group roots and panorama, the fixed pitch chose ten 128-texel
+and four 256-texel sites. Three paired runs kept every site in the group tier.
+The median GPU p99 was 3.54 ms in flight and 3.09 ms in the full turn versus
+3.02 and 2.86 ms with the previous hand-picked sides. The flight screenshot
+matched in the measured stand crop. Whole-flight compressed reads were 7.18 MB
+and peak submitted geometry was 139,369 triangles, versus 6.86 MB and 120,855
+with the hand-picked sides.
+
+A separate Metal control orbited the 151-root site from 488 to 522 m at
+elevations of −12°, 37° and 82°. The geometry-to-card transition lasted 21 of
+120 frames. Its final frame matched the cards-only control in each view.
+Against matching ground, coverage IoU with the fine mesh was 0.631, 0.585
+and 0.641 at the three elevations. Composing at twice the side before reducing
+to the same card size raised the flight crop from 4,580 to 4,963 pixels against
+4,862 for the mesh, but gave IoUs of 0.628, 0.563 and 0.577 in the orbit.
+Keep one sample per authored texel. Better angular coverage remains open.
 
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),

@@ -57,7 +57,7 @@ std::optional<AtlasSize> ReadAtlasSize(const Json &manifest) {
     return std::nullopt;
   }
   const auto centre = ReadVector(manifest["centre_m"]);
-  const auto side = manifest["pixels"].get<unsigned>();
+  const auto side = manifest["pixels"].get<uint64_t>();
   if (!centre || side < 3 || side > kSourceSideLimit) { return std::nullopt; }
   return AtlasSize{.CentreM = *centre,
                    .HalfExtentM = manifest["half_extent_m"].get<double>(),
@@ -157,14 +157,26 @@ bool Emit(const ImpostorAtlas &atlas, const std::filesystem::path &folder, uint3
   return true;
 }
 
-int Run(const char *const *arguments) {
-  uint32_t cardSide = 0;
-  const std::string_view pixels = arguments[4];
-  const auto parsed = std::from_chars(pixels.data(), pixels.data() + pixels.size(), cardSide);
-  if (parsed.ec != std::errc{} || parsed.ptr != pixels.data() + pixels.size() ||
-      !GroupImpostorView::ValidSide(cardSide)) {
-    return 2;
+std::optional<uint32_t> CardSide(const Json &manifest, const char *overrideSide, int captureSide) {
+  auto side = static_cast<uint64_t>(captureSide);
+  if (overrideSide != nullptr) {
+    const std::string_view text = overrideSide;
+    const auto parsed = std::from_chars(text.data(), text.data() + text.size(), side);
+    if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size()) {
+      return std::nullopt;
+    }
+  } else if (const auto authored = manifest.find("card_side"); authored != manifest.end()) {
+    if (!authored->is_number_unsigned()) { return std::nullopt; }
+    side = authored->get<uint64_t>();
   }
+  if (side > GroupImpostorView::MaximumSide ||
+      !GroupImpostorView::ValidSide(static_cast<uint32_t>(side))) {
+    return std::nullopt;
+  }
+  return static_cast<uint32_t>(side);
+}
+
+int Run(const char *const *arguments) {
   std::string error;
   const auto prototype = ReadPrototype(arguments[1], error);
   const auto layout = ReadTextFile(arguments[2], kManifestLimit);
@@ -176,6 +188,8 @@ int Run(const char *const *arguments) {
     std::cerr << "invalid reusable atlas or group layout " << error << '\n';
     return 1;
   }
+  const auto side = CardSide(manifest, arguments[4], size->Pixels);
+  if (!side) { return 2; }
   const auto began = std::chrono::steady_clock::now();
   const auto atlas = ComposeGroupImpostor(*prototype,
                                           {.CentreM = size->CentreM,
@@ -190,14 +204,14 @@ int Run(const char *const *arguments) {
   const auto elapsed =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began);
   const std::filesystem::path folder(arguments[3]);
-  if (!Emit(*atlas, folder, cardSide)) { return 1; }
+  if (!Emit(*atlas, folder, *side)) { return 1; }
   auto axes = Json::array();
   for (const auto &view : atlas->Views()) { axes.push_back(view.TowardEye.Axis); }
   if (manifest.contains("canopy_cell")) { manifest["layout_sha256"] = Sha256Hex(*layout); }
   manifest.erase("roots_m");
   manifest.erase("tree_scales");
   manifest["directions"] = std::move(axes);
-  manifest["card_side"] = cardSide;
+  manifest["card_side"] = *side;
   manifest["card_views"] = atlas->Views().size();
   manifest["composition_ms"] = elapsed.count();
   const auto text = manifest.dump(2);
@@ -208,8 +222,8 @@ int Run(const char *const *arguments) {
 }
 
 int main(int argc, const char *const *argv) {
-  if (argc != 5) {
-    std::cerr << "compose_groups <tree capture> <group layout> <output> <card pixels>\n";
+  if (argc != 4 && argc != 5) {
+    std::cerr << "compose_groups <tree capture> <group layout> <output> [card pixels]\n";
     return 2;
   }
   return Run(argv);

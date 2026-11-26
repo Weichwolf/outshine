@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -50,14 +51,22 @@ def plant(faces, points, classes, densities, rng, limit):
     return np.asarray(roots)
 
 
-def group(key, surface, roots, prototype, rng):
+def card_side(half_extent_m, pitch_m):
+    for side in (32, 64, 128):
+        if 2 * half_extent_m / side <= pitch_m:
+            return side
+    return 256
+
+
+def group(key, surface, roots, prototype, rng, pitch_m):
     scale = rng.uniform(0.46, 0.77, len(roots))
     centres = roots + scale[:, None] * prototype["centre_m"]
     radius = scale * prototype["half_extent_m"]
     centre = ((centres - radius[:, None]).min(axis=0)
               + (centres + radius[:, None]).max(axis=0)) * 0.5
     extent = np.max(np.linalg.norm(centres - centre, axis=1) + radius)
-    return {"pixels": 64, "centre_m": centre.tolist(), "half_extent_m": float(extent),
+    side = card_side(extent, pitch_m)
+    return {"pixels": side, "card_side": side, "centre_m": centre.tolist(), "half_extent_m": float(extent),
             "roots_m": roots.tolist(), "tree_scales": scale.tolist(), "canopy_cell": key,
             "surface": surface}
 
@@ -71,7 +80,11 @@ def main():
     parser.add_argument("output", type=Path)
     parser.add_argument("--cell", action="append", nargs=2, type=int, metavar=("ROW", "COL"))
     parser.add_argument("--max-root-elevation-m", type=float, default=float("inf"))
+    parser.add_argument("--card-pitch-m", type=float, default=0.8,
+                        help="target metres per card texel, limited to 32–256 texels per side")
     opts = parser.parse_args()
+    if not (math.isfinite(opts.card_pitch_m) and opts.card_pitch_m > 0):
+        parser.error("--card-pitch-m must be finite and positive")
     surface, points, faces = read_surface(opts.surface)
     classes = np.fromfile(opts.ground_samples, dtype=SAMPLE)["class"]
     if len(classes) != len(points):
@@ -94,7 +107,8 @@ def main():
         if len(roots) < 10:
             continue
         output = opts.output / f"layout-{key[:8]}.json"
-        output.write_text(json.dumps(group(key, surface, roots, prototype, rng), indent=2) + "\n")
+        layout = group(key, surface, roots, prototype, rng, opts.card_pitch_m)
+        output.write_text(json.dumps(layout, indent=2) + "\n")
 
 
 if __name__ == "__main__":
