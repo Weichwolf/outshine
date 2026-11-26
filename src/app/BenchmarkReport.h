@@ -36,8 +36,20 @@ struct BenchmarkTileCoverage {
   size_t Triangles = 0;
   double GeometricErrorM = 0;
   size_t StoredBytes = 0;
-  size_t UploadBytes = 0;
-  double UploadMs = 0;
+};
+
+struct BenchmarkPanoramaCoverage {
+  size_t Side = 0;
+  Vec3 AnchorM;
+  std::string Revision;
+  double MaximumRangeM = 0;
+  double MaximumTranslationM = 0;
+  size_t StoredBytes = 0;
+};
+
+struct BenchmarkPanoramaHandoff {
+  BenchmarkPanoramaCoverage Next;
+  std::array<double, 2> BlendWindowFrames{};
 };
 
 struct ScenarioBenchmarkReport {
@@ -51,6 +63,11 @@ struct ScenarioBenchmarkReport {
   Camera Start;
   Camera Finish;
   std::optional<BenchmarkTileCoverage> Tile;
+  std::optional<BenchmarkPanoramaCoverage> Panorama;
+  std::optional<BenchmarkPanoramaHandoff> PanoramaHandoff;
+  size_t ProductUploadBytes = 0;
+  double ProductReadMs = 0;
+  double ProductUploadMs = 0;
   Loading Prepared;
   Loading Finished;
   double SetupMs = 0;

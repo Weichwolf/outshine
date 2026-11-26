@@ -20,6 +20,28 @@ SCENE = {
     'views': {'view': [{'id': 'start', 'fovDeg': 70,
                         'at': {'x': 0, 'y': 0, 'z': 4}}]},
 }
+PRODUCT_SCENE = """<scenario>
+  <world lat="0" lon="0"/>
+  <render widthPx="1280" heightPx="720" fps="30"/>
+  <views><view id="station" nearM="1" farM="100" fovDeg="60">
+    <at lat="0" lon="0" heightM="100" samplesHeight="no" bearingDeg="0"/>
+  </view></views>
+</scenario>"""
+
+
+def write_panorama(root, anchor=(0, 100, 0), radius=0, colour=(1, 0, 0), revision='0'):
+    root.mkdir(exist_ok=True)
+    (root / 'panorama.json').write_text(json.dumps({
+        'version': 1, 'representation': 'colour_radial_depth_cubemap',
+        'face_order': ['px', 'nx', 'py', 'ny', 'pz', 'nz'], 'face_px': 2,
+        'colour_encoding': 'rgba16f_linear_le_a_opaque_coverage',
+        'depth_encoding': 'r32f_radial_metres_le_zero_without_geometry',
+        'origin_lon_lat': [0, 0], 'anchor_eus_m': anchor, 'revision': revision * 64,
+        'maximum_range_m': 100, 'maximum_eye_translation_m': radius,
+        'reference_exposure': 1, 'opaque_texels': [4] * 6,
+    }))
+    (root / 'colour.rgba16f').write_bytes(struct.pack('<4e', *colour, 1) * 24)
+    (root / 'depth.r32f').write_bytes(struct.pack('<f', 10) * 24)
 
 
 class ScenarioBenchmark(unittest.TestCase):
@@ -252,6 +274,109 @@ class ScenarioBenchmark(unittest.TestCase):
                     self.assertIn('distinct output paths', result.stderr)
                     self.assertNotIn('SDL', result.stdout + result.stderr)
                     self.assertEqual(output.read_text(), 'previous JSON')
+
+    def test_panorama_outputs_cannot_overwrite_a_product_attachment(self):
+        with tempfile.TemporaryDirectory(prefix='outshine-benchmark-panorama-alias-') as folder:
+            depth = Path(folder) / 'depth.r32f'
+            depth.write_bytes(b'previous depth')
+            alias = Path(folder) / 'depth-link.png'
+            os.link(depth, alias)
+            result = self.invoke('--scenario', json.dumps(SCENE), '--frames', '1',
+                                 '--panorama-product', folder, '--image', str(alias))
+            self.assertEqual(result.returncode, 2, result.stderr)
+            self.assertIn('distinct files', result.stderr)
+            self.assertEqual(depth.read_bytes(), b'previous depth')
+
+    @unittest.skipUnless(os.uname().sysname == 'Darwin', 'native Metal product renderer')
+    def test_far_depth_orders_prepared_near_geometry(self):
+        with tempfile.TemporaryDirectory(prefix='outshine-benchmark-near-far-') as folder:
+            root = Path(folder)
+            source = root / 'view.scenario'
+            source.write_text(PRODUCT_SCENE)
+            tile = root / 'tile.json'
+            image = root / 'frame.png'
+            report = root / 'report.json'
+            write_panorama(root)
+
+            def draw(*products):
+                result = self.invoke('--scenario', str(source), '--frames', '1',
+                                     '--image', str(image), '--output', str(report), *products)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                return image.read_bytes(), json.loads(report.read_text())
+
+            far = ('--panorama-product', folder)
+            near = ('--tile-product', str(tile))
+            background, _ = draw(*far)
+            for distance in (2, 20):
+                # Both quads fill the viewport. Compare whole images to check every depth test.
+                z = -distance
+                half_side = distance * 2
+                bounds = [[-half_side, 100-half_side, z], [half_side, 100+half_side, z]]
+                tile.write_text(json.dumps({
+                    'version': 1, 'coverage': [0, 0, 0], 'origin_lon_lat': [0, 0],
+                    'revision': '1' * 64, 'bounds_eus_m': bounds, 'geometric_error_m': 0,
+                    'vertices_eus_m': [bounds[0], [half_side, 100-half_side, z],
+                                       bounds[1], [-half_side, 100+half_side, z]],
+                    'normals_eus': [[0, 0, 1]] * 4, 'indices': [0, 1, 2, 0, 2, 3],
+                }))
+                foreground, _ = draw(*near)
+                composite, metadata = draw(*far, *near)
+                self.assertNotEqual(foreground, background)
+                self.assertEqual(composite, foreground if distance == 2 else background)
+                self.assertEqual(metadata['render_path'], 'metal_near_far')
+                self.assertEqual(metadata['rendered_content']['draws_per_frame'], 2)
+                self.assertFalse(metadata['world_complete'])
+
+    @unittest.skipUnless(os.uname().sysname == 'Darwin', 'native Metal product renderer')
+    def test_flight_uses_a_prepared_successor_without_leaving_panorama_coverage(self):
+        with tempfile.TemporaryDirectory(prefix='outshine-benchmark-handoff-') as folder:
+            root = Path(folder)
+            scene = root / 'view.scenario'
+            scene.write_text(PRODUCT_SCENE)
+            endpoint = root / 'endpoint.scenario'
+            longitude = math.degrees(math.atan2(12, 6378237))
+            endpoint.write_text(PRODUCT_SCENE.replace('at lat="0" lon="0"',
+                                                      f'at lat="0" lon="{longitude}"'))
+            image = root / 'frame.png'
+            write_panorama(root / 'first', radius=6)
+            write_panorama(root / 'next', anchor=(8, 100, 0), radius=6, colour=(0, 1, 0),
+                           revision='1')
+            expected = self.invoke('--scenario', str(endpoint), '--frames', '1',
+                                   '--panorama-product', str(root / 'next'), '--image', str(image))
+            self.assertEqual(expected.returncode, 0, expected.stderr)
+            endpoint_pixels = image.read_bytes()
+            flight = ('--scenario', str(scene), '--frames', '12', '--linear-velocity', '30,0,0',
+                      '--panorama-product', str(root / 'first'),
+                      '--panorama-next', str(root / 'next'), '--image', str(image))
+            result = self.invoke(*flight)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(image.read_bytes(), endpoint_pixels)
+            report = json.loads(result.stdout)
+            content = report['rendered_content']
+            overlap = content['handoff']['blend_window_frames']
+            self.assertAlmostEqual(overlap[0], 2, places=5)
+            self.assertAlmostEqual(overlap[1], 6, places=5)
+            self.assertEqual(content['handoff']['next']['revision'], '1' * 64)
+            self.assertEqual(content['draws_per_frame'], 1)
+            self.assertEqual(report['traffic']['upload_bytes'], 2 * 24 * 12)
+            self.assertEqual(report['traffic']['source_delivery_bytes'], 0)
+
+            write_panorama(root / 'mixed', colour=(.5, .5, 0))
+            control = self.invoke('--scenario', str(scene), '--frames', '1',
+                                  '--panorama-product', str(root / 'mixed'), '--image', str(image))
+            self.assertEqual(control.returncode, 0, control.stderr)
+            midpoint_pixels = image.read_bytes()
+            middle = flight[:3] + ('4',) + flight[4:]
+            result = self.invoke(*middle)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(image.read_bytes(), midpoint_pixels)
+
+            write_panorama(root / 'first', radius=2)
+            write_panorama(root / 'next', anchor=(8, 100, 0), radius=4, revision='1')
+            rejected = self.invoke(*flight)
+            self.assertEqual(rejected.returncode, 1, rejected.stderr)
+            self.assertIn('domains leave a gap', rejected.stderr)
+            self.assertEqual(image.read_bytes(), midpoint_pixels)
 
     def test_runtime_failure_preserves_both_outputs(self):
         with tempfile.TemporaryDirectory(prefix='outshine-benchmark-failure-') as folder:
