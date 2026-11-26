@@ -140,6 +140,37 @@ of all 24 stand views took 0.22 s. This measures a bake candidate, with native
 capture including GPU submission and readback. Runtime GPU cost and continuity
 through both world handoffs require separate measurements.
 
+## Canopy directions
+
+```sh
+canopy=test/experiments/render/canopy_group_angles.py
+python3 -B "$canopy" directions > "$probe/canopy-views"
+mkdir "$probe/canopy-tree" "$probe/canopy-stand"
+"$bake" tree "$spruce" "$probe/canopy-views" 256 "$probe/canopy-tree"
+"$bake" stand "$spruce" "$probe/canopy-views" 128 "$probe/canopy-stand"
+python3 -B "$canopy" evaluate "$probe/canopy-stand" "$probe/canopy-results"
+python3 -B "$canopy" compose "$probe/canopy-tree" "$probe/canopy-stand" "$probe/canopy-compose"
+```
+
+| Card side | 13 stored views | 29 stored views | 53 stored views |
+|---|---:|---:|---:|
+| 32 texels | 0.658 | 0.750 | 0.777 |
+| 64 texels | 0.645 | 0.717 | 0.751 |
+
+The entries are median fractional coverage IoU at 11 held-out angles using two
+depth-reprojected views each. At 32 texels, drawing four views from the 53-view
+set reduced IoU to 0.765 and increased median excess coverage from 11.7% to
+17.9%. Start with two active views and the 29-view bank at a small projected
+footprint. The denser bank can serve foliage whose coverage still falls short.
+
+Across the 64 capture and control directions, reusing the single-tree captures
+to compose 25 positions took 0.57 s in Python, including comparison. Median
+coverage IoU against the directly captured stand was 0.845, with a worst case
+of 0.634. Native capture took 2.41 s for the reusable tree and 55.29 s for the
+full stand. The measurements cover one species and one placement. Forest
+products still need world placement, fractional coverage and native motion
+validation.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).

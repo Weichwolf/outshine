@@ -37,14 +37,14 @@ def basis(vector):
     return np.stack((right, up, vector), axis=1)
 
 
-def fields(folder):
+def fields(folder, angles=ANGLES):
     info = json.loads((folder / "group.json").read_text())
     side = info["pixels"]
-    expected = np.asarray([direction(*values) for values in ANGLES])
+    expected = np.asarray([direction(*values) for values in angles])
     if not np.allclose(info["directions"], expected, rtol=0, atol=1e-8):
         raise ValueError("capture manifest does not contain the requested views")
     depth, alpha, albedo, normals = [], [], [], []
-    for at in range(len(ANGLES)):
+    for at in range(len(angles)):
         data = np.fromfile(folder / f"{at}.field", TEXEL).reshape(side, side)
         valid = data["surface"] != 0
         if not np.array_equal(valid, data["depth"] > 0):
@@ -313,15 +313,15 @@ def compose_stand(tree, tree_info, stand_info, axis):
     return output_z, output_coverage, output_rgb
 
 
-def hierarchical(tree_capture, stand_capture, output):
-    tree, _, layers = fields(tree_capture)
-    stand, vectors, originals = fields(stand_capture)
+def hierarchical(tree_capture, stand_capture, output, angles=ANGLES):
+    tree, _, layers = fields(tree_capture, angles)
+    stand, vectors, originals = fields(stand_capture, angles)
     if len(tree["roots_m"]) != 1 or len(stand["roots_m"]) < 2:
         raise ValueError("a representative tree and a multi-tree reference stand are required")
     began = perf_counter()
     rows = []
     previews = []
-    for angle, vector, layer, original in zip(ANGLES, vectors, layers, originals):
+    for angle, vector, layer, original in zip(angles, vectors, layers, originals):
         axis = basis(vector)
         reference = raster_card(original, axis, axis, stand["pixels"])
         composed = compose_stand(layer, tree, stand, axis)
