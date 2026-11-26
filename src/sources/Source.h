@@ -19,8 +19,17 @@ enum class Coverage : uint8_t { Inside, Outside };
 
 enum class DecodeFailure : uint8_t { Unsupported, CorruptPayload };
 
+class RawSourceCache;
+
 class Source {
 public:
+  enum class Availability : uint8_t { Direct, Waiting, Absent };
+
+  struct AvailabilityCheck {
+    Availability State = Availability::Direct;
+    bool StartedRemoteRead = false;
+  };
+
   virtual ~Source() = default;
 
   [[nodiscard]] virtual const SourceDecl &Declaration() const noexcept = 0;
@@ -28,6 +37,13 @@ public:
   [[nodiscard]] virtual Coverage Covers(const SourceRequest &request) const noexcept = 0;
 
   [[nodiscard]] virtual Address Serves(const SourceRequest &request) const noexcept = 0;
+
+  [[nodiscard]] virtual AvailabilityCheck
+  CheckAvailability([[maybe_unused]] const Address &at,
+                    [[maybe_unused]] RawSourceCache &store,
+                    [[maybe_unused]] SourceTransport &transport) const {
+    return {};
+  }
 
   [[nodiscard]] virtual FetchStart Begin(const Address &at, SourceTransport &transport) const = 0;
 

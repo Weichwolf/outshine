@@ -123,29 +123,31 @@ public:
   [[nodiscard]] std::expected<std::unique_ptr<Data::Source>, std::string>
   make(const Data::SourceProvider &provider,
        [[maybe_unused]] std::string_view root) const override {
-    return std::make_unique<Terrain::TerrariumSource>(Data::SourceDecl{
-        .Id = provider.Dataset.empty() ? "mapterhorn.terrarium" : provider.Dataset,
-        .Version = 1,
-        .Revision = provider.Revision,
-        .Endpoint = provider.Endpoint.empty() ? "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp"
-                                              : provider.Endpoint,
-        .Kind = Data::DataKind::Elevation,
-        .How = Data::Scheme::TileZxy,
-        .Wire = Data::WireFormat::TerrariumWebp,
-        .Order = static_cast<Data::Rank>(provider.Priority),
-        .OnAbsent = provider.Missing,
-        .MinZoom = 0,
-        .MaxZoom = kMapterhornMaximumZoom,
-        .AncestorFill = true,
-        .Keeps = Data::Cacheability::Forever,
-        .Need = Data::Necessity::Required,
-        .Latency = Data::LatencyClass::Distant,
-        .TypicalPayloadBytes = kTerrariumTypicalPayloadBytes,
-        .RetryBudget = 4,
-        .MaximumPayloadBytes = kTerrariumMaximumPayloadBytes,
-        .PayloadSha256 = provider.PayloadSha256,
-        .Schema = "",
-        .TileAbsence = Data::TileAbsencePolicy::Parent});
+    std::string endpoint = provider.Endpoint.empty()
+                               ? std::string(Terrain::TerrariumSource::MapterhornEndpoint)
+                               : provider.Endpoint;
+    return std::make_unique<Terrain::TerrariumSource>(
+        Data::SourceDecl{.Id = provider.Dataset.empty() ? "mapterhorn.terrarium" : provider.Dataset,
+                         .Version = 1,
+                         .Revision = provider.Revision,
+                         .Endpoint = std::move(endpoint),
+                         .Kind = Data::DataKind::Elevation,
+                         .How = Data::Scheme::TileZxy,
+                         .Wire = Data::WireFormat::TerrariumWebp,
+                         .Order = static_cast<Data::Rank>(provider.Priority),
+                         .OnAbsent = provider.Missing,
+                         .MinZoom = 0,
+                         .MaxZoom = kMapterhornMaximumZoom,
+                         .AncestorFill = true,
+                         .Keeps = Data::Cacheability::Forever,
+                         .Need = Data::Necessity::Required,
+                         .Latency = Data::LatencyClass::Distant,
+                         .TypicalPayloadBytes = kTerrariumTypicalPayloadBytes,
+                         .RetryBudget = 4,
+                         .MaximumPayloadBytes = kTerrariumMaximumPayloadBytes,
+                         .PayloadSha256 = provider.PayloadSha256,
+                         .Schema = "",
+                         .TileAbsence = Data::TileAbsencePolicy::Parent});
   }
 };
 

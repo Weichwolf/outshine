@@ -200,7 +200,9 @@ SourceDelivery SourceSet::Collect(Query &query, SourceTransport &transport) {
   }
   for (;;) {
     if (query.Phase_ == Query::Phase::Ready) {
-      if (auto delivery = StartNext(query, transport)) { return std::move(*delivery); }
+      auto delivery =
+          query.Current_ == nullptr ? StartNext(query, transport) : StartCurrent(query, transport);
+      if (delivery) { return std::move(*delivery); }
       if (query.Current_ == nullptr) { continue; }
     }
 
@@ -235,7 +237,7 @@ std::optional<SourceDelivery> SourceSet::StartNext(Query &query, SourceTransport
     return Refuse(query, kRetryCapMs, *problem);
   }
   if (auto stored = ReadStored(query, transport)) { return stored; }
-  if (query.Current_ == nullptr) { return std::nullopt; }
+  if (query.Current_ == nullptr || query.Phase_ == Query::Phase::InFlight) { return std::nullopt; }
   return StartCurrent(query, transport);
 }
 
@@ -307,6 +309,16 @@ SourceDelivery SourceSet::ResumeRetry(Query &query, SourceTransport &transport) 
 
 std::optional<SourceDelivery> SourceSet::StartCurrent(Query &query, SourceTransport &transport) {
   const auto &range = query.Request_.Range();
+  if (!range && query.Phase_ == Query::Phase::Ready) {
+    const auto check = query.Current_->CheckAvailability(query.At_, Store_, transport);
+    if (check.StartedRemoteRead) {
+      const std::scoped_lock lock(LedgerMutex_);
+      ++Ledger_.ProviderStarts;
+      ++Ledger_.RemoteStarts;
+    }
+    if (check.State == Source::Availability::Waiting) { return SourceDelivery::Waiting(); }
+    if (check.State == Source::Availability::Absent) { return ProcessAbsence(query, transport); }
+  }
   const SourceRequest served =
       range ? SourceRequest(
                   query.Request_.Kind(), query.At_, *range, std::string(query.Request_.EntityTag()))
