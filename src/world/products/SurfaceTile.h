@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -35,6 +36,8 @@ struct SurfaceTile {
 };
 
 [[nodiscard]] std::expected<SurfaceTile, std::string> ReadSurfaceTile(std::string_view path);
+[[nodiscard]] std::expected<SurfaceTile, std::string>
+DecodePackedSurfaceTile(std::span<const uint8_t> bytes);
 
 }
 #endif

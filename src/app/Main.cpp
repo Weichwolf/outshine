@@ -177,7 +177,7 @@ void Usage(std::string_view verb = {}) {
         "  --offline                      use cached and shipped sources\n"
         "  --output <file.json>           atomic report; default stdout\n"
         "  --image <file.png>             save only the final measured frame\n"
-        "  --tile-product <file.json>     render one prepared tile with Metal at 1280x720\n"
+        "  --tile-product <file>          render one prepared tile with Metal at 1280x720\n"
         "  --panorama-product <directory>  render one prepared Metal cubemap at 1280x720\n"
         "  --panorama-next <directory>   hand off to a second prepared cubemap during flight\n"
         "  --panorama-output <new-dir>    capture six linear colour and reversed-depth cube faces\n"

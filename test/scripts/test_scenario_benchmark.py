@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import struct
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -326,6 +327,19 @@ class ScenarioBenchmark(unittest.TestCase):
                 self.assertEqual(metadata['render_path'], 'metal_near_far')
                 self.assertEqual(metadata['rendered_content']['draws_per_frame'], 2)
                 self.assertFalse(metadata['world_complete'])
+
+            packed = root / 'tile.surface'
+            packer = ROOT / 'test/experiments/render/pack_surface_tile.py'
+            subprocess.run([sys.executable, '-B', str(packer), str(tile), str(packed)], check=True)
+            packed_image, packed_report = draw('--tile-product', str(packed))
+            self.assertEqual(packed_image, foreground)
+            self.assertEqual(packed_report['traffic']['asset_read_bytes'], packed.stat().st_size)
+            packed.write_bytes(packed.read_bytes()[:-1])
+            broken = self.invoke('--scenario', str(source), '--frames', '1',
+                                 '--image', str(image), '--tile-product', str(packed))
+            self.assertEqual(broken.returncode, 1, broken.stderr)
+            self.assertIn('invalid packed surface tile', broken.stderr)
+            self.assertEqual(image.read_bytes(), foreground)
 
     @unittest.skipUnless(os.uname().sysname == 'Darwin', 'native Metal product renderer')
     def test_flight_uses_a_prepared_successor_without_leaving_panorama_coverage(self):
