@@ -43,15 +43,51 @@ def in_extent(points, extent):
     return match & (lat >= south) & (lat <= north)
 
 
-def building_groups(store, keys, addresses, extent):
+def boundary_edges(points):
+    vertices = [tuple(point) for point in points]
+    if len(vertices) > 1 and vertices[0] == vertices[-1]:
+        vertices.pop()
+    edges = zip(vertices, vertices[1:] + vertices[:1])
+    return tuple(sorted(tuple(sorted(edge)) for edge in edges))
+
+
+def footprint_key(source, ordinal):
+    record = source["records"][ordinal]
+    points = source["points_latlon"]
+    first, count = record["local_first"], record["point_count"]
+    first_hole, hole_count = record["first_hole"], record["hole_count"]
+    rings = source["holes"][first_hole:first_hole + hole_count]
+    holes = tuple(sorted(
+        (int(h["exterior"]), boundary_edges(points[h["first"]:h["first"] + h["count"]]))
+        for h in rings
+    ))
+    return (record["source_id"], record["minimum_height_m"],
+            boundary_edges(points[first:first + count]), holes)
+
+
+def unseen_footprints(source, ids, seen):
+    keep = []
+    for ordinal in ids:
+        identity = footprint_key(source, ordinal)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        keep.append(ordinal)
+    return np.asarray(keep, dtype=np.intp)
+
+
+def building_groups(store, keys, addresses, extent, deduplicate=False):
     groups = {tile: {} for tile in addresses}
     levels = sorted({tile[0] for tile in addresses})
+    seen = set()
     for key in sorted(set(keys)):
         body, _ = package(store, key, kind="buildings")
         source = read_plans(body)
         positions = source["points_latlon"][[record["local_first"] for record in source["records"]]]
         supported = np.asarray([row["supported"] for row in source["summaries"]], dtype=bool)
         ids = np.flatnonzero(in_extent(positions, extent) & supported)
+        if deduplicate:
+            ids = unseen_footprints(source, ids, seen)
         lat, lon = positions[ids].T
         x = (lon + 180) / 360
         y = (1 - np.arcsinh(np.tan(np.deg2rad(lat))) / np.pi) / 2
@@ -117,6 +153,8 @@ def main():
     parser.add_argument("--building-key", action="append", required=True)
     parser.add_argument("--fine-level", type=int, required=True)
     parser.add_argument("--extent", type=float, nargs=4, metavar=("WEST", "SOUTH", "EAST", "NORTH"))
+    parser.add_argument("--deduplicate", action="store_true",
+                        help="merge exact footprints and inner rings with matching source and base height")
     args = parser.parse_args()
     if not 0 <= args.fine_level <= 29 or args.output.exists():
         parser.error("use a valid fine level and a new output directory")
@@ -128,7 +166,7 @@ def main():
     addresses = [item[0] for item in grids]
     if len(set(addresses)) != len(grids):
         parser.error("duplicate terrain address")
-    groups = building_groups(args.source_store, args.building_key, addresses, args.extent)
+    groups = building_groups(args.source_store, args.building_key, addresses, args.extent, args.deduplicate)
     requests = [{"origin": origin, "shell": address[0] < args.fine_level,
                  "sources": groups[address], "vertices_left": MAX_VERTICES - side**2,
                  "indices_left": MAX_INDICES - (len(content) - index_start) // INDEX.size}

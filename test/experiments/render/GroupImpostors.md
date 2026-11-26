@@ -445,6 +445,41 @@ to the same card size raised the flight crop from 4,580 to 4,963 pixels against
 4,862 for the mesh, but gave IoUs of 0.628, 0.563 and 0.577 in the orbit.
 Keep one sample per authored texel. Better angular coverage remains open.
 
+## Dense city coverage
+
+The earlier Tokyo replay baked buildings only within 350 m of Shibuya. The
+1510–1760 m cubemap overlap starts at a different camera position. Extending
+the local cut to the complete 20 by 20 grid of zoom-17 tiles around that
+overlap fills the missing city in all tested directions. There were height
+samples from the cached Tokyo ground region for every vertex. Zoom 16 hit
+the packed surface's vertex limit even for one 975-plan tile at shell detail.
+
+The expanded build used 51 intersecting prepared OSM plan packages. Of the
+224,368 supported records inside the grid, 63,341 had distinct source,
+footprint, rings and minimum height. The replay's `--deduplicate` option
+handles equivalent winding and ring starts. Four duplicates differed in
+height by over 5 cm. The test kept the first package in key order for each
+matching footprint. Native shell baking and packing took 21.13 s.
+
+At 720p30 and a 66° vertical field of view, eight 128-texel banks were
+eligible for the turn and seven for the 16 m lateral flight. Three paired
+A18 Pro Metal runs with the same 240 km panorama:
+
+| Motion | Peak submitted triangles, mesh → cards | GPU p99 | Compressed reads |
+|---|---:|---:|---:|
+| Full turn | 1,503,911 → 1,461,335 | 17.97 → 17.80 ms | 118.23 → 116.73 MB |
+| Lateral flight | 910,647 → 910,647 | 13.51 → 13.45 ms | 118.23 → 116.87 MB |
+
+Individual card captures took 128–180 ms before writing. The turn's
+replacement cut took 169 / 164 ms to prepare, and uploads grew from
+183.07 to 186.42 MB. The time differences between frame variants are
+within run-to-run variance. Three additional opened headings and both
+motion endpoints show roof-edge differences in the replaced blocks.
+At the original 55° framing every sampled site's projected texel exceeded
+one pixel. Larger banks exceed the decoded overlay-byte budget in this set.
+The larger city is now a load and coverage test. A more compact card bank
+is needed for the middle tier to replace a meaningful part of it.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).
