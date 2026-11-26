@@ -2,6 +2,7 @@
 #include "BenchmarkOptions.h"
 #include "BenchmarkScenario.h"
 #include "MetalProductBenchmark.h"
+#include "FarPanorama.h"
 #include "Calibration.h"
 #include "WriteFileAtomically.h"
 
@@ -18,15 +19,26 @@
 namespace outshine::App {
 namespace {
 
+bool ProductInputAliases(const ScenarioBenchmarkOptions &scenario, std::string_view output) {
+  std::error_code error;
+  if (!scenario.TileProduct.empty() &&
+      std::filesystem::equivalent(scenario.TileProduct, output, error)) {
+    return true;
+  }
+  if (scenario.PanoramaProduct.empty()) { return false; }
+  const std::filesystem::path root(scenario.PanoramaProduct);
+  for (const auto name :
+       {FarPanorama::MetadataFile, FarPanorama::ColourFile, FarPanorama::DepthFile}) {
+    if (std::filesystem::equivalent(root / name, output, error)) { return true; }
+  }
+  return false;
+}
+
 std::expected<void, std::string> CheckOutputPaths(const BenchmarkOptions &options) {
   if (!options.Scenario) { return {}; }
-  if (!options.Scenario->TileProduct.empty()) {
-    for (const auto output : {options.Output, options.Scenario->Image}) {
-      if (output.empty()) { continue; }
-      std::error_code error;
-      if (std::filesystem::equivalent(options.Scenario->TileProduct, output, error)) {
-        return std::unexpected("tile input and benchmark output require distinct files");
-      }
+  for (const auto output : {options.Output, options.Scenario->Image}) {
+    if (!output.empty() && ProductInputAliases(*options.Scenario, output)) {
+      return std::unexpected("product input and benchmark output require distinct files");
     }
   }
   if (options.Output.empty() || options.Scenario->Image.empty()) { return {}; }

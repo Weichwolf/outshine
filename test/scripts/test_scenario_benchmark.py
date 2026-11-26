@@ -253,6 +253,18 @@ class ScenarioBenchmark(unittest.TestCase):
                     self.assertNotIn('SDL', result.stdout + result.stderr)
                     self.assertEqual(output.read_text(), 'previous JSON')
 
+    def test_panorama_outputs_cannot_overwrite_a_product_attachment(self):
+        with tempfile.TemporaryDirectory(prefix='outshine-benchmark-panorama-alias-') as folder:
+            depth = Path(folder) / 'depth.r32f'
+            depth.write_bytes(b'previous depth')
+            alias = Path(folder) / 'depth-link.png'
+            os.link(depth, alias)
+            result = self.invoke('--scenario', json.dumps(SCENE), '--frames', '1',
+                                 '--panorama-product', folder, '--image', str(alias))
+            self.assertEqual(result.returncode, 2, result.stderr)
+            self.assertIn('distinct files', result.stderr)
+            self.assertEqual(depth.read_bytes(), b'previous depth')
+
     def test_runtime_failure_preserves_both_outputs(self):
         with tempfile.TemporaryDirectory(prefix='outshine-benchmark-failure-') as folder:
             output = Path(folder) / 'result.json'

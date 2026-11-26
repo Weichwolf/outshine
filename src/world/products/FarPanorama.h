@@ -12,6 +12,9 @@
 namespace outshine {
 
 struct FarPanorama {
+  static constexpr std::string_view MetadataFile = "panorama.json";
+  static constexpr std::string_view ColourFile = "colour.rgba16f";
+  static constexpr std::string_view DepthFile = "depth.r32f";
   static constexpr size_t FaceCount = 6;
   static constexpr size_t ColourBytesPerTexel = 8;
   static constexpr size_t DepthBytesPerTexel = 4;

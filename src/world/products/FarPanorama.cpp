@@ -104,7 +104,7 @@ std::expected<std::string, std::string> ReadAttachment(const std::filesystem::pa
 
 std::expected<FarPanorama, std::string> ReadFarPanorama(std::string_view directory) {
   const std::filesystem::path root(directory);
-  const auto meta = ReadTextFile((root / "panorama.json").string(), kMetadataBytes);
+  const auto meta = ReadTextFile((root / FarPanorama::MetadataFile).string(), kMetadataBytes);
   if (!meta) { return std::unexpected(meta.error()); }
   const auto record = Json::parse(*meta, nullptr, false);
   FarPanorama panorama;
@@ -112,9 +112,11 @@ std::expected<FarPanorama, std::string> ReadFarPanorama(std::string_view directo
     return std::unexpected("invalid far panorama header");
   }
   const size_t texels = FarPanorama::FaceCount * panorama.Side * panorama.Side;
-  auto colour = ReadAttachment(root / "colour.rgba16f", texels * FarPanorama::ColourBytesPerTexel);
+  auto colour =
+      ReadAttachment(root / FarPanorama::ColourFile, texels * FarPanorama::ColourBytesPerTexel);
   if (!colour) { return std::unexpected(colour.error()); }
-  auto depth = ReadAttachment(root / "depth.r32f", texels * FarPanorama::DepthBytesPerTexel);
+  auto depth =
+      ReadAttachment(root / FarPanorama::DepthFile, texels * FarPanorama::DepthBytesPerTexel);
   if (!depth) { return std::unexpected(depth.error()); }
   panorama.Colour = std::move(*colour);
   panorama.Depth = std::move(*depth);
