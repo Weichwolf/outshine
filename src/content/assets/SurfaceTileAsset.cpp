@@ -6,6 +6,8 @@
 #include "TangentFrame.h"
 #include "TileGeodesy.h"
 #include <algorithm>
+#include <array>
+#include <deque>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -15,6 +17,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -105,38 +108,64 @@ public:
 
   [[nodiscard]] std::expected<SurfaceCutLookup, std::string>
   Load(std::span<const AssetRecord> records) {
-    std::unordered_map<std::string_view, size_t> addresses;
     Nodes_.reserve(records.size());
     for (const auto &record : records) {
       if (!record.RequestKey || !record.Tile) { continue; }
-      addresses.emplace(*record.RequestKey, Nodes_.size());
-      Nodes_.push_back({.Record = &record, .Children = {}});
+      AddNode(record, *record.RequestKey);
     }
     std::vector<size_t> roots;
     for (size_t at = 0; at < Nodes_.size(); ++at) {
       const auto &record = *Nodes_[at].Record;
-      const auto parent = addresses.find(record.Parent);
-      if (parent == addresses.end()) {
+      const auto parent = FindParent(record);
+      if (!parent) { return std::unexpected(parent.error()); }
+      if (!*parent) {
         roots.push_back(at);
-      } else if (record.Level > 0 && Nodes_[parent->second].Record->Level == record.Level - 1) {
-        Nodes_[parent->second].Children.push_back(at);
+      } else if (record.Level > 0 && Nodes_[**parent].Record->Level == record.Level - 1) {
+        Nodes_[**parent].Children.push_back(at);
       } else {
         return std::unexpected("surface tile index contains an invalid parent");
       }
     }
     for (const size_t root : roots) {
-      const auto loaded = Visit(root);
+      const auto loaded = Visit(*Nodes_[root].Record);
       if (!loaded) { return std::unexpected(loaded.error()); }
     }
     return std::move(Cut_);
   }
 
 private:
-  [[nodiscard]] std::expected<bool, std::string> VisitChildren(const Node &node) {
-    if (node.Children.size() != 4) { return false; }
+  size_t AddNode(const AssetRecord &record, std::string_view request) {
+    const size_t index = Nodes_.size();
+    Addresses_.emplace(request, index);
+    Nodes_.push_back({.Record = &record, .Children = {}});
+    return index;
+  }
+
+  [[nodiscard]] std::expected<std::optional<size_t>, std::string>
+  FindParent(const AssetRecord &record) {
+    if (record.Parent.empty() || MissingParents_.contains(record.Parent)) { return std::nullopt; }
+    const auto known = Addresses_.find(record.Parent);
+    if (known != Addresses_.end()) { return known->second; }
+    const auto bound = Cache_.FindRequest(record.Parent);
+    if (!bound) { return std::unexpected("surface parent request lookup failed"); }
+    if (!*bound) {
+      MissingParents_.insert(record.Parent);
+      return std::nullopt;
+    }
+    auto tile = Cache_.FindTile((**bound).Key);
+    if (!tile || !*tile || !(**tile).Tile || (**tile).Tile->Revision != Revision_ ||
+        (**tile).Kind != kKind || record.Level == 0 || (**tile).Level != record.Level - 1) {
+      return std::unexpected("surface cut index contains an invalid bound parent");
+    }
+    (**tile).RequestKey = record.Parent;
+    return AddNode(Ancestors_.emplace_back(std::move(**tile)), record.Parent);
+  }
+
+  [[nodiscard]] std::expected<bool, std::string>
+  VisitPartition(std::span<const AssetRecord *const> children) {
     const size_t checkpoint = Cut_.Products.size();
-    for (const size_t child : node.Children) {
-      const auto loaded = Visit(child);
+    for (const auto *child : children) {
+      const auto loaded = Visit(*child);
       if (!loaded) { return std::unexpected(loaded.error()); }
       if (!*loaded) {
         Cut_.Products.resize(checkpoint);
@@ -146,23 +175,45 @@ private:
     return true;
   }
 
-  [[nodiscard]] std::expected<bool, std::string> Visit(size_t index) {
+  [[nodiscard]] std::expected<bool, std::string>
+  VisitChildren(std::string_view request, uint32_t level, std::span<const size_t> known) {
+    if (level >= Data::TileId::MaximumZoom) { return false; }
+    std::array<const AssetRecord *, 4> partition{};
+    if (known.size() == partition.size()) {
+      std::ranges::transform(
+          known, partition.begin(), [&](size_t child) { return Nodes_[child].Record; });
+      return VisitPartition(partition);
+    }
+    auto indexed = Cache_.SelectTileChildren(
+        {.ParentRequest = request, .Kind = kKind, .Revision = Revision_, .Level = level + 1});
+    if (!indexed) { return std::unexpected("surface child metadata lookup failed"); }
+    if (indexed->size() != partition.size()) { return false; }
+    std::ranges::sort(*indexed, {}, &AssetRecord::RequestKey);
+    std::ranges::transform(*indexed, partition.begin(), [](const auto &child) { return &child; });
+    return VisitPartition(partition);
+  }
+
+  [[nodiscard]] std::expected<bool, std::string> Visit(const AssetRecord &record) {
     constexpr double kMaxErrorPx = 1;
-    const auto &node = Nodes_[index];
-    const auto &record = *node.Record;
+    if (!record.RequestKey) { return false; }
+    const std::string_view request = *record.RequestKey;
+    const auto node = Addresses_.find(request);
+    const auto known = node == Addresses_.end()
+                           ? std::span<const size_t>{}
+                           : std::span<const size_t>(Nodes_[node->second].Children);
     const auto error = record.Tile ? record.Tile->ErrorM : std::nullopt;
     const double distance = Clearance(record.Bounds, Demand_.SweptEyeEcef);
-    const bool refine = Demand_.FocalPixels > 0 &&
+    const bool refine = Demand_.FocalPixels > 0 && !known.empty() &&
                         (!error || *error * Demand_.FocalPixels > distance * kMaxErrorPx);
     if (refine) {
-      const auto children = VisitChildren(node);
+      const auto children = VisitChildren(request, record.Level, known);
       if (!children || *children) { return children; }
     }
     auto tile = ReadRecord(Cache_, Revision_, record, Cut_.RequestedBytes);
     if (!tile) { return std::unexpected(tile.error()); }
     if (!*tile) {
       if (refine) { return false; }
-      return VisitChildren(node);
+      return VisitChildren(request, record.Level, known);
     }
     Cut_.Products.push_back(std::move(**tile));
     return true;
@@ -172,6 +223,9 @@ private:
   std::string_view Revision_;
   const SurfaceCutDemand &Demand_;
   std::vector<Node> Nodes_;
+  std::deque<AssetRecord> Ancestors_;
+  std::unordered_map<std::string_view, size_t> Addresses_;
+  std::unordered_set<std::string_view> MissingParents_;
   SurfaceCutLookup Cut_;
 };
 

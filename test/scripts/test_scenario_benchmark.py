@@ -558,9 +558,10 @@ class ScenarioBenchmark(unittest.TestCase):
                                 str(path), str(packed)], check=True, timeout=20)
                 return packed
 
-            parent = quad([0, 0, 0], -10, 10, 90, 110, overlay=True)
-            children = [quad([1, x, y], x * 10 - 10, x * 10, 90 + y * 10, 100 + y * 10,
-                             overlay=x == y == 1)
+            columns = (-10, 25, 35)
+            parent = quad([0, 0, 0], columns[0], columns[-1], 90, 110, overlay=True)
+            children = [quad([1, x, y], columns[x], columns[x + 1], 90 + y * 10, 100 + y * 10,
+                             overlay=x == 0 and y == 1)
                         for y in range(2) for x in range(2)]
 
             def publish(*paths):
@@ -609,7 +610,8 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(image.read_bytes(), pixels)
             with sqlite3.connect(database) as store:
                 store.execute('UPDATE package_bodies SET bytes=zeroblob(length(bytes)) '
-                              'WHERE key=(SELECT package FROM assets WHERE level=1 LIMIT 1)')
+                              'WHERE key=(SELECT package FROM assets WHERE level=1 AND miny>20 '
+                              'LIMIT 1)')
             recovered = capture()
             self.assertEqual(recovered['rendered_content']['near']['address'], [0, 0, 0])
             self.assertEqual(recovered['traffic']['tile_decoded_bytes'], parent.stat().st_size)

@@ -7,6 +7,19 @@ def children(tile):
     level, x, y = tile
     return tuple((level + 1, 2 * x + dx, 2 * y + dy) for dy in (0, 1) for dx in (0, 1))
 
+
+def ancestors_for_hits(indexed, hits):
+    opened = set(hits)
+    for level, x, y in hits:
+        while level:
+            level, x, y = level - 1, x // 2, y // 2
+            parent = (level, x, y)
+            if parent not in indexed or parent in opened:
+                break
+            opened.add(parent)
+    roots = {t for t in opened if (t[0] - 1, t[1] // 2, t[2] // 2) not in opened}
+    return roots, opened
+
 def edge_coordinate(fine_cell, level_gap, sample, segments):
     scale = 1 << level_gap
     return ((fine_cell % scale) * segments + sample) / scale

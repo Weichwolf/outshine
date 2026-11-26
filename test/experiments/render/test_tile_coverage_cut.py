@@ -1,9 +1,23 @@
 import unittest
 
-from tile_coverage_cut import children, coverage_cut, coverage_intervals, edge_coordinate
+from tile_coverage_cut import (ancestors_for_hits, children, coverage_cut,
+                               coverage_intervals, edge_coordinate)
 
 
 class CoverageCut(unittest.TestCase):
+    def test_spatial_hits_can_refine_using_outside_sibling_metadata(self):
+        root = (10, 5, 7)
+        family = set(children(root))
+        hot = min(family)
+        unrelated = (10, 40, 40)
+        stored = {root, unrelated, *family}
+        roots, opened = ancestors_for_hits(stored, {hot})
+        self.assertEqual(roots, {root})
+        self.assertEqual(opened, {root, hot})
+        self.assertEqual(set(coverage_cut(roots, stored, opened.__contains__)[0]), family)
+        absent = next(k for k in family if k != hot)
+        self.assertEqual(coverage_cut(roots, stored - {absent}, opened.__contains__)[0], [root])
+
     def test_atomic_replacement_preserves_coverage_at_every_level(self):
         roots = [(4, 15, 8), (4, 0, 8), (4, 7, 1)]
         refined = [q for t in roots for q in children(t)]

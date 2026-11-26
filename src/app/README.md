@@ -205,7 +205,9 @@ build/outshine benchmark --scenario "$scenario" --product-store "$database" \
 ```
 
 Der SSD-Pfad wählt bei einer Tiefen-Cubemap mit Nahgrenze einen Kachelschnitt für den
-Kamerapfad. Fehlt eine Kindkachel oder ist sie beschädigt, bleibt die übergeordnete Kachel.
+Kamerapfad. Die räumliche Suche liefert Startpunkte. Die Hierarchiesuche ergänzt Eltern und
+fehlende Geschwister für eine vollständige Abdeckung. Fehlt eine Kindkachel oder ist sie
+beschädigt, bleibt die übergeordnete Kachel.
 `--stream-products` startet die Messung mit groben Kacheln und taktet die Frames nach der
 Szenariorate. Ein Worker liest und lädt den feineren Schnitt in Metal-Puffer. Der Renderer
 wechselt an einer Framegrenze, sobald die Puffer fertig sind und die gleiche Fläche abdecken.

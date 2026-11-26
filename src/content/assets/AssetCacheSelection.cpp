@@ -279,4 +279,37 @@ AssetCache::Select(const AssetQuery &query) const {
   return records;
 }
 
+std::expected<std::vector<AssetRecord>, AssetCacheError>
+AssetCache::SelectTileChildren(const AssetTileChildren &query) const {
+  if (!AssetSql::ValidKey(query.ParentRequest) || !AssetSql::ValidKey(query.Revision) ||
+      query.Kind.empty() || query.Level == 0) {
+    return std::unexpected(AssetCacheError::InvalidInput);
+  }
+  if (const auto opened = State_->EnsureOpen(); !opened) { return std::unexpected(opened.error()); }
+  const std::scoped_lock lock(*State_->Mutex);
+  const std::string sql = std::string("SELECT ") + AssetSql::kColumns + AssetSql::kTileColumns +
+                          ",q.request_key FROM assets a INDEXED BY assets_parent_kind_level" +
+                          " CROSS" + AssetSql::kTileJoin +
+                          " CROSS JOIN asset_requests q ON q.asset_id=a.id"
+                          " WHERE a.parent=? AND a.kind=? AND a.level=? AND t.revision=?";
+  AssetSql::Statement statement;
+  const auto prepared = AssetSql::Prepare(State_->Database, sql.c_str(), statement);
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  if (!AssetSql::Text(statement.Value, 1, query.ParentRequest) ||
+      !AssetSql::Text(statement.Value, 2, query.Kind) ||
+      sqlite3_bind_int64(statement.Value, 3, query.Level) != SQLITE_OK ||
+      !AssetSql::Text(statement.Value, 4, query.Revision)) {
+    return std::unexpected(AssetCacheError::Storage);
+  }
+  std::vector<AssetRecord> records;
+  int code = SQLITE_ROW;
+  while ((code = sqlite3_step(statement.Value)) == SQLITE_ROW) {
+    auto record = AssetSql::Read(statement.Value);
+    if (!record) { return std::unexpected(AssetCacheError::Storage); }
+    records.push_back(std::move(*record));
+  }
+  if (code != SQLITE_DONE) { return std::unexpected(AssetSql::Error(code)); }
+  return records;
+}
+
 }
