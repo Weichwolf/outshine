@@ -37,23 +37,21 @@ def basis(vector):
     return np.stack((right, up, vector), axis=1)
 
 
+def read_field(folder, index, side):
+    data = np.fromfile(folder / f"{index}.field", TEXEL).reshape(side, side)
+    valid = data["surface"] != 0
+    if not np.array_equal(valid, data["depth"] > 0):
+        raise ValueError("native coverage and depth disagree")
+    return data["depth"], valid.astype(float), data["colour"], data["normal"]
+
+
 def fields(folder, angles=ANGLES):
     info = json.loads((folder / "group.json").read_text())
     side = info["pixels"]
     expected = np.asarray([direction(*values) for values in angles])
     if not np.allclose(info["directions"], expected, rtol=0, atol=1e-8):
         raise ValueError("capture manifest does not contain the requested views")
-    depth, alpha, albedo, normals = [], [], [], []
-    for at in range(len(angles)):
-        data = np.fromfile(folder / f"{at}.field", TEXEL).reshape(side, side)
-        valid = data["surface"] != 0
-        if not np.array_equal(valid, data["depth"] > 0):
-            raise ValueError("native coverage and depth disagree")
-        depth.append(data["depth"])
-        alpha.append(valid.astype(float))
-        albedo.append(data["colour"])
-        normals.append(data["normal"])
-    return info, expected, tuple(zip(depth, alpha, albedo, normals))
+    return info, expected, tuple(read_field(folder, at, side) for at in range(len(angles)))
 
 
 def reduce_field(field, block):
@@ -287,6 +285,41 @@ def evaluate(folder, output):
                   f"min_iou={min(values):.3f} median_iou={np.median(values):.3f}{triangles}")
 
 
+def compare_card_pairs(capture, probe, side, pairs, output):
+    expected = json.loads((capture / "group.json").read_text())
+    if not 0 < side <= expected["pixels"] or expected["pixels"] % side:
+        raise ValueError("comparison side must divide the capture side")
+    scale = expected["pixels"] // side
+    depth, alpha, colour, _ = reduce_field(read_field(capture, probe, expected["pixels"]), scale)
+    reference = (4 * depth - 2, alpha, colour)
+    target = basis(np.asarray(expected["directions"][probe]))
+    rows = []
+    panels = [reference]
+    for folder, first, second in pairs:
+        folder = Path(folder)
+        manifest = json.loads((folder / "group.json").read_text())
+        if any(manifest[key] != expected[key] for key in ("centre_m", "half_extent_m", "surface")):
+            raise ValueError("card pairs and reference must use the same surface and framing")
+        card_side = manifest["card_side"]
+        cards = []
+        indices = (int(first), int(second))
+        byte_count = triangles = 0
+        for index in indices:
+            path = folder / f"{index}.card"
+            axis = np.asarray(manifest["directions"][index])
+            field, slopes, patches = native_card(path, card_side, axis)
+            cards.append(raster_card(field, basis(axis), target, side, planes=slopes))
+            byte_count += path.stat().st_size
+            triangles += 2 * patches
+        panel = foreground(*cards)
+        rows.append({"card_side": card_side, "views": indices, "bytes": byte_count,
+                     "triangles": triangles,
+                     **statistics(panel, reference, expected["half_extent_m"])})
+        panels.append(panel)
+    (output / "comparison.json").write_text(json.dumps(rows, indent=2) + "\n")
+    preview(panels, output / "comparison.png")
+
+
 def compose_stand(tree, tree_info, stand_info, axis):
     depth, coverage, colour, _ = tree
     side = stand_info["pixels"]
@@ -345,6 +378,13 @@ def main():
     check = modes.add_parser("evaluate")
     check.add_argument("capture", type=Path)
     check.add_argument("output", type=Path)
+    pairs = modes.add_parser("compare-pairs", help="compare explicit native pairs on a held-out view")
+    pairs.add_argument("capture", type=Path)
+    pairs.add_argument("output", type=Path)
+    pairs.add_argument("--probe", type=int, required=True)
+    pairs.add_argument("--side", type=int, required=True)
+    pairs.add_argument("--pair", action="append", nargs=3, required=True,
+                       metavar=("DIRECTORY", "FIRST", "SECOND"))
     stand = modes.add_parser("hierarchical")
     stand.add_argument("tree", type=Path)
     stand.add_argument("stand", type=Path)
@@ -357,6 +397,8 @@ def main():
     args.output.mkdir()
     if args.mode == "evaluate":
         evaluate(args.capture, args.output)
+    elif args.mode == "compare-pairs":
+        compare_card_pairs(args.capture, args.probe, args.side, args.pair, args.output)
     else:
         hierarchical(args.tree, args.stand, args.output)
 

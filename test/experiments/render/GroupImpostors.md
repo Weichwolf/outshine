@@ -565,6 +565,62 @@ same triangle counts and were pixel-identical at their endpoints.
 The Tokyo building handoff and Körbersee canopy detail handoff also kept
 identical endpoints and continued to exercise the masked draws.
 
+## Dense city handoff exposes missing roof coverage
+
+Tokyo tile `17-116393-51620` exposes a failure of the original view bank.
+At bearing 245.21°, pitch −21.77° and vertical FOV 50°, a 36 m east-west
+sweep crosses the group's 1642.6–1662.0 m handoff in both directions. All
+400 terrain tiles remain present. Each 120-frame A18 Pro run blends for
+75 frames after refinement at frame five. Removing only that group
+binding gives an exact mesh control for the affected tile. The initial
+image agrees with the control. The final image loses roofs across a
+150 × 41 px region where the rest of the frame still agrees.
+
+The eye is 16.75° above the group centre. Its two admitted directions are
+horizontal and miss the tops of buildings. Bake the same tile at the
+following azimuth/elevation pairs in that order: (135°, 0°), (90°, 0°),
+(105°, 16°), (120°, 16°), (114.79°, 16.75°). Capture all five at 256
+texels and pack the first four at both 128 and 256 texels. Compare the
+reprojected pairs against the fifth capture on the same 128 × 128 grid.
+
+```sh
+python3 -B test/experiments/render/group_impostor_views.py compare-pairs \
+  "$capture256" "$result" --probe 4 --side 128 \
+  --pair "$capture256" 0 1 --pair "$capture128" 2 3 --pair "$capture256" 2 3
+```
+
+| Direction pair | Coverage IoU | Missing coverage | Raw card bytes | Patch triangles |
+|---|---:|---:|---:|---:|
+| Horizontal, 256 | 28.3% | 71.1% | 1,428,516 | 3,034 |
+| Oblique, 128 | 89.8% | 4.0% | 381,820 | 3,222 |
+| Oblique, 256 | 89.4% | 4.8% | 1,500,916 | 10,274 |
+
+The raw byte counts include untrimmed mip chains. The original horizontal
+pair occupies 379,644 bytes after trimming. The 128-texel oblique pair
+fits within the 411,856-byte source overlay and preserves roofs in the
+opened Metal replay. It still brightens roof and wall edges.
+
+A temporary 2 px projected-texel trial replaced all 40 authored banks
+with 128-texel cards. The 33 bake directions use rings of 8, 12, 8 and 4
+azimuths at elevations 0°, 16°, 40° and 65°, plus overhead. The 16° ring
+is offset by half a sector. On the same 400 tiles at 720p30 and 55°:
+
+| Motion | Peak submitted triangles | GPU p99 | Compressed reads |
+|---|---:|---:|---:|
+| 360° turn | 1,280,836 → 1,198,936 | 14.07 → 12.61 ms | 57.71 → 107.02 MB |
+| 16 m lateral flight | 755,486 → 738,707 | 9.17 → 9.19 ms | 57.84 → 107.02 MB |
+
+Medians of three pairs. The prototype admits all 40 groups and refines
+at frame five. The current cut re-reads the tile set for that refinement.
+Keep the 1 px default while testing directional coverage, relighting
+and partial refinement on independent views.
+
+Separately, a native 1024-face recapture improves the visible city band
+beyond the overlap in the 36 m flight. For 512 → 1024 texels the median
+GPU p99 over three pairs is 12.04 → 11.93 ms, within the spread of the
+512 runs. The colour/depth payload grows from 18 to 72 MiB
+(`6 × side² × 12 B`). Use the larger capture as a visual control.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).
