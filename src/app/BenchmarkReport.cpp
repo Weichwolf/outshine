@@ -207,15 +207,25 @@ ReportJson PanoramaContent(const BenchmarkPanoramaCoverage &bake) {
           {"triangles_per_frame", 1}};
 }
 
+ReportJson PanoramaContent(const BenchmarkPanoramaCoverage &bake,
+                           const std::optional<BenchmarkPanoramaHandoff> &handoff) {
+  auto content = PanoramaContent(bake);
+  if (handoff) {
+    content["handoff"] = {{"first_frame", handoff->FirstFrame},
+                          {"next", PanoramaContent(handoff->Next)}};
+  }
+  return content;
+}
+
 ReportJson RenderedContent(const ScenarioBenchmarkReport &report) {
   if (report.Tile && report.Panorama) {
     return {{"kind", "near_far_composition"},
             {"near", TileContent(*report.Tile)},
-            {"far", PanoramaContent(*report.Panorama)},
+            {"far", PanoramaContent(*report.Panorama, report.PanoramaHandoff)},
             {"draws_per_frame", 2},
             {"triangles_per_frame", 1 + report.Tile->Triangles}};
   }
-  if (report.Panorama) { return PanoramaContent(*report.Panorama); }
+  if (report.Panorama) { return PanoramaContent(*report.Panorama, report.PanoramaHandoff); }
   if (report.Tile) { return TileContent(*report.Tile); }
   return {{"kind", "scenario_world"}};
 }
@@ -224,10 +234,12 @@ ReportJson BenchmarkTraffic(const ScenarioBenchmarkReport &report) {
   if (report.Panorama || report.Tile) {
     size_t bytes = 0;
     if (report.Panorama) { bytes += report.Panorama->StoredBytes; }
+    if (report.PanoramaHandoff) { bytes += report.PanoramaHandoff->Next.StoredBytes; }
     if (report.Tile) { bytes += report.Tile->StoredBytes; }
     return {{"source_delivery_bytes", 0},
             {"asset_read_bytes", bytes},
             {"asset_read_scope", "prepared product payloads"},
+            {"asset_read_ms", report.ProductReadMs},
             {"upload_bytes", report.ProductUploadBytes},
             {"upload_scope", "initial shared product buffers and textures"},
             {"upload_ms", report.ProductUploadMs}};

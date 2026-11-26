@@ -47,6 +47,11 @@ struct BenchmarkPanoramaCoverage {
   size_t StoredBytes = 0;
 };
 
+struct BenchmarkPanoramaHandoff {
+  BenchmarkPanoramaCoverage Next;
+  size_t FirstFrame = 0;
+};
+
 struct ScenarioBenchmarkReport {
   std::string Scenario;
   std::string DeclarationSha256;
@@ -59,7 +64,9 @@ struct ScenarioBenchmarkReport {
   Camera Finish;
   std::optional<BenchmarkTileCoverage> Tile;
   std::optional<BenchmarkPanoramaCoverage> Panorama;
+  std::optional<BenchmarkPanoramaHandoff> PanoramaHandoff;
   size_t ProductUploadBytes = 0;
+  double ProductReadMs = 0;
   double ProductUploadMs = 0;
   Loading Prepared;
   Loading Finished;

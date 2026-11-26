@@ -10,11 +10,13 @@
 #include "GeodeticCamera.h"
 #include "MetalProductRenderer.h"
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
 #include <optional>
 #include <utility>
+#include <vector>
 #endif
 
 namespace outshine::App {
@@ -122,14 +124,86 @@ MakePanoramaView(const Camera &pose, Extent frame, const FarPanorama &panorama) 
       .Exposure = panorama.ReferenceExposure};
 }
 
-bool CoversMotion(const FarPanorama &panorama,
-                  const ScenarioBenchmarkReport &report,
-                  LongitudeLatitude origin) {
+bool CoversEye(const FarPanorama &panorama, const Vec3 &eye) {
+  return Length(eye - panorama.AnchorM) <= panorama.MaximumTranslationM + kPoseRoundoffM;
+}
+
+double ChordHalfLength(const FarPanorama &panorama, const Vec3 &axisOffset) {
   const double radius = panorama.MaximumTranslationM + kPoseRoundoffM;
-  return panorama.Origin.LongitudeDeg == origin.LongitudeDeg &&
-         panorama.Origin.LatitudeDeg == origin.LatitudeDeg &&
-         Length(report.Start.PositionM - panorama.AnchorM) <= radius &&
-         Length(report.Finish.PositionM - panorama.AnchorM) <= radius;
+  return std::sqrt(std::max(0.0, radius * radius - Dot(axisOffset, axisOffset)));
+}
+
+std::expected<size_t, std::string> PanoramaHandoff(const FarPanorama &first,
+                                                   const FarPanorama &next,
+                                                   const ScenarioBenchmarkReport &report) {
+  const Vec3 start = report.Start.PositionM;
+  const Vec3 finish = report.Finish.PositionM;
+  const double length = Length(finish - start);
+  if (length <= kPoseRoundoffM || !CoversEye(first, start) || !CoversEye(next, finish)) {
+    return std::unexpected("panorama handoff requires a flight covered at both endpoints");
+  }
+  if (first.Side != next.Side || first.MaximumRangeM != next.MaximumRangeM ||
+      first.ReferenceExposure != next.ReferenceExposure) {
+    return std::unexpected("panorama handoff requires matching resolution, range and exposure");
+  }
+  const Vec3 direction = (finish - start) * (1.0 / length);
+  const Vec3 a = first.AnchorM - start;
+  const Vec3 b = next.AnchorM - start;
+  const double alongA = Dot(a, direction);
+  const double alongB = Dot(b, direction);
+  const double exit = std::min(length, alongA + ChordHalfLength(first, a - direction * alongA));
+  const double entry = std::max(0.0, alongB - ChordHalfLength(next, b - direction * alongB));
+  if (exit < entry) {
+    return std::unexpected("prepared panorama domains leave a gap in the flight");
+  }
+  const double fraction = (entry + exit) / (2 * length);
+  const double sample = std::ceil(fraction * static_cast<double>(report.Motion.Frames));
+  return std::max(size_t{1}, static_cast<size_t>(sample)) - 1;
+}
+
+BenchmarkPanoramaCoverage PanoramaCoverage(const FarPanorama &panorama) {
+  return {.Side = panorama.Side,
+          .AnchorM = panorama.AnchorM,
+          .Revision = panorama.Revision,
+          .MaximumRangeM = panorama.MaximumRangeM,
+          .MaximumTranslationM = panorama.MaximumTranslationM,
+          .StoredBytes = panorama.Colour.size() + panorama.Depth.size()};
+}
+
+struct PreparedPanoramas {
+  std::vector<FarPanorama> Products;
+  size_t FirstNextFrame = 0;
+};
+
+std::expected<PreparedPanoramas, std::string>
+PreparePanoramas(const ScenarioBenchmarkOptions &options,
+                 ScenarioBenchmarkReport &report,
+                 LongitudeLatitude origin) {
+  PreparedPanoramas prepared{.Products = {}, .FirstNextFrame = report.Motion.Frames};
+  for (const auto path : {options.PanoramaProduct, options.NextPanorama}) {
+    if (path.empty()) { continue; }
+    auto input = ReadFarPanorama(path);
+    if (!input) { return std::unexpected(input.error()); }
+    if (input->Origin.LongitudeDeg != origin.LongitudeDeg ||
+        input->Origin.LatitudeDeg != origin.LatitudeDeg) {
+      return std::unexpected("prepared panorama must share the scenario origin");
+    }
+    prepared.Products.push_back(std::move(*input));
+  }
+  if (prepared.Products.empty()) { return prepared; }
+  const auto &first = prepared.Products.front();
+  report.Panorama = PanoramaCoverage(first);
+  if (prepared.Products.size() == 2) {
+    const auto &next = prepared.Products.back();
+    const auto handoff = PanoramaHandoff(first, next, report);
+    if (!handoff) { return std::unexpected(handoff.error()); }
+    prepared.FirstNextFrame = *handoff;
+    report.PanoramaHandoff = {.Next = PanoramaCoverage(next), .FirstFrame = *handoff + 1};
+  } else if (!CoversEye(first, report.Start.PositionM) ||
+             !CoversEye(first, report.Finish.PositionM)) {
+    return std::unexpected("camera path exceeds the prepared far panorama translation domain");
+  }
+  return prepared;
 }
 
 std::expected<Render::MetalProductFrames, std::string>
@@ -139,7 +213,6 @@ MeasureProducts(const ScenarioBenchmarkOptions &options,
                 LongitudeLatitude origin) {
   const auto loadAt = BenchmarkClock::now();
   std::optional<SurfaceTile> tile;
-  std::optional<FarPanorama> panorama;
   Mat4 placement;
   if (!options.TileProduct.empty()) {
     auto input = ReadSurfaceTile(options.TileProduct);
@@ -154,21 +227,10 @@ MeasureProducts(const ScenarioBenchmarkOptions &options,
         .GeometricErrorM = tile->GeometricErrorM,
         .StoredBytes = tile->StoredBytes};
   }
-  if (!options.PanoramaProduct.empty()) {
-    auto input = ReadFarPanorama(options.PanoramaProduct);
-    if (!input) { return std::unexpected(input.error()); }
-    panorama = std::move(*input);
-    if (!CoversMotion(*panorama, report, origin)) {
-      return std::unexpected("camera path exceeds the prepared far panorama translation domain");
-    }
-    report.Panorama =
-        BenchmarkPanoramaCoverage{.Side = panorama->Side,
-                                  .AnchorM = panorama->AnchorM,
-                                  .Revision = panorama->Revision,
-                                  .MaximumRangeM = panorama->MaximumRangeM,
-                                  .MaximumTranslationM = panorama->MaximumTranslationM,
-                                  .StoredBytes = panorama->Colour.size() + panorama->Depth.size()};
-  }
+  const auto prepared = PreparePanoramas(options, report, origin);
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  report.ProductReadMs = BenchmarkElapsedMs(loadAt);
+  const auto &panoramas = prepared->Products;
   const double aspect = static_cast<double>(report.Frame.WidthPx) / report.Frame.HeightPx;
   const auto viewAt = [&](size_t frame) -> std::expected<Render::MetalProductView, std::string> {
     const auto pose = motion.At(frame);
@@ -179,19 +241,19 @@ MeasureProducts(const ScenarioBenchmarkOptions &options,
       if (!pose->clipMatrix(aspect, clip)) { return std::unexpected("invalid tile camera"); }
       view.TileClip = clip * placement;
     }
-    if (panorama) {
-      const auto projected = MakePanoramaView(*pose, report.Frame, *panorama);
+    if (!panoramas.empty()) {
+      view.PanoramaIndex = frame >= prepared->FirstNextFrame ? 1 : 0;
+      const auto projected = MakePanoramaView(*pose, report.Frame, panoramas[view.PanoramaIndex]);
       if (!projected) { return std::unexpected(projected.error()); }
       view.Panorama = *projected;
     }
     return view;
   };
   report.PreloadMs = BenchmarkElapsedMs(loadAt);
-  return Render::RenderMetalProducts(
-      {.Tile = tile ? &*tile : nullptr, .Panorama = panorama ? &*panorama : nullptr},
-      report.Motion.Frames,
-      viewAt,
-      !options.Image.empty());
+  return Render::RenderMetalProducts({.Tile = tile ? &*tile : nullptr, .Panoramas = panoramas},
+                                     report.Motion.Frames,
+                                     viewAt,
+                                     !options.Image.empty());
 }
 
 }

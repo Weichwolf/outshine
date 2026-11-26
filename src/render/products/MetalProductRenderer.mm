@@ -205,7 +205,7 @@ std::expected<ProductPass, std::string> MakePass(id<MTLDevice> device,
     if (!pipeline) { return std::unexpected(pipeline.error()); }
     tile = *pipeline;
   }
-  if (products.Panorama != nullptr) {
+  if (!products.Panoramas.empty()) {
     const auto pipeline = MakePipeline(device, library, true);
     if (!pipeline) { return std::unexpected(pipeline.error()); }
     panorama = *pipeline;
@@ -388,7 +388,7 @@ void DrawPanorama(id<MTLRenderCommandEncoder> draw,
 
 struct ProductResources {
   TileMesh Mesh;
-  PanoramaTextures Textures = {.Colour = nil, .Depth = nil};
+  std::vector<PanoramaTextures> Panoramas;
   size_t Bytes = 0;
 };
 
@@ -410,21 +410,23 @@ std::expected<ProductResources, std::string> UploadProducts(id<MTLDevice> device
     }
     resources.Bytes += vertices.size() + indices.size();
   }
-  if (const auto *const panorama = products.Panorama; panorama != nullptr) {
-    resources.Textures = {.Colour = UploadCube(device,
-                                               MTLPixelFormatRGBA16Float,
-                                               panorama->Side,
-                                               FarPanorama::ColourBytesPerTexel,
-                                               panorama->Colour),
-                          .Depth = UploadCube(device,
-                                              MTLPixelFormatR32Float,
-                                              panorama->Side,
-                                              FarPanorama::DepthBytesPerTexel,
-                                              panorama->Depth)};
-    if (resources.Textures.Colour == nil || resources.Textures.Depth == nil) {
+  resources.Panoramas.reserve(products.Panoramas.size());
+  for (const auto &panorama : products.Panoramas) {
+    const PanoramaTextures textures = {.Colour = UploadCube(device,
+                                                            MTLPixelFormatRGBA16Float,
+                                                            panorama.Side,
+                                                            FarPanorama::ColourBytesPerTexel,
+                                                            panorama.Colour),
+                                       .Depth = UploadCube(device,
+                                                           MTLPixelFormatR32Float,
+                                                           panorama.Side,
+                                                           FarPanorama::DepthBytesPerTexel,
+                                                           panorama.Depth)};
+    if (textures.Colour == nil || textures.Depth == nil) {
       return std::unexpected("Metal panorama upload failed");
     }
-    resources.Bytes += panorama->Colour.size() + panorama->Depth.size();
+    resources.Panoramas.push_back(textures);
+    resources.Bytes += panorama.Colour.size() + panorama.Depth.size();
   }
   return resources;
 }
@@ -443,7 +445,7 @@ std::expected<id<MTLCommandBuffer>, std::string> SubmitProducts(const ProductPas
     const id<MTLRenderCommandEncoder> draw = [command renderCommandEncoderWithDescriptor:pass.Pass];
     if (draw == nil) { return std::unexpected("Metal could not encode the product frame"); }
     if (pass.Panorama.Draw != nil) {
-      DrawPanorama(draw, pass.Panorama, resources.Textures, view.Panorama);
+      DrawPanorama(draw, pass.Panorama, resources.Panoramas[view.PanoramaIndex], view.Panorama);
     }
     if (clip) { DrawTile(draw, pass.Tile, resources.Mesh, *clip); }
     [draw endEncoding];
@@ -459,7 +461,7 @@ RenderMetalProducts(const MetalProductInputs &products,
                     size_t count,
                     const MetalProductViewAt &viewAt,
                     bool readImage) {
-  if (products.Tile == nullptr && products.Panorama == nullptr) {
+  if (products.Tile == nullptr && products.Panoramas.empty()) {
     return std::unexpected("Metal product capture requires an input product");
   }
   @autoreleasepool {
@@ -480,6 +482,9 @@ RenderMetalProducts(const MetalProductInputs &products,
     const auto submit = [&](size_t frame) -> std::expected<id<MTLCommandBuffer>, std::string> {
       const auto view = viewAt(frame);
       if (!view) { return std::unexpected(view.error()); }
+      if (!resources->Panoramas.empty() && view->PanoramaIndex >= resources->Panoramas.size()) {
+        return std::unexpected("Metal panorama view references an unavailable product");
+      }
       return SubmitProducts(*pass, *resources, *view);
     };
     if (const auto measured = MeasureCapture(count, submit, frames); !measured) {

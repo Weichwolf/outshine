@@ -48,3 +48,13 @@ Add `--tile-product "$tile"` to draw a prepared near tile in the same pass. Both
 use the same reversed-depth buffer. The tile covers nearer samples and reprojection holes,
 while valid panorama depth covers tile samples behind it. Benchmark reports distinguish
 this two-product composition from a complete world render.
+
+## Anchor handoff
+
+Capture a second panorama in the same tangent frame with matching range, resolution and
+exposure. Declare overlapping translation domains, then add `--panorama-next "$next"`
+to a flight that starts in the first domain and ends in the second. Before drawing,
+the benchmark intersects both domains with the flight segment, rejects a coverage gap
+and uploads both products. It uses one far draw per frame and reports the first frame
+that uses the second product. The two resident 512px products together cost 36 MiB of
+texture payload. Capture, disk reads and uploads are measured outside the frame window.

@@ -1,6 +1,8 @@
 """Check cube directions, reverse-z reconstruction, translated planes and silhouettes."""
 import numpy as np
-from far_cubemap import FORWARD, RIGHT, DOWN, addresses, directions, from_device_depth, reproject, unit
+from far_cubemap import (
+    FORWARD, RIGHT, DOWN, addresses, anchor_handoff, directions, from_device_depth, reproject, unit,
+)
 
 side = 256
 rays = directions(side)
@@ -39,3 +41,17 @@ _, distance, filled = reproject(foreground, sample, (0, 0, -100), focal)
 unresolved = int(np.count_nonzero(~filled))
 assert unresolved > 0 and np.all(distance[~filled] == 0)
 print("depth discontinuity missing samples", unresolved)
+
+start = np.array([0, 100, 0])
+finish = start + [12, 0, 0]
+anchors = start + np.array([[0, 0, 0], [8, 0, 0]])
+assert np.isclose(anchor_handoff(start, finish, anchors, (6, 6)), 1 / 3)
+assert anchor_handoff(start, finish, anchors, (2, 4)) is None
+assert anchor_handoff(start, finish, anchors, (4, 4)) == 1 / 3
+for centers, radii in ((anchors, (6, 6)), (anchors + [[0, 4, 0], [0, 2, 0]], (7, 6))):
+    switch = anchor_handoff(start, finish, centers, radii)
+    fractions = np.linspace(0, 1, 10001)
+    slots = (fractions >= switch).astype(int)
+    path = start + fractions[:, None] * (finish - start)
+    distances = np.linalg.norm(path - centers[slots], axis=1)
+    assert np.all(distances <= np.asarray(radii)[slots])

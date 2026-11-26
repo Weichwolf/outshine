@@ -12,6 +12,26 @@ def unit(vectors):
     return vectors / np.linalg.norm(vectors, axis=-1, keepdims=True)
 
 
+def anchor_handoff(start, finish, anchors, radii):
+    """Locate the middle of the common coverage interval along a straight flight."""
+    points = np.asarray(anchors) - start
+    delta = np.asarray(finish) - start
+    length = np.linalg.norm(delta)
+    if not length or np.linalg.norm(points[0]) > radii[0] or (
+        np.linalg.norm(points[1] - delta) > radii[1]
+    ):
+        return None
+    direction = delta / length
+    along = points @ direction
+    across = points - along[:, None] * direction
+    half = np.sqrt(np.maximum(0, np.asarray(radii)**2 - np.sum(across**2, axis=1)))
+    first_exit = min(length, along[0] + half[0])
+    second_entry = max(0, along[1] - half[1])
+    if first_exit < second_entry:
+        return None
+    return (first_exit + second_entry) / (2 * length)
+
+
 def directions(side):
     coords = (np.arange(side) + .5) * (2 / side) - 1
     return unit(FORWARD[:, None, None] + coords[None, None, :, None] * RIGHT[:, None, None] +

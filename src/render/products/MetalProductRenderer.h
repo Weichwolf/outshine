@@ -9,6 +9,7 @@
 #include <expected>
 #include <functional>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -53,12 +54,13 @@ struct PanoramaView {
 
 struct MetalProductInputs {
   const SurfaceTile *Tile = nullptr;
-  const FarPanorama *Panorama = nullptr;
+  std::span<const FarPanorama> Panoramas;
 };
 
 struct MetalProductView {
   Mat4 TileClip;
   PanoramaView Panorama;
+  size_t PanoramaIndex = 0;
 };
 
 using MetalProductViewAt = std::function<std::expected<MetalProductView, std::string>(size_t)>;

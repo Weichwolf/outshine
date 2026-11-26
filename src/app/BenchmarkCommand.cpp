@@ -25,11 +25,13 @@ bool ProductInputAliases(const ScenarioBenchmarkOptions &scenario, std::string_v
       std::filesystem::equivalent(scenario.TileProduct, output, error)) {
     return true;
   }
-  if (scenario.PanoramaProduct.empty()) { return false; }
-  const std::filesystem::path root(scenario.PanoramaProduct);
-  for (const auto name :
-       {FarPanorama::MetadataFile, FarPanorama::ColourFile, FarPanorama::DepthFile}) {
-    if (std::filesystem::equivalent(root / name, output, error)) { return true; }
+  for (const auto panorama : {scenario.PanoramaProduct, scenario.NextPanorama}) {
+    if (panorama.empty()) { continue; }
+    const std::filesystem::path root(panorama);
+    for (const auto name :
+         {FarPanorama::MetadataFile, FarPanorama::ColourFile, FarPanorama::DepthFile}) {
+      if (std::filesystem::equivalent(root / name, output, error)) { return true; }
+    }
   }
   return false;
 }
