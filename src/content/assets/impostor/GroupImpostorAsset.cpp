@@ -346,12 +346,6 @@ std::expected<GroupImpostorLookup, std::string> LoadGroupImpostor(
   if (mode == ImpostorDistanceMode::Geometry) { return result; }
   const auto needed = SelectImpostorDirections(manifest->Directions, eye);
   if (needed.size() < 2) { return result; }
-  if (demand.PreferCoarse && mode == ImpostorDistanceMode::Handoff) {
-    const auto records = ReadViewRecords(cache, json["card_assets"], needed, meshBytes);
-    if (!records) { return std::unexpected(records.error()); }
-    result.NeedsRefinement = !records->empty();
-    return result;
-  }
   auto group =
       ReadViews(cache, *manifest, json["card_assets"], needed, meshBytes, result.RequestedBytes);
   if (!group) { return std::unexpected(group.error()); }

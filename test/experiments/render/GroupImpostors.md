@@ -653,6 +653,32 @@ Three paired A18 Pro replays of the same 40-bank, 128-texel trial kept
 the triangle and upload counts unchanged. GPU p99 was 12.84 → 13.01 ms
 for the turn and 9.17 → 9.19 ms for flight, within run-to-run spread.
 
+## Bind cached building handoffs in the initial cut
+
+If the views for a building handoff are ready, load them with the
+resident geometry in the first cut. Both endpoints already belong to
+the same coverage partition. Missing or invalid views retain the mesh.
+Terrain child partitions and canopy mesh refinement still stage in the
+background.
+
+Three paired A18 Pro replays of the 36 m Tokyo flight, at 720p30 with
+400 tiles and a 240 km panorama, gave the same peak triangle count
+(1,009,092), the same 75 blended frames and pixel-identical endpoints.
+
+| Metric | Staged | Ready in first cut |
+|---|---:|---:|
+| First frame with both representations | 5 | 0 |
+| Compressed reads | 113.03 MB | 57.97 MB |
+| Shared uploads | 187.29 MB | 180.23 MB |
+| Median GPU p99 | 11.98 ms | 12.01 ms |
+| Median preload | 164.95 ms | 165.81 ms |
+
+This eliminates the second scan for the cached handoff alone. A flight
+that also needs terrain or canopy refinement can still re-read products.
+Corrupting one selected card gives the same 400-tile image as removing
+its group binding. The Körbersee terrain and canopy flight still refines
+at frame one and reaches the same image as before.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).

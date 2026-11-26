@@ -182,7 +182,6 @@ private:
     auto replacement = LoadGroupImpostor(Cache_, record, *Demand_.GroupDemand);
     if (!replacement) { return std::unexpected(replacement.error()); }
     Cut_.GroupRequestedBytes += replacement->RequestedBytes;
-    Cut_.NeedsRefinement |= replacement->NeedsRefinement;
     if (!replacement->Product) { return false; }
     auto &group = *replacement->Product;
     auto ground = std::move(group.Ground);

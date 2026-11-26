@@ -44,7 +44,6 @@ struct GroupImpostorSurface {
 struct GroupImpostorLookup {
   std::optional<GroupImpostorSurface> Product;
   size_t RequestedBytes = 0;
-  bool NeedsRefinement = false;
 };
 
 struct GroupImpostorImport {
