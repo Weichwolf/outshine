@@ -67,6 +67,21 @@ Snapshot Replay(const std::filesystem::path &directory, bool warm, std::string r
   CHECK(field.TotalBuildMetrics().ParseMs == 0,
         "source preparation stays on the worker rather than the admission path");
   CHECK(field.MissingLayers() == 9, "native assembly preserves genuine missing layers");
+  if (warm) {
+    OsmField prefetch(2, layers, MvtSchema::OpenMapTiles, *opened);
+    const auto prefetchDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    auto state = OsmField::TilePresence::Pending;
+    do {
+      const auto ready = prefetch.PrefetchTile(pool, {.X = 1, .Y = 1});
+      CHECK(ready, "path preparation can prefetch a native indexed source tile");
+      if (!ready) { break; }
+      state = *ready;
+      if (state == OsmField::TilePresence::Pending) { (void)compute.AwaitCompletion(0.001); }
+    } while (state == OsmField::TilePresence::Pending &&
+             std::chrono::steady_clock::now() < prefetchDeadline);
+    CHECK(state == OsmField::TilePresence::Present && prefetch.Tiles().empty() && calls == 0,
+          "the warm path retains coverage without assembling geometry or asking the provider");
+  }
   Snapshot result{};
   result.Points.assign(field.Points().begin(), field.Points().end());
   for (const auto &tile : field.Tiles()) {

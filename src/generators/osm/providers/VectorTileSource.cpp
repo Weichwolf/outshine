@@ -1,5 +1,6 @@
 #include "VectorTileSource.h"
 #include "HttpOrigin.h"
+#include "PreferredVectorSource.h"
 
 #include <cstdint>
 #include <cstddef>
@@ -55,7 +56,9 @@ VectorTileSource::VectorTileSource(std::string revision,
                                    MvtSchema schema)
     : WebTileSource(
           Declared(std::move(revision), order, absence, std::move(dataset), endpoint, schema),
-          endpoint) {
+          endpoint),
+      LiveEndpoint_(endpoint == kOpenFreeMapLiveEndpoint) {
+  if (LiveEndpoint_) { return; }
   const auto &declared = Declaration();
   const auto origin = HttpOrigin(endpoint);
   if (origin.starts_with("https://tiles.openfreemap.org:") ||
@@ -80,6 +83,10 @@ VectorTileSource::VectorTileSource(std::string revision,
 }
 
 bool VectorTileSource::AcceptsIdentity(const Wire::Response &response) const noexcept {
+  if (LiveEndpoint_) {
+    const auto type = SingleResponseHeader(response.Headers, "content-type");
+    return response.Status == kHttpOk && type && *type == "application/vnd.mapbox-vector-tile";
+  }
   if (!ExpectedRelease_) { return true; }
   if (!RevisionEndpoint_) { return false; }
   const auto field = SingleResponseHeader(response.Headers, "x-ofm-debug");
@@ -88,7 +95,7 @@ bool VectorTileSource::AcceptsIdentity(const Wire::Response &response) const noe
 }
 
 bool VectorTileSource::AcceptsEmptyPayload() const noexcept {
-  return ExpectedRelease_.has_value() && RevisionEndpoint_;
+  return LiveEndpoint_ || (ExpectedRelease_.has_value() && RevisionEndpoint_);
 }
 
 }

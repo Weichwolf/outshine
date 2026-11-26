@@ -16,6 +16,7 @@
 #include <string_view>
 #include <vector>
 #include <format>
+#include <iterator>
 #include <memory>
 #include <set>
 #include <tuple>
@@ -38,6 +39,8 @@ struct PathTiles {
 };
 
 constexpr double kMostAwaitS = 0.01;
+constexpr size_t kVectorRequestsMost = 64;
+constexpr size_t kElevationRequestsMost = 4;
 using Result = std::expected<void, std::string>;
 constexpr auto kBudgetError = "view data path exceeds its unique tile budget";
 
@@ -123,56 +126,71 @@ Result Await(Ground::TilePool &pool,
   return {};
 }
 
-template <class Poll>
-std::expected<size_t, std::string>
-PollBatch(std::span<const Data::TileId> batch, std::span<bool> settled, Poll &poll) {
-  size_t progress = 0;
-  for (size_t index = 0; index < batch.size(); ++index) {
-    if (settled[index]) { continue; }
-    const auto result = poll(batch[index]);
-    if (!result) { return std::unexpected(result.error()); }
-    if (*result) {
-      settled[index] = true;
-      ++progress;
-    }
-  }
-  return progress;
-}
+class TileWindow {
+public:
+  TileWindow(std::span<const Data::TileId> tiles, size_t width) : Tiles_(tiles), Width_(width) {}
 
-template <class Poll>
-Result SettleTiles(std::span<const Data::TileId> tiles,
-                   Ground::TilePool &pool,
-                   std::chrono::steady_clock::time_point deadline,
-                   std::string_view kind,
-                   size_t batchMost,
-                   Poll poll) {
-  constexpr size_t kBatchTiles = 64;
-  Ground::TilePool::LandingCursor cursor;
-  for (size_t first = 0; first < tiles.size(); first += batchMost) {
-    const auto batch = tiles.subspan(first, std::min(batchMost, tiles.size() - first));
-    if (first != 0 && std::chrono::steady_clock::now() >= deadline) {
-      return std::unexpected(std::format("view data preparation timed out at {}/{}/{}/{}",
-                                         kind,
-                                         batch.front().Zoom,
-                                         batch.front().X,
-                                         batch.front().Y));
+  [[nodiscard]] bool Done() const noexcept { return Completed_ == Tiles_.size(); }
+
+  [[nodiscard]] Data::TileId Next() const noexcept {
+    for (const auto &tile : Active_) {
+      if (tile) { return *tile; }
     }
-    std::array<bool, kBatchTiles> settled{};
-    size_t remaining = batch.size();
-    while (remaining != 0) {
-      const auto progress = PollBatch(batch, std::span(settled).first(batch.size()), poll);
-      if (!progress) { return std::unexpected(progress.error()); }
-      remaining -= *progress;
-      if (remaining == 0) { break; }
-      if (const auto waited =
-              Await(pool,
-                    cursor,
-                    deadline,
-                    batch[static_cast<size_t>(std::ranges::find(settled, false) - settled.begin())],
-                    kind);
-          !waited) {
-        return waited;
+    return Tiles_[Admitted_];
+  }
+
+  template <class Poll> [[nodiscard]] std::expected<bool, std::string> Advance(Poll &poll) {
+    bool madeProgress = false;
+    for (auto &tile : std::span(Active_).first(Width_)) {
+      if (!tile && Admitted_ < Tiles_.size()) { tile = Tiles_[Admitted_++]; }
+      if (!tile) { continue; }
+      const auto ready = poll(*tile);
+      if (!ready) { return std::unexpected(ready.error()); }
+      if (*ready) {
+        tile.reset();
+        ++Completed_;
+        madeProgress = true;
       }
+    }
+    return madeProgress;
+  }
+
+private:
+  std::span<const Data::TileId> Tiles_;
+  size_t Width_;
+  size_t Admitted_ = 0;
+  size_t Completed_ = 0;
+  std::array<std::optional<Data::TileId>, kVectorRequestsMost> Active_{};
+};
+
+struct PathSourceTiles {
+  std::span<const Data::TileId> Vectors;
+  std::span<const Data::TileId> Heights;
+};
+
+template <class PollVector, class PollHeight>
+Result SettleSources(PathSourceTiles tiles,
+                     Ground::TilePool &pool,
+                     std::chrono::steady_clock::time_point deadline,
+                     PollVector &pollVector,
+                     PollHeight &pollHeight) {
+  TileWindow vectorWindow(tiles.Vectors, kVectorRequestsMost);
+  TileWindow heightWindow(tiles.Heights, kElevationRequestsMost);
+  Ground::TilePool::LandingCursor cursor;
+  while (!vectorWindow.Done() || !heightWindow.Done()) {
+    const auto vectorProgress = vectorWindow.Advance(pollVector);
+    if (!vectorProgress) { return std::unexpected(vectorProgress.error()); }
+    const auto heightProgress = heightWindow.Advance(pollHeight);
+    if (!heightProgress) { return std::unexpected(heightProgress.error()); }
+    if (vectorWindow.Done() && heightWindow.Done()) { break; }
+    const bool vectorPending = !vectorWindow.Done();
+    const auto now = std::chrono::steady_clock::now();
+    if ((*vectorProgress || *heightProgress) && now < deadline) { continue; }
+    const auto tile = vectorPending ? vectorWindow.Next() : heightWindow.Next();
+    if (const auto waited =
+            Await(pool, cursor, deadline, tile, vectorPending ? "vector" : "elevation");
+        !waited) {
+      return waited;
     }
   }
   return {};
@@ -195,10 +213,12 @@ std::string Refusal(Data::TileId tile,
                      failure->SourceKey);
 }
 
-std::expected<bool, std::string> PollVector(Data::TileId tile,
-                                            const Ground::SurfacePreparation &stack,
-                                            ::outshine::Generators::Osm::OsmField &vectors) {
-  const auto loaded = vectors.PollTile(
+using VectorField = Generators::Osm::OsmField;
+using TilePresence = VectorField::TilePresence;
+
+std::expected<TilePresence, std::string>
+PrefetchVector(Data::TileId tile, const Ground::SurfacePreparation &stack, VectorField &vectors) {
+  const auto loaded = vectors.PrefetchTile(
       stack.Pool(), {.X = static_cast<int>(tile.X), .Y = static_cast<int>(tile.Y)});
   if (!loaded) {
     return std::unexpected(std::format("view data preparation failed at vector/{}/{}/{}: {}",
@@ -208,6 +228,28 @@ std::expected<bool, std::string> PollVector(Data::TileId tile,
                                        loaded.error()));
   }
   return *loaded;
+}
+
+TilePresence PublishedVectorTile(const VectorField *field, Data::TileId tile) {
+  if (field == nullptr || field->Zoom() != tile.Zoom) { return TilePresence::Pending; }
+  const auto x = static_cast<int>(tile.X);
+  const auto y = static_cast<int>(tile.Y);
+  if (!field->Settled(x, y)) { return TilePresence::Pending; }
+  if (field->TileIndex(x, y) >= 0) { return TilePresence::Present; }
+  return field->PendingTiles() == 0 ? TilePresence::Absent : TilePresence::Pending;
+}
+
+std::expected<bool, std::string> PrepareVectorCoverage(Data::TileId tile,
+                                                       const Ground::SurfacePreparation &stack,
+                                                       VectorField &vectors,
+                                                       std::vector<Data::TileId> &coverage) {
+  const auto published = PublishedVectorTile(stack.Vectors(), tile);
+  const auto available = published == TilePresence::Pending
+                             ? PrefetchVector(tile, stack, vectors)
+                             : std::expected<TilePresence, std::string>{published};
+  if (!available) { return std::unexpected(available.error()); }
+  if (*available == TilePresence::Present) { coverage.push_back(tile); }
+  return *available != TilePresence::Pending;
 }
 
 std::expected<bool, std::string> PollField(Data::TileId tile,
@@ -257,26 +299,35 @@ std::expected<void, std::string>
 PrepareTerrainPath(TerrainPathPlan plan,
                    const Ground::SurfacePreparation &stack,
                    std::chrono::steady_clock::time_point deadline) {
+  if (plan.Fields.size() > TerrainPathPlan::MaximumTiles ||
+      plan.Vectors.size() > TerrainPathPlan::MaximumTiles) {
+    return std::unexpected(kBudgetError);
+  }
   auto vectors = stack.CreateVectorField();
-  std::map<int, std::unique_ptr<Generators::Osm::OsmField>> classification;
-  if (const auto read = SettleTiles(plan.Vectors,
-                                    stack.Pool(),
-                                    deadline,
-                                    "vector",
-                                    64,
-                                    [&](Data::TileId tile) -> std::expected<bool, std::string> {
-                                      if (tile.Zoom == vectors->Zoom()) {
-                                        return PollVector(tile, stack, *vectors);
-                                      }
-                                      auto &field = classification[tile.Zoom];
-                                      if (!field) {
-                                        field = stack.Classes().CreateField(tile.Zoom);
-                                      }
-                                      if (!field) {
-                                        return std::unexpected("unknown vector demand layout");
-                                      }
-                                      return PollVector(tile, stack, *field);
-                                    });
+  std::map<int, std::unique_ptr<VectorField>> classification;
+  std::vector<Data::TileId> vectorTiles;
+  const auto pollVector = [&](Data::TileId tile) -> std::expected<bool, std::string> {
+    if (tile.Zoom == vectors->Zoom()) {
+      return PrepareVectorCoverage(tile, stack, *vectors, vectorTiles);
+    }
+    auto &field = classification[tile.Zoom];
+    if (!field) { field = stack.Classes().CreateField(tile.Zoom); }
+    if (!field) { return std::unexpected("unknown vector demand layout"); }
+    const auto available = PrefetchVector(tile, stack, *field);
+    if (!available) { return std::unexpected(available.error()); }
+    return *available != TilePresence::Pending;
+  };
+  const auto &assets = stack.TerrainAssets();
+  const auto shape = stack.Pool().Shaped();
+  const auto pollHeight = [&](Data::TileId tile) -> std::expected<bool, std::string> {
+    if (assets && assets->HasIndexedField(tile, shape)) { return true; }
+    return PollField(tile, stack);
+  };
+  if (const auto read = SettleSources({.Vectors = plan.Vectors, .Heights = plan.Fields},
+                                      stack.Pool(),
+                                      deadline,
+                                      pollVector,
+                                      pollHeight);
       !read) {
     return read;
   }
@@ -284,22 +335,16 @@ PrepareTerrainPath(TerrainPathPlan plan,
       {},
       {.FinestZoom = stack.TerrainRenderZoom(),
        .GroundZoom = stack.Ground().BlockZoom(),
-       .Vectors = stack.HasDeclaredVectors() ? stack.Vectors() : vectors.get(),
-       .AdditionalTiles = {}});
+       .Vectors = stack.HasDeclaredVectors() ? stack.Vectors() : nullptr,
+       .AdditionalTiles = {}},
+      vectorTiles);
   if (!heights) { return std::unexpected(heights.error()); }
-  Tiles fields(plan.Fields.begin(), plan.Fields.end());
-  if (const auto added = Add(fields, *heights); !added) { return added; }
-  const std::vector<Data::TileId> allFields(fields.begin(), fields.end());
-  const auto &assets = stack.TerrainAssets();
-  const auto shape = stack.Pool().Shaped();
-  return SettleTiles(allFields,
-                     stack.Pool(),
-                     deadline,
-                     "elevation",
-                     4,
-                     [&](Data::TileId tile) -> std::expected<bool, std::string> {
-                       if (assets && assets->HasIndexedField(tile, shape)) { return true; }
-                       return PollField(tile, stack);
-                     });
+  std::vector<Data::TileId> additional;
+  std::ranges::set_difference(*heights, plan.Fields, std::back_inserter(additional), TileLess{});
+  if (additional.size() > TerrainPathPlan::MaximumTiles - plan.Fields.size()) {
+    return std::unexpected(kBudgetError);
+  }
+  return SettleSources(
+      {.Vectors = {}, .Heights = additional}, stack.Pool(), deadline, pollVector, pollHeight);
 }
 }

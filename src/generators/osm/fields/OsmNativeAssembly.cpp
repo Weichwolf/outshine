@@ -14,19 +14,36 @@
 #include <vector>
 
 namespace outshine::Generators::Osm {
-std::expected<bool, std::string> OsmField::PollTile(Data::SourceReader &sources, TileAt at) {
+std::expected<OsmField::SourceResponse, std::string>
+OsmField::ReadTileInput(Data::SourceReader &sources, TileAt at) {
   if (Zoom_ < 0 || Zoom_ >= std::numeric_limits<int>::digits || at.X < 0 || at.Y < 0 ||
       std::cmp_greater_equal(at.X, uint64_t{1} << static_cast<unsigned>(Zoom_)) ||
       std::cmp_greater_equal(at.Y, uint64_t{1} << static_cast<unsigned>(Zoom_))) {
     return std::unexpected("invalid OSM tile address");
   }
-  if (Settled(at.X, at.Y)) { return true; }
   auto fetched = AddTile(sources, at);
   if (!fetched) { return std::unexpected(fetched.error()); }
   if (fetched->Refused) {
     return std::unexpected(fetched->Failure ? fetched->Failure->Describe()
                                             : std::string("OSM tile source refused demand"));
   }
+  return fetched;
+}
+
+std::expected<OsmField::TilePresence, std::string>
+OsmField::PrefetchTile(Data::SourceReader &sources, TileAt at) {
+  const auto fetched = ReadTileInput(sources, at);
+  if (!fetched) { return std::unexpected(fetched.error()); }
+  if (!fetched->Held) { return TilePresence::Pending; }
+  if (!fetched->Parsed) { return TilePresence::Absent; }
+  ParsedTiles_.pop_back();
+  return TilePresence::Present;
+}
+
+std::expected<bool, std::string> OsmField::PollTile(Data::SourceReader &sources, TileAt at) {
+  if (Settled(at.X, at.Y)) { return true; }
+  const auto fetched = ReadTileInput(sources, at);
+  if (!fetched) { return std::unexpected(fetched.error()); }
   if (!fetched->Held) { return false; }
   if (auto published = PublishParsed(nullptr, std::nullopt); !published) {
     return std::unexpected(published.error());

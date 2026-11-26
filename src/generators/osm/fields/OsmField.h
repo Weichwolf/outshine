@@ -140,6 +140,11 @@ public:
 
   [[nodiscard]] std::expected<bool, std::string> PollTile(Data::SourceReader &sources, TileAt at);
 
+  enum class TilePresence : uint8_t { Pending, Absent, Present };
+
+  [[nodiscard]] std::expected<TilePresence, std::string> PrefetchTile(Data::SourceReader &sources,
+                                                                      TileAt at);
+
   [[nodiscard]] std::expected<int, std::string>
   Accept(int tx, int ty, std::span<const uint8_t> vectorTile);
 
@@ -298,6 +303,8 @@ private:
   enum class SnapshotStage : uint8_t { Empty, Contact, Retained, Complete };
 
   void RecordUnsettledSource(const SourceResponse &response);
+  [[nodiscard]] std::expected<SourceResponse, std::string>
+  ReadTileInput(Data::SourceReader &sources, TileAt at);
   [[nodiscard]] std::expected<SourceResponse, std::string> AddTile(Data::SourceReader &sources,
                                                                    TileAt at);
   [[nodiscard]] std::expected<SourceResponse, std::string> AddNativeTile(TileAt at);

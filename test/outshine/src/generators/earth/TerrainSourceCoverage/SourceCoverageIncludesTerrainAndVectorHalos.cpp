@@ -69,6 +69,11 @@ void CheckVectorSourceCoverage() {
       {}, {.FinestZoom = 4, .Vectors = &vectors, .AdditionalTiles = {}, .MaximumTiles = 9});
   CHECK(plan && Keys(*plan) == NeighbourOracle({.Zoom = 2, .X = 2, .Y = 2}),
         "a distant building keeps its vector source halo without preloading fine height fields");
+  const std::array prefetched{Data::TileId{.Zoom = 2, .X = 2, .Y = 2}};
+  const auto replay = Generators::PlanTerrainSourceTiles(
+      {}, {.FinestZoom = 4, .AdditionalTiles = {}, .MaximumTiles = 9}, prefetched);
+  CHECK(replay && plan && *replay == *plan,
+        "prefetched vector addresses produce the same height coverage as assembled inputs");
 }
 
 }

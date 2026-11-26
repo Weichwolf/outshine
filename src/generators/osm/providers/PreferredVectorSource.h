@@ -2,19 +2,20 @@
 #define OUTSHINE_GENERATORS_OSM_PROVIDERS_PREFERREDVECTORSOURCE_H
 
 #include <SourceProvider.h>
-#include <string>
 
 namespace outshine::Generators::Osm {
 
+inline constexpr auto kOpenFreeMapLiveEndpoint =
+    "https://tiles.openfreemap.org/planet/latest/{z}/{x}/{y}.pbf";
+
 [[nodiscard]] inline Data::SourceProvider PreferredVectorSource() {
-  const std::string revision = "20261115_080022_pt";
   return {.Kind = "vector",
-          .Revision = revision,
+          .Revision = "openmaptiles-live-v1",
           .Priority = 1,
           .Missing = Data::MissingDataPolicy::Fail,
           .Dataset = "openfreemap.openmaptiles",
           .Location = "",
-          .Endpoint = "https://tiles.openfreemap.org/planet/" + revision + "/{z}/{x}/{y}.pbf",
+          .Endpoint = kOpenFreeMapLiveEndpoint,
           .Coverage = std::nullopt,
           .PayloadSha256 = "",
           .Schema = "openmaptiles"};

@@ -27,6 +27,7 @@ protected:
 private:
   std::optional<std::string> ExpectedRelease_;
   bool RevisionEndpoint_ = false;
+  bool LiveEndpoint_ = false;
 };
 
 }
