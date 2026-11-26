@@ -165,12 +165,14 @@ private:
   VisitPartition(std::span<const AssetRecord *const> children) {
     const size_t checkpoint = Cut_.Products.size();
     const size_t groups = Cut_.Groups.size();
+    const size_t canopy = Cut_.Canopy.size();
     for (const auto *child : children) {
       const auto loaded = Visit(*child);
       if (!loaded) { return std::unexpected(loaded.error()); }
       if (!*loaded) {
         Cut_.Products.resize(checkpoint);
         Cut_.Groups.resize(groups);
+        Cut_.Canopy.resize(canopy);
         return false;
       }
     }
@@ -179,21 +181,31 @@ private:
 
   [[nodiscard]] std::expected<void, std::string> AttachCanopy(const AssetRecord &record) {
     if (!Demand_.GroupDemand) { return {}; }
-    auto canopy = LoadAttachedCanopy(Cache_, record, *Demand_.GroupDemand);
+    auto canopy = LoadAttachedCanopy(Cache_, record, *Demand_.GroupDemand, CanopyMeshes_);
     if (!canopy) { return std::unexpected(canopy.error()); }
     Cut_.GroupRequestedBytes += canopy->RequestedBytes;
+    Cut_.CanopyRequestedBytes += canopy->NearRequestedBytes;
     const size_t surface = Cut_.Products.size() - 1;
+    const auto origin = Cut_.Products[surface].Origin;
     for (auto &group : canopy->Groups) {
-      Cut_.Groups.push_back({.Origin = Cut_.Products[surface].Origin,
-                             .Group = std::move(group.Group),
-                             .AvailableViews = group.AvailableViews,
-                             .SurfaceIndex = surface});
+      std::optional<size_t> handoff;
+      if (group.Group) {
+        if (group.Group->Handoff) { handoff = Cut_.Groups.size(); }
+        Cut_.Groups.push_back({.Origin = origin,
+                               .Group = std::move(*group.Group),
+                               .AvailableViews = group.AvailableViews,
+                               .SurfaceIndex = {}});
+      }
+      if (group.Near) {
+        Cut_.Canopy.push_back(
+            {.Origin = origin, .Near = std::move(*group.Near), .HandoffGroup = handoff});
+      }
     }
     return {};
   }
 
   [[nodiscard]] std::expected<bool, std::string> VisitGroup(const AssetRecord &record) {
-    if (!Demand_.GroupDemand || !Demand_.GroupDemand->ReplaceSurface) { return false; }
+    if (!Demand_.GroupDemand || Demand_.GroupDemand->PreferCoarse) { return false; }
     auto replacement = LoadGroupImpostor(Cache_, record, *Demand_.GroupDemand);
     if (!replacement) { return std::unexpected(replacement.error()); }
     Cut_.GroupRequestedBytes += replacement->RequestedBytes;
@@ -272,6 +284,7 @@ private:
   std::unordered_map<std::string_view, size_t> Addresses_;
   std::unordered_set<std::string_view> MissingParents_;
   SurfaceCutLookup Cut_;
+  CanopyMeshBank CanopyMeshes_;
 };
 
 }

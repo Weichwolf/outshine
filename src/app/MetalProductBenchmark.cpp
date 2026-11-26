@@ -309,7 +309,7 @@ std::expected<SurfaceCutLookup, std::string> PrepareTiles(const ScenarioBenchmar
          .FocalPixels = preferCoarse ? 0 : projection->FocalPixels,
          .GroupDemand = GroupImpostorDemand{.EyeEcef = sweep,
                                             .FocalPixels = projection->FocalPixels,
-                                            .ReplaceSurface = !preferCoarse,
+                                            .PreferCoarse = preferCoarse,
                                             .PanoramaGroups = baked}});
   }
   SurfaceCutLookup cut;
@@ -330,7 +330,7 @@ std::expected<SurfaceCutLookup, std::string> PrepareTiles(const ScenarioBenchmar
 void BindGroupHandoffs(std::span<const SurfaceCutGroup> groups, auto &tiles) {
   for (size_t at = 0; at < groups.size(); ++at) {
     const auto &group = groups[at];
-    if (group.Group.Handoff) { tiles[group.SurfaceIndex].HandoffGroup = at; }
+    if (group.Group.Handoff && group.SurfaceIndex) { tiles[*group.SurfaceIndex].HandoffGroup = at; }
   }
 }
 
@@ -338,6 +338,9 @@ BenchmarkGroupCoverage DescribeGroups(const SurfaceCutLookup &cut) {
   BenchmarkGroupCoverage coverage;
   coverage.Groups = cut.Groups.size();
   coverage.RequestedBytes = cut.GroupRequestedBytes;
+  coverage.CanopyMeshGroups = cut.Canopy.size();
+  coverage.CanopyRequestedBytes = cut.CanopyRequestedBytes;
+  for (const auto &mesh : cut.Canopy) { coverage.CanopyInstances += mesh.Near.Instances.size(); }
   for (const auto &group : cut.Groups) {
     coverage.AvailableViews += group.AvailableViews;
     coverage.ResidentViews += group.Group.Views.size();
@@ -349,7 +352,7 @@ BenchmarkGroupCoverage DescribeGroups(const SurfaceCutLookup &cut) {
 std::vector<Render::MetalSurface>
 PlaceTiles(const SurfaceCutLookup &cut, ScenarioBenchmarkReport &report, LongitudeLatitude origin) {
   std::vector<Render::MetalSurface> placed;
-  placed.reserve(cut.Products.size());
+  placed.reserve(cut.Products.size() + cut.Canopy.size());
   const auto world = TangentFrame::At(origin);
   report.TileRequestedBytes = cut.RequestedBytes;
   report.Tiles.reserve(cut.Products.size());
@@ -368,6 +371,12 @@ PlaceTiles(const SurfaceCutLookup &cut, ScenarioBenchmarkReport &report, Longitu
          .StoredBytes = tile.StoredBytes});
   }
   BindGroupHandoffs(cut.Groups, placed);
+  for (const auto &mesh : cut.Canopy) {
+    placed.push_back({.Product = *mesh.Near.Prototype,
+                      .WorldFromTile = TilePlacement(mesh.Origin, world),
+                      .HandoffGroup = mesh.HandoffGroup,
+                      .Instances = mesh.Near.Instances});
+  }
   return placed;
 }
 
@@ -414,17 +423,23 @@ PrepareSurfaceReplacement(const ScenarioBenchmarkOptions &options,
     return std::unexpected("replacement surface cut changed the prepared coverage");
   }
   Render::MetalPlacedCut placed;
-  placed.Tiles.reserve(cut->Products.size());
+  placed.Tiles.reserve(cut->Products.size() + cut->Canopy.size());
   placed.Groups.reserve(cut->Groups.size());
   const auto world = TangentFrame::At(origin);
   for (auto &tile : cut->Products) {
     const auto placement = TilePlacement(tile.Origin, world);
-    placed.Tiles.push_back({.Product = std::move(tile),
+    placed.Tiles.push_back({.Product = std::make_shared<const SurfaceTile>(std::move(tile)),
                             .WorldFromTile = placement,
                             .HandoffGroup = {},
                             .Instances = {}});
   }
   BindGroupHandoffs(cut->Groups, placed.Tiles);
+  for (auto &mesh : cut->Canopy) {
+    placed.Tiles.push_back({.Product = std::move(mesh.Near.Prototype),
+                            .WorldFromTile = TilePlacement(mesh.Origin, world),
+                            .HandoffGroup = mesh.HandoffGroup,
+                            .Instances = std::move(mesh.Near.Instances)});
+  }
   for (auto &group : cut->Groups) {
     placed.Groups.push_back({.Views = std::move(group.Group.Views),
                              .WorldFromTile = TilePlacement(group.Origin, world),
@@ -515,8 +530,11 @@ MeasureProducts(const ScenarioBenchmarkOptions &options,
     report.ProductReadMs += refinement.Ms;
     const size_t groupRequested =
         report.GroupCoverage.RequestedBytes + refinement.Groups.RequestedBytes;
+    const auto canopyRequested =
+        report.GroupCoverage.CanopyRequestedBytes + refinement.Groups.CanopyRequestedBytes;
     if (transition.FirstFrame) { report.GroupCoverage = refinement.Groups; }
     report.GroupCoverage.RequestedBytes = groupRequested;
+    report.GroupCoverage.CanopyRequestedBytes = canopyRequested;
     report.SurfaceStream = {.FirstRefinedFrame = transition.FirstFrame,
                             .Tiles = transition.Tiles,
                             .ReusedTiles = transition.ReusedTiles,

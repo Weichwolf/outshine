@@ -224,6 +224,23 @@ ReadViews(const AssetCache &cache,
   return group;
 }
 
+std::expected<void, std::string> PublishGroup(AssetCache &cache,
+                                              const AssetRecord &index,
+                                              const std::filesystem::path &folder,
+                                              const Json &manifest,
+                                              std::vector<PreparedAssetWrite> &writes) {
+  if (index.Kind == CanopyImpostorManifestKind) {
+    const auto layout = manifest.find("layout_sha256");
+    const std::string_view digest = layout != manifest.end() && layout->is_string()
+                                        ? layout->get_ref<const std::string &>()
+                                        : std::string_view{};
+    const auto staged = StageCanopyMesh(cache, index, folder, digest, writes);
+    if (!staged) { return staged; }
+  }
+  if (!cache.PublishBatch(writes)) { return std::unexpected("could not publish group impostor"); }
+  return {};
+}
+
 }
 
 std::expected<void, std::string> ImportGroupImpostor(AssetCache &cache,
@@ -243,7 +260,7 @@ std::expected<void, std::string> ImportGroupImpostor(AssetCache &cache,
     return std::unexpected("group requires its indexed source surface");
   }
   std::vector<PreparedAssetWrite> writes;
-  writes.reserve(manifest->Directions.size() + 2);
+  writes.reserve(manifest->Directions.size() + 3);
   const auto &parent = (**original).Record().Key;
   const bool canopy = !manifest->CanopyCell.empty();
   if (canopy) {
@@ -287,8 +304,7 @@ std::expected<void, std::string> ImportGroupImpostor(AssetCache &cache,
   auto write = PreparePackage(cache, index, Bytes(body));
   if (!write) { return std::unexpected(write.error()); }
   writes.push_back(std::move(*write));
-  if (!cache.PublishBatch(writes)) { return std::unexpected("could not publish group impostor"); }
-  return {};
+  return PublishGroup(cache, index, folder, manifestJson, writes);
 }
 
 std::expected<GroupImpostorLookup, std::string> LoadGroupImpostor(
@@ -336,8 +352,66 @@ std::expected<GroupImpostorLookup, std::string> LoadGroupImpostor(
   return result;
 }
 
-std::expected<AttachedCanopyLookup, std::string> LoadAttachedCanopy(
-    const AssetCache &cache, const AssetRecord &surface, const GroupImpostorDemand &demand) {
+namespace {
+std::expected<AttachedCanopyGroup, std::string> ReadAttachedGroup(const AssetCache &cache,
+                                                                  const AssetRecord &record,
+                                                                  const GroupImpostorDemand &demand,
+                                                                  CanopyMeshBank &bank,
+                                                                  AttachedCanopyLookup &result) {
+  const auto loaded = cache.Load(record.Key, GroupImpostorManifestBytesMost);
+  if (!loaded) { return std::unexpected("canopy manifest read failed"); }
+  if (!*loaded) { return AttachedCanopyGroup{.Group = {}, .Near = {}, .AvailableViews = 0}; }
+  const auto content = (**loaded).Bytes();
+  result.RequestedBytes += content.size();
+  const auto json = Json::parse(content.begin(), content.end(), nullptr, false);
+  const auto manifest = ParseGroupImpostorManifest(json);
+  if (!manifest || manifest->CanopyCell.empty() || !HasViews(json, manifest->Directions.size())) {
+    return AttachedCanopyGroup{.Group = {}, .Near = {}, .AvailableViews = 0};
+  }
+  const auto eye = LocalEye(*manifest, demand.EyeEcef);
+  const auto ramp =
+      ImpostorProjectionRamp(manifest->HalfExtentM, manifest->Side, demand.FocalPixels);
+  const auto mode =
+      demand.PreferCoarse ? ImpostorDistanceMode::Impostor : ClassifyImpostorSweep(eye, ramp);
+  std::optional<CanopyMesh> mesh;
+  const bool hasLayout = json.contains("layout_sha256");
+  if (hasLayout && mode != ImpostorDistanceMode::Impostor) {
+    auto near = bank.Read(cache, record, result.NearRequestedBytes);
+    if (!near) { return std::unexpected(near.error()); }
+    mesh = std::move(*near);
+  }
+  const size_t views = manifest->Directions.size();
+  if (mesh && mode == ImpostorDistanceMode::Geometry) {
+    return AttachedCanopyGroup{.Group = {}, .Near = std::move(mesh), .AvailableViews = views};
+  }
+  std::optional<ResidentGroupImpostor> cards;
+  const auto needed = SelectImpostorDirections(manifest->Directions, eye);
+  if (needed.size() >= 2) {
+    auto group = ReadViews(cache,
+                           *manifest,
+                           json["card_assets"],
+                           needed,
+                           std::numeric_limits<size_t>::max(),
+                           result.RequestedBytes);
+    if (!group) { return std::unexpected(group.error()); }
+    cards = std::move(*group);
+  }
+  if (cards && mesh) { cards->Handoff = ramp; }
+  if (!cards && !mesh && hasLayout && mode == ImpostorDistanceMode::Impostor) {
+    auto near = bank.Read(cache, record, result.NearRequestedBytes);
+    if (!near) { return std::unexpected(near.error()); }
+    mesh = std::move(*near);
+  }
+  return AttachedCanopyGroup{
+      .Group = std::move(cards), .Near = std::move(mesh), .AvailableViews = views};
+}
+}
+
+std::expected<AttachedCanopyLookup, std::string>
+LoadAttachedCanopy(const AssetCache &cache,
+                   const AssetRecord &surface,
+                   const GroupImpostorDemand &demand,
+                   CanopyMeshBank &bank) {
   if (!surface.Tile) { return AttachedCanopyLookup{}; }
   auto records = cache.Select({.Bounds = surface.Bounds,
                                .Kind = CanopyImpostorManifestKind,
@@ -355,30 +429,9 @@ std::expected<AttachedCanopyLookup, std::string> LoadAttachedCanopy(
         std::ranges::binary_search(demand.PanoramaGroups, record.Key)) {
       continue;
     }
-    const auto loaded = cache.Load(record.Key, GroupImpostorManifestBytesMost);
-    if (!loaded) { return std::unexpected("canopy manifest read failed"); }
-    if (!*loaded) { continue; }
-    const auto content = (**loaded).Bytes();
-    result.RequestedBytes += content.size();
-    const auto json = Json::parse(content.begin(), content.end(), nullptr, false);
-    const auto manifest = ParseGroupImpostorManifest(json);
-    if (!manifest || manifest->CanopyCell.empty() || !HasViews(json, manifest->Directions.size())) {
-      continue;
-    }
-    const auto needed =
-        SelectImpostorDirections(manifest->Directions, LocalEye(*manifest, demand.EyeEcef));
-    if (needed.size() < 2) { continue; }
-    auto group = ReadViews(cache,
-                           *manifest,
-                           json["card_assets"],
-                           needed,
-                           std::numeric_limits<size_t>::max(),
-                           result.RequestedBytes);
+    auto group = ReadAttachedGroup(cache, record, demand, bank, result);
     if (!group) { return std::unexpected(group.error()); }
-    if (*group) {
-      result.Groups.push_back(
-          {.Group = std::move(**group), .AvailableViews = manifest->Directions.size()});
-    }
+    if (group->Group || group->Near) { result.Groups.push_back(std::move(*group)); }
   }
   return result;
 }

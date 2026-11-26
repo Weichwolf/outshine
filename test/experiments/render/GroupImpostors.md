@@ -278,7 +278,34 @@ over 17.9 m. The crossing reduced endpoint submissions from 188,125
 to 2,753 triangles, including the shared terrain. The median GPU p99 of
 three paced runs was 1.25 ms for geometry, 0.22 ms for the cards and
 1.25 ms for the handoff. Measurements use the isolated prepared tile.
-Indexed near-mesh residency and a complete forest view remain open.
+
+## Indexed near geometry
+
+The composer records the exact layout digest. To import a near representation,
+place the original layout at `near-layout.json` and the one-tree prototype
+at `near.surface` alongside `group.json`. The same `cache import-group`
+transaction binds the mesh bank to the group descriptor and validates the
+layout digest. Groups sharing a prototype load and upload it once per cut.
+
+A geometry-only sweep reads the mesh bank and skips that group's cards.
+A card-only sweep skips the mesh bank. In the overlap both representations
+use complementary masks. A missing prototype falls back to the cards.
+Missing cards fall back to the mesh. A rejected layout leaves the existing
+request bound.
+
+The prepared Körbersee replay used up to three mesh groups and one shared
+prototype for 55 trees. Its 16 m handoff flight used 37 mesh instances in
+two groups, with one group blending for 62 of 120 frames. The initial coarse
+cut exchanged at frame 1 in each run. The flight requested 664,166 native
+canopy mesh and placement bytes. The card-only view requested zero.
+
+At A18 Pro 720p30, three paired runs with the same camera measured median
+GPU p99 of 1.98 / 4.12 ms for the flight and 1.79 / 2.96 ms for the full
+turn, with indexed meshes enabled in the second run. At the flight endpoint
+the affected groups covered 757 pixels versus 788 with cards, at 0.642
+intersection over union against the same background. Thin crown coverage,
+mesh scaling in dense forests and continuity across terrain refinement
+remain open.
 
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),

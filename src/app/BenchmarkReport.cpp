@@ -241,11 +241,15 @@ ReportJson RenderedContent(const ScenarioBenchmarkReport &report) {
   if (!report.Tiles.empty() && report.Panorama) {
     auto near = TileContent(report.Tiles);
     const auto triangles = near["triangles_per_frame"].get<size_t>();
+    if (report.GroupCoverage.CanopyMeshGroups > 0) {
+      near["canopy"] = {{"mesh_groups", report.GroupCoverage.CanopyMeshGroups},
+                        {"instances", report.GroupCoverage.CanopyInstances}};
+    }
     const auto &groups = report.GroupCoverage;
     ReportJson content{{"kind", "near_far_composition"},
                        {"near", std::move(near)},
                        {"far", PanoramaContent(*report.Panorama, report.PanoramaHandoff)},
-                       {"draws_per_frame", 1 + report.Tiles.size()},
+                       {"draws_per_frame", 1 + report.Tiles.size() + groups.CanopyMeshGroups},
                        {"triangles_per_frame", 1 + triangles}};
     if (groups.Groups > 0) {
       content["kind"] = "near_mid_far_composition";
@@ -258,8 +262,11 @@ ReportJson RenderedContent(const ScenarioBenchmarkReport &report) {
                         {"handoff_groups", groups.HandoffGroups},
                         {"blended_frames", groups.BlendedFrames},
                         {"endpoint_triangles", groups.GroupEndpointTriangles}};
+    }
+    if (groups.Groups > 0 || groups.CanopyMeshGroups > 0) {
       content["near"]["endpoint_triangles"] = groups.SurfaceEndpointTriangles;
       content["peak_triangles_per_frame"] = 1 + groups.PeakSurfaceAndGroupTriangles;
+      content.erase("triangles_per_frame");
     }
     return content;
   }
@@ -287,6 +294,7 @@ ReportJson BenchmarkTraffic(const ScenarioBenchmarkReport &report) {
                  : "prepared product payloads"},
         {"tile_requested_bytes", report.TileRequestedBytes},
         {"group_requested_bytes", report.GroupCoverage.RequestedBytes},
+        {"canopy_mesh_requested_bytes", report.GroupCoverage.CanopyRequestedBytes},
         {"panorama_requested_bytes", report.IndexedPanoramaRequestedBytes.value_or(panoramaBytes)},
         {"panorama_decoded_bytes", panoramaBytes},
         {"tile_decoded_bytes", report.Tiles.empty() ? ReportJson(nullptr) : ReportJson(tileBytes)},

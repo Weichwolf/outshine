@@ -22,6 +22,7 @@ struct SurfaceVertex {
 };
 
 using SurfaceColour = std::array<uint8_t, 4>;
+using SurfaceInstance = std::array<float, 4>;
 
 struct SurfaceTile {
   static constexpr unsigned Version = 1;

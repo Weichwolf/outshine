@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_CONTENT_ASSETS_IMPOSTOR_GROUPIMPOSTORASSET_H
 #define OUTSHINE_CONTENT_ASSETS_IMPOSTOR_GROUPIMPOSTORASSET_H
 
+#include "CanopyMeshAsset.h"
 #include "GroupImpostorView.h"
 #include "ImpostorViewDemand.h"
 #include "SurfaceTile.h"
@@ -21,7 +22,7 @@ struct AssetRecord;
 struct GroupImpostorDemand {
   ImpostorEyeSweep EyeEcef;
   double FocalPixels = 0;
-  bool ReplaceSurface = true;
+  bool PreferCoarse = false;
   std::span<const std::string> PanoramaGroups;
 };
 
@@ -50,13 +51,15 @@ struct GroupImpostorImport {
 };
 
 struct AttachedCanopyGroup {
-  ResidentGroupImpostor Group;
+  std::optional<ResidentGroupImpostor> Group;
+  std::optional<CanopyMesh> Near;
   size_t AvailableViews;
 };
 
 struct AttachedCanopyLookup {
   std::vector<AttachedCanopyGroup> Groups;
   size_t RequestedBytes = 0;
+  size_t NearRequestedBytes = 0;
 };
 
 [[nodiscard]] std::expected<void, std::string>
@@ -65,8 +68,11 @@ ImportGroupImpostor(AssetCache &cache, const GroupImpostorImport &source);
 [[nodiscard]] std::expected<GroupImpostorLookup, std::string> LoadGroupImpostor(
     const AssetCache &cache, const AssetRecord &surface, const GroupImpostorDemand &demand);
 
-[[nodiscard]] std::expected<AttachedCanopyLookup, std::string> LoadAttachedCanopy(
-    const AssetCache &cache, const AssetRecord &surface, const GroupImpostorDemand &demand);
+[[nodiscard]] std::expected<AttachedCanopyLookup, std::string>
+LoadAttachedCanopy(const AssetCache &cache,
+                   const AssetRecord &surface,
+                   const GroupImpostorDemand &demand,
+                   CanopyMeshBank &bank);
 
 }
 #endif

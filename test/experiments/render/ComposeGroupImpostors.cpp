@@ -5,6 +5,7 @@
 #include "ImpostorAtlas.h"
 #include "Material.h"
 #include "ReadTextFile.h"
+#include "Sha256.h"
 #include "Vec3.h"
 #include "WriteFileAtomically.h"
 #include <algorithm>
@@ -166,7 +167,9 @@ int Run(const char *const *arguments) {
   }
   std::string error;
   const auto prototype = ReadPrototype(arguments[1], error);
-  auto manifest = ReadManifest(arguments[2]);
+  const auto layout = ReadTextFile(arguments[2], kManifestLimit);
+  if (!layout) { return 1; }
+  auto manifest = Json::parse(*layout, nullptr, false);
   const auto size = ReadAtlasSize(manifest);
   const auto placed = ReadInstances(manifest);
   if (!prototype || !size || !placed) {
@@ -190,6 +193,7 @@ int Run(const char *const *arguments) {
   if (!Emit(*atlas, folder, cardSide)) { return 1; }
   auto axes = Json::array();
   for (const auto &view : atlas->Views()) { axes.push_back(view.TowardEye.Axis); }
+  if (manifest.contains("canopy_cell")) { manifest["layout_sha256"] = Sha256Hex(*layout); }
   manifest.erase("roots_m");
   manifest.erase("tree_scales");
   manifest["directions"] = std::move(axes);

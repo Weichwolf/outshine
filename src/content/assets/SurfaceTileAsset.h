@@ -41,14 +41,22 @@ struct SurfaceCutGroup {
   LongitudeLatitude Origin;
   ResidentGroupImpostor Group;
   size_t AvailableViews;
-  size_t SurfaceIndex;
+  std::optional<size_t> SurfaceIndex;
+};
+
+struct SurfaceCutCanopy {
+  LongitudeLatitude Origin;
+  CanopyMesh Near;
+  std::optional<size_t> HandoffGroup;
 };
 
 struct SurfaceCutLookup {
   std::vector<SurfaceTile> Products;
   std::vector<SurfaceCutGroup> Groups;
+  std::vector<SurfaceCutCanopy> Canopy;
   size_t RequestedBytes = 0;
   size_t GroupRequestedBytes = 0;
+  size_t CanopyRequestedBytes = 0;
 };
 
 [[nodiscard]] std::expected<SurfaceCutLookup, std::string>

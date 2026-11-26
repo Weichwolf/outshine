@@ -11,6 +11,7 @@
 #include <future>
 #include <optional>
 #include <thread>
+#include <unordered_map>
 #include <utility>
 
 namespace outshine::Render {
@@ -463,10 +464,16 @@ MakePass(id<MTLDevice> device, const MetalProductInputs &products, bool streamin
   return result;
 }
 
-struct TileMesh {
+struct TileBuffers {
   id<MTLBuffer> Vertices = nil;
   id<MTLBuffer> Indices = nil;
   id<MTLBuffer> Colours = nil;
+};
+
+using TileUploads = std::unordered_map<const SurfaceTile *, TileBuffers>;
+
+struct TileMesh {
+  TileBuffers Geometry;
   id<MTLBuffer> Instances = nil;
   size_t InstanceCount = 1;
   size_t IndexCount = 0;
@@ -508,16 +515,21 @@ size_t DrawTile(id<MTLRenderCommandEncoder> draw,
   if (indexCount == 0) { return 0; }
   [draw setRenderPipelineState:pipeline.Draw];
   [draw setDepthStencilState:pipeline.Depth];
-  [draw setVertexBuffer:mesh.Vertices offset:0 atIndex:0];
+  [draw setVertexBuffer:mesh.Geometry.Vertices offset:0 atIndex:0];
   [draw setVertexBytes:clip.data() length:sizeof(clip) atIndex:1];
-  [draw setVertexBuffer:mesh.Colours == nil ? mesh.Vertices : mesh.Colours offset:0 atIndex:2];
+  [draw
+      setVertexBuffer:mesh.Geometry.Colours == nil ? mesh.Geometry.Vertices : mesh.Geometry.Colours
+               offset:0
+              atIndex:2];
   [draw setVertexBytes:mesh.ColourRanges.data() length:sizeof(mesh.ColourRanges) atIndex:3];
-  [draw setVertexBuffer:mesh.Instances == nil ? mesh.Vertices : mesh.Instances offset:0 atIndex:4];
+  [draw setVertexBuffer:mesh.Instances == nil ? mesh.Geometry.Vertices : mesh.Instances
+                 offset:0
+                atIndex:4];
   [draw setFragmentBytes:&shading length:sizeof(shading) atIndex:0];
   [draw drawIndexedPrimitives:MTLPrimitiveTypeTriangle
                    indexCount:indexCount
                     indexType:MTLIndexTypeUInt32
-                  indexBuffer:mesh.Indices
+                  indexBuffer:mesh.Geometry.Indices
             indexBufferOffset:0
                 instanceCount:mesh.InstanceCount];
   return (indexCount / 3) * mesh.InstanceCount;
@@ -700,46 +712,64 @@ struct ProductResources {
   size_t Bytes = 0;
 };
 
+std::expected<TileBuffers, std::string>
+UploadTileGeometry(id<MTLDevice> device, const SurfaceTile &tile, size_t &bytes) {
+  const auto vertices = std::as_bytes(std::span(tile.Vertices));
+  const auto indices = std::as_bytes(std::span(tile.Indices));
+  const auto colours = std::as_bytes(std::span(tile.Colours));
+  TileBuffers buffers{.Vertices = [device newBufferWithBytes:vertices.data()
+                                                      length:vertices.size()
+                                                     options:MTLResourceStorageModeShared],
+                      .Indices = [device newBufferWithBytes:indices.data()
+                                                     length:indices.size()
+                                                    options:MTLResourceStorageModeShared],
+                      .Colours = colours.empty()
+                                     ? nil
+                                     : [device newBufferWithBytes:colours.data()
+                                                           length:colours.size()
+                                                          options:MTLResourceStorageModeShared]};
+  if (buffers.Vertices == nil || buffers.Indices == nil ||
+      (!colours.empty() && buffers.Colours == nil)) {
+    return std::unexpected("Metal tile geometry upload failed");
+  }
+  bytes += vertices.size() + indices.size() + colours.size();
+  return buffers;
+}
+
 std::expected<TileMesh, std::string> UploadTile(id<MTLDevice> device,
                                                 const MetalSurface &tile,
                                                 const PanoramaLighting *light,
+                                                TileUploads &uploads,
                                                 size_t &bytes) {
-  const auto vertices = std::as_bytes(std::span(tile.Product.Vertices));
-  const auto indices = std::as_bytes(std::span(tile.Product.Indices));
-  const auto colours = std::as_bytes(std::span(tile.Product.Colours));
+  auto [entry, inserted] = uploads.try_emplace(&tile.Product);
+  if (inserted) {
+    const auto geometry = UploadTileGeometry(device, tile.Product, bytes);
+    if (!geometry) { return std::unexpected(geometry.error()); }
+    entry->second = *geometry;
+  }
   const auto instances = std::as_bytes(tile.Instances);
   const auto count = static_cast<uint32_t>(tile.Product.Vertices.size());
   const auto firstColour = count - static_cast<uint32_t>(tile.Product.Colours.size());
   const uint32_t firstOverlay =
       tile.Product.GridSide > 0 ? tile.Product.GridSide * tile.Product.GridSide : count;
   const uint32_t firstLit = tile.Product.GroundRoughness ? 0 : firstOverlay;
-  TileMesh mesh{
-      .Vertices = [device newBufferWithBytes:vertices.data()
-                                      length:vertices.size()
-                                     options:MTLResourceStorageModeShared],
-      .Indices = [device newBufferWithBytes:indices.data()
-                                     length:indices.size()
-                                    options:MTLResourceStorageModeShared],
-      .Colours = colours.empty() ? nil
-                                 : [device newBufferWithBytes:colours.data()
-                                                       length:colours.size()
+  TileMesh mesh{.Geometry = entry->second,
+                .Instances = instances.empty()
+                                 ? nil
+                                 : [device newBufferWithBytes:instances.data()
+                                                       length:instances.size()
                                                       options:MTLResourceStorageModeShared],
-      .Instances = instances.empty() ? nil
-                                     : [device newBufferWithBytes:instances.data()
-                                                           length:instances.size()
-                                                          options:MTLResourceStorageModeShared],
-      .InstanceCount = std::max(size_t{1}, tile.Instances.size()),
-      .IndexCount = tile.Product.Indices.size(),
-      .GroundIndexCount = tile.Product.GroundIndices,
-      .HandoffGroup = tile.HandoffGroup,
-      .ColourRanges = {firstColour, firstOverlay, firstLit, instances.empty() ? 0U : 1U},
-      .Light = PackLight(tile.WorldFromTile, firstLit < count ? light : nullptr),
-      .WorldFromTile = tile.WorldFromTile};
-  if (mesh.Vertices == nil || mesh.Indices == nil || (!colours.empty() && mesh.Colours == nil) ||
-      (!instances.empty() && mesh.Instances == nil)) {
-    return std::unexpected("Metal tile upload failed");
+                .InstanceCount = std::max(size_t{1}, tile.Instances.size()),
+                .IndexCount = tile.Product.Indices.size(),
+                .GroundIndexCount = tile.Product.GroundIndices,
+                .HandoffGroup = tile.HandoffGroup,
+                .ColourRanges = {firstColour, firstOverlay, firstLit, instances.empty() ? 0U : 1U},
+                .Light = PackLight(tile.WorldFromTile, firstLit < count ? light : nullptr),
+                .WorldFromTile = tile.WorldFromTile};
+  if (!instances.empty() && mesh.Instances == nil) {
+    return std::unexpected("Metal tile instance upload failed");
   }
-  bytes += vertices.size() + indices.size() + colours.size() + instances.size();
+  bytes += instances.size();
   return mesh;
 }
 
@@ -757,11 +787,12 @@ std::expected<ProductResources, std::string> UploadProducts(id<MTLDevice> device
                                                             const PanoramaLighting *light) {
   ProductResources resources;
   resources.Meshes.reserve(products.Tiles.size());
+  TileUploads uploads;
   for (const auto &tile : products.Tiles) {
     if (tile.HandoffGroup && *tile.HandoffGroup >= products.Groups.size()) {
       return std::unexpected("surface handoff references an unavailable group");
     }
-    const auto mesh = UploadTile(device, tile, light, resources.Bytes);
+    const auto mesh = UploadTile(device, tile, light, uploads, resources.Bytes);
     if (!mesh) { return std::unexpected(mesh.error()); }
     resources.Meshes.push_back(*mesh);
   }
@@ -794,7 +825,7 @@ std::expected<ProductResources, std::string> UploadProducts(id<MTLDevice> device
 
 bool MatchesSurface(const MetalSurface &active, const MetalPlacedSurface &replacement) {
   const auto &front = active.Product;
-  const auto &back = replacement.Product;
+  const auto &back = *replacement.Product;
   return front.Coverage == back.Coverage && front.Revision == back.Revision &&
          active.WorldFromTile == replacement.WorldFromTile && front.Indices == back.Indices &&
          std::ranges::equal(active.Instances, replacement.Instances) &&
@@ -825,9 +856,10 @@ PreparedSurfaceReplacement PrepareReplacement(id<MTLDevice> device,
     }
     const auto upload = Clock::now();
     prepared.Meshes.reserve(candidate->Tiles.size());
+    TileUploads uploads;
     for (const auto &tile : candidate->Tiles) {
-      if (tile.HandoffGroup && *tile.HandoffGroup >= candidate->Groups.size()) {
-        prepared.Transition.Error = "replacement surface handoff references an unavailable group";
+      if (!tile.Product || (tile.HandoffGroup && *tile.HandoffGroup >= candidate->Groups.size())) {
+        prepared.Transition.Error = "replacement surface or handoff group is unavailable";
         return prepared;
       }
       const auto same = std::ranges::find_if(
@@ -835,14 +867,16 @@ PreparedSurfaceReplacement PrepareReplacement(id<MTLDevice> device,
       if (same != active.end()) {
         prepared.Meshes.push_back(resident[static_cast<size_t>(same - active.begin())]);
         prepared.Meshes.back().HandoffGroup = tile.HandoffGroup;
-        ++prepared.Transition.ReusedTiles;
+        uploads.try_emplace(tile.Product.get(), prepared.Meshes.back().Geometry);
+        if (tile.Instances.empty()) { ++prepared.Transition.ReusedTiles; }
       } else {
         auto mesh = UploadTile(device,
-                               {.Product = tile.Product,
+                               {.Product = *tile.Product,
                                 .WorldFromTile = tile.WorldFromTile,
                                 .HandoffGroup = tile.HandoffGroup,
                                 .Instances = tile.Instances},
                                light,
+                               uploads,
                                prepared.Bytes);
         if (!mesh) {
           prepared.Transition.Error = mesh.error();
@@ -851,7 +885,7 @@ PreparedSurfaceReplacement PrepareReplacement(id<MTLDevice> device,
         prepared.Meshes.push_back(*mesh);
       }
       prepared.Transition.Triangles +=
-          (tile.Product.Indices.size() / 3) * std::max(size_t{1}, tile.Instances.size());
+          (tile.Product->Indices.size() / 3) * std::max(size_t{1}, tile.Instances.size());
     }
     prepared.Groups.reserve(candidate->Groups.size());
     for (const auto &group : candidate->Groups) {
@@ -870,7 +904,8 @@ PreparedSurfaceReplacement PrepareReplacement(id<MTLDevice> device,
       }
       prepared.Groups.push_back(std::move(*uploaded));
     }
-    prepared.Transition.Tiles = prepared.Meshes.size();
+    prepared.Transition.Tiles = static_cast<size_t>(std::ranges::count_if(
+        candidate->Tiles, [](const auto &tile) { return tile.Instances.empty(); }));
     prepared.Transition.ReadyMs = ElapsedMs(start);
     prepared.Transition.UploadMs = ElapsedMs(upload);
     return prepared;

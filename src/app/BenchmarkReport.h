@@ -76,6 +76,9 @@ struct BenchmarkGroupCoverage {
   std::array<size_t, 2> SurfaceEndpointTriangles{};
   std::array<size_t, 2> GroupEndpointTriangles{};
   size_t RequestedBytes = 0;
+  size_t CanopyMeshGroups = 0;
+  size_t CanopyInstances = 0;
+  size_t CanopyRequestedBytes = 0;
 };
 
 struct ScenarioBenchmarkReport {

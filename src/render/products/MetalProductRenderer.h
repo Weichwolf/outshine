@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <expected>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -74,7 +75,7 @@ struct PanoramaView {
   double CoverageFadeM = 0;
 };
 
-using MetalSurfaceInstance = std::array<float, 4>;
+using MetalSurfaceInstance = SurfaceInstance;
 
 struct MetalSurface {
   const SurfaceTile &Product;
@@ -84,7 +85,7 @@ struct MetalSurface {
 };
 
 struct MetalPlacedSurface {
-  SurfaceTile Product;
+  std::shared_ptr<const SurfaceTile> Product;
   Mat4 WorldFromTile;
   std::optional<size_t> HandoffGroup;
   std::vector<MetalSurfaceInstance> Instances;
