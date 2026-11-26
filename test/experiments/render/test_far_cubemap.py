@@ -1,7 +1,8 @@
 """Check cube directions, reverse-z reconstruction, translated planes and silhouettes."""
 import numpy as np
 from far_cubemap import (
-    FORWARD, RIGHT, DOWN, addresses, anchor_handoff, directions, from_device_depth, reproject, unit,
+    FORWARD, RIGHT, DOWN, addresses, anchor_overlap, anchor_weight, directions, from_device_depth,
+    reproject, unit,
 )
 
 side = 256
@@ -45,13 +46,15 @@ print("depth discontinuity missing samples", unresolved)
 start = np.array([0, 100, 0])
 finish = start + [12, 0, 0]
 anchors = start + np.array([[0, 0, 0], [8, 0, 0]])
-assert np.isclose(anchor_handoff(start, finish, anchors, (6, 6)), 1 / 3)
-assert anchor_handoff(start, finish, anchors, (2, 4)) is None
-assert anchor_handoff(start, finish, anchors, (4, 4)) == 1 / 3
+assert np.allclose(anchor_overlap(start, finish, anchors, (6, 6)), (1 / 6, .5))
+assert anchor_overlap(start, finish, anchors, (2, 4)) is None
+assert anchor_overlap(start, finish, anchors, (4, 4)) == (1 / 3, 1 / 3)
 for centers, radii in ((anchors, (6, 6)), (anchors + [[0, 4, 0], [0, 2, 0]], (7, 6))):
-    switch = anchor_handoff(start, finish, centers, radii)
+    overlap = anchor_overlap(start, finish, centers, radii)
     fractions = np.linspace(0, 1, 10001)
-    slots = (fractions >= switch).astype(int)
+    weights = anchor_weight(fractions, overlap)
     path = start + fractions[:, None] * (finish - start)
-    distances = np.linalg.norm(path - centers[slots], axis=1)
-    assert np.all(distances <= np.asarray(radii)[slots])
+    assert np.all(np.linalg.norm(path[weights < 1] - centers[0], axis=1) <= radii[0])
+    assert np.all(np.linalg.norm(path[weights > 0] - centers[1], axis=1) <= radii[1])
+    assert np.all(np.diff(weights) >= 0)
+    assert np.max(np.diff(anchor_weight(np.arange(31) / 30, overlap))) <= .18

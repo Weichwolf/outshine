@@ -49,7 +49,7 @@ struct BenchmarkPanoramaCoverage {
 
 struct BenchmarkPanoramaHandoff {
   BenchmarkPanoramaCoverage Next;
-  size_t FirstFrame = 0;
+  std::array<double, 2> BlendWindowFrames{};
 };
 
 struct ScenarioBenchmarkReport {

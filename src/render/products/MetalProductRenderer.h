@@ -46,10 +46,12 @@ struct PanoramaView {
   Vec3 RightSpan;
   Vec3 UpSpan;
   Vec3 EyeOffsetM;
+  Vec3 NextEyeOffsetM{};
   double FocalPixels;
   double DepthScaleM;
   double DepthBias;
   double Exposure;
+  double NextWeight = 0;
 };
 
 struct MetalProductInputs {

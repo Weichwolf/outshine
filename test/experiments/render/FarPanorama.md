@@ -55,6 +55,8 @@ Capture a second panorama in the same tangent frame with matching range, resolut
 exposure. Declare overlapping translation domains, then add `--panorama-next "$next"`
 to a flight that starts in the first domain and ends in the second. Before drawing,
 the benchmark intersects both domains with the flight segment, rejects a coverage gap
-and uploads both products. It uses one far draw per frame and reports the first frame
-that uses the second product. The two resident 512px products together cost 36 MiB of
-texture payload. Capture, disk reads and uploads are measured outside the frame window.
+and uploads both products. It uses one far draw per frame. Within the reported overlap
+window, it reprojects both products, blends scene-linear colour before the display
+transform and keeps the nearest valid depth. Outside the overlap it samples one
+product. The two resident 512px products together cost 36 MiB of texture payload.
+Capture, disk reads and uploads are measured outside the frame window.

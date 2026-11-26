@@ -211,7 +211,7 @@ ReportJson PanoramaContent(const BenchmarkPanoramaCoverage &bake,
                            const std::optional<BenchmarkPanoramaHandoff> &handoff) {
   auto content = PanoramaContent(bake);
   if (handoff) {
-    content["handoff"] = {{"first_frame", handoff->FirstFrame},
+    content["handoff"] = {{"blend_window_frames", handoff->BlendWindowFrames},
                           {"next", PanoramaContent(handoff->Next)}};
   }
   return content;

@@ -51,6 +51,7 @@ struct PanoramaUniform {
   float4 upSpan;
   float4 display;
   float4 eyeOffsetM;
+  float4 nextEyeAndWeight;
 };
 struct PanoramaRaster {
   float4 position [[position]];
@@ -70,17 +71,16 @@ struct PanoramaRay {
   float distanceM;
 };
 PanoramaRay reprojectPanorama(float3 ray, texturecube<float> depth,
-                             constant PanoramaUniform &view) {
+                             float3 eye, float focalPixels) {
   constexpr sampler pointDepth(coord::normalized, filter::nearest);
   float radius = depth.sample(pointDepth, ray).r;
-  const float3 eye = view.eyeOffsetM.xyz;
   const float eye2 = dot(eye, eye);
   if (radius <= 0.0 || eye2 == 0.0) {
     return {ray, max(radius, 0.0)};
   }
   const float toward = dot(ray, eye);
   const float across2 = max(eye2 - toward * toward, 0.0);
-  const float pixelsTimesBaseline = sqrt(across2) * view.display.w;
+  const float pixelsTimesBaseline = sqrt(across2) * focalPixels;
   float3 lookup = ray;
   bool stable = false;
   for (uint iteration = 0; iteration < 3; ++iteration) {
@@ -109,14 +109,28 @@ PanoramaRay reprojectPanorama(float3 ray, texturecube<float> depth,
 fragment PanoramaFragment panorama_fragment(PanoramaRaster in [[stage_in]],
                                              constant PanoramaUniform &view [[buffer(0)]],
                                              texturecube<half> colour [[texture(0)]],
-                                             texturecube<float> distanceM [[texture(1)]]) {
+                                             texturecube<float> distanceM [[texture(1)]],
+                                             texturecube<half> nextColour [[texture(2)]],
+                                             texturecube<float> nextDistanceM [[texture(3)]]) {
   constexpr sampler linearColour(coord::normalized, filter::linear);
   float3 ray = normalize(view.forward.xyz + in.ndc.x * view.rightSpan.xyz +
                          in.ndc.y * view.upSpan.xyz);
-  const PanoramaRay projected = reprojectPanorama(ray, distanceM, view);
-  float forwardM = projected.distanceM * dot(view.forward.xyz, ray);
+  const PanoramaRay projected =
+      reprojectPanorama(ray, distanceM, view.eyeOffsetM.xyz, view.display.w);
+  float distance = projected.distanceM;
+  float3 linear = float3(colour.sample(linearColour, projected.direction).rgb);
+  const float weight = view.nextEyeAndWeight.w;
+  if (weight > 0.0) {
+    const PanoramaRay next =
+        reprojectPanorama(ray, nextDistanceM, view.nextEyeAndWeight.xyz, view.display.w);
+    linear = mix(linear, float3(nextColour.sample(linearColour, next.direction).rgb), weight);
+    if (next.distanceM > 0.0) {
+      distance = distance > 0.0 ? min(distance, next.distanceM) : next.distanceM;
+    }
+  }
+  float forwardM = distance * dot(view.forward.xyz, ray);
   float depth = forwardM > 0.0 ? saturate(view.display.x / forwardM - view.display.y) : 0.0;
-  float3 x = float3(colour.sample(linearColour, projected.direction).rgb) * view.display.z;
+  float3 x = linear * view.display.z;
   float3 filmic = saturate((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14));
   return {float4(filmic, 1.0), depth};
 }
@@ -353,15 +367,13 @@ struct PanoramaTextures {
   id<MTLTexture> Depth;
 };
 
-using PanoramaUniform = std::array<std::array<float, 4>, 5>;
-static_assert(sizeof(PanoramaUniform) == size_t{5} * 4 * sizeof(float));
+using PanoramaUniform = std::array<std::array<float, 4>, 6>;
+static_assert(sizeof(PanoramaUniform) == size_t{6} * 4 * sizeof(float));
 
 PanoramaUniform PackView(const PanoramaView &view) {
-  const auto vector = [](const Vec3 &axis) {
-    return std::array{static_cast<float>(axis[0]),
-                      static_cast<float>(axis[1]),
-                      static_cast<float>(axis[2]),
-                      0.0f};
+  const auto vector = [](const Vec3 &axis, float w = 0.0f) {
+    return std::array{
+        static_cast<float>(axis[0]), static_cast<float>(axis[1]), static_cast<float>(axis[2]), w};
   };
   return {vector(view.Forward),
           vector(view.RightSpan),
@@ -370,18 +382,22 @@ PanoramaUniform PackView(const PanoramaView &view) {
            static_cast<float>(view.DepthBias),
            static_cast<float>(view.Exposure),
            static_cast<float>(view.FocalPixels)},
-          vector(view.EyeOffsetM)};
+          vector(view.EyeOffsetM),
+          vector(view.NextEyeOffsetM, static_cast<float>(view.NextWeight))};
 }
 
 void DrawPanorama(id<MTLRenderCommandEncoder> draw,
                   const ProductPipeline &pipeline,
                   const PanoramaTextures &textures,
+                  const PanoramaTextures &next,
                   const PanoramaView &view) {
   const auto packed = PackView(view);
   [draw setRenderPipelineState:pipeline.Draw];
   [draw setDepthStencilState:pipeline.Depth];
   [draw setFragmentTexture:textures.Colour atIndex:0];
   [draw setFragmentTexture:textures.Depth atIndex:1];
+  [draw setFragmentTexture:next.Colour atIndex:2];
+  [draw setFragmentTexture:next.Depth atIndex:3];
   [draw setFragmentBytes:packed.data() length:sizeof(packed) atIndex:0];
   [draw drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
 }
@@ -445,7 +461,9 @@ std::expected<id<MTLCommandBuffer>, std::string> SubmitProducts(const ProductPas
     const id<MTLRenderCommandEncoder> draw = [command renderCommandEncoderWithDescriptor:pass.Pass];
     if (draw == nil) { return std::unexpected("Metal could not encode the product frame"); }
     if (pass.Panorama.Draw != nil) {
-      DrawPanorama(draw, pass.Panorama, resources.Panoramas[view.PanoramaIndex], view.Panorama);
+      const auto &active = resources.Panoramas[view.PanoramaIndex];
+      const auto &next = view.Panorama.NextWeight > 0 ? resources.Panoramas.back() : active;
+      DrawPanorama(draw, pass.Panorama, active, next, view.Panorama);
     }
     if (clip) { DrawTile(draw, pass.Tile, resources.Mesh, *clip); }
     [draw endEncoding];

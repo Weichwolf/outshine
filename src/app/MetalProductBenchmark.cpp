@@ -10,6 +10,7 @@
 #include "GeodeticCamera.h"
 #include "MetalProductRenderer.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -104,6 +105,11 @@ void CaptureProductSamples(ScenarioBenchmarkReport &report,
   }
 }
 
+Vec3 PanoramaOffset(const Camera &pose, const FarPanorama &panorama) {
+  const auto offset = pose.PositionM - panorama.AnchorM;
+  return Length(offset) > kPoseRoundoffM ? offset : Vec3{};
+}
+
 std::expected<Render::PanoramaView, std::string>
 MakePanoramaView(const Camera &pose, Extent frame, const FarPanorama &panorama) {
   const double aspect = static_cast<double>(frame.WidthPx) / frame.HeightPx;
@@ -112,12 +118,11 @@ MakePanoramaView(const Camera &pose, Extent frame, const FarPanorama &panorama) 
   if (pose.Orthographic || !pose.modelMatrix(basis) || !pose.projectionMatrix(aspect, projection)) {
     return std::unexpected("far panorama requires a valid perspective camera");
   }
-  const auto offset = pose.PositionM - panorama.AnchorM;
   return Render::PanoramaView{
       .Forward = {{-basis[8], -basis[9], -basis[10]}},
       .RightSpan = Vec3{{basis[0], basis[1], basis[2]}} * (1.0 / projection[0]),
       .UpSpan = Vec3{{basis[4], basis[5], basis[6]}} * (1.0 / projection[5]),
-      .EyeOffsetM = Length(offset) > kPoseRoundoffM ? offset : Vec3{},
+      .EyeOffsetM = PanoramaOffset(pose, panorama),
       .FocalPixels = static_cast<double>(frame.HeightPx) * projection[5] * 0.5,
       .DepthScaleM = -projection[14] * 0.5,
       .DepthBias = -(1.0 + projection[10]) * 0.5,
@@ -133,9 +138,8 @@ double ChordHalfLength(const FarPanorama &panorama, const Vec3 &axisOffset) {
   return std::sqrt(std::max(0.0, radius * radius - Dot(axisOffset, axisOffset)));
 }
 
-std::expected<size_t, std::string> PanoramaHandoff(const FarPanorama &first,
-                                                   const FarPanorama &next,
-                                                   const ScenarioBenchmarkReport &report) {
+std::expected<std::array<double, 2>, std::string> PanoramaOverlap(
+    const FarPanorama &first, const FarPanorama &next, const ScenarioBenchmarkReport &report) {
   const Vec3 start = report.Start.PositionM;
   const Vec3 finish = report.Finish.PositionM;
   const double length = Length(finish - start);
@@ -151,14 +155,13 @@ std::expected<size_t, std::string> PanoramaHandoff(const FarPanorama &first,
   const Vec3 b = next.AnchorM - start;
   const double alongA = Dot(a, direction);
   const double alongB = Dot(b, direction);
-  const double exit = std::min(length, alongA + ChordHalfLength(first, a - direction * alongA));
-  const double entry = std::max(0.0, alongB - ChordHalfLength(next, b - direction * alongB));
+  const double exit = alongA + ChordHalfLength(first, a - direction * alongA);
+  const double entry = alongB - ChordHalfLength(next, b - direction * alongB);
   if (exit < entry) {
     return std::unexpected("prepared panorama domains leave a gap in the flight");
   }
-  const double fraction = (entry + exit) / (2 * length);
-  const double sample = std::ceil(fraction * static_cast<double>(report.Motion.Frames));
-  return std::max(size_t{1}, static_cast<size_t>(sample)) - 1;
+  const double framesPerMetre = static_cast<double>(report.Motion.Frames) / length;
+  return {{entry * framesPerMetre, exit * framesPerMetre}};
 }
 
 BenchmarkPanoramaCoverage PanoramaCoverage(const FarPanorama &panorama) {
@@ -172,14 +175,24 @@ BenchmarkPanoramaCoverage PanoramaCoverage(const FarPanorama &panorama) {
 
 struct PreparedPanoramas {
   std::vector<FarPanorama> Products;
-  size_t FirstNextFrame = 0;
+  std::optional<std::array<double, 2>> BlendWindowFrames;
+
+  [[nodiscard]] double NextWeight(size_t frame) const {
+    if (!BlendWindowFrames) { return 0; }
+    const auto [begin, end] = *BlendWindowFrames;
+    const auto sample = static_cast<double>(frame + 1);
+    if (sample >= end) { return 1; }
+    if (sample <= begin) { return 0; }
+    const double t = (sample - begin) / (end - begin);
+    return t * t * (3.0 - 2.0 * t);
+  }
 };
 
 std::expected<PreparedPanoramas, std::string>
 PreparePanoramas(const ScenarioBenchmarkOptions &options,
                  ScenarioBenchmarkReport &report,
                  LongitudeLatitude origin) {
-  PreparedPanoramas prepared{.Products = {}, .FirstNextFrame = report.Motion.Frames};
+  PreparedPanoramas prepared;
   for (const auto path : {options.PanoramaProduct, options.NextPanorama}) {
     if (path.empty()) { continue; }
     auto input = ReadFarPanorama(path);
@@ -195,10 +208,10 @@ PreparePanoramas(const ScenarioBenchmarkOptions &options,
   report.Panorama = PanoramaCoverage(first);
   if (prepared.Products.size() == 2) {
     const auto &next = prepared.Products.back();
-    const auto handoff = PanoramaHandoff(first, next, report);
-    if (!handoff) { return std::unexpected(handoff.error()); }
-    prepared.FirstNextFrame = *handoff;
-    report.PanoramaHandoff = {.Next = PanoramaCoverage(next), .FirstFrame = *handoff + 1};
+    const auto overlap = PanoramaOverlap(first, next, report);
+    if (!overlap) { return std::unexpected(overlap.error()); }
+    prepared.BlendWindowFrames = *overlap;
+    report.PanoramaHandoff = {.Next = PanoramaCoverage(next), .BlendWindowFrames = *overlap};
   } else if (!CoversEye(first, report.Start.PositionM) ||
              !CoversEye(first, report.Finish.PositionM)) {
     return std::unexpected("camera path exceeds the prepared far panorama translation domain");
@@ -242,10 +255,15 @@ MeasureProducts(const ScenarioBenchmarkOptions &options,
       view.TileClip = clip * placement;
     }
     if (!panoramas.empty()) {
-      view.PanoramaIndex = frame >= prepared->FirstNextFrame ? 1 : 0;
+      const double blend = prepared->NextWeight(frame);
+      view.PanoramaIndex = blend >= 1 ? 1 : 0;
       const auto projected = MakePanoramaView(*pose, report.Frame, panoramas[view.PanoramaIndex]);
       if (!projected) { return std::unexpected(projected.error()); }
       view.Panorama = *projected;
+      if (blend > 0 && blend < 1) {
+        view.Panorama.NextEyeOffsetM = PanoramaOffset(*pose, panoramas.back());
+        view.Panorama.NextWeight = blend;
+      }
     }
     return view;
   };

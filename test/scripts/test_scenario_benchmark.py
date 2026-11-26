@@ -353,18 +353,30 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(image.read_bytes(), endpoint_pixels)
             report = json.loads(result.stdout)
             content = report['rendered_content']
-            self.assertEqual(content['handoff']['first_frame'], 4)
+            overlap = content['handoff']['blend_window_frames']
+            self.assertAlmostEqual(overlap[0], 2, places=5)
+            self.assertAlmostEqual(overlap[1], 6, places=5)
             self.assertEqual(content['handoff']['next']['revision'], '1' * 64)
             self.assertEqual(content['draws_per_frame'], 1)
             self.assertEqual(report['traffic']['upload_bytes'], 2 * 24 * 12)
             self.assertEqual(report['traffic']['source_delivery_bytes'], 0)
+
+            write_panorama(root / 'mixed', colour=(.5, .5, 0))
+            control = self.invoke('--scenario', str(scene), '--frames', '1',
+                                  '--panorama-product', str(root / 'mixed'), '--image', str(image))
+            self.assertEqual(control.returncode, 0, control.stderr)
+            midpoint_pixels = image.read_bytes()
+            middle = flight[:3] + ('4',) + flight[4:]
+            result = self.invoke(*middle)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(image.read_bytes(), midpoint_pixels)
 
             write_panorama(root / 'first', radius=2)
             write_panorama(root / 'next', anchor=(8, 100, 0), radius=4, revision='1')
             rejected = self.invoke(*flight)
             self.assertEqual(rejected.returncode, 1, rejected.stderr)
             self.assertIn('domains leave a gap', rejected.stderr)
-            self.assertEqual(image.read_bytes(), endpoint_pixels)
+            self.assertEqual(image.read_bytes(), midpoint_pixels)
 
     def test_runtime_failure_preserves_both_outputs(self):
         with tempfile.TemporaryDirectory(prefix='outshine-benchmark-failure-') as folder:
