@@ -115,6 +115,7 @@ std::expected<SurfaceTile, std::string> ReadSurfaceTile(std::string_view path) {
   if (!source) { return std::unexpected(source.error()); }
   const auto record = Json::parse(*source, nullptr, false);
   SurfaceTile tile;
+  tile.StoredBytes = source->size();
   if (!record.is_object() || !ReadHeader(record, tile) || !ReadMesh(record, tile)) {
     return std::unexpected("invalid surface tile header or mesh");
   }

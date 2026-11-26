@@ -3,11 +3,13 @@
 
 #include "BenchmarkMotion.h"
 #include "GpuFrameSample.h"
+#include "GpuFrameTiming.h"
 #include "ProcessMemory.h"
 #include "MemoryStatus.h"
 #include <Engine.h>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -27,6 +29,17 @@ struct BenchmarkWorldGap {
   std::string Blockers;
 };
 
+struct BenchmarkTileCoverage {
+  std::array<uint32_t, 3> Address;
+  std::array<double, 2> OriginLonLat;
+  std::string Revision;
+  size_t Triangles = 0;
+  double GeometricErrorM = 0;
+  size_t StoredBytes = 0;
+  size_t UploadBytes = 0;
+  double UploadMs = 0;
+};
+
 struct ScenarioBenchmarkReport {
   std::string Scenario;
   std::string DeclarationSha256;
@@ -37,6 +50,7 @@ struct ScenarioBenchmarkReport {
   BenchmarkMotionInput Motion;
   Camera Start;
   Camera Finish;
+  std::optional<BenchmarkTileCoverage> Tile;
   Loading Prepared;
   Loading Finished;
   double SetupMs = 0;
@@ -54,6 +68,7 @@ struct ScenarioBenchmarkReport {
   Render::Native::MemoryStatus GpuMemory;
   std::vector<BenchmarkFrameSample> Frames;
   std::vector<Render::GpuFrameSample> GpuSamples;
+  GpuFrameTiming GpuTiming;
   std::vector<DiagnosticSample> Measures;
   std::vector<BenchmarkWorldGap> WorldGaps;
   std::string FinalWorldBlockers;

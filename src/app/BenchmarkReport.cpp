@@ -7,6 +7,7 @@
 #include "Quantile.h"
 #include "Mat4.h"
 #include "Vec3.h"
+#include "Units.h"
 #include <Engine.h>
 #include <SDL3/SDL_cpuinfo.h>
 #include <nlohmann/json.hpp>
@@ -113,7 +114,7 @@ ReportJson CpuTimes(const ScenarioBenchmarkReport &report, double budgetMs) {
 }
 
 ReportJson GpuTimes(const ScenarioBenchmarkReport &report, double budgetMs) {
-  const auto costs = GpuFrameTiming::Read(report.Measures);
+  const auto &costs = report.GpuTiming;
   const bool complete = report.GpuSamples.size() == report.Motion.Frames &&
                         costs.Complete(static_cast<double>(report.Motion.Frames));
   std::vector<double> times;
@@ -185,13 +186,46 @@ ReportJson LoadingJson(const Loading &loading) {
           {"sources", std::move(sources)}};
 }
 
+ReportJson RenderedContent(const ScenarioBenchmarkReport &report) {
+  if (!report.Tile) { return {{"kind", "scenario_world"}}; }
+  const auto &tile = *report.Tile;
+  return {{"kind", "single_opaque_tile"},
+          {"address", tile.Address},
+          {"origin_lon_lat", tile.OriginLonLat},
+          {"revision", tile.Revision},
+          {"geometric_error_m", tile.GeometricErrorM},
+          {"draws_per_frame", 1},
+          {"triangles_per_frame", tile.Triangles}};
+}
+
+ReportJson BenchmarkTraffic(const ScenarioBenchmarkReport &report) {
+  if (report.Tile) {
+    return {{"source_delivery_bytes", 0},
+            {"asset_read_bytes", report.Tile->StoredBytes},
+            {"asset_read_scope", "prepared tile file payload"},
+            {"upload_bytes", report.Tile->UploadBytes},
+            {"upload_scope", "initial shared vertex and index buffers"},
+            {"upload_ms", report.Tile->UploadMs}};
+  }
+  const auto bytes = std::ranges::find_if(report.Measures, [](const auto &metric) {
+    return metric.Name == "rebuild: bytes offered for upload";
+  });
+  return {{"source_delivery_bytes", report.Finished.SourceBytes},
+          {"asset_read_bytes", report.Finished.AssetPackageBytesRead},
+          {"asset_read_scope", "asset package reads tracked by the engine"},
+          {"upload_bytes",
+           bytes == report.Measures.end() ? ReportJson(nullptr) : ReportJson(bytes->Value)},
+          {"upload_scope", "bytes offered in the last reported geometry rebuild"},
+          {"upload_ms", nullptr}};
+}
+
 ReportJson LoadJson(const std::optional<std::array<double, 3>> &value) {
   return value ? ReportJson(*value) : ReportJson(nullptr);
 }
 }
 
 std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
-  const double budgetMs = 1000.0 / report.Motion.RateHz;
+  const double budgetMs = kMsPerS / report.Motion.RateHz;
   auto cpu = CpuTimes(report, budgetMs);
   auto gpu = GpuTimes(report, budgetMs);
   const bool measurementComplete =
@@ -203,8 +237,9 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
                                report.FlushMs >= 0 && std::isfinite(completedMs);
   const auto unrefined =
       std::ranges::count_if(report.Frames, [](const auto &frame) { return !frame.Refined; });
-  const bool worldComplete =
+  const bool contentComplete =
       measurementComplete && unrefined == 0 && report.FinalWorldBlockers.empty();
+  const bool worldComplete = contentComplete && !report.Tile;
   const bool cpuPass = measurementComplete && !cpu["frame"].is_null() &&
                        cpu["frame"]["p99_ms"].get<double>() <= budgetMs;
   ReportJson gpuPass = gpu["complete"].get<bool>()
@@ -223,13 +258,17 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
   for (const auto &gap : report.WorldGaps) {
     worldGaps.push_back({{"first_frame", gap.FirstFrame}, {"blockers", gap.Blockers}});
   }
-  const ReportJson json{
+  ReportJson json{
       {"benchmark_version", 2},
       {"mode", "scenario"},
+      {"render_path", report.Tile ? "metal_tile" : "world"},
+      {"rendered_content", RenderedContent(report)},
+      {"content_complete", contentComplete},
+      {"traffic", BenchmarkTraffic(report)},
       {"measurement_complete", measurementComplete},
       {"wall_throughput_fps",
        completedWindow
-           ? ReportJson(static_cast<double>(report.Frames.size()) * 1000.0 / completedMs)
+           ? ReportJson(static_cast<double>(report.Frames.size()) * kMsPerS / completedMs)
            : ReportJson(nullptr)},
       {"scenario", report.Scenario},
       {"declaration_sha256", report.DeclarationSha256},
@@ -285,6 +324,14 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
       {"cpu_times", std::move(cpu)},
       {"gpu_times", std::move(gpu)},
       {"metrics", std::move(metrics)}};
+  if (report.Tile) {
+    auto &timing = json["gpu_times"];
+    timing["scope"] = "command buffer containing one opaque tile pass";
+    json["pass_times"] = {{"scope", timing["scope"]},
+                          {"passes", {{"opaque_tile", timing["frame"]}}}};
+  } else {
+    json["gpu_times"]["scope"] = "frame submissions recorded by the world renderer";
+  }
   return json.dump(2, ' ', false, ReportJson::error_handler_t::replace) + '\n';
 }
 

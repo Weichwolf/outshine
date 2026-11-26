@@ -173,6 +173,7 @@ void Usage(std::string_view verb = {}) {
         "  --angular-velocity <x,y,z>     right-handed world-axis velocity in degrees/s\n"
         "  --preload-seconds <s>          refined preparation deadline (default10)\n"
         "  --cache-dir <directory>        source directory; assets remain separate\n"
+        "  --asset-cache-dir <directory>  override the generated asset store\n"
         "  --offline                      use cached and shipped sources\n"
         "  --output <file.json>           atomic report; default stdout\n"
         "  --image <file.png>             save only the final measured frame\n"

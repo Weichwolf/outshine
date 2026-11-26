@@ -26,6 +26,7 @@ struct SurfaceTile {
   Data::TileId Coverage;
   LongitudeLatitude Origin;
   std::string Revision;
+  size_t StoredBytes = 0;
   Vec3 MinimumM;
   Vec3 MaximumM;
   double GeometricErrorM = 0;

@@ -31,6 +31,7 @@ enum class Argument : uint8_t {
   Preload,
   Offline,
   Cache,
+  AssetCache,
   Geometry,
   TileProduct,
   Image
@@ -52,6 +53,7 @@ constexpr std::array kFlags{Flag{.Name = "--output", .Kind = Argument::Output},
                             Flag{.Name = "--preload-seconds", .Kind = Argument::Preload},
                             Flag{.Name = "--offline", .Kind = Argument::Offline},
                             Flag{.Name = "--cache-dir", .Kind = Argument::Cache},
+                            Flag{.Name = "--asset-cache-dir", .Kind = Argument::AssetCache},
                             Flag{.Name = "--geometry-output", .Kind = Argument::Geometry},
                             Flag{.Name = "--tile-product", .Kind = Argument::TileProduct},
                             Flag{.Name = "--image", .Kind = Argument::Image}};
@@ -85,6 +87,7 @@ ApplyValue(BenchmarkOptions &options, Argument kind, std::string_view value) noe
     case Argument::Image: scenario.Image = value; break;
     case Argument::Geometry: scenario.GeometryDirectory = value; break;
     case Argument::TileProduct: scenario.TileProduct = value; break;
+    case Argument::AssetCache: scenario.AssetCacheDirectory = value; break;
     case Argument::Cache: scenario.CacheDirectory = value; break;
     case Argument::Overrides: {
       if (!ValidScenarioOverrides(value)) {
@@ -130,7 +133,8 @@ ValidateCombination(const BenchmarkOptions &options) noexcept {
     return std::unexpected("scenario benchmark requires --scenario and --frames");
   }
   if (!options.Scenario->TileProduct.empty() &&
-      (!options.Scenario->CacheDirectory.empty() || options.Scenario->Offline ||
+      (!options.Scenario->CacheDirectory.empty() ||
+       !options.Scenario->AssetCacheDirectory.empty() || options.Scenario->Offline ||
        !options.Scenario->GeometryDirectory.empty())) {
     return std::unexpected(
         "--tile-product reads prepared inputs without source cache or geometry export options");
