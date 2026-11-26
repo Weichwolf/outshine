@@ -79,6 +79,8 @@ struct BenchmarkGroupCoverage {
   size_t RequestedBytes = 0;
   size_t CanopySites = 0;
   size_t CanopyMeshGroups = 0;
+  size_t CanopyCoarseGroups = 0;
+  size_t CanopyDetailHandoffs = 0;
   size_t CanopyInstances = 0;
   size_t CanopyRequestedBytes = 0;
 };

@@ -341,7 +341,11 @@ BenchmarkGroupCoverage DescribeGroups(const SurfaceCutLookup &cut) {
   coverage.CanopySites = cut.CanopySites.size();
   coverage.CanopyMeshGroups = cut.Canopy.size();
   coverage.CanopyRequestedBytes = cut.CanopyRequestedBytes;
-  for (const auto &mesh : cut.Canopy) { coverage.CanopyInstances += mesh.Near.Instances.size(); }
+  for (const auto &mesh : cut.Canopy) {
+    coverage.CanopyInstances += mesh.Near.Instances.size();
+    if (mesh.Near.CoarseOnly) { ++coverage.CanopyCoarseGroups; }
+    if (mesh.Near.DetailHandoff) { ++coverage.CanopyDetailHandoffs; }
+  }
   for (const auto &group : cut.Groups) {
     coverage.AvailableViews += group.AvailableViews;
     coverage.ResidentViews += group.Group.Views.size();
@@ -373,10 +377,22 @@ PlaceTiles(const SurfaceCutLookup &cut, ScenarioBenchmarkReport &report, Longitu
   }
   BindGroupHandoffs(cut.Groups, placed);
   for (const auto &mesh : cut.Canopy) {
+    const auto placement = TilePlacement(mesh.Origin, world);
     placed.push_back({.Product = *mesh.Near.Prototype,
-                      .WorldFromTile = TilePlacement(mesh.Origin, world),
+                      .WorldFromTile = placement,
                       .HandoffGroup = mesh.HandoffGroup,
                       .Instances = mesh.Near.Instances});
+    if (const auto &detail = mesh.Near.DetailHandoff) {
+      const auto centre = placement.TransformPoint(detail->CentreM);
+      placed.back().Detail =
+          Render::MetalSurfaceDetail{.WorldCentreM = centre, .Ramp = detail->Ramp, .Coarse = false};
+      placed.push_back({.Product = *mesh.Near.CoarsePrototype,
+                        .WorldFromTile = placement,
+                        .HandoffGroup = mesh.HandoffGroup,
+                        .Instances = mesh.Near.Instances,
+                        .Detail = Render::MetalSurfaceDetail{
+                            .WorldCentreM = centre, .Ramp = detail->Ramp, .Coarse = true}});
+    }
   }
   return placed;
 }
@@ -439,10 +455,22 @@ PrepareSurfaceReplacement(const ScenarioBenchmarkOptions &options,
   }
   BindGroupHandoffs(cut->Groups, placed.Tiles);
   for (auto &mesh : cut->Canopy) {
+    const auto placement = TilePlacement(mesh.Origin, world);
     placed.Tiles.push_back({.Product = std::move(mesh.Near.Prototype),
-                            .WorldFromTile = TilePlacement(mesh.Origin, world),
+                            .WorldFromTile = placement,
                             .HandoffGroup = mesh.HandoffGroup,
                             .Instances = std::move(mesh.Near.Instances)});
+    if (const auto &detail = mesh.Near.DetailHandoff) {
+      const auto centre = placement.TransformPoint(detail->CentreM);
+      placed.Tiles.back().Detail =
+          Render::MetalSurfaceDetail{.WorldCentreM = centre, .Ramp = detail->Ramp, .Coarse = false};
+      placed.Tiles.push_back({.Product = std::move(mesh.Near.CoarsePrototype),
+                              .WorldFromTile = placement,
+                              .HandoffGroup = mesh.HandoffGroup,
+                              .Instances = placed.Tiles.back().Instances,
+                              .Detail = Render::MetalSurfaceDetail{
+                                  .WorldCentreM = centre, .Ramp = detail->Ramp, .Coarse = true}});
+    }
   }
   for (auto &group : cut->Groups) {
     placed.Groups.push_back({.Views = std::move(group.Group.Views),

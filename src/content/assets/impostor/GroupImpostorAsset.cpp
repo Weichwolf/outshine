@@ -378,8 +378,10 @@ ReadAttachedGroup(const AssetCache &cache,
       demand.PreferCoarse ? ImpostorDistanceMode::Impostor : ClassifyImpostorSweep(eye, ramp);
   std::optional<CanopyMesh> mesh;
   const bool hasLayout = json.contains("layout_sha256");
+  const CanopyMeshDemand nearDemand{
+      .CentreM = manifest->CentreM, .Eye = eye, .FocalPixels = demand.FocalPixels};
   if (hasLayout && mode != ImpostorDistanceMode::Impostor) {
-    auto near = bank.Read(cache, record, result.NearRequestedBytes);
+    auto near = bank.Read(cache, record, nearDemand, result.NearRequestedBytes);
     if (!near) { return std::unexpected(near.error()); }
     mesh = std::move(*near);
   }
@@ -405,7 +407,7 @@ ReadAttachedGroup(const AssetCache &cache,
   }
   if (cards && mesh) { cards->Handoff = ramp; }
   if (!cards && !mesh && hasLayout && mode == ImpostorDistanceMode::Impostor) {
-    auto near = bank.Read(cache, record, result.NearRequestedBytes);
+    auto near = bank.Read(cache, record, nearDemand, result.NearRequestedBytes);
     if (!near) { return std::unexpected(near.error()); }
     mesh = std::move(*near);
   }

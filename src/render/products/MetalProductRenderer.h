@@ -77,11 +77,18 @@ struct PanoramaView {
 
 using MetalSurfaceInstance = SurfaceInstance;
 
+struct MetalSurfaceDetail {
+  Vec3 WorldCentreM;
+  ImpostorDistanceRamp Ramp;
+  bool Coarse;
+};
+
 struct MetalSurface {
   const SurfaceTile &Product;
   Mat4 WorldFromTile;
   std::optional<size_t> HandoffGroup;
   std::span<const MetalSurfaceInstance> Instances;
+  std::optional<MetalSurfaceDetail> Detail = std::nullopt;
 };
 
 struct MetalPlacedSurface {
@@ -89,6 +96,7 @@ struct MetalPlacedSurface {
   Mat4 WorldFromTile;
   std::optional<size_t> HandoffGroup;
   std::vector<MetalSurfaceInstance> Instances;
+  std::optional<MetalSurfaceDetail> Detail = std::nullopt;
 };
 
 struct MetalPlacedImpostorGroup {

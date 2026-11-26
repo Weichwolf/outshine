@@ -244,6 +244,8 @@ ReportJson RenderedContent(const ScenarioBenchmarkReport &report) {
     if (report.GroupCoverage.CanopySites > 0) {
       near["canopy"] = {{"sites", report.GroupCoverage.CanopySites},
                         {"mesh_groups", report.GroupCoverage.CanopyMeshGroups},
+                        {"coarse_mesh_groups", report.GroupCoverage.CanopyCoarseGroups},
+                        {"mesh_detail_handoffs", report.GroupCoverage.CanopyDetailHandoffs},
                         {"instances", report.GroupCoverage.CanopyInstances}};
     }
     const auto &groups = report.GroupCoverage;
@@ -267,6 +269,7 @@ ReportJson RenderedContent(const ScenarioBenchmarkReport &report) {
     if (groups.Groups > 0 || groups.CanopyMeshGroups > 0) {
       content["near"]["endpoint_triangles"] = groups.SurfaceEndpointTriangles;
       content["peak_triangles_per_frame"] = 1 + groups.PeakSurfaceAndGroupTriangles;
+      content.erase("draws_per_frame");
       content.erase("triangles_per_frame");
     }
     return content;

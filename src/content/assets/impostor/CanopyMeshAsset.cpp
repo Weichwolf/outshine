@@ -87,6 +87,102 @@ std::optional<SurfaceTile> DecodeMesh(std::string_view data) {
 std::string Request(std::string_view key) {
   return Sha256Hex(std::format("{}/{}", kBankKind, key));
 }
+
+struct StagedPrototype {
+  std::string Key;
+  size_t Indices;
+  double RadiusM;
+};
+
+double PrototypeRadius(const SurfaceTile &mesh) {
+  const auto &low = mesh.MinimumM;
+  const auto &high = mesh.MaximumM;
+  return Length(Vec3{{std::max(std::abs(low[0]), std::abs(high[0])),
+                      std::max(std::abs(low[1]), std::abs(high[1])),
+                      std::max(std::abs(low[2]), std::abs(high[2]))}});
+}
+
+std::expected<StagedPrototype, std::string> StagePrototype(
+    AssetCache &cache, const std::filesystem::path &path, std::vector<PreparedAssetWrite> &writes) {
+  const auto mesh = ReadTextFile(path.string(), SurfaceTile::MaximumPackedBytes);
+  const auto prototype = mesh ? DecodeMesh(*mesh) : std::nullopt;
+  if (!prototype) { return std::unexpected("invalid canopy mesh prototype"); }
+  const auto digest = Sha256Hex(*mesh);
+  const AssetRecord shape{.Key = Sha256Hex(std::format("{}/{}", kMeshKind, digest)),
+                          .Kind = std::string(kMeshKind),
+                          .Bounds = {.Min = prototype->MinimumM, .Max = prototype->MaximumM},
+                          .Package = digest,
+                          .ByteCount = mesh->size(),
+                          .Parent = {}};
+  const auto prepared = Stage(cache, shape, *mesh, writes);
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  return StagedPrototype{.Key = shape.Key,
+                         .Indices = prototype->Indices.size(),
+                         .RadiusM = PrototypeRadius(*prototype)};
+}
+
+std::optional<double> PositiveMetres(const Json &record, std::string_view field) {
+  const auto value = record.find(field);
+  if (value == record.end() || !value->is_number()) { return std::nullopt; }
+  const double metres = value->get<double>();
+  if (metres <= 0 || metres > kCoordinateLimitM) { return std::nullopt; }
+  return metres;
+}
+
+std::expected<void, std::string> StageCoarse(AssetCache &cache,
+                                             const std::filesystem::path &directory,
+                                             const StagedPrototype &fine,
+                                             Json &bank,
+                                             std::vector<PreparedAssetWrite> &writes) {
+  const auto path = directory / "near-coarse.surface";
+  const auto metadataPath = directory / "near-coarse.json";
+  std::error_code error;
+  const bool hasMesh = std::filesystem::exists(path, error);
+  if (error) { return std::unexpected("could not inspect coarse canopy mesh"); }
+  const bool hasMetadata = std::filesystem::exists(metadataPath, error);
+  if (error) { return std::unexpected("could not inspect coarse canopy metadata"); }
+  if (!hasMesh && !hasMetadata) { return {}; }
+  const auto metadata = ReadTextFile(metadataPath.string(), kLayoutBytes);
+  const auto cell =
+      metadata ? PositiveMetres(Json::parse(*metadata, nullptr, false), "cell_m") : std::nullopt;
+  if (!cell) { return std::unexpected("coarse canopy requires its authored cell size"); }
+  const auto coarse = StagePrototype(cache, path, writes);
+  if (!coarse) { return std::unexpected(coarse.error()); }
+  if (coarse->Indices >= fine.Indices) {
+    return std::unexpected("coarse canopy must reduce prototype work");
+  }
+  bank["coarse_mesh"] = coarse->Key;
+  bank["coarse_cell_m"] = *cell;
+  bank["prototype_radius_m"] = std::max(fine.RadiusM, coarse->RadiusM);
+  return {};
+}
+
+std::optional<ImpostorDistanceRamp> MeshDetailRamp(const Json &bank,
+                                                   std::span<const SurfaceInstance> instances,
+                                                   const CanopyMeshDemand &demand) {
+  constexpr double kFineCellPx = 1.2;
+  constexpr double kCoarseCellPx = 1.1;
+  const auto cell = PositiveMetres(bank, "coarse_cell_m");
+  const auto radius = PositiveMetres(bank, "prototype_radius_m");
+  if (!cell || !radius || !(demand.FocalPixels > 0)) { return std::nullopt; }
+  double supportM = 0;
+  double scale = 0;
+  for (const auto &instance : instances) {
+    const Vec3 root{{instance[0], instance[1], instance[2]}};
+    scale = std::max(scale, double{instance[3]});
+    supportM = std::max(supportM, Length(root - demand.CentreM) + *radius * instance[3]);
+  }
+  const double pixelsAtOneMetre = *cell * scale * demand.FocalPixels;
+  return ImpostorDistanceRamp{.BeginM = supportM + pixelsAtOneMetre / kFineCellPx,
+                              .EndM = supportM + pixelsAtOneMetre / kCoarseCellPx};
+}
+
+const std::string *ReadKey(const Json &bank, std::string_view field) {
+  const auto value = bank.find(field);
+  if (value == bank.end() || !value->is_string()) { return nullptr; }
+  const auto &key = value->get_ref<const std::string &>();
+  return AssetProductKey::Parse(key) ? &key : nullptr;
+}
 }
 
 std::expected<void, std::string> StageCanopyMesh(AssetCache &cache,
@@ -108,22 +204,14 @@ std::expected<void, std::string> StageCanopyMesh(AssetCache &cache,
   }
   auto instances = Json::parse(*layout, nullptr, false);
   if (!ReadInstances(instances)) { return std::unexpected("invalid near canopy instances"); }
-  const auto mesh = ReadTextFile(meshPath.string(), SurfaceTile::MaximumPackedBytes);
-  const auto prototype = mesh ? DecodeMesh(*mesh) : std::nullopt;
-  if (!prototype) { return std::unexpected("invalid near canopy prototype"); }
-  const auto digest = Sha256Hex(*mesh);
-  const AssetRecord shape{.Key = Sha256Hex(std::format("{}/{}", kMeshKind, digest)),
-                          .Kind = std::string(kMeshKind),
-                          .Bounds = {.Min = prototype->MinimumM, .Max = prototype->MaximumM},
-                          .Package = digest,
-                          .ByteCount = mesh->size(),
-                          .Parent = {}};
-  const auto prepared = Stage(cache, shape, *mesh, writes);
-  if (!prepared) { return prepared; }
-  const auto body = Json{{"mesh", shape.Key},
-                         {"roots_m", std::move(instances["roots_m"])},
-                         {"tree_scales", std::move(instances["tree_scales"])}}
-                        .dump();
+  const auto fine = StagePrototype(cache, meshPath, writes);
+  if (!fine) { return std::unexpected(fine.error()); }
+  Json bankBody{{"mesh", fine->Key},
+                {"roots_m", std::move(instances["roots_m"])},
+                {"tree_scales", std::move(instances["tree_scales"])}};
+  const auto coarse = StageCoarse(cache, directory, *fine, bankBody, writes);
+  if (!coarse) { return coarse; }
+  const auto body = bankBody.dump();
   if (body.size() > kLayoutBytes) { return std::unexpected("near canopy instance bank too large"); }
   const auto request = Request(group.Key);
   const auto content = Sha256Hex(body);
@@ -139,7 +227,10 @@ std::expected<void, std::string> StageCanopyMesh(AssetCache &cache,
 }
 
 std::expected<std::optional<CanopyMesh>, std::string>
-CanopyMeshBank::Read(const AssetCache &cache, const AssetRecord &group, size_t &requestedBytes) {
+CanopyMeshBank::Read(const AssetCache &cache,
+                     const AssetRecord &group,
+                     const CanopyMeshDemand &demand,
+                     size_t &requestedBytes) {
   const auto descriptor = cache.LoadRequest(Request(group.Key), kLayoutBytes);
   if (!descriptor) { return std::unexpected("near canopy lookup failed"); }
   if (!*descriptor || (**descriptor).Record().Kind != kBankKind ||
@@ -150,10 +241,37 @@ CanopyMeshBank::Read(const AssetCache &cache, const AssetRecord &group, size_t &
   requestedBytes += bytes.size();
   const auto layout = Json::parse(bytes.begin(), bytes.end(), nullptr, false);
   auto instances = ReadInstances(layout);
-  const auto mesh = layout.find("mesh");
-  if (!instances || mesh == layout.end() || !mesh->is_string()) { return std::nullopt; }
-  const auto &key = mesh->get_ref<const std::string &>();
-  if (!AssetProductKey::Parse(key)) { return std::nullopt; }
+  const auto *fine = ReadKey(layout, "mesh");
+  if (!instances || fine == nullptr) { return std::nullopt; }
+  const auto *coarse = ReadKey(layout, "coarse_mesh");
+  const auto ramp = coarse == nullptr ? std::nullopt : MeshDetailRamp(layout, *instances, demand);
+  const auto mode =
+      ramp ? ClassifyImpostorSweep(demand.Eye, *ramp) : ImpostorDistanceMode::Geometry;
+  const bool coarseFirst = mode == ImpostorDistanceMode::Impostor;
+  auto selected = ReadPrototype(cache, coarseFirst ? *coarse : *fine, requestedBytes);
+  if (!selected) { return std::unexpected(selected.error()); }
+  CanopyMesh mesh{.Prototype = std::move(*selected),
+                  .Instances = std::move(*instances),
+                  .CoarsePrototype = {},
+                  .DetailHandoff = {},
+                  .CoarseOnly = coarseFirst};
+  if (coarse != nullptr && (!mesh.Prototype || mode == ImpostorDistanceMode::Handoff)) {
+    auto other = ReadPrototype(cache, coarseFirst ? *fine : *coarse, requestedBytes);
+    if (!other) { return std::unexpected(other.error()); }
+    if (!mesh.Prototype) {
+      mesh.Prototype = std::move(*other);
+      mesh.CoarseOnly = !coarseFirst;
+    } else if (*other && ramp) {
+      mesh.CoarsePrototype = std::move(*other);
+      mesh.DetailHandoff = CanopyMeshDetail{.CentreM = demand.CentreM, .Ramp = *ramp};
+    }
+  }
+  if (!mesh.Prototype) { return std::nullopt; }
+  return mesh;
+}
+
+std::expected<std::shared_ptr<const SurfaceTile>, std::string> CanopyMeshBank::ReadPrototype(
+    const AssetCache &cache, const std::string &key, size_t &requestedBytes) {
   auto [held, read] = Meshes_.try_emplace(key);
   if (read) {
     const auto canonical = cache.Load(key, SurfaceTile::MaximumPackedBytes);
@@ -165,8 +283,7 @@ CanopyMeshBank::Read(const AssetCache &cache, const AssetRecord &group, size_t &
       if (prototype) { held->second = std::make_shared<const SurfaceTile>(std::move(*prototype)); }
     }
   }
-  if (!held->second) { return std::nullopt; }
-  return CanopyMesh{.Prototype = held->second, .Instances = std::move(*instances)};
+  return held->second;
 }
 
 }

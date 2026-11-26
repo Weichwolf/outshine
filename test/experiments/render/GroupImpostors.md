@@ -350,7 +350,39 @@ roots, cards and panorama. The 0.65 m, 0.90 m and 1.20 m prototypes submitted
 12.14 M, 6.64 M and 4.41 M peak triangles at 25.57, 28.61 and 22.14 ms GPU p99.
 The 1.20 m variant covered 5,039 pixels against 5,017 in the 0.65 m control,
 at 0.753 coverage IoU. This measures the distant slope. Runtime selection of
-mesh density and close-range coverage still require validation.
+mesh density uses this slope as its first calibrated case.
+
+## Projected canopy mesh detail
+
+The importer accepts an optional `near-coarse.surface` and
+`near-coarse.json` with its authored `cell_m`. Both prototypes use the
+same roots, source layout and bark. The coarse prototype must have fewer
+indices. Rotation keeps one selection. For translation, the loader computes
+the closest and farthest distances over the eye segment before opening the
+prototype packages.
+
+The size proxy is focal length in pixels times voxel size times the largest
+instance scale, divided by the distance to the group centre minus a sphere
+enclosing all placed prototypes. At 1.2 px or larger the loader selects fine;
+at 1.1 px or smaller it selects coarse. The interval keeps both and splits
+the mesh coverage left by the directional cards. This is a size heuristic.
+It measures neither signed silhouette error nor depth error.
+
+Three paired A18 Pro 720p30 runs in the prepared dense Körbersee fixture:
+
+| Motion | Fine-only → selected peak triangles | GPU p99 | CPU p99 |
+|---|---:|---:|---:|
+| 16 m lateral flight | 12.14 M → 4.41 M | 26.66 → 22.44 ms | 0.40 → 0.28 ms |
+| 360° turn | 11.95 M → 4.35 M | 30.91 → 21.21 ms | 0.39 → 0.27 ms |
+
+Flight mesh-package requests fell from 747,100 to 274,837 bytes. The visible
+stand covered 4,862 / 4,874 pixels in the same crop against matching ground,
+at 0.762 coverage IoU. A 54° vertical field of view exercised eight mesh
+handoffs. At 36°, the visible endpoint matched the fine control. Removing
+the coarse prototype reproduced the fine-control flight endpoint. The Tokyo
+handoff was pixel-identical. Thin crowns still stipple and the transition
+can submit both meshes. These prepared products do not establish full-world
+completeness or the frame budget with the rest of the environment enabled.
 
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
