@@ -204,6 +204,16 @@ build/outshine benchmark --scenario "$scenario" --product-store "$database" \
   --product-revision "$revision" --frames 30 --image "$image" --output "$report"
 ```
 
+Für den Materialvergleich übernimmt der experimentelle Bake die Bodenklassen und
+Materialfarben einer Ground-Region mit eingebetteten Seiten. Er speichert die lineare
+Farbe mit vier Bytes pro Rasterpunkt. Geometrie und Gebäudefarben bleiben erhalten.
+
+```sh
+cmake --build build --target outshine_experiment_surface_ground
+python3 -B test/experiments/render/bake_surface_ground.py "$cache" "$region_key" \
+  build/outshine_experiment_surface_ground "$output_dir" "$packed"
+```
+
 Der SSD-Pfad wählt bei einer Tiefen-Cubemap mit Nahgrenze einen Kachelschnitt für den
 Kamerapfad. Die räumliche Suche liefert Startpunkte. Die Hierarchiesuche ergänzt Eltern und
 fehlende Geschwister für eine vollständige Abdeckung. Fehlt eine Kindkachel oder ist sie

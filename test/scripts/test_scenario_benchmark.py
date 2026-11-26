@@ -545,14 +545,14 @@ class ScenarioBenchmark(unittest.TestCase):
                     'revision': '1' * 64, 'geometric_error_m': 10, 'bounds_eus_m': bounds,
                     'vertices_eus_m': [bounds[0], [xmax, ymin, -4], [xmin, ymax, -4], bounds[1]],
                     'normals_eus': [[0, 0, 1]] * 4, 'indices': [0, 1, 3, 0, 3, 2],
-                    'colours_rgba8': [], 'ground_indices': 6,
+                    'colours_rgba8': [[80, 110, 45, 255]] * 4, 'ground_indices': 6,
                 }
                 if overlay:
                     recipe['bounds_eus_m'] = [bounds[0], [xmax, ymax, -2]]
                     recipe['vertices_eus_m'] += [[0.5, 100.1, -2], [1, 100.1, -2], [1, 101, -2]]
                     recipe['normals_eus'] += [[0, 0, 1]] * 3
                     recipe['indices'] += [4, 5, 6]
-                    recipe['colours_rgba8'] = [[217, 167, 24, 255]] * 3
+                    recipe['colours_rgba8'] += [[217, 167, 24, 255]] * 3
                 path.write_text(json.dumps(recipe))
                 subprocess.run([sys.executable, '-B',
                                 str(ROOT / 'test/experiments/render/pack_surface_tile.py'),

@@ -3,6 +3,7 @@
 #include "TangentFrame.h"
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -92,21 +93,33 @@ void StitchEdge(SurfaceTile &fine, const SurfaceTile &coarse, const EdgeDirectio
   const bool horizontal = edge.Here == Edge::North || edge.Here == Edge::South;
   const auto cell = (horizontal ? fine.Coverage.X : fine.Coverage.Y) % scale;
   const size_t last = coarse.GridSide - 1;
+  const bool stitchColour = fine.Colours.size() == fine.Vertices.size() &&
+                            coarse.Colours.size() == coarse.Vertices.size();
   for (size_t sample = 0; sample < fine.GridSide; ++sample) {
     const double along =
         (static_cast<double>(cell) + static_cast<double>(sample) / (fine.GridSide - 1)) / scale *
         static_cast<double>(last);
     const auto first = static_cast<size_t>(along);
-    const auto &a = coarse.Vertices[EdgeIndex(edge.There, coarse.GridSide, first)];
-    const auto &b =
-        coarse.Vertices[EdgeIndex(edge.There, coarse.GridSide, std::min(first + 1, last))];
-    auto &vertex = fine.Vertices[EdgeIndex(edge.Here, fine.GridSide, sample)];
+    const size_t aIndex = EdgeIndex(edge.There, coarse.GridSide, first);
+    const size_t bIndex = EdgeIndex(edge.There, coarse.GridSide, std::min(first + 1, last));
+    const auto &a = coarse.Vertices[aIndex];
+    const auto &b = coarse.Vertices[bIndex];
+    const size_t fineIndex = EdgeIndex(edge.Here, fine.GridSide, sample);
+    auto &vertex = fine.Vertices[fineIndex];
     const double fraction = along - static_cast<double>(first);
     const auto position = Interpolate(a.PositionM, b.PositionM, fraction);
     vertex.PositionM = ToEus(into.ToLocalPosition(from.ToEcefPosition(ToEnu(position))));
     auto normal = ToEus(into.ToLocalDirection(
         from.ToEcefDirection(ToEnu(Interpolate(a.Normal, b.Normal, fraction)))));
     if (Normalise(normal)) { vertex.Normal = normal; }
+    if (stitchColour) {
+      auto &colour = fine.Colours[fineIndex];
+      for (size_t channel = 0; channel < colour.size(); ++channel) {
+        const auto value =
+            std::lerp(coarse.Colours[aIndex][channel], coarse.Colours[bIndex][channel], fraction);
+        colour[channel] = static_cast<uint8_t>(std::lround(value));
+      }
+    }
   }
 }
 

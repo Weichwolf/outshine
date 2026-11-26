@@ -1,6 +1,7 @@
 """Pack an exported surface tile as one independently readable render product."""
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import struct
@@ -24,9 +25,9 @@ def pack(tile):
     colours = tile.get("colours_rgba8")
     magic = b"OUTSHST2" if grid_side else b"OUTSHST1"
     if colours is not None:
-        if not grid_side or len(colours) != len(positions) - grid_side**2:
-            raise ValueError("painted vertices must follow a regular terrain grid")
-        magic = b"OUTSHST3"
+        if not grid_side or len(colours) not in (len(positions), len(positions) - grid_side**2):
+            raise ValueError("material colours must cover the overlay or all vertices")
+        magic = b"OUTSHST4" if len(colours) == len(positions) else b"OUTSHST3"
     payload = bytearray(HEADER.pack(
         magic,
         *tile["coverage"], *tile["origin_lon_lat"], revision, *minimum, *maximum,
@@ -44,6 +45,27 @@ def pack(tile):
         for colour in colours:
             payload += COLOUR.pack(*colour)
     return payload
+
+
+def with_ground_colours(packed, ground):
+    header = list(HEADER.unpack_from(packed))
+    magic, vertices, indices = header[0], header[-2], header[-1]
+    if magic not in (b"OUTSHST2", b"OUTSHST3"):
+        raise ValueError("packed regular surface grid required")
+    side = INDEX.unpack_from(packed, HEADER.size)[0]
+    grid = side * side
+    split = INDEX.size if magic == b"OUTSHST3" else 0
+    end = HEADER.size + INDEX.size + split + vertices * VERTEX.size + indices * INDEX.size
+    if side < 2 or grid > vertices or (not split and grid != vertices):
+        raise ValueError("invalid ground grid size")
+    if len(ground) != grid * COLOUR.size or len(packed) != end + (vertices - grid) * COLOUR.size:
+        raise ValueError("material colour payload does not match vertex counts")
+    header[0] = b"OUTSHST4"
+    header[6] = hashlib.sha256(packed + ground).hexdigest().encode("ascii")
+    body = packed[HEADER.size:end]
+    if not split:
+        body = body[:INDEX.size] + INDEX.pack(indices) + body[INDEX.size:]
+    return HEADER.pack(*header) + body + ground + packed[end:]
 
 
 def main():

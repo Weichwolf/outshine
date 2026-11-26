@@ -34,6 +34,10 @@ add_executable(outshine_experiment_building_geometry_asset EXCLUDE_FROM_ALL
   "${PROJECT_SOURCE_DIR}/test/experiments/render/building_geometry_asset.cpp")
 target_link_libraries(outshine_experiment_building_geometry_asset PRIVATE outshine_generators_building)
 
+add_executable(outshine_experiment_surface_ground EXCLUDE_FROM_ALL
+  "${PROJECT_SOURCE_DIR}/test/experiments/render/NativeSurfaceGround.cpp")
+target_link_libraries(outshine_experiment_surface_ground PRIVATE outshine_world outshine_world_products)
+
 add_executable(outshine_experiment_road_display EXCLUDE_FROM_ALL
   "${PROJECT_SOURCE_DIR}/test/experiments/streaming/tile-selection/RoadDisplayCache.cpp")
 target_link_libraries(outshine_experiment_road_display PRIVATE outshine_generators_road_pages)
@@ -61,6 +65,7 @@ target_link_libraries(outshine_experiment_prepared_terraces PRIVATE outshine_gen
 foreach(probe IN ITEMS outshine_experiment_urban_bake outshine_experiment_plant_prepare
     outshine_experiment_urban_control outshine_experiment_source_geometry outshine_experiment_building_geometry_cache
     outshine_experiment_source_group_bake outshine_experiment_building_geometry_asset
+    outshine_experiment_surface_ground
     outshine_experiment_source_inputs outshine_experiment_road_display
     outshine_experiment_building_shell_metadata outshine_experiment_prepared_roof_forms
     outshine_experiment_native_roof_prefix outshine_experiment_footprint_cards
