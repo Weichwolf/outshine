@@ -25,12 +25,8 @@ int main() {
                    {.WallMs = 4, .AdvanceMs = 1, .RenderMs = 3, .SyncWaitMs = 3, .Refined = true}};
   report.GpuSamples = {{.Device = 1, .Submission = 9, .ElapsedMs = 1},
                        {.Device = 1, .Submission = 12, .ElapsedMs = 2}};
-  report.Measures = {{.Name = "capture.gpu.render_frames", .Value = 2, .Unit = "frames"},
-                     {.Name = "capture.gpu.frames", .Value = 2, .Unit = "frames"},
-                     {.Name = "capture.gpu.total_ms", .Value = 3, .Unit = "ms"},
-                     {.Name = "capture.gpu.max_ms", .Value = 2, .Unit = "ms"},
-                     {.Name = "capture.gpu.unavailable", .Value = 0, .Unit = "frames"},
-                     {.Name = "capture.gpu.query_ms", .Value = 0.5, .Unit = "ms"}};
+  report.GpuTiming = {
+      .RenderedFrames = 2, .TimedFrames = 2, .TotalMs = 3, .MaxMs = 2, .QueryMs = 0.5};
   const auto decode = [&report] {
     return nlohmann::json::parse(ScenarioBenchmarkJson(report), nullptr, false);
   };
@@ -96,8 +92,10 @@ int main() {
   report.WindowMs = 20;
   report.FlushMs = 5;
   report.GpuSamples.pop_back();
-  report.Measures[1].Value = 1;
-  report.Measures[4].Value = 1;
+  report.GpuTiming.TimedFrames = 1;
+  report.GpuTiming.TotalMs = 1;
+  report.GpuTiming.MaxMs = 1;
+  report.GpuTiming.UnavailableFrames = 1;
   json = decode();
   CHECK(json["measurement_complete"] == true && json["gpu_times"]["complete"] == false &&
             json["gpu_times"]["frame"].is_null() && json["budget"]["gpu_p99_met"].is_null() &&
