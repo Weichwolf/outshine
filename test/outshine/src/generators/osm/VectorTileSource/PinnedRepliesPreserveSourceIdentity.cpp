@@ -1,6 +1,7 @@
 #include "Check.h"
 #include "OfflineSourceTransport.h"
 #include "OsmField.h"
+#include "PreferredVectorSource.h"
 #include "RawSourceCache.h"
 #include "SourceSet.h"
 #include "VectorTileSource.h"
@@ -227,6 +228,61 @@ void CheckOtherOutcomes() {
   CHECK(independent && independent->What == Meaning::Bytes,
         "a dataset identifier alone cannot impose a different endpoint's HTTP protocol");
 }
+
+void CheckDefaultFeed(const std::filesystem::path &root) {
+  const auto make = [] {
+    const auto selected = Generators::Osm::PreferredVectorSource();
+    return std::make_unique<Generators::Osm::VectorTileSource>(
+        selected.Revision,
+        Rank{0},
+        AbsencePolicy::Fail,
+        selected.Dataset,
+        selected.Endpoint,
+        Generators::Osm::MvtSchema::OpenMapTiles);
+  };
+  const auto at = Address::At(kAddress);
+  const auto emptyAt = Address::At(TileId{.Zoom = 3, .X = 2, .Y = 2});
+  const SourceRequest request(DataKind::VectorMap, at);
+  const SourceRequest emptyRequest(DataKind::VectorMap, emptyAt);
+  {
+    RawSourceCache cache({.Directory = root.string()});
+    SourceSet sources(cache);
+    auto source = make();
+    const auto key = ContentKey(source->Declaration(), at);
+    CHECK(key != ContentKey(MakeSource()->Declaration(), at),
+          "the live feed has a different address from pinned sources");
+    CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted,
+          "the application's default feed registers");
+    Replies wire;
+    wire.Headers = "content-type: text/html\r\n";
+    auto wrong = sources.Ask(request);
+    CHECK(sources.Collect(wrong, wire).Where() == SourceDelivery::State::Refused &&
+              cache.Lookup(key).Where == RawSourceCache::Presence::Unknown,
+          "an HTTP success with the wrong content type cannot enter the source store");
+    wire.Headers =
+        "content-type: application/vnd.mapbox-vector-tile\r\nx-ofm-debug: wildcard PBF planet\r\n";
+    auto query = sources.Ask(request);
+    const auto loaded = sources.Collect(query, wire).Take();
+    CHECK(loaded && loaded->Bytes == wire.Body && cache.Lookup(key).Bytes == wire.Body,
+          "the rolling release supplies useful tiles under the live cache key");
+    wire.Headers = "content-type: application/vnd.mapbox-vector-tile\r\n";
+    wire.Body.clear();
+    auto emptyQuery = sources.Ask(emptyRequest);
+    const auto empty = sources.Collect(emptyQuery, wire).Take();
+    CHECK(empty && empty->Bytes.empty(), "the live feed can deliver a complete empty MVT");
+  }
+  RawSourceCache cache({.Directory = root.string()});
+  SourceSet warm(cache);
+  CHECK(warm.Add(make()) == SourceSet::Registration::Accepted, "the live cache reopens");
+  Replies wire;
+  auto query = warm.Ask(request);
+  const auto loaded = warm.Collect(query, wire).Take();
+  auto emptyQuery = warm.Ask(emptyRequest);
+  const auto empty = warm.Collect(emptyQuery, wire).Take();
+  CHECK(loaded && loaded->Bytes == wire.Body && empty && empty->Bytes.empty() && wire.Starts == 0 &&
+            warm.Counters().FromStore == 2,
+        "a warm run replays present and empty inputs with networking enabled");
+}
 }
 
 int main() {
@@ -239,6 +295,7 @@ int main() {
   CheckEmptyMissAndOfflineHit(root / "empty");
   CheckOtherOutcomes();
   CheckRenamedProvider();
+  CheckDefaultFeed(root / "live");
   std::filesystem::remove_all(root, error);
   CHECK(!error, "only test-owned cache files are removed after closing their owners");
   return Report();
