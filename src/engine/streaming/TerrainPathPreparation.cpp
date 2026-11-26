@@ -213,10 +213,12 @@ std::string Refusal(Data::TileId tile,
                      failure->SourceKey);
 }
 
-std::expected<bool, std::string> PollVector(Data::TileId tile,
-                                            const Ground::SurfacePreparation &stack,
-                                            ::outshine::Generators::Osm::OsmField &vectors) {
-  const auto loaded = vectors.PollTile(
+using VectorField = Generators::Osm::OsmField;
+using TilePresence = VectorField::TilePresence;
+
+std::expected<TilePresence, std::string>
+PrefetchVector(Data::TileId tile, const Ground::SurfacePreparation &stack, VectorField &vectors) {
+  const auto loaded = vectors.PrefetchTile(
       stack.Pool(), {.X = static_cast<int>(tile.X), .Y = static_cast<int>(tile.Y)});
   if (!loaded) {
     return std::unexpected(std::format("view data preparation failed at vector/{}/{}/{}: {}",
@@ -226,6 +228,28 @@ std::expected<bool, std::string> PollVector(Data::TileId tile,
                                        loaded.error()));
   }
   return *loaded;
+}
+
+TilePresence PublishedVectorTile(const VectorField *field, Data::TileId tile) {
+  if (field == nullptr || field->Zoom() != tile.Zoom) { return TilePresence::Pending; }
+  const auto x = static_cast<int>(tile.X);
+  const auto y = static_cast<int>(tile.Y);
+  if (!field->Settled(x, y)) { return TilePresence::Pending; }
+  if (field->TileIndex(x, y) >= 0) { return TilePresence::Present; }
+  return field->PendingTiles() == 0 ? TilePresence::Absent : TilePresence::Pending;
+}
+
+std::expected<bool, std::string> PrepareVectorCoverage(Data::TileId tile,
+                                                       const Ground::SurfacePreparation &stack,
+                                                       VectorField &vectors,
+                                                       std::vector<Data::TileId> &coverage) {
+  const auto published = PublishedVectorTile(stack.Vectors(), tile);
+  const auto available = published == TilePresence::Pending
+                             ? PrefetchVector(tile, stack, vectors)
+                             : std::expected<TilePresence, std::string>{published};
+  if (!available) { return std::unexpected(available.error()); }
+  if (*available == TilePresence::Present) { coverage.push_back(tile); }
+  return *available != TilePresence::Pending;
 }
 
 std::expected<bool, std::string> PollField(Data::TileId tile,
@@ -280,13 +304,18 @@ PrepareTerrainPath(TerrainPathPlan plan,
     return std::unexpected(kBudgetError);
   }
   auto vectors = stack.CreateVectorField();
-  std::map<int, std::unique_ptr<Generators::Osm::OsmField>> classification;
+  std::map<int, std::unique_ptr<VectorField>> classification;
+  std::vector<Data::TileId> vectorTiles;
   const auto pollVector = [&](Data::TileId tile) -> std::expected<bool, std::string> {
-    if (tile.Zoom == vectors->Zoom()) { return PollVector(tile, stack, *vectors); }
+    if (tile.Zoom == vectors->Zoom()) {
+      return PrepareVectorCoverage(tile, stack, *vectors, vectorTiles);
+    }
     auto &field = classification[tile.Zoom];
     if (!field) { field = stack.Classes().CreateField(tile.Zoom); }
     if (!field) { return std::unexpected("unknown vector demand layout"); }
-    return PollVector(tile, stack, *field);
+    const auto available = PrefetchVector(tile, stack, *field);
+    if (!available) { return std::unexpected(available.error()); }
+    return *available != TilePresence::Pending;
   };
   const auto &assets = stack.TerrainAssets();
   const auto shape = stack.Pool().Shaped();
@@ -306,8 +335,9 @@ PrepareTerrainPath(TerrainPathPlan plan,
       {},
       {.FinestZoom = stack.TerrainRenderZoom(),
        .GroundZoom = stack.Ground().BlockZoom(),
-       .Vectors = stack.HasDeclaredVectors() ? stack.Vectors() : vectors.get(),
-       .AdditionalTiles = {}});
+       .Vectors = stack.HasDeclaredVectors() ? stack.Vectors() : nullptr,
+       .AdditionalTiles = {}},
+      vectorTiles);
   if (!heights) { return std::unexpected(heights.error()); }
   std::vector<Data::TileId> additional;
   std::ranges::set_difference(*heights, plan.Fields, std::back_inserter(additional), TileLess{});

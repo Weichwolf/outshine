@@ -66,6 +66,26 @@ int main() {
   }
   CHECK(field.PollTile(reader, {.X = 1, .Y = 1}) && reader.Polls == 2,
         "settled input is not requested again");
+
+  OsmField prefetch(address.Zoom, layers, MvtSchema::OpenMapTiles);
+  using Presence = OsmField::TilePresence;
+  reader.State = Data::SourceDelivery::State::Pending;
+  CHECK(prefetch.PrefetchTile(reader, {.X = 1, .Y = 1}) == Presence::Pending,
+        "source prefetch waits for a pending input");
+  reader.State = Data::SourceDelivery::State::Delivered;
+  CHECK(prefetch.PrefetchTile(reader, {.X = 1, .Y = 1}) == Presence::Present &&
+            prefetch.Tiles().empty() && prefetch.Features().empty(),
+        "source prefetch identifies a delivered tile without assembling scene geometry");
+  reader.State = Data::SourceDelivery::State::Vacant;
+  CHECK(prefetch.PrefetchTile(reader, {.X = 1, .Y = 1}) == Presence::Absent,
+        "source prefetch distinguishes a settled absence from pending input");
+  reader.State = Data::SourceDelivery::State::Refused;
+  CHECK(!prefetch.PrefetchTile(reader, {.X = 1, .Y = 1}),
+        "source prefetch propagates a provider refusal");
+  reader.State = Data::SourceDelivery::State::Delivered;
+  CHECK(prefetch.PollTile(reader, {.X = 1, .Y = 1}) && prefetch.Tiles().size() == 1 &&
+            prefetch.Features().size() == 1,
+        "subsequent geometry acquisition can assemble the prefetched input once");
   for (const auto state :
        {Data::SourceDelivery::State::Vacant, Data::SourceDelivery::State::Undeclared}) {
     reader.State = state;

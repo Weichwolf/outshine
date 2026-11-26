@@ -25,7 +25,9 @@ struct TerrainSourceCoverage {
 };
 
 [[nodiscard]] std::expected<std::vector<Data::TileId>, std::string>
-PlanTerrainSourceTiles(std::span<const Data::TileId> sources, TerrainSourceCoverage coverage);
+PlanTerrainSourceTiles(std::span<const Data::TileId> sources,
+                       TerrainSourceCoverage coverage,
+                       std::span<const Data::TileId> vectorTiles = {});
 }
 
 #endif

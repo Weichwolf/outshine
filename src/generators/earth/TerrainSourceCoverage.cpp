@@ -89,24 +89,34 @@ AddSources(TilePlan &plan, std::span<const Data::TileId> sources, TerrainSourceC
   return {};
 }
 
+[[nodiscard]] PlanResult AddVector(TilePlan &plan, Data::TileId source, int finestZoom) {
+  if (!ValidTile(source)) { return std::unexpected("vector tile is outside its source grid"); }
+  const int zoom = std::min(source.Zoom, finestZoom);
+  const auto drop = static_cast<uint32_t>(source.Zoom - zoom);
+  if (!plan.Neighbours({.Zoom = zoom, .X = source.X >> drop, .Y = source.Y >> drop})) {
+    return BudgetExceeded();
+  }
+  return {};
+}
+
 [[nodiscard]] PlanResult AddVectors(TilePlan &plan,
                                     const ::outshine::Generators::Osm::OsmField &vectors,
                                     TerrainSourceCoverage coverage) {
   for (const auto &tile : vectors.Tiles()) {
-    Data::TileId source{
+    const Data::TileId source{
         .Zoom = tile.Z, .X = static_cast<uint32_t>(tile.X), .Y = static_cast<uint32_t>(tile.Y)};
-    if (!ValidTile(source)) { return std::unexpected("vector tile is outside its source grid"); }
-    const int zoom = std::min(source.Zoom, coverage.FinestZoom);
-    const auto drop = static_cast<uint32_t>(source.Zoom - zoom);
-    source = {.Zoom = zoom, .X = source.X >> drop, .Y = source.Y >> drop};
-    if (!plan.Neighbours(source)) { return BudgetExceeded(); }
+    if (const auto covered = AddVector(plan, source, coverage.FinestZoom); !covered) {
+      return covered;
+    }
   }
   return {};
 }
 }
 
 std::expected<std::vector<Data::TileId>, std::string>
-PlanTerrainSourceTiles(std::span<const Data::TileId> sources, TerrainSourceCoverage coverage) {
+PlanTerrainSourceTiles(std::span<const Data::TileId> sources,
+                       TerrainSourceCoverage coverage,
+                       std::span<const Data::TileId> vectorTiles) {
   if (coverage.FinestZoom < 0 ||
       coverage.FinestZoom > ::outshine::Ground::HeightField::MaximumTileZoom ||
       coverage.GroundZoom < -1 || coverage.GroundZoom > coverage.FinestZoom ||
@@ -119,6 +129,11 @@ PlanTerrainSourceTiles(std::span<const Data::TileId> sources, TerrainSourceCover
   if (coverage.Vectors != nullptr) {
     const auto vectors = AddVectors(plan, *coverage.Vectors, coverage);
     if (!vectors) { return std::unexpected(vectors.error()); }
+  }
+  for (const auto tile : vectorTiles) {
+    if (const auto covered = AddVector(plan, tile, coverage.FinestZoom); !covered) {
+      return std::unexpected(covered.error());
+    }
   }
   for (const auto tile : coverage.AdditionalTiles) {
     if (!ValidTile(tile) || tile.Zoom != coverage.FinestZoom) {
