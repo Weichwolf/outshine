@@ -123,6 +123,14 @@ def native_card(path, expected_side, view):
     linear = np.where(srgb < .04045, srgb / 12.92, ((srgb + .055) / 1.055)**2.4)
     colour = np.divide(linear, alpha[..., None], out=np.zeros_like(linear),
                        where=alpha[..., None] > 0.)
+    normal_offset = pixel_offset + 4 * mip_texels
+    oct_words = np.frombuffer(data, np.uint8, 4 * side * side, normal_offset)
+    oct_xy = oct_words.reshape(side, side, 4)[..., :2] / 127.5 - 1
+    normal_z = 1 - np.abs(oct_xy).sum(axis=-1, keepdims=True)
+    xy = np.where(normal_z >= 0, oct_xy, (1 - np.abs(oct_xy[..., ::-1]))
+                  * np.where(oct_xy >= 0, 1, -1))
+    normal = np.concatenate((xy, normal_z), axis=-1)
+    normal /= np.linalg.norm(normal, axis=-1, keepdims=True)
     depth = np.zeros_like(alpha)
     slopes = np.zeros((*alpha.shape, 2))
     for (left, top, right, bottom), (origin, sx, sy) in patches:
@@ -131,7 +139,7 @@ def native_card(path, expected_side, view):
         slopes[top:bottom, left:right] = 2 * side * np.asarray((sx, -sy))
     if np.any((alpha > 0.) & (depth <= 0.)):
         raise ValueError("native patch failed to cover an occupied texel")
-    return (depth, alpha, colour, np.empty_like(colour)), slopes, count
+    return (depth, alpha, colour, normal), slopes, count
 
 
 def raster_card(field, source, target, output_side, *, flat=False, tangent=False, planes=None):
@@ -285,12 +293,38 @@ def evaluate(folder, output):
                   f"min_iou={min(values):.3f} median_iou={np.median(values):.3f}{triangles}")
 
 
-def compare_card_pairs(capture, probe, side, pairs, output):
+def light_field(field, light):
+    depth, alpha, colour, normal = field
+    sky_mix = .5 + .5 * normal[..., 1:2]
+    sky = np.asarray(light["sky"])
+    ground = np.asarray(light["ground"])
+    direct = np.asarray(light["direct"]) * np.maximum(normal @ light["to_sun_eus"], 0)[..., None]
+    return depth, alpha, colour * (ground + (sky - ground) * sky_mix + direct), normal
+
+
+def filmic(colour):
+    return np.clip(colour * (2.51 * colour + .03) / (colour * (2.43 * colour + .59) + .14), 0, 1)
+
+
+def light_difference(panel, reference):
+    shared = (panel[1] >= .5) & (reference[1] >= .5)
+    if not np.any(shared):
+        return {}
+    delta = filmic(panel[2][shared]) - filmic(reference[2][shared])
+    luma = delta @ [.2126, .7152, .0722]
+    return {"rgb_mae": float(np.abs(delta).mean()), "luma_bias": float(luma.mean()),
+            "overbright_fraction": float((luma > .1).mean())}
+
+
+def compare_card_pairs(capture, probe, side, pairs, output, light=None):
     expected = json.loads((capture / "group.json").read_text())
     if not 0 < side <= expected["pixels"] or expected["pixels"] % side:
         raise ValueError("comparison side must divide the capture side")
     scale = expected["pixels"] // side
-    depth, alpha, colour, _ = reduce_field(read_field(capture, probe, expected["pixels"]), scale)
+    field = read_field(capture, probe, expected["pixels"])
+    if light:
+        field = light_field(field, light)
+    depth, alpha, colour, _ = reduce_field(field, scale)
     reference = (4 * depth - 2, alpha, colour)
     target = basis(np.asarray(expected["directions"][probe]))
     rows = []
@@ -308,15 +342,21 @@ def compare_card_pairs(capture, probe, side, pairs, output):
             path = folder / f"{index}.card"
             axis = np.asarray(manifest["directions"][index])
             field, slopes, patches = native_card(path, card_side, axis)
+            if light:
+                field = light_field(field, light)
             cards.append(raster_card(field, basis(axis), target, side, planes=slopes))
             byte_count += path.stat().st_size
             triangles += 2 * patches
         panel = foreground(*cards)
-        rows.append({"card_side": card_side, "views": indices, "bytes": byte_count,
-                     "triangles": triangles,
-                     **statistics(panel, reference, expected["half_extent_m"])})
+        row = {"card_side": card_side, "views": indices, "bytes": byte_count,
+               "triangles": triangles, **statistics(panel, reference, expected["half_extent_m"])}
+        if light:
+            row.update(light_difference(panel, reference))
+        rows.append(row)
         panels.append(panel)
     (output / "comparison.json").write_text(json.dumps(rows, indent=2) + "\n")
+    if light:
+        panels = [(depth, alpha, filmic(colour)) for depth, alpha, colour in panels]
     preview(panels, output / "comparison.png")
 
 
@@ -385,6 +425,7 @@ def main():
     pairs.add_argument("--side", type=int, required=True)
     pairs.add_argument("--pair", action="append", nargs=3, required=True,
                        metavar=("DIRECTORY", "FIRST", "SECOND"))
+    pairs.add_argument("--light", type=Path, help="panorama manifest used to relight both sides")
     stand = modes.add_parser("hierarchical")
     stand.add_argument("tree", type=Path)
     stand.add_argument("stand", type=Path)
@@ -398,7 +439,8 @@ def main():
     if args.mode == "evaluate":
         evaluate(args.capture, args.output)
     elif args.mode == "compare-pairs":
-        compare_card_pairs(args.capture, args.probe, args.side, args.pair, args.output)
+        light = json.loads(args.light.read_text())["surface_lighting"] if args.light else None
+        compare_card_pairs(args.capture, args.probe, args.side, args.pair, args.output, light)
     else:
         hierarchical(args.tree, args.stand, args.output)
 

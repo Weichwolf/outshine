@@ -621,6 +621,38 @@ GPU p99 over three pairs is 12.04 → 11.93 ms, within the spread of the
 512 runs. The colour/depth payload grows from 18 to 72 MiB
 (`6 × side² × 12 B`). Use the larger capture as a visual control.
 
+## Preserve the lighting of mixed roof and wall texels
+
+Filtering albedo and normal independently can light a bright wall as a
+roof. Accumulate each captured normal with its Rec. 709 albedo luminance
+as its weight, then normalise for storage. The existing alpha coverage,
+texture layout and depth patches stay the same.
+
+On six Tokyo tiles at four held-out angles per tile, apply the same sun,
+sky and ground terms to both sides. The reference shades the capture
+samples before reducing them. Measure only samples with at least half
+coverage in both images. The mean absolute RGB error after tone mapping
+fell from 8.36 to 6.02 percentage points. The mean brightness excess
+fell from 5.52 to 0.35 points. Coverage and patch counts stayed the same
+in all 24 comparisons. Two low-sun orientations in the Python reference
+had less improvement. Using the frontmost material sample alone was
+worse than the weighted mean for both of those orientations.
+
+```sh
+python3 -B test/experiments/render/group_impostor_views.py compare-pairs \
+  "$capture" "$result" --probe "$probe" --side 128 \
+  --pair "$before" "$left" "$right" --pair "$after" "$left" "$right" \
+  --light "$panorama/panorama.json"
+```
+
+In the native 720p Tokyo handoff endpoint, the same 168 × 50 px crop
+against the mesh control had 1,088 → 656 pixels more than 0.1 brighter
+on the encoded brightness scale. Mean brightness excess dropped from
+2.97 to 0.23 points. Some silhouette and shading differences remain.
+Three paired A18 Pro replays of the same 40-bank, 128-texel trial kept
+the triangle and upload counts unchanged. GPU p99 was 12.84 → 13.01 ms
+for the turn and 9.17 → 9.19 ms for flight, within run-to-run spread.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).

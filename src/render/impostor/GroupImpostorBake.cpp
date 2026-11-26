@@ -21,7 +21,7 @@ namespace {
 
 struct Footprint {
   Vec3f Albedo;
-  Vec3f Normal;
+  Vec3f NormalSum;
   float Roughness = 0;
   float Metalness = 0;
   float Depth = 0;
@@ -29,7 +29,7 @@ struct Footprint {
 
   void Add(const Footprint &other) {
     Albedo = Albedo + other.Albedo;
-    Normal = Normal + other.Normal;
+    NormalSum = NormalSum + other.NormalSum;
     Roughness += other.Roughness;
     Metalness += other.Metalness;
     Depth = std::max(Depth, other.Depth);
@@ -48,8 +48,9 @@ Footprint CapturedSample(const ImpostorAtlas &atlas, const ImpostorAtlas::View &
                                                          .Roughness = material.Roughness,
                                                          .Metalness = material.Metalness}
                           : view.Materials[at];
+  constexpr Vec3f kRec709Luminance{{0.2126f, 0.7152f, 0.0722f}};
   return {.Albedo = sample.BaseColour,
-          .Normal = texel.Normal,
+          .NormalSum = texel.Normal * Dot(sample.BaseColour, kRec709Luminance),
           .Roughness = sample.Roughness,
           .Metalness = sample.Metalness,
           .Depth = texel.Depth,
@@ -112,7 +113,7 @@ void AppendMip(GroupImpostorView &view, const std::vector<Footprint> &cells, flo
                                    toColour(pixel.Albedo[1]),
                                    toColour(pixel.Albedo[2]),
                                    Quantise(static_cast<float>(pixel.Covered) / capacity)});
-    auto normal = pixel.Normal;
+    auto normal = pixel.NormalSum;
     if (!Normalise(normal)) { normal = {{0, 1, 0}}; }
     const auto octahedral = OctFolded(normal.Axis);
     const auto count = static_cast<float>(std::max(1u, pixel.Covered));
