@@ -45,7 +45,8 @@ float3 groupNormal(float2 packed) {
   return normalize(float3(v, z));
 }
 float4 groupColour(GroupVaryings in, constant SurfaceLight &light, uint fractional,
-                   texture2d<float> colours, texture2d<float> normals, bool capture = false) {
+                   texture2d<float> colours, texture2d<float> normals,
+                   thread uint &mask, bool multisample, bool capture = false) {
   constexpr sampler colourSampler(coord::normalized, address::clamp_to_edge,
                                    filter::linear, mip_filter::linear);
   constexpr sampler normalSampler(coord::normalized, address::clamp_to_edge,
@@ -54,9 +55,11 @@ float4 groupColour(GroupVaryings in, constant SurfaceLight &light, uint fraction
   const float weight = light.eyeAndImpostorWeight.w;
   const float coverage = fractional != 0 ? alphaColour.a * weight
                                           : (alphaColour.a >= 0.5 ? weight : 0.0);
-  if (coverage < 1.0 && lodNoise(in.position.xy) >= coverage) {
+  if (multisample) { mask = lodSampleMask(in.position.xy, 0.0, coverage); }
+  else if (coverage < 1.0 && lodNoise(in.position.xy) >= coverage) {
     discard_fragment();
   }
+  if (mask == 0) { discard_fragment(); }
   const float3 normal = groupNormal(normals.sample(normalSampler, in.uv).xy);
   const half3 albedo = half3(alphaColour.rgb / alphaColour.a);
   const Varyings surface = {in.position, in.localPosition, normal, half4(albedo, 1.0h), Overlay};
@@ -67,21 +70,41 @@ fragment float4 group_capture_fragment(GroupVaryings in [[stage_in]],
                                        constant uint &fractional [[buffer(1)]],
                                        texture2d<float> colours [[texture(0)]],
                                        texture2d<float> normals [[texture(1)]]) {
-  return groupColour(in, light, fractional, colours, normals, true);
+  uint mask = 15u;
+  return groupColour(in, light, fractional, colours, normals, mask, false, true);
 }
 fragment float4 group_fragment(GroupVaryings in [[stage_in]],
                                constant SurfaceLight &light [[buffer(0)]],
                                constant uint &fractional [[buffer(1)]],
                                texture2d<float> colours [[texture(0)]],
                                texture2d<float> normals [[texture(1)]]) {
-  return groupColour(in, light, fractional, colours, normals);
+  uint mask = 15u;
+  return groupColour(in, light, fractional, colours, normals, mask, false);
 }
 fragment TileFragment group_composite_fragment(GroupVaryings in [[stage_in]],
                                                constant SurfaceLight &light [[buffer(0)]],
                                                constant uint &fractional [[buffer(1)]],
                                                texture2d<float> colours [[texture(0)]],
                                                texture2d<float> normals [[texture(1)]]) {
-  return {groupColour(in, light, fractional, colours, normals), in.position.z};
+  uint mask = 15u;
+  return {groupColour(in, light, fractional, colours, normals, mask, false), in.position.z};
+}
+fragment SampleFragment group_sample_fragment(GroupVaryings in [[stage_in]],
+                                               constant SurfaceLight &light [[buffer(0)]],
+                                               constant uint &fractional [[buffer(1)]],
+                                               texture2d<float> colours [[texture(0)]],
+                                               texture2d<float> normals [[texture(1)]]) {
+  uint mask = 15u;
+  const float4 shaded = groupColour(in, light, fractional, colours, normals, mask, true);
+  return {shaded, mask};
+}
+fragment CompositeSampleFragment group_composite_sample_fragment(
+    GroupVaryings in [[stage_in]], constant SurfaceLight &light [[buffer(0)]],
+    constant uint &fractional [[buffer(1)]], texture2d<float> colours [[texture(0)]],
+    texture2d<float> normals [[texture(1)]]) {
+  uint mask = 15u;
+  const float4 shaded = groupColour(in, light, fractional, colours, normals, mask, true);
+  return {shaded, in.position.z, mask};
 }
 )";
 

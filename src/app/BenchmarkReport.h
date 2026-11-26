@@ -105,6 +105,7 @@ struct ScenarioBenchmarkReport {
   std::optional<size_t> IndexedPanoramaRequestedBytes;
   size_t TileRequestedBytes = 0;
   size_t ProductUploadBytes = 0;
+  std::optional<unsigned> ProductSamples;
   double ProductReadMs = 0;
   double ProductUploadMs = 0;
   Loading Prepared;

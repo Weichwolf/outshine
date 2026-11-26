@@ -49,6 +49,7 @@ struct MetalProductFrames {
   uint64_t ResourceBytes = 0;
   uint64_t RecommendedResourceBytes = 0;
   bool UnifiedMemory = false;
+  unsigned RasterSamples = 1;
   double SetupMs = 0;
   double UploadMs = 0;
   size_t UploadedBytes = 0;
@@ -146,12 +147,15 @@ using MetalProductViewAt = std::function<std::expected<MetalProductView, std::st
 using MetalSurfaceFaceWriter =
     std::function<std::expected<void, std::string>(size_t, std::span<const float>)>;
 
+enum class MetalProductSampling { Single, Multisample };
+
 [[nodiscard]] std::expected<MetalProductFrames, std::string>
 RenderMetalProducts(const MetalProductInputs &products,
                     size_t count,
                     const MetalProductViewAt &viewAt,
                     bool readImage,
-                    const MetalSurfaceStream &stream = {});
+                    const MetalSurfaceStream &stream = {},
+                    MetalProductSampling sampling = MetalProductSampling::Single);
 
 [[nodiscard]] std::expected<MetalProductFrames, std::string>
 CaptureMetalSurfaceFaces(const MetalProductInputs &products,

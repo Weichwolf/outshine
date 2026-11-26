@@ -131,6 +131,18 @@ float4 tileColour(Varyings in, constant SurfaceLight &light, bool capture = fals
 float lodNoise(float2 pixel) {
   return fract(52.9829189 * fract(dot(floor(pixel), float2(0.06711056, 0.00583715))));
 }
+uint lodSampleMask(float2 pixel, float begin, float end) {
+  const float phase = lodNoise(pixel);
+  const uint first = uint(clamp(ceil(4.0 * begin - phase), 0.0, 4.0));
+  const uint past = uint(clamp(ceil(4.0 * end - phase), 0.0, 4.0));
+  const uint bits = (1u << past) - (1u << first);
+  const uint rotation = (uint(pixel.x) + 2u * uint(pixel.y)) & 3u;
+  return ((bits << rotation) | (bits >> (4u - rotation))) & 15u;
+}
+uint tileSampleMask(Varyings in, constant SurfaceLight &light) {
+  return in.material == Overlay
+      ? lodSampleMask(in.position.xy, light.eyeAndImpostorWeight.w, light.coverageEnd.x) : 15u;
+}
 void keepTileFragment(Varyings in, constant SurfaceLight &light) {
   const float begin = light.eyeAndImpostorWeight.w;
   const float end = light.coverageEnd.x;
@@ -161,6 +173,23 @@ struct TileFragment {
   float4 colour [[color(0), raster_order_group(0)]];
   float depth [[color(1), raster_order_group(0)]];
 };
+struct SampleFragment {
+  float4 colour [[color(0)]];
+  uint coverage [[sample_mask]];
+};
+struct CompositeSampleFragment {
+  float4 colour [[color(0), raster_order_group(0)]];
+  float depth [[color(1), raster_order_group(0)]];
+  uint coverage [[sample_mask]];
+};
+fragment SampleFragment masked_tile_sample_fragment(Varyings in [[stage_in]],
+                                                      constant SurfaceLight &light [[buffer(0)]]) {
+  return {tileColour(in, light), tileSampleMask(in, light)};
+}
+fragment CompositeSampleFragment masked_tile_composite_sample_fragment(
+    Varyings in [[stage_in]], constant SurfaceLight &light [[buffer(0)]]) {
+  return {tileColour(in, light), in.position.z, tileSampleMask(in, light)};
+}
 fragment TileFragment tile_composite_fragment(Varyings in [[stage_in]],
                                                constant SurfaceLight &light [[buffer(0)]]) {
   return {tileColour(in, light), in.position.z};
@@ -343,6 +372,20 @@ fragment float4 panorama_composite_fragment(
   if (weight <= 0.0) { discard_fragment(); }
   return float4(mix(nearColour.rgb, pixel.colour, weight), 1.0);
 }
+fragment SampleFragment panorama_composite_sample_fragment(
+    PanoramaRaster in [[stage_in]],
+    constant PanoramaUniform &view [[buffer(0)]],
+    texturecube<half> colour [[texture(0)]],
+    texturecube<float> distanceM [[texture(1)]],
+    texturecube<half> nextColour [[texture(2)]],
+    texturecube<float> nextDistanceM [[texture(3)]],
+    float4 nearColour [[color(0), raster_order_group(0)]],
+    float nearDepth [[color(1), raster_order_group(0)]],
+    uint sampleIndex [[sample_id]]) {
+  const auto pixel = panoramaPixel(in, view, colour, distanceM, nextColour, nextDistanceM);
+  const float weight = coverageWeight(pixel, view, nearDepth);
+  return {float4(mix(nearColour.rgb, pixel.colour, weight), 1.0), 1u << sampleIndex};
+}
 )";
 
 double ElapsedMs(Clock::time_point since) {
@@ -361,7 +404,10 @@ std::expected<ClipMatrix, std::string> MetalClip(Mat4 clip) {
   return packed;
 }
 
-MTLTextureDescriptor *Texture(MTLPixelFormat format, MTLStorageMode storage, size_t captureSide) {
+MTLTextureDescriptor *Texture(MTLPixelFormat format,
+                              MTLStorageMode storage,
+                              size_t captureSide,
+                              MetalProductSampling sampling = MetalProductSampling::Single) {
   auto *const desc = [MTLTextureDescriptor
       texture2DDescriptorWithPixelFormat:format
                                    width:(captureSide > 0 ? captureSide : MetalProductFrameWidth)
@@ -369,6 +415,10 @@ MTLTextureDescriptor *Texture(MTLPixelFormat format, MTLStorageMode storage, siz
                                mipmapped:NO];
   desc.storageMode = storage;
   desc.usage = MTLTextureUsageRenderTarget;
+  if (sampling == MetalProductSampling::Multisample) {
+    desc.textureType = MTLTextureType2DMultisample;
+    desc.sampleCount = 4;
+  }
   return desc;
 }
 
@@ -395,20 +445,18 @@ std::string MetalError(NSError *error, const char *fallback) {
 enum class ProductDraw { Tile, MaskedTile, Group, Panorama };
 enum class ProductTarget { Display, Composite, SurfaceCapture };
 
+struct ProductPassMode {
+  MetalProductSampling Sampling = MetalProductSampling::Single;
+  size_t CaptureSide = 0;
+};
+
 MTLPixelFormat ProductColourFormat(ProductTarget target) {
   return target == ProductTarget::SurfaceCapture ? MTLPixelFormatRGBA32Float
                                                  : MTLPixelFormatRGBA8Unorm_sRGB;
 }
 
-std::expected<ProductPipeline, std::string>
-MakePipeline(id<MTLDevice> device, id<MTLLibrary> library, ProductDraw mode, ProductTarget target) {
-  const bool panorama = mode == ProductDraw::Panorama;
-  const bool composite = target == ProductTarget::Composite;
-  const auto pipelineIndex = static_cast<size_t>(mode);
-  NSError *error = nil;
-  auto *const descriptor = [[MTLRenderPipelineDescriptor alloc] init];
-  const std::array<NSString *, 4> vertices{
-      @"tile_vertex", @"tile_vertex", @"group_vertex", @"panorama_vertex"};
+NSString *ProductFragment(ProductDraw draw, ProductTarget target, MetalProductSampling sampling) {
+  const auto index = static_cast<size_t>(draw);
   const std::array<NSString *, 4> direct{
       @"tile_fragment", @"masked_tile_fragment", @"group_fragment", @"panorama_fragment"};
   const std::array<NSString *, 4> combined{@"tile_composite_fragment",
@@ -417,10 +465,36 @@ MakePipeline(id<MTLDevice> device, id<MTLLibrary> library, ProductDraw mode, Pro
                                            @"panorama_composite_fragment"};
   const std::array<NSString *, 4> capture{
       @"tile_capture_fragment", @"masked_tile_capture_fragment", @"group_capture_fragment", nil};
-  const auto &displayFragments = composite ? combined : direct;
-  const auto &fragments = target == ProductTarget::SurfaceCapture ? capture : displayFragments;
-  descriptor.vertexFunction = [library newFunctionWithName:vertices[pipelineIndex]];
-  descriptor.fragmentFunction = [library newFunctionWithName:fragments[pipelineIndex]];
+  const std::array<NSString *, 4> sampled{@"tile_fragment",
+                                          @"masked_tile_sample_fragment",
+                                          @"group_sample_fragment",
+                                          @"panorama_fragment"};
+  const std::array<NSString *, 4> combinedSamples{@"tile_composite_fragment",
+                                                  @"masked_tile_composite_sample_fragment",
+                                                  @"group_composite_sample_fragment",
+                                                  @"panorama_composite_sample_fragment"};
+  if (target == ProductTarget::SurfaceCapture) { return capture[index]; }
+  if (sampling == MetalProductSampling::Multisample) {
+    return (target == ProductTarget::Composite ? combinedSamples : sampled)[index];
+  }
+  return (target == ProductTarget::Composite ? combined : direct)[index];
+}
+
+std::expected<ProductPipeline, std::string> MakePipeline(id<MTLDevice> device,
+                                                         id<MTLLibrary> library,
+                                                         ProductDraw mode,
+                                                         ProductTarget target,
+                                                         MetalProductSampling sampling) {
+  const bool panorama = mode == ProductDraw::Panorama;
+  const bool composite = target == ProductTarget::Composite;
+  NSError *error = nil;
+  auto *const descriptor = [[MTLRenderPipelineDescriptor alloc] init];
+  const std::array<NSString *, 4> vertices{
+      @"tile_vertex", @"tile_vertex", @"group_vertex", @"panorama_vertex"};
+  descriptor.vertexFunction = [library newFunctionWithName:vertices[static_cast<size_t>(mode)]];
+  descriptor.fragmentFunction =
+      [library newFunctionWithName:ProductFragment(mode, target, sampling)];
+  descriptor.rasterSampleCount = sampling == MetalProductSampling::Multisample ? 4 : 1;
   descriptor.colorAttachments[0].pixelFormat = ProductColourFormat(target);
   if (composite) { descriptor.colorAttachments[1].pixelFormat = MTLPixelFormatR32Float; }
   descriptor.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float;
@@ -440,20 +514,34 @@ MakePipeline(id<MTLDevice> device, id<MTLLibrary> library, ProductDraw mode, Pro
 }
 
 std::expected<MTLRenderPassDescriptor *, std::string>
-MakeProductAttachments(id<MTLDevice> device, ProductTarget target, size_t captureSide) {
+MakeProductAttachments(id<MTLDevice> device, ProductTarget target, const ProductPassMode &mode) {
+  if (mode.Sampling == MetalProductSampling::Multisample &&
+      ![device supportsTextureSampleCount:4]) {
+    return std::unexpected("Metal device does not support 4x product sampling");
+  }
   auto *const pass = [MTLRenderPassDescriptor renderPassDescriptor];
-  pass.colorAttachments[0].texture = [device
-      newTextureWithDescriptor:Texture(
-                                   ProductColourFormat(target), MTLStorageModeShared, captureSide)];
-  pass.colorAttachments[0].loadAction = MTLLoadActionClear;
-  pass.colorAttachments[0].clearColor =
-      captureSide > 0 ? MTLClearColorMake(0, 0, 0, 0)
-                      : MTLClearColorMake(kClearColor[0], kClearColor[1], kClearColor[2], 1.0);
-  pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+  auto *const colour = pass.colorAttachments[0];
+  const auto format = ProductColourFormat(target);
+  colour.texture =
+      [device newTextureWithDescriptor:Texture(format, MTLStorageModeShared, mode.CaptureSide)];
+  if (colour.texture == nil) { return std::unexpected("Metal could not allocate product colour"); }
+  colour.loadAction = MTLLoadActionClear;
+  colour.clearColor = mode.CaptureSide > 0
+                          ? MTLClearColorMake(0, 0, 0, 0)
+                          : MTLClearColorMake(kClearColor[0], kClearColor[1], kClearColor[2], 1.0);
+  colour.storeAction = MTLStoreActionStore;
+  if (mode.Sampling == MetalProductSampling::Multisample) {
+    colour.resolveTexture = colour.texture;
+    colour.texture = [device
+        newTextureWithDescriptor:Texture(format, MTLStorageModeMemoryless, 0, mode.Sampling)];
+    colour.storeAction = MTLStoreActionMultisampleResolve;
+  }
   if (target == ProductTarget::Composite) {
     auto *const attachment = pass.colorAttachments[1];
-    attachment.texture = [device
-        newTextureWithDescriptor:Texture(MTLPixelFormatR32Float, MTLStorageModeMemoryless, 0)];
+    attachment.texture = [device newTextureWithDescriptor:Texture(MTLPixelFormatR32Float,
+                                                                  MTLStorageModeMemoryless,
+                                                                  0,
+                                                                  mode.Sampling)];
     if (attachment.texture == nil) {
       return std::unexpected("Metal could not allocate near depth");
     }
@@ -464,7 +552,8 @@ MakeProductAttachments(id<MTLDevice> device, ProductTarget target, size_t captur
   pass.depthAttachment.texture =
       [device newTextureWithDescriptor:Texture(MTLPixelFormatDepth32Float,
                                                MTLStorageModeMemoryless,
-                                               captureSide)];
+                                               mode.CaptureSide,
+                                               mode.Sampling)];
   pass.depthAttachment.loadAction = MTLLoadActionClear;
   pass.depthAttachment.clearDepth = 0.0;
   pass.depthAttachment.storeAction = MTLStoreActionDontCare;
@@ -477,7 +566,7 @@ MakeProductAttachments(id<MTLDevice> device, ProductTarget target, size_t captur
 std::expected<ProductPass, std::string> MakePass(id<MTLDevice> device,
                                                  const MetalProductInputs &products,
                                                  bool streaming,
-                                                 size_t captureSide = 0) {
+                                                 const ProductPassMode &mode) {
   NSError *error = nil;
   const bool hasGroups = streaming || !products.Groups.empty();
   const bool hasTiles = streaming || !products.Tiles.empty();
@@ -497,38 +586,43 @@ std::expected<ProductPass, std::string> MakePass(id<MTLDevice> device,
   ProductPipeline panorama;
   const bool composite = (hasTiles || hasGroups) && !products.Panoramas.empty();
   const auto display = composite ? ProductTarget::Composite : ProductTarget::Display;
-  const auto target = captureSide > 0 ? ProductTarget::SurfaceCapture : display;
+  const auto target = mode.CaptureSide > 0 ? ProductTarget::SurfaceCapture : display;
+  const auto pass = MakeProductAttachments(device, target, mode);
+  if (!pass) { return std::unexpected(pass.error()); }
   if (hasTiles) {
-    const auto pipeline = MakePipeline(device, library, ProductDraw::Tile, target);
+    const auto pipeline = MakePipeline(device, library, ProductDraw::Tile, target, mode.Sampling);
     if (!pipeline) { return std::unexpected(pipeline.error()); }
     tile = *pipeline;
   }
   if (hasMaskedTiles) {
-    const auto pipeline = MakePipeline(device, library, ProductDraw::MaskedTile, target);
+    const auto pipeline =
+        MakePipeline(device, library, ProductDraw::MaskedTile, target, mode.Sampling);
     if (!pipeline) { return std::unexpected(pipeline.error()); }
     maskedTile = *pipeline;
   }
   if (hasGroups) {
-    const auto pipeline = MakePipeline(device, library, ProductDraw::Group, target);
+    const auto pipeline = MakePipeline(device, library, ProductDraw::Group, target, mode.Sampling);
     if (!pipeline) { return std::unexpected(pipeline.error()); }
     group = *pipeline;
   }
   if (!products.Panoramas.empty()) {
-    const auto pipeline = MakePipeline(device, library, ProductDraw::Panorama, target);
+    const auto pipeline =
+        MakePipeline(device, library, ProductDraw::Panorama, target, mode.Sampling);
     if (!pipeline) { return std::unexpected(pipeline.error()); }
     panorama = *pipeline;
   }
-  const auto pass = MakeProductAttachments(device, target, captureSide);
-  if (!pass) { return std::unexpected(pass.error()); }
   const id<MTLCommandQueue> queue = [device newCommandQueue];
   if (queue == nil) { return std::unexpected("Metal could not allocate the product queue"); }
+  auto *const attachment = (*pass).colorAttachments[0];
+  const auto output = mode.Sampling == MetalProductSampling::Multisample ? attachment.resolveTexture
+                                                                         : attachment.texture;
   return ProductPass{.Queue = queue,
                      .Tile = tile,
                      .MaskedTile = maskedTile,
                      .Group = group,
                      .Panorama = panorama,
                      .Pass = *pass,
-                     .Color = (*pass).colorAttachments[0].texture};
+                     .Color = output};
 }
 
 struct TileBuffers {
@@ -1108,7 +1202,8 @@ RenderMetalProducts(const MetalProductInputs &products,
                     size_t count,
                     const MetalProductViewAt &viewAt,
                     bool readImage,
-                    const MetalSurfaceStream &stream) {
+                    const MetalSurfaceStream &stream,
+                    MetalProductSampling sampling) {
   if (products.Tiles.empty() && products.Panoramas.empty() && products.Groups.empty()) {
     return std::unexpected("Metal product capture requires an input product");
   }
@@ -1116,9 +1211,12 @@ RenderMetalProducts(const MetalProductInputs &products,
     const auto began = Clock::now();
     const id<MTLDevice> device = MTLCreateSystemDefaultDevice();
     if (device == nil) { return std::unexpected("Metal device unavailable"); }
-    const auto pass = MakePass(device, products, static_cast<bool>(stream.Load));
+    const auto pass =
+        MakePass(device, products, static_cast<bool>(stream.Load), {.Sampling = sampling});
     if (!pass) { return std::unexpected(pass.error()); }
     MetalProductFrames frames;
+    frames.RasterSamples =
+        static_cast<unsigned>(pass->Pass.colorAttachments[0].texture.sampleCount);
     const char *const name = device.name.UTF8String;
     frames.Device = name != nullptr ? name : "Metal";
     frames.SetupMs = ElapsedMs(began);
@@ -1184,7 +1282,7 @@ CaptureMetalSurfaceFaces(const MetalProductInputs &products,
     const auto setup = Clock::now();
     const id<MTLDevice> device = MTLCreateSystemDefaultDevice();
     if (device == nil) { return std::unexpected("Metal device unavailable"); }
-    const auto pass = MakePass(device, products, false, side);
+    const auto pass = MakePass(device, products, false, {.CaptureSide = side});
     if (!pass) { return std::unexpected(pass.error()); }
     MetalProductFrames frames;
     const char *const name = device.name.UTF8String;

@@ -12,6 +12,7 @@ import sys
 import tempfile
 import unittest
 
+from pixels import read as read_png
 from place_gpu_profile import read_metal_profile
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -354,6 +355,39 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(broken.returncode, 1, broken.stderr)
             self.assertIn('invalid packed surface tile', broken.stderr)
             self.assertEqual(image.read_bytes(), foreground)
+
+    @unittest.skipUnless(os.uname().sysname == 'Darwin', 'native Metal product renderer')
+    def test_multisampled_edge_retains_foreground_and_far_depth(self):
+        with tempfile.TemporaryDirectory(prefix='outshine-benchmark-sample-edge-') as folder:
+            root = Path(folder)
+            scene = root / 'edge.scenario'
+            scene.write_text(PRODUCT_SCENE.replace('fps="30"', 'fps="30" antialiasing="msaa4"'))
+            write_panorama(root)
+            tile = root / 'edge.json'
+            image = root / 'edge.png'
+            for distance in (2, 20):
+                half = distance * 2
+                edge = 0.5 * distance * math.tan(math.radians(30)) / 360
+                z = -distance
+                low, high = [-half, 100-half, z], [edge, 100+half, z]
+                tile.write_text(json.dumps({
+                    'version': 1, 'coverage': [0, 0, 0], 'origin_lon_lat': [0, 0],
+                    'revision': '1' * 64, 'bounds_eus_m': [low, high], 'geometric_error_m': 0,
+                    'vertices_eus_m': [low, [edge, 100-half, z], high, [-half, 100+half, z]],
+                    'normals_eus': [[0, 0, 1]] * 4, 'indices': [0, 1, 2, 0, 2, 3],
+                }))
+                result = self.invoke('--scenario', str(scene), '--frames', '1', '--image', str(image),
+                                     '--panorama-product', folder, '--tile-product', str(tile))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads(result.stdout)['profile']['raster_samples'], 4)
+                width, height, channels, rgba = read_png(image)
+                start = channels * (width * (height // 2) + 638)
+                red = rgba[start:start + 5 * channels:channels]
+                if distance == 2:
+                    self.assertLess(min(red), red[2])
+                    self.assertLess(red[2], max(red))
+                else:
+                    self.assertEqual(min(red), max(red))
 
     @unittest.skipUnless(os.uname().sysname == 'Darwin', 'native Metal product renderer')
     def test_flight_uses_a_prepared_successor_without_leaving_panorama_coverage(self):

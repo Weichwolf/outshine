@@ -464,6 +464,7 @@ std::string ScenarioBenchmarkJson(const ScenarioBenchmarkReport &report) {
       {"gpu_times", std::move(gpu)},
       {"metrics", std::move(metrics)}};
   ReportRenderPath(report, json);
+  if (report.ProductSamples) { json["profile"]["raster_samples"] = *report.ProductSamples; }
   return json.dump(2, ' ', false, ReportJson::error_handler_t::replace) + '\n';
 }
 

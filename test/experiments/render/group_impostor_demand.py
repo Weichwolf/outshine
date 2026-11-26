@@ -60,6 +60,33 @@ def validate_handoff():
     print(f"complementary masks through a {delta:.1f} m handoff band")
 
 
+def validate_sample_coverage():
+    y, x = np.indices((256, 256), dtype=np.int32)
+    pixel = np.stack((x, y)).astype(np.float32)
+    phase = np.mod(np.float32(52.9829189) * np.mod(
+        pixel[0] * np.float32(.06711056) + pixel[1] * np.float32(.00583715), 1.), 1.)
+    rotation = (x + 2 * y) & 3
+
+    def mask(begin, end):
+        first = np.clip(np.ceil(4 * begin - phase), 0, 4).astype(np.int32)
+        past = np.clip(np.ceil(4 * end - phase), 0, 4).astype(np.int32)
+        bits = (1 << past) - (1 << first)
+        return ((bits << rotation) | (bits >> (4 - rotation))) & 15
+
+    for coverage in (.1, .25, .37, .5, .75, .9):
+        group, mesh = mask(0, coverage), mask(coverage, 1)
+        assert np.all((group & mesh) == 0)
+        assert np.all((group | mesh) == 15)
+        share = np.mean((group[..., None] & (1 << np.arange(4))) != 0, axis=-1)
+        assert abs(share.mean() - coverage) < .005
+        assert np.max(np.abs(share - coverage)) < .25
+        single_mse = np.mean(((phase < coverage) - coverage) ** 2)
+        multisample_mse = np.mean((share - coverage) ** 2)
+        assert multisample_mse < single_mse / 4
+        if coverage == .37:
+            print(f"37% pixel coverage MSE: {single_mse:.4f} -> {multisample_mse:.4f}")
+
+
 def validate():
     ring = np.linspace(0., 2 * np.pi, 12, endpoint=False)
     directions = np.stack((np.cos(ring), np.zeros(len(ring)), np.sin(ring)), axis=1)
@@ -94,3 +121,4 @@ def validate():
 if __name__ == "__main__":
     validate()
     validate_handoff()
+    validate_sample_coverage()

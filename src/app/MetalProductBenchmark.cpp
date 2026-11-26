@@ -517,7 +517,8 @@ std::expected<Render::MetalProductFrames, std::string>
 MeasureProducts(const ScenarioBenchmarkOptions &options,
                 ScenarioBenchmarkReport &report,
                 const BenchmarkMotion &motion,
-                LongitudeLatitude origin) {
+                LongitudeLatitude origin,
+                Render::MetalProductSampling sampling) {
   const auto loadAt = BenchmarkClock::now();
   const auto cache = OpenStore(options.ProductStore);
   if (!cache) { return std::unexpected(cache.error()); }
@@ -563,7 +564,8 @@ MeasureProducts(const ScenarioBenchmarkOptions &options,
                                   report.Motion.Frames,
                                   viewAt,
                                   !options.Image.empty(),
-                                  stream);
+                                  stream,
+                                  sampling);
   if (*cache) { report.ProductStoreReadBytes = (*cache)->PackageBytesRead(); }
   if (frames && frames->Transition) {
     const auto &transition = *frames->Transition;
@@ -645,8 +647,12 @@ RunMetalProductBenchmark(const ScenarioBenchmarkOptions &options) {
   report.Finish = *finish;
   report.SetupMs = BenchmarkElapsedMs(setupAt);
   if (capturing) { return CaptureIndexedSurface(options, report, origin); }
-  const auto frames = MeasureProducts(options, report, *motion, origin);
+  const auto sampling = document->Render.Antialiasing == "msaa4"
+                            ? Render::MetalProductSampling::Multisample
+                            : Render::MetalProductSampling::Single;
+  const auto frames = MeasureProducts(options, report, *motion, origin, sampling);
   if (!frames) { return std::unexpected(frames.error()); }
+  report.ProductSamples = frames->RasterSamples;
   report.ProductUploadBytes = frames->UploadedBytes;
   report.ProductUploadMs =
       frames->UploadMs + (frames->Transition ? frames->Transition->UploadMs : 0);

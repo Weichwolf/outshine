@@ -792,6 +792,37 @@ input before and after adding the exporter. The new alpine image
 retains the six panorama-only groups. Speckle within the nearer
 crowns is still visible.
 
+## Resolve fractional coverage at four samples
+
+Set `render.antialiasing` to `msaa4` in a prepared Metal benchmark
+scenario. The capture and single-sample paths keep their existing
+formats. Four rotated, stratified thresholds replace the one binary
+threshold for coverage. Adjacent LOD intervals partition the same
+sample mask. The cubemap tests each sample against its stored local
+depth before the Metal resolve. The Python check uses the production
+threshold sequence. At 37% coverage, squared error per pixel falls
+from 0.2331 to 0.0156 with unchanged mean coverage within 0.005.
+
+Three paired runs, 120 frames each, A18 Pro Metal at 1280×720/30
+with the same assets, selected cut and 240 km cubemap:
+
+| Place and motion | Single-sample GPU p99 | Four-sample GPU p99 |
+|---|---:|---:|
+| Körbersee 16 m flight | 2.56 ms | 4.03 ms |
+| Körbersee turn | 2.46 ms | 3.99 ms |
+| Tokyo 16 m flight | 11.60 ms | 16.89 ms |
+| Tokyo turn | 13.65 ms | 19.33 ms |
+
+In the 228×104 stand crop starting at (650, 250), the mean absolute
+8-bit luminance difference between adjacent pixels at the flight
+endpoint falls from 19.49 to 12.15 levels. The crop still shows
+individual crowns, with less harsh stipple. The urban endpoints show
+less edge aliasing, with a larger GPU cost. Keep the quality mode
+selectable. The isolated depth test checks that a half-covered edge
+contains local and panorama colour and that an occluded edge is gone.
+This measures edge coverage. Angular agreement with the fine canopy
+and temporal continuity across directional changes still need checking.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).
