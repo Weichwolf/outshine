@@ -70,6 +70,23 @@ def assert_pair(world, tile):
             raise ValueError(f"paired benchmark camera differs at {moment}")
 
 
+def world_content(report):
+    metrics = {metric["name"]: metric["value"] for metric in report["metrics"]}
+    profile = report["gpu_profile"]
+    return {
+        **report["rendered_content"],
+        "draws_max": profile.get("draws_max"),
+        "triangles_max": profile.get("triangles_max"),
+        "last_scene": {
+            "terrain_colour_triangles": metrics.get("ground: colour draw triangles"),
+            "resident_native_triangles": metrics.get("render: live native triangles"),
+            "geometry_draw_calls": metrics.get("geometry draw calls"),
+            "opaque_indirect_input_triangles": metrics.get("opaqueGeometry, indirect input triangles"),
+            "transmissive_input_triangles": metrics.get("transmissiveGeometry, direct input triangles"),
+        },
+    }
+
+
 def sample(options, fixture, case, work, assets, trial):
     scenario = fixture["scenario"]
     view, angular, linear = motion(scenario, case, fixture["flight_mps"])
@@ -89,10 +106,7 @@ def sample(options, fixture, case, work, assets, trial):
             if world else {"kind": "explicit_prepared_tile", "state": "prepared"}
         )
         if world:
-            profile = report["gpu_profile"]
-            report["rendered_content"].update(
-                draws_max=profile.get("draws_max"), triangles_max=profile.get("triangles_max")
-            )
+            report["rendered_content"] = world_content(report)
         report_path = paths[mode] / "benchmark.json"
         report_path.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
         result[mode] = report

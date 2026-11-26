@@ -28,6 +28,7 @@ and one latest screenshot per renderer and case under the requested shots direct
 
 The report retains separate scopes for the full world and the single opaque tile. The tile
 pass time covers its entire single-pass Metal submission. World pass times come from native
-encoder counters. The world upload number covers the last reported geometry rebuild and the
+encoder counters. The last-scene geometry counters are scoped to their respective stages.
+The world upload number covers the last reported geometry rebuild and the
 tile upload number covers its initial vertex and index payload. These measurements track
 progress in each scope. Whole-world comparisons require both paths to draw the same content.
