@@ -325,6 +325,33 @@ Three paired A18 Pro 720p30 runs measured GPU p99 at 4.12 / 4.14 ms on the
 endpoint PNGs were pixel-identical across versions. The refined cut activated
 at frame 1 in every motion run.
 
+## Viewport rejection and forest stress
+
+Metal derives mesh bounds from the uploaded vertices after terrain stitching,
+expands them by the instance transforms, and takes the union of the resident
+impostor views. Four homogeneous side planes reject a draw only when its
+entire bound misses the viewport. The allowance scales with the absolute
+terms of the float transforms. A Python comparison checked 400,000 plane
+and box cases against explicitly transformed float32 corners.
+
+Eight sampled headings and the paired motion endpoints were pixel-identical
+in Körbersee. The Tokyo handoff was also identical. The normal Körbersee turn
+at 720p30 changed from 2.92 / 2.97 to 1.55 / 2.85 ms GPU p50 / p99 across
+three paired A18 Pro runs. Flight p99 changed from 4.13 to 4.01 ms.
+
+The stress store used all 2,332 prepared spruce placements and held 1,091
+mesh instances during the turn. Its paired PNGs were identical. GPU p50 /
+p99 changed from 19.26 / 23.75 to 1.56 / 27.72 ms. During the flight, p99
+changed from 27.69 to 29.95 ms. At peak the visible slope still submitted
+about 12 million triangles.
+
+Separate, paired mesh-density sweeps on the same 16 m flight kept the same
+roots, cards and panorama. The 0.65 m, 0.90 m and 1.20 m prototypes submitted
+12.14 M, 6.64 M and 4.41 M peak triangles at 25.57, 28.61 and 22.14 ms GPU p99.
+The 1.20 m variant covered 5,039 pixels against 5,017 in the 0.65 m control,
+at 0.753 coverage IoU. This measures the distant slope. Runtime selection of
+mesh density and close-range coverage still require validation.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).

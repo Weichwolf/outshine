@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_RENDER_PRODUCTS_METALGROUPIMPOSTOR_H
 #define OUTSHINE_RENDER_PRODUCTS_METALGROUPIMPOSTOR_H
 
+#include "Box.h"
 #include "Mat4.h"
 #include "ImpostorViewDemand.h"
 #include "Vec3.h"
@@ -30,6 +31,7 @@ struct GroupResources {
   std::vector<GroupViewTextures> Views;
   Mat4 WorldFromTile;
   Vec3 CentreM;
+  Box Bounds;
   std::array<float, 16> Light;
   std::optional<ImpostorDistanceRamp> Handoff;
   bool FractionalCoverage = false;

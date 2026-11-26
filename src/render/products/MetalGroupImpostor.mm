@@ -1,8 +1,11 @@
 #include "MetalGroupImpostor.h"
+#include "Box.h"
+#include "ClipBounds.h"
 #include "GroupImpostorView.h"
 #include "ImpostorViewFrame.h"
 #include "MetalProductRenderer.h"
 #include "Vec3.h"
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -38,6 +41,35 @@ GroupAxes PackAxes(const MetalImpostorGroup &group,
           row(view.TowardEye * (4.0 * half))};
 }
 
+Box GroupViewBounds(const GroupImpostorView &view, const GroupAxes &axes) {
+  if (view.Patches.empty()) { return {}; }
+  double near = std::numeric_limits<double>::infinity();
+  double far = -near;
+  for (const auto &patch : view.Patches) {
+    const double depth = patch.Depth;
+    const double dx = static_cast<double>(patch.SlopeX) * (patch.Right - patch.Left);
+    const double dy = static_cast<double>(patch.SlopeY) * (patch.Bottom - patch.Top);
+    const auto error = FloatRoundingMargin(std::abs(depth) + std::abs(dx) + std::abs(dy));
+    near = std::min(near, depth + std::min(0.0, dx) + std::min(0.0, dy) - error);
+    far = std::max(far, depth + std::max(0.0, dx) + std::max(0.0, dy) + error);
+  }
+  Box bounds;
+  for (size_t axis = 0; axis < 3; ++axis) {
+    const double origin = axes[0][axis];
+    const double dx = static_cast<double>(axes[1][axis]) * view.Side;
+    const double dy = static_cast<double>(axes[2][axis]) * view.Side;
+    const double first = axes[3][axis] * near;
+    const double last = axes[3][axis] * far;
+    const auto error = FloatRoundingMargin(std::abs(origin) + std::abs(dx) + std::abs(dy) +
+                                           std::max(std::abs(first), std::abs(last)));
+    bounds.Min[axis] =
+        origin + std::min(0.0, dx) + std::min(0.0, dy) + std::min(first, last) - error;
+    bounds.Max[axis] =
+        origin + std::max(0.0, dx) + std::max(0.0, dy) + std::max(first, last) + error;
+  }
+  return bounds;
+}
+
 id<MTLTexture> UploadGroupTexture(id<MTLDevice> device,
                                   MTLPixelFormat format,
                                   uint32_t side,
@@ -69,6 +101,7 @@ UploadMetalGroup(id<MTLDevice> device, const MetalImpostorGroup &group, size_t &
   GroupResources result{.Views = {},
                         .WorldFromTile = group.WorldFromTile,
                         .CentreM = group.CentreM,
+                        .Bounds = {},
                         .Light = {},
                         .Handoff = group.Handoff,
                         .FractionalCoverage = group.FractionalCoverage};
@@ -95,8 +128,10 @@ UploadMetalGroup(id<MTLDevice> device, const MetalImpostorGroup &group, size_t &
     if (albedo == nil || material == nil || (!patches.empty() && buffer == nil)) {
       return std::unexpected("Metal group impostor upload failed");
     }
+    const auto axes = PackAxes(group, view, *basis);
+    result.Bounds.Cover(GroupViewBounds(view, axes));
     result.Views.push_back({.TowardEye = view.TowardEye,
-                            .Axes = PackAxes(group, view, *basis),
+                            .Axes = axes,
                             .Patches = buffer,
                             .AlbedoCoverage = albedo,
                             .NormalMaterial = material,

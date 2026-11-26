@@ -1,4 +1,6 @@
 #include "MetalProductRenderer.h"
+#include "Box.h"
+#include "ClipBounds.h"
 #include "MetalGroupImpostor.h"
 #include "MetalGroupImpostorShader.h"
 #include "Units.h"
@@ -9,6 +11,7 @@
 #include <chrono>
 #include <cmath>
 #include <future>
+#include <limits>
 #include <optional>
 #include <thread>
 #include <unordered_map>
@@ -468,6 +471,7 @@ struct TileBuffers {
   id<MTLBuffer> Vertices = nil;
   id<MTLBuffer> Indices = nil;
   id<MTLBuffer> Colours = nil;
+  Box Bounds;
 };
 
 using TileUploads = std::unordered_map<const SurfaceTile *, TileBuffers>;
@@ -482,6 +486,7 @@ struct TileMesh {
   SurfaceColourRanges ColourRanges{};
   SurfaceLightUniform Light{};
   Mat4 WorldFromTile;
+  Box Bounds;
 };
 
 Vec3f TileDirection(const Mat4 &placement, const Vec3 &direction) {
@@ -712,6 +717,27 @@ struct ProductResources {
   size_t Bytes = 0;
 };
 
+Box InstanceBounds(const Box &source, std::span<const SurfaceInstance> instances) {
+  if (instances.empty() || source.Empty()) { return source; }
+  Box bounds;
+  for (const auto &instance : instances) {
+    Box placed;
+    const double scale = instance[3];
+    for (size_t axis = 0; axis < 3; ++axis) {
+      const double root = instance[axis];
+      const double min = scale * source.Min[axis];
+      const double max = scale * source.Max[axis];
+      const double magnitude = std::abs(root) + std::max(std::abs(min), std::abs(max));
+      if (!std::isfinite(magnitude) || magnitude > std::numeric_limits<float>::max()) { return {}; }
+      const double margin = FloatRoundingMargin(magnitude);
+      placed.Min[axis] = root + std::min(min, max) - margin;
+      placed.Max[axis] = root + std::max(min, max) + margin;
+    }
+    bounds.Cover(placed);
+  }
+  return bounds;
+}
+
 std::expected<TileBuffers, std::string>
 UploadTileGeometry(id<MTLDevice> device, const SurfaceTile &tile, size_t &bytes) {
   const auto vertices = std::as_bytes(std::span(tile.Vertices));
@@ -727,10 +753,15 @@ UploadTileGeometry(id<MTLDevice> device, const SurfaceTile &tile, size_t &bytes)
                                      ? nil
                                      : [device newBufferWithBytes:colours.data()
                                                            length:colours.size()
-                                                          options:MTLResourceStorageModeShared]};
+                                                          options:MTLResourceStorageModeShared],
+                      .Bounds = {}};
   if (buffers.Vertices == nil || buffers.Indices == nil ||
       (!colours.empty() && buffers.Colours == nil)) {
     return std::unexpected("Metal tile geometry upload failed");
+  }
+  for (const auto &vertex : tile.Vertices) {
+    const auto &pos = vertex.PositionM;
+    buffers.Bounds.Cover(Vec3{{pos[0], pos[1], pos[2]}});
   }
   bytes += vertices.size() + indices.size() + colours.size();
   return buffers;
@@ -765,7 +796,8 @@ std::expected<TileMesh, std::string> UploadTile(id<MTLDevice> device,
                 .HandoffGroup = tile.HandoffGroup,
                 .ColourRanges = {firstColour, firstOverlay, firstLit, instances.empty() ? 0U : 1U},
                 .Light = PackLight(tile.WorldFromTile, firstLit < count ? light : nullptr),
-                .WorldFromTile = tile.WorldFromTile};
+                .WorldFromTile = tile.WorldFromTile,
+                .Bounds = InstanceBounds(entry->second.Bounds, tile.Instances)};
   if (!instances.empty() && mesh.Instances == nil) {
     return std::unexpected("Metal tile instance upload failed");
   }
@@ -937,6 +969,7 @@ std::expected<id<MTLCommandBuffer>, std::string> SubmitProducts(const ProductPas
         [draw endEncoding];
         return std::unexpected(clip.error());
       }
+      if (OutsideViewport(Mat4f{.Column = *clip}, mesh.Bounds)) { continue; }
       const float weight =
           mesh.HandoffGroup ? GroupWeight(resources.Groups[*mesh.HandoffGroup], view.EyeM) : 0;
       sample.TileTriangles += DrawTile(draw, pass.Tile, mesh, *clip, view.EyeM, weight);
@@ -948,12 +981,13 @@ std::expected<id<MTLCommandBuffer>, std::string> SubmitProducts(const ProductPas
     for (const auto &group : resources.Groups) {
       const float weight = GroupWeight(group, view.EyeM);
       if (weight <= 0.0f) { continue; }
-      if (weight < 1.0f) { ++sample.BlendingGroups; }
       const auto clip = MetalClip(view.ClipFromWorld * group.WorldFromTile);
       if (!clip) {
         [draw endEncoding];
         return std::unexpected(clip.error());
       }
+      if (OutsideViewport(Mat4f{.Column = *clip}, group.Bounds)) { continue; }
+      if (weight < 1.0f) { ++sample.BlendingGroups; }
       const auto &p = group.WorldFromTile;
       const auto local = TileDirection(p, view.EyeM - Vec3{{p[12], p[13], p[14]}});
       const SurfaceShadingUniform shading{
