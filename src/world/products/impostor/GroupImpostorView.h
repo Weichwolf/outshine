@@ -27,6 +27,7 @@ struct GroupImpostorTextureRegion {
 struct GroupImpostorView {
   using Texel = std::array<uint8_t, 4>;
   static constexpr uint32_t MaximumSide = 256;
+  static constexpr size_t MaximumViews = 64;
 
   [[nodiscard]] static constexpr bool ValidSide(uint32_t side) {
     return side <= MaximumSide && std::has_single_bit(side);

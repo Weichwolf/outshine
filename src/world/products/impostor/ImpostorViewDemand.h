@@ -33,6 +33,10 @@ enum class ImpostorDistanceMode { Geometry, Handoff, Impostor };
 [[nodiscard]] std::vector<size_t> SelectImpostorDirections(std::span<const Vec3> directions,
                                                            const ImpostorEyeSweep &eye,
                                                            bool requireElevatedView = false);
+[[nodiscard]] std::vector<size_t> SelectBlendedImpostorDirections(std::span<const Vec3> directions,
+                                                                  const ImpostorEyeSweep &eye);
+[[nodiscard]] float ImpostorDirectionWeight(double aboveCut);
+[[nodiscard]] double ImpostorDirectionCut(std::span<const double> scores);
 
 }
 #endif

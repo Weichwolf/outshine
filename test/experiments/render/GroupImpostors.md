@@ -823,6 +823,54 @@ contains local and panorama colour and that an occluded edge is gone.
 This measures edge coverage. Angular agreement with the fine canopy
 and temporal continuity across directional changes still need checking.
 
+## Blend the canopy cards across angular ties
+
+The runner-up used to switch at full coverage. Keep two cards' worth of
+directional coverage and transfer it over a normalized dot-score band of
+0.025 around the second/third tie. Outside the band the two weights are
+one. Inside it, find a cutoff whose clamped weights sum to two. The
+shader assigns these weights consecutive intervals modulo one within the
+existing mesh/card interval. This lets incoming and outgoing cards
+share samples while preserving independent depth tests. Authored
+albedo and alpha stay intact. At the SSD index, a card is admissible if
+fewer than two others beat it by more than the band at some point of the
+sweep. Use the longer endpoint's eye vector to bound the normalized gap.
+The Python check sampled 500 sweeps at 4,097 poses each with the alpine
+bank of 29 directions and verified that no needed card was excluded.
+
+At 522 m, capture either side of three runner-up changes 0.17° apart.
+Use `outshine_experiment_metal_groups` with the same azimuth for both
+optional azimuth arguments to record a static control. The crop is
+304×210 from (488, 255). Count pixels whose largest channel change
+exceeds 15 of 255. For the coverage column, classify green pixels with
+G−R > 3, R < 125 and G > B against the fine instanced mesh.
+
+| Elevation | Changed pixels, hard → blended | Canopy pixels, hard → blended (fine) | Coverage IoU, hard → blended |
+|---|---:|---:|---:|
+| −12° | 1,269 → 463 | 2,154 → 2,185 (2,573) | 0.496 → 0.503 |
+| 37° | 2,327 → 1,045 | 3,215 → 3,343 (3,686) | 0.473 → 0.482 |
+| 82° | 1,247 → 488 | 1,731 → 1,752 (1,918) | 0.556 → 0.574 |
+
+Fading cards against the best score alone covered 1,166 pixels in the
+82° view and reduced coverage agreement. The two-card allocation keeps
+the canopy substantially denser through the same turn. The residual
+difference from the fine mesh remains measurable.
+
+Three paired 120-frame runs used the same indexed cuts and matched
+240 km panoramas on A18 Pro Metal at 720p30. Median GPU p99:
+
+| Prepared view | Hard pair | Angular blend |
+|---|---:|---:|
+| Körbersee turn | 2.48 ms | 2.64 ms |
+| Körbersee 16 m flight | 2.55 ms | 2.65 ms |
+| Tokyo turn | 13.57 ms | 13.23 ms |
+| Tokyo 16 m flight | 11.61 ms | 11.50 ms |
+
+In the alpine cut, peak triangles grew from 114,667 to 122,993 and
+compressed reads from 22.09 to 22.27 MB including the shared panorama.
+The Tokyo endpoints match visually and in the decoded RGB comparison.
+The two city timing ranges overlap. These are prepared-renderer runs.
+
 [Billboard Clouds](../../../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
 [Layered Depth Images](../../../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf),
 [Hierarchical Image Caching](../../../doc/references/geometry/siggraph/1996-hierarchical-image-caching.pdf).

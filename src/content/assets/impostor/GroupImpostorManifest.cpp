@@ -18,7 +18,6 @@
 namespace outshine {
 namespace {
 using Json = nlohmann::json;
-constexpr size_t kMaximumViews = 64;
 constexpr double kBoundsM = 2e7;
 
 bool Inside(double value, double limit) {
@@ -88,7 +87,7 @@ std::optional<GroupImpostorManifest> ParseGroupImpostorManifest(const Json &root
   if (!tile || !origin || !centre || !half || *half <= 0 || !AssetProductKey::Parse(revision) ||
       side > GroupImpostorView::MaximumSide ||
       !GroupImpostorView::ValidSide(static_cast<uint32_t>(side)) || views < 2 ||
-      views > kMaximumViews || views > root["directions"].size()) {
+      views > GroupImpostorView::MaximumViews || views > root["directions"].size()) {
     return std::nullopt;
   }
   GroupImpostorManifest result{.Coverage = *tile,

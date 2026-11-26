@@ -29,7 +29,6 @@ namespace {
 using namespace outshine;
 using namespace outshine::Render;
 using Json = nlohmann::json;
-constexpr size_t kMaximumDirections = 64;
 constexpr size_t kFrames = 120;
 constexpr double kFovDeg = 55;
 constexpr double kFrameSeconds = 1.0 / 30.0;
@@ -65,7 +64,7 @@ bool LoadGroup(const std::filesystem::path &folder, Group &out) {
     return false;
   }
   const auto count = manifest["card_views"].get<size_t>();
-  if (count < 2 || count > kMaximumDirections) { return false; }
+  if (count < 2 || count > GroupImpostorView::MaximumViews) { return false; }
   if (const auto cell = manifest.find("canopy_cell"); cell != manifest.end()) {
     if (!cell->is_string()) { return false; }
     out.CanopyCell = cell->get<std::string>();
@@ -86,15 +85,15 @@ struct FlightPath {
   double DistanceM = 0;
   double ElevationDeg = 0;
   double FinishDistanceM = 0;
+  double BeginAzimuthDeg = -35;
+  double EndAzimuthDeg = 51;
 };
 
 MetalProductViewAt Flight(Vec3 centre, FlightPath path) {
   return [=](size_t frame) -> std::expected<MetalProductView, std::string> {
     constexpr double radians = std::numbers::pi / 180;
-    constexpr double fromDeg = -35;
-    constexpr double toDeg = 51;
     const double fraction = static_cast<double>(frame) / (kFrames - 1);
-    const double azimuth = std::lerp(fromDeg, toDeg, fraction) * radians;
+    const double azimuth = std::lerp(path.BeginAzimuthDeg, path.EndAzimuthDeg, fraction) * radians;
     const double elevation = path.ElevationDeg * radians;
     const auto distance = std::lerp(path.DistanceM, path.FinishDistanceM, fraction);
     const double horizontal = distance * std::cos(elevation);
@@ -251,9 +250,10 @@ int Forest(std::span<const char *const> arguments,
 }
 
 int main(int argc, const char *const *argv) {
-  if (argc != 6 && argc != 9) {
+  if (argc != 6 && argc != 9 && argc != 11) {
     std::cerr << "metal_groups <capture> <surface> <output directory> <distance m> <elevation deg> "
-                 "[prototype surface, layout, finish distance m]\n";
+                 "[<prototype surface> <layout> <finish distance m> "
+                 "[<begin azimuth deg> <end azimuth deg>]]\n";
     return 2;
   }
   const auto surface = ReadSurfaceTile(argv[2]);
@@ -266,7 +266,11 @@ int main(int argc, const char *const *argv) {
     return 2;
   }
   path.FinishDistanceM = path.DistanceM;
-  if (argc == 9) {
+  if (argc == 11 &&
+      (!ParseNumber(argv[9], path.BeginAzimuthDeg) || !ParseNumber(argv[10], path.EndAzimuthDeg))) {
+    return 2;
+  }
+  if (argc >= 9) {
     return Forest(std::span(argv, static_cast<size_t>(argc)), *surface, group, path);
   }
   auto ground = *surface;

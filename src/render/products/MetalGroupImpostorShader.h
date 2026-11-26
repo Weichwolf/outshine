@@ -44,7 +44,13 @@ float3 groupNormal(float2 packed) {
   if (z < 0.0) { v = (1.0 - abs(v.yx)) * select(float2(-1.0), float2(1.0), v >= 0.0); }
   return normalize(float3(v, z));
 }
-float4 groupColour(GroupVaryings in, constant SurfaceLight &light, uint fractional,
+struct GroupCoverage {
+  float directionBegin;
+  float directionWeight;
+  uint fractional;
+};
+float4 groupColour(GroupVaryings in, constant SurfaceLight &light,
+                   constant GroupCoverage &support,
                    texture2d<float> colours, texture2d<float> normals,
                    thread uint &mask, bool multisample, bool capture = false) {
   constexpr sampler colourSampler(coord::normalized, address::clamp_to_edge,
@@ -52,12 +58,18 @@ float4 groupColour(GroupVaryings in, constant SurfaceLight &light, uint fraction
   constexpr sampler normalSampler(coord::normalized, address::clamp_to_edge,
                                    filter::nearest, mip_filter::nearest);
   const float4 alphaColour = colours.sample(colourSampler, in.uv);
+  const float alpha = support.fractional != 0 ? alphaColour.a : float(alphaColour.a >= 0.5);
+  if (alpha <= 0.0) { discard_fragment(); }
   const float weight = light.eyeAndImpostorWeight.w;
-  const float coverage = fractional != 0 ? alphaColour.a * weight
-                                          : (alphaColour.a >= 0.5 ? weight : 0.0);
-  if (multisample) { mask = lodSampleMask(in.position.xy, 0.0, coverage); }
-  else if (coverage < 1.0 && lodNoise(in.position.xy) >= coverage) {
-    discard_fragment();
+  const float begin = support.directionBegin * weight;
+  const float end = begin + alpha * support.directionWeight * weight;
+  const float wrap = max(0.0, end - weight);
+  if (multisample) {
+    mask = lodSampleMask(in.position.xy, begin, min(end, weight));
+    if (wrap > 0.0) { mask |= lodSampleMask(in.position.xy, 0.0, wrap); }
+  } else if (end < 1.0 || begin > 0.0) {
+    const float noise = lodNoise(in.position.xy);
+    if (!(noise >= begin && noise < min(end, weight)) && noise >= wrap) { discard_fragment(); }
   }
   if (mask == 0) { discard_fragment(); }
   const float3 normal = groupNormal(normals.sample(normalSampler, in.uv).xy);
@@ -67,43 +79,43 @@ float4 groupColour(GroupVaryings in, constant SurfaceLight &light, uint fraction
 }
 fragment float4 group_capture_fragment(GroupVaryings in [[stage_in]],
                                        constant SurfaceLight &light [[buffer(0)]],
-                                       constant uint &fractional [[buffer(1)]],
+                                       constant GroupCoverage &support [[buffer(1)]],
                                        texture2d<float> colours [[texture(0)]],
                                        texture2d<float> normals [[texture(1)]]) {
   uint mask = 15u;
-  return groupColour(in, light, fractional, colours, normals, mask, false, true);
+  return groupColour(in, light, support, colours, normals, mask, false, true);
 }
 fragment float4 group_fragment(GroupVaryings in [[stage_in]],
                                constant SurfaceLight &light [[buffer(0)]],
-                               constant uint &fractional [[buffer(1)]],
+                               constant GroupCoverage &support [[buffer(1)]],
                                texture2d<float> colours [[texture(0)]],
                                texture2d<float> normals [[texture(1)]]) {
   uint mask = 15u;
-  return groupColour(in, light, fractional, colours, normals, mask, false);
+  return groupColour(in, light, support, colours, normals, mask, false);
 }
 fragment TileFragment group_composite_fragment(GroupVaryings in [[stage_in]],
                                                constant SurfaceLight &light [[buffer(0)]],
-                                               constant uint &fractional [[buffer(1)]],
+                                               constant GroupCoverage &support [[buffer(1)]],
                                                texture2d<float> colours [[texture(0)]],
                                                texture2d<float> normals [[texture(1)]]) {
   uint mask = 15u;
-  return {groupColour(in, light, fractional, colours, normals, mask, false), in.position.z};
+  return {groupColour(in, light, support, colours, normals, mask, false), in.position.z};
 }
 fragment SampleFragment group_sample_fragment(GroupVaryings in [[stage_in]],
                                                constant SurfaceLight &light [[buffer(0)]],
-                                               constant uint &fractional [[buffer(1)]],
+                                               constant GroupCoverage &support [[buffer(1)]],
                                                texture2d<float> colours [[texture(0)]],
                                                texture2d<float> normals [[texture(1)]]) {
   uint mask = 15u;
-  const float4 shaded = groupColour(in, light, fractional, colours, normals, mask, true);
+  const float4 shaded = groupColour(in, light, support, colours, normals, mask, true);
   return {shaded, mask};
 }
 fragment CompositeSampleFragment group_composite_sample_fragment(
     GroupVaryings in [[stage_in]], constant SurfaceLight &light [[buffer(0)]],
-    constant uint &fractional [[buffer(1)]], texture2d<float> colours [[texture(0)]],
+    constant GroupCoverage &support [[buffer(1)]], texture2d<float> colours [[texture(0)]],
     texture2d<float> normals [[texture(1)]]) {
   uint mask = 15u;
-  const float4 shaded = groupColour(in, light, fractional, colours, normals, mask, true);
+  const float4 shaded = groupColour(in, light, support, colours, normals, mask, true);
   return {shaded, in.position.z, mask};
 }
 )";

@@ -4,6 +4,76 @@ from time import perf_counter
 
 import numpy as np
 
+CANOPY_SCORE_WIDTH = .025
+
+
+def canopy_weights(directions, eye):
+    scores = directions @ eye / np.linalg.norm(eye)
+    best = np.sort(scores)
+    lower, upper = best[-2] - CANOPY_SCORE_WIDTH, best[-2]
+    if len(best) == 2 or best[-3] <= lower:
+        return (scores >= best[-2]).astype(float)
+    for _ in range(14):
+        cut = (lower + upper) * .5
+        weights = np.clip((scores - cut) / CANOPY_SCORE_WIDTH, 0, 1)
+        if weights.sum() > 2:
+            lower = cut
+        else:
+            upper = cut
+    return np.clip((scores - (lower + upper) * .5) / CANOPY_SCORE_WIDTH, 0, 1)
+
+
+def canopy_demand(directions, start, finish):
+    span = (CANOPY_SCORE_WIDTH + 1e-9) * max(np.linalg.norm(start), np.linalg.norm(finish))
+    scores = directions @ np.stack((start, finish)).T
+    chosen = []
+    for index, candidate in enumerate(scores):
+        events = []
+        ahead = 0
+        for begin, end in scores - candidate:
+            ahead += begin > span
+            if (begin > span) != (end > span):
+                events.append(((span - begin) / (end - begin), 1 if end > span else -1))
+        if ahead < 2:
+            chosen.append(index)
+            continue
+        for _, delta in sorted(events):
+            ahead += delta
+            if ahead < 2:
+                chosen.append(index)
+                break
+    return chosen
+
+
+def validate_canopy_demand(directions):
+    rng = np.random.default_rng(1975)
+    t = np.linspace(0., 1., 4097)[:, None]
+    began = perf_counter()
+    for start, finish in rng.normal(size=(500, 2, 3)):
+        eyes = (1 - t) * start + t * finish
+        scores = (eyes / np.linalg.norm(eyes, axis=1)[:, None]) @ directions.T
+        second = np.partition(scores, -2, axis=1)[:, -2]
+        used = np.flatnonzero(np.any(second[:, None] - scores < CANOPY_SCORE_WIDTH, axis=0))
+        selected = canopy_demand(directions, start, finish)
+        assert set(used) <= set(selected)
+        still = canopy_demand(directions, start, start)
+        assert set(np.flatnonzero(canopy_weights(directions, start))) <= set(still)
+
+    tied = np.array([[.6, .8, 0.], [-.6, .8, 0.], [0., .8, .6]])
+    a = canopy_weights(tied, np.array([-1e-6, 1., 0.]))
+    b = canopy_weights(tied, np.array([1e-6, 1., 0.]))
+    np.testing.assert_allclose(a.sum(), 2., atol=.0002)
+    np.testing.assert_allclose(a, b, atol=.0001)
+    phases = (np.arange(4096) + .5) / 4096
+    for weights in [a, b, np.array([1., .2, .8]), np.array([0., 1., 1.])]:
+        coverage = np.zeros_like(phases)
+        prefix = 0.
+        for weight in weights:
+            coverage += np.mod(phases - prefix, 1.) < weight
+            prefix += weight
+        assert np.mean(coverage == 2) > .999
+    print(f"500 canopy sweeps conservatively cover 4097 poses each in {perf_counter()-began:.3f} s")
+
 
 def needed_views(directions, eye_start, eye_end, require_elevated=False):
     scores = directions @ np.stack((eye_start, eye_end)).T
@@ -122,3 +192,17 @@ if __name__ == "__main__":
     validate()
     validate_handoff()
     validate_sample_coverage()
+    import argparse
+    import json
+    from pathlib import Path
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--layout", type=Path)
+    args = parser.parse_args()
+    if args.layout:
+        views = np.array(json.loads(args.layout.read_text())["directions"])
+    else:
+        angles = np.arange(8) * np.pi / 4
+        views = np.column_stack((np.sin(angles), np.zeros_like(angles), np.cos(angles)))
+        views = np.vstack((views, [0, 1, 0]))
+    validate_canopy_demand(views)

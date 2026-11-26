@@ -13,11 +13,26 @@
 namespace outshine {
 namespace {
 
+constexpr double kCanopyScoreWidth = 0.025;
+constexpr size_t kBlendCutIterations = 14;
+
 struct DirectionScore {
   double Begin;
   double End;
   bool Elevated;
 };
+
+std::vector<DirectionScore> EyeDirectionScores(std::span<const Vec3> directions,
+                                               const ImpostorEyeSweep &eye) {
+  std::vector<DirectionScore> scores;
+  scores.reserve(directions.size());
+  for (const auto &direction : directions) {
+    scores.push_back({.Begin = Dot(direction, eye.Begin),
+                      .End = Dot(direction, eye.End),
+                      .Elevated = direction[1] > 0});
+  }
+  return scores;
+}
 
 struct BestPair {
   double First = -std::numeric_limits<double>::infinity();
@@ -69,6 +84,31 @@ bool AdmitPair(std::span<const DirectionScore> scores,
   return true;
 }
 
+bool HasAngleSupport(const DirectionScore &view,
+                     std::span<const DirectionScore> scores,
+                     double limit,
+                     std::vector<std::pair<double, int>> &crossings) {
+  crossings.clear();
+  int ahead = 0;
+  for (const auto &other : scores) {
+    const double gapBegin = other.Begin - view.Begin;
+    const double gapEnd = other.End - view.End;
+    const bool aheadAtBegin = gapBegin > limit;
+    const bool aheadAtEnd = gapEnd > limit;
+    ahead += static_cast<int>(aheadAtBegin);
+    if (aheadAtBegin != aheadAtEnd) {
+      crossings.emplace_back((limit - gapBegin) / (gapEnd - gapBegin), aheadAtEnd ? 1 : -1);
+    }
+  }
+  if (ahead < 2) { return true; }
+  std::ranges::sort(crossings);
+  for (const auto &crossing : crossings) {
+    ahead += crossing.second;
+    if (ahead < 2) { return true; }
+  }
+  return false;
+}
+
 }
 
 float ImpostorDistanceRamp::Weight(double distanceM) const {
@@ -102,13 +142,7 @@ ImpostorDistanceMode ClassifyImpostorSweep(const ImpostorEyeSweep &eye,
 std::vector<size_t> SelectImpostorDirections(std::span<const Vec3> directions,
                                              const ImpostorEyeSweep &eye,
                                              bool requireElevatedView) {
-  std::vector<DirectionScore> scores;
-  scores.reserve(directions.size());
-  for (const auto &direction : directions) {
-    scores.push_back({.Begin = Dot(direction, eye.Begin),
-                      .End = Dot(direction, eye.End),
-                      .Elevated = direction[1] > 0});
-  }
+  const auto scores = EyeDirectionScores(directions, eye);
   const auto times = Crossings(scores);
   const double margin = 1e-9 * std::max(Length(eye.Begin), Length(eye.End));
   std::vector<bool> needed(scores.size(), false);
@@ -124,6 +158,45 @@ std::vector<size_t> SelectImpostorDirections(std::span<const Vec3> directions,
     if (needed[at]) { result.push_back(at); }
   }
   return result;
+}
+
+std::vector<size_t> SelectBlendedImpostorDirections(std::span<const Vec3> directions,
+                                                    const ImpostorEyeSweep &eye) {
+  const auto limit = (kCanopyScoreWidth + 1e-9) * std::max(Length(eye.Begin), Length(eye.End));
+  const auto scores = EyeDirectionScores(directions, eye);
+  std::vector<std::pair<double, int>> crossings;
+  crossings.reserve(scores.size());
+  std::vector<size_t> result;
+  for (size_t at = 0; at < scores.size(); ++at) {
+    if (HasAngleSupport(scores[at], scores, limit, crossings)) { result.push_back(at); }
+  }
+  return result;
+}
+
+float ImpostorDirectionWeight(double aboveCut) {
+  return static_cast<float>(std::clamp(aboveCut / kCanopyScoreWidth, 0.0, 1.0));
+}
+
+double ImpostorDirectionCut(std::span<const double> scores) {
+  BestPair best;
+  for (const auto score : scores) { best.Add(score); }
+  double upper = best.Second;
+  double lower = upper - kCanopyScoreWidth;
+  const auto totalWeight = [scores](double cut) {
+    double weight = 0;
+    for (const double score : scores) { weight += ImpostorDirectionWeight(score - cut); }
+    return weight;
+  };
+  if (totalWeight(lower) <= 2.0) { return lower; }
+  for (size_t step = 0; step < kBlendCutIterations; ++step) {
+    const double cut = 0.5 * (lower + upper);
+    if (totalWeight(cut) > 2.0) {
+      lower = cut;
+    } else {
+      upper = cut;
+    }
+  }
+  return 0.5 * (lower + upper);
 }
 
 }

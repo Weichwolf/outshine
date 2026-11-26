@@ -411,7 +411,7 @@ ReadAttachedGroup(const AssetCache &cache,
                                .AvailableViews = views};
   }
   std::optional<ResidentGroupImpostor> cards;
-  const auto needed = SelectImpostorDirections(manifest->Directions, eye);
+  const auto needed = SelectBlendedImpostorDirections(manifest->Directions, eye);
   if (needed.size() >= 2) {
     auto group = ReadViews(cache,
                            *manifest,

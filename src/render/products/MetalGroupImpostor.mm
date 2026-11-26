@@ -20,9 +20,17 @@ namespace {
 
 constexpr size_t kShaderPatchBytes = 20;
 constexpr size_t kShaderAxesBytes = 80;
+
+struct GroupCoverage {
+  float DirectionBegin;
+  float DirectionWeight;
+  uint32_t Fractional;
+};
+
 static_assert(sizeof(GroupImpostorPatch) == kShaderPatchBytes &&
               offsetof(GroupImpostorPatch, Depth) == 8 && sizeof(GroupImpostorView::Texel) == 4 &&
               sizeof(GroupAxes) == kShaderAxesBytes);
+static_assert(sizeof(GroupCoverage) == 12 && offsetof(GroupCoverage, Fractional) == 8);
 
 GroupAxes PackAxes(const MetalImpostorGroup &group,
                    const GroupImpostorView &view,
@@ -103,7 +111,8 @@ id<MTLTexture> UploadGroupTexture(id<MTLDevice> device,
 
 std::expected<GroupResources, std::string>
 UploadMetalGroup(id<MTLDevice> device, const MetalImpostorGroup &group, size_t &uploaded) {
-  if (group.HalfExtentM <= 0 || !std::isfinite(group.HalfExtentM) || group.Views.size() < 2) {
+  if (group.HalfExtentM <= 0 || !std::isfinite(group.HalfExtentM) || group.Views.size() < 2 ||
+      group.Views.size() > GroupImpostorView::MaximumViews) {
     return std::unexpected("invalid group impostor bound or direction count");
   }
   GroupResources result{.Views = {},
@@ -173,24 +182,59 @@ std::array<const GroupViewTextures *, 2> VisibleGroupViews(const GroupResources 
   return result;
 }
 
+size_t EncodeGroupView(id<MTLRenderCommandEncoder> draw,
+                       const GroupViewTextures &view,
+                       GroupCoverage coverage) {
+  if (view.Count == 0 || coverage.DirectionWeight <= 0) { return 0; }
+  [draw setVertexBuffer:view.Patches offset:0 atIndex:0];
+  [draw setVertexBytes:view.Axes.data() length:sizeof(view.Axes) atIndex:2];
+  [draw setFragmentBytes:&coverage length:sizeof(coverage) atIndex:1];
+  [draw setFragmentTexture:view.AlbedoCoverage atIndex:0];
+  [draw setFragmentTexture:view.NormalMaterial atIndex:1];
+  [draw drawPrimitives:MTLPrimitiveTypeTriangle
+           vertexStart:0
+           vertexCount:6
+         instanceCount:view.Count];
+  return 2 * view.Count;
+}
+
+size_t
+EncodeCanopyViews(id<MTLRenderCommandEncoder> draw, const GroupResources &group, const Vec3 &eye) {
+  auto towardEye = eye - group.CentreM;
+  if (!Normalise(towardEye)) { towardEye = {{0, 1, 0}}; }
+  std::array<double, GroupImpostorView::MaximumViews> scores;
+  const auto active = std::span{scores}.first(group.Views.size());
+  std::ranges::transform(group.Views, active.begin(), [&](const auto &view) {
+    return Dot(towardEye, view.TowardEye);
+  });
+  const double cut = ImpostorDirectionCut(active);
+  size_t triangles = 0;
+  double prefix = 0;
+  for (size_t index = 0; index < active.size(); ++index) {
+    const auto weight = ImpostorDirectionWeight(active[index] - cut);
+    const auto begin = static_cast<float>(prefix - std::floor(prefix));
+    triangles +=
+        EncodeGroupView(draw,
+                        group.Views[index],
+                        {.DirectionBegin = begin, .DirectionWeight = weight, .Fractional = 1});
+    prefix += weight;
+  }
+  return triangles;
+}
+
 }
 
 size_t EncodeMetalGroup(id<MTLRenderCommandEncoder> draw,
                         const GroupResources &group,
                         const Vec3 &localEye) {
+  if (group.FractionalCoverage) { return EncodeCanopyViews(draw, group, localEye); }
   const auto views = VisibleGroupViews(group, localEye);
   size_t triangles = 0;
   for (const auto *view : views) {
-    if (view == nullptr || view->Count == 0) { continue; }
-    [draw setVertexBuffer:view->Patches offset:0 atIndex:0];
-    [draw setVertexBytes:view->Axes.data() length:sizeof(view->Axes) atIndex:2];
-    [draw setFragmentTexture:view->AlbedoCoverage atIndex:0];
-    [draw setFragmentTexture:view->NormalMaterial atIndex:1];
-    [draw drawPrimitives:MTLPrimitiveTypeTriangle
-             vertexStart:0
-             vertexCount:6
-           instanceCount:view->Count];
-    triangles += 2 * view->Count;
+    if (view != nullptr) {
+      triangles += EncodeGroupView(
+          draw, *view, {.DirectionBegin = 0, .DirectionWeight = 1, .Fractional = 0});
+    }
   }
   return triangles;
 }
