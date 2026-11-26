@@ -5,6 +5,7 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <optional>
 
 namespace outshine::Render {
 namespace {
@@ -50,10 +51,7 @@ double ElapsedMs(Clock::time_point since) {
   return std::chrono::duration<double, std::milli>(Clock::now() - since).count();
 }
 
-std::expected<ClipMatrix, std::string> MetalClip(const Camera &camera) {
-  Mat4 clip;
-  const double aspect = static_cast<double>(TileFrameWidth) / TileFrameHeight;
-  if (!camera.clipMatrix(aspect, clip)) { return std::unexpected("invalid tile camera"); }
+std::expected<ClipMatrix, std::string> MetalClip(Mat4 clip) {
   ClipMatrix packed{};
   for (size_t column = 0; column < kMatrixWords; column += 4) {
     clip[column + 2] = (clip[column + 3] - clip[column + 2]) * 0.5;
@@ -137,8 +135,8 @@ struct TileMesh {
   size_t IndexCount;
 };
 
-std::expected<double, std::string>
-Draw(const TilePass &pass, const TileMesh &mesh, const ClipMatrix &clip) {
+std::expected<id<MTLCommandBuffer>, std::string>
+SubmitTile(const TilePass &pass, const TileMesh &mesh, const ClipMatrix &clip) {
   @autoreleasepool {
     const id<MTLCommandBuffer> command = [pass.Queue commandBuffer];
     const id<MTLRenderCommandEncoder> draw = [command renderCommandEncoderWithDescriptor:pass.Pass];
@@ -154,22 +152,71 @@ Draw(const TilePass &pass, const TileMesh &mesh, const ClipMatrix &clip) {
               indexBufferOffset:0];
     [draw endEncoding];
     [command commit];
-    [command waitUntilCompleted];
-    if (command.status != MTLCommandBufferStatusCompleted) {
-      return std::unexpected("Metal tile command failed");
-    }
-    const double began = command.GPUStartTime;
-    const double end = command.GPUEndTime;
-    if (began <= 0 || end <= began || !std::isfinite(end)) {
-      return std::unexpected("Metal tile GPU time unavailable");
-    }
-    return (end - began) * kMsPerS;
+    return command;
   }
 }
+
+std::expected<std::optional<double>, std::string> RetireTile(id<MTLCommandBuffer> command) {
+  [command waitUntilCompleted];
+  if (command.status != MTLCommandBufferStatusCompleted) {
+    return std::unexpected("Metal tile command failed");
+  }
+  const double began = command.GPUStartTime;
+  const double end = command.GPUEndTime;
+  if (!std::isfinite(began) || began <= 0 || !std::isfinite(end) || end <= began) {
+    return std::optional<double>{};
+  }
+  return (end - began) * kMsPerS;
+}
+
+std::expected<void, std::string> MeasureTiles(const TilePass &pass,
+                                              const TileMesh &mesh,
+                                              size_t count,
+                                              const TileClipAt &clipAt,
+                                              MetalTileFrames &frames) {
+  std::array<id<MTLCommandBuffer>, TileFramesInFlight> pending{};
+  frames.Samples.resize(count);
+  const auto finish = [&](size_t frame) -> std::expected<void, std::string> {
+    auto &command = pending[frame % pending.size()];
+    const auto elapsed = RetireTile(command);
+    if (!elapsed) { return std::unexpected(elapsed.error()); }
+    frames.Samples[frame].GpuMs = *elapsed;
+    command = nil;
+    return {};
+  };
+  const auto windowAt = Clock::now();
+  for (size_t frame = 0; frame < count; ++frame) {
+    const auto frameAt = Clock::now();
+    const auto matrix = clipAt(frame);
+    if (!matrix) { return std::unexpected(matrix.error()); }
+    const auto clip = MetalClip(*matrix);
+    if (!clip) { return std::unexpected(clip.error()); }
+    auto &sample = frames.Samples[frame];
+    const auto renderAt = Clock::now();
+    if (frame >= pending.size()) {
+      const auto retired = finish(frame - pending.size());
+      if (!retired) { return retired; }
+      sample.SyncWaitMs = ElapsedMs(renderAt);
+    }
+    const auto submitted = SubmitTile(pass, mesh, *clip);
+    if (!submitted) { return std::unexpected(submitted.error()); }
+    pending[frame % pending.size()] = *submitted;
+    sample.RenderMs = ElapsedMs(renderAt);
+    sample.WallMs = ElapsedMs(frameAt);
+  }
+  frames.WindowMs = ElapsedMs(windowAt);
+  const auto flushAt = Clock::now();
+  for (size_t frame = count > pending.size() ? count - pending.size() : 0; frame < count; ++frame) {
+    if (const auto retired = finish(frame); !retired) { return retired; }
+  }
+  frames.FlushMs = ElapsedMs(flushAt);
+  return {};
+}
+
 }
 
 std::expected<MetalTileFrames, std::string>
-RenderMetalTile(const SurfaceTile &tile, std::span<const Camera> cameras, bool readImage) {
+RenderMetalTile(const SurfaceTile &tile, size_t count, const TileClipAt &clipAt, bool readImage) {
   @autoreleasepool {
     const auto began = Clock::now();
     const id<MTLDevice> device = MTLCreateSystemDefaultDevice();
@@ -195,14 +242,13 @@ RenderMetalTile(const SurfaceTile &tile, std::span<const Camera> cameras, bool r
     }
     frames.UploadMs = ElapsedMs(upload);
     frames.UploadedBytes = vertexBytes.size() + indexBytes.size();
-    frames.GpuMs.reserve(cameras.size());
-    for (const auto &camera : cameras) {
-      const auto clip = MetalClip(camera);
-      if (!clip) { return std::unexpected(clip.error()); }
-      const auto sample = Draw(*pass, mesh, *clip);
-      if (!sample) { return std::unexpected(sample.error()); }
-      frames.GpuMs.push_back(*sample);
+    if (const auto measured = MeasureTiles(*pass, mesh, count, clipAt, frames); !measured) {
+      return std::unexpected(measured.error());
     }
+    frames.DeviceId = device.registryID;
+    frames.ResourceBytes = device.currentAllocatedSize;
+    frames.RecommendedResourceBytes = device.recommendedMaxWorkingSetSize;
+    frames.UnifiedMemory = device.hasUnifiedMemory;
     if (readImage) {
       const size_t row = TileFrameWidth * kChannels;
       frames.Rgba.resize(row * TileFrameHeight);

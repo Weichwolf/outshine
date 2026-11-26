@@ -1,36 +1,27 @@
 #include "TileBenchmark.h"
-#include "BenchmarkMotion.h"
 #include "BenchmarkOptions.h"
+#include <expected>
+#include <string>
 
 #ifdef __APPLE__
+#include "BenchmarkInput.h"
+#include "BenchmarkMotion.h"
+#include "BenchmarkReport.h"
 #include "GeodeticCamera.h"
-#include "ImageCapture.h"
 #include "MetalTileRenderer.h"
-#include "Quantile.h"
-#include "ScenarioInput.h"
-#include "ScenarioWrite.h"
-#include "format/Sha256.h"
 #include <algorithm>
-#include <chrono>
 #include <cstddef>
-#include <expected>
-#include <ratio>
-#include <string>
+#include <cstdint>
 #include <string_view>
-#include <nlohmann/json.hpp>
-#include <vector>
 #endif
 
 namespace outshine::App {
 #ifdef __APPLE__
 namespace {
-using Clock = std::chrono::steady_clock;
 
 std::expected<Camera, std::string> TileCamera(const Scenario::Document &document,
                                               std::string_view selected,
                                               LongitudeLatitude origin) {
-  if (selected.empty()) { selected = document.Played.View; }
-  if (selected.empty() && !document.Views.empty()) { selected = document.Views.front().Id; }
   const auto view = std::ranges::find(document.Views, selected, &Scenario::View::Id);
   if (view == document.Views.end() || view->Placement != Scenario::CameraPlacement::Geodetic ||
       view->Geographic.SamplesHeight || view->Sees.LooksAt || view->OffsetM != Vec3{}) {
@@ -52,103 +43,123 @@ std::expected<Camera, std::string> TileCamera(const Scenario::Document &document
   return camera;
 }
 
-BenchmarkMotionInput RebaseMotion(BenchmarkMotionInput motion,
-                                  const Scenario::Georeference &world,
-                                  const SurfaceTile &tile) {
-  const auto from =
-      TangentFrame::At({.LongitudeDeg = world.LongitudeDeg, .LatitudeDeg = world.LatitudeDeg});
-  const auto into = TangentFrame::At(tile.Origin);
-  const auto apply = [&](const Vec3 &direction) {
-    const Vec3 ecef = from.EastEcef() * direction[0] + from.UpEcef() * direction[1] -
-                      from.NorthEcef() * direction[2];
-    return Vec3{RenderFrame::Of(into.ToLocalDirection(ecef))};
-  };
-  motion.LinearVelocityMps = apply(motion.LinearVelocityMps);
-  motion.AngularVelocityDegS = apply(motion.AngularVelocityDegS);
-  return motion;
+Mat4 TilePlacement(const SurfaceTile &tile, LongitudeLatitude origin) {
+  const auto world = TangentFrame::At(origin);
+  const auto local = TangentFrame::At(tile.Origin);
+  const auto position = RenderFrame::Of(world.ToLocalPosition(
+      {.LongitudeDeg = tile.Origin.LongitudeDeg, .LatitudeDeg = tile.Origin.LatitudeDeg}));
+  const auto east = RenderFrame::Of(world.ToLocalDirection(local.EastEcef()));
+  const auto up = RenderFrame::Of(world.ToLocalDirection(local.UpEcef()));
+  const auto south = RenderFrame::Of(world.ToLocalDirection(local.NorthEcef() * -1.0));
+  return {{east[0],
+           east[1],
+           east[2],
+           0,
+           up[0],
+           up[1],
+           up[2],
+           0,
+           south[0],
+           south[1],
+           south[2],
+           0,
+           position[0],
+           position[1],
+           position[2],
+           1}};
 }
 
-std::expected<std::vector<Camera>, std::string> TileCameraFrames(const Camera &initial,
-                                                                 BenchmarkMotionInput input) {
-  const auto motion = BenchmarkMotion::Make(initial, input);
-  if (!motion) { return std::unexpected(std::string(motion.error())); }
-  std::vector<Camera> cameras;
-  cameras.reserve(input.Frames);
-  for (size_t frame = 0; frame < input.Frames; ++frame) {
-    const auto camera = motion->At(frame);
-    if (!camera) { return std::unexpected(std::string(camera.error())); }
-    cameras.push_back(*camera);
+void CaptureTileSamples(ScenarioBenchmarkReport &report, const Render::MetalTileFrames &frames) {
+  report.WindowMs = frames.WindowMs;
+  report.FlushMs = frames.FlushMs;
+  report.Gpu = frames.Device;
+  report.GpuMemory.ResourceAllocatedBytes = frames.ResourceBytes;
+  report.GpuMemory.RecommendedWorkingSetBytes = frames.RecommendedResourceBytes;
+  report.GpuMemory.UnifiedMemory = frames.UnifiedMemory;
+  report.GpuTiming.RenderedFrames = static_cast<double>(frames.Samples.size());
+  report.Frames.reserve(frames.Samples.size());
+  report.GpuSamples.reserve(frames.Samples.size());
+  for (size_t frame = 0; frame < frames.Samples.size(); ++frame) {
+    const auto &sample = frames.Samples[frame];
+    report.Frames.push_back({.WallMs = sample.WallMs,
+                             .RenderMs = sample.RenderMs,
+                             .SyncWaitMs = sample.SyncWaitMs,
+                             .Refined = true});
+    if (sample.GpuMs) {
+      report.GpuSamples.push_back(
+          {.Device = frames.DeviceId, .Submission = frame + 1, .ElapsedMs = *sample.GpuMs});
+      ++report.GpuTiming.TimedFrames;
+      report.GpuTiming.TotalMs += *sample.GpuMs;
+      report.GpuTiming.MaxMs = std::max(report.GpuTiming.MaxMs, *sample.GpuMs);
+    } else {
+      ++report.GpuTiming.UnavailableFrames;
+    }
   }
-  return cameras;
-}
-
-nlohmann::json TileCameraReport(const Camera &camera) {
-  Mat4 model;
-  if (!camera.modelMatrix(model)) { return nullptr; }
-  return {{"position_m", camera.PositionM.Axis},
-          {"world_from_camera", model.Column},
-          {"perspective_fov_deg", camera.FovDeg},
-          {"near_m", camera.NearM},
-          {"far_m", camera.FarM}};
 }
 }
 #endif
 
 std::expected<std::string, std::string> RunTileBenchmark(const ScenarioBenchmarkOptions &options) {
 #ifdef __APPLE__
-  const auto began = Clock::now();
-  const auto document = ReadScenarioInput(options.Source, options.Overrides, "data");
+  ScenarioBenchmarkReport report;
+  const auto setupAt = BenchmarkClock::now();
+  CaptureBenchmarkHost(report, true);
+  const auto document = ReadBenchmarkScenario(options, "data", report);
   if (!document) { return std::unexpected(document.error()); }
-  constexpr Extent kFrame{.WidthPx = Render::TileFrameWidth, .HeightPx = Render::TileFrameHeight};
-  if (document->Render.Frame != Extent{} && document->Render.Frame != kFrame) {
+  if (report.Frame !=
+      Extent{.WidthPx = Render::TileFrameWidth, .HeightPx = Render::TileFrameHeight}) {
     return std::unexpected("tile capture requires a 1280x720 scenario");
   }
-  const auto declaration = WriteScenario(*document);
-  if (!declaration) { return std::unexpected(declaration.error()); }
+  const LongitudeLatitude origin{.LongitudeDeg = document->Ground.Origin.LongitudeDeg,
+                                 .LatitudeDeg = document->Ground.Origin.LatitudeDeg};
+  const auto camera = TileCamera(*document, report.View, origin);
+  if (!camera) { return std::unexpected(camera.error()); }
+  report.Start = *camera;
+  const auto motion = BenchmarkMotion::Make(report.Start, report.Motion);
+  if (!motion) { return std::unexpected(std::string(motion.error())); }
+  const auto finish = motion->At(report.Motion.Frames - 1);
+  if (!finish) { return std::unexpected(std::string(finish.error())); }
+  report.Finish = *finish;
+  report.SetupMs = BenchmarkElapsedMs(setupAt);
+
+  const auto loadAt = BenchmarkClock::now();
   const auto tile = ReadSurfaceTile(options.TileProduct);
   if (!tile) { return std::unexpected(tile.error()); }
-  const auto camera = TileCamera(*document, options.View, tile->Origin);
-  if (!camera) { return std::unexpected(camera.error()); }
-  auto motion = RebaseMotion(options.Motion, document->Ground.Origin, *tile);
-  motion.RateHz = document->Render.FrameRateHz;
-  const auto cameras = TileCameraFrames(*camera, motion);
-  if (!cameras) { return std::unexpected(cameras.error()); }
-  const double sourceMs = std::chrono::duration<double, std::milli>(Clock::now() - began).count();
-  auto frames = Render::RenderMetalTile(*tile, *cameras, !options.Image.empty());
+  const auto placement = TilePlacement(*tile, origin);
+  const double aspect = static_cast<double>(report.Frame.WidthPx) / report.Frame.HeightPx;
+  const auto clipAt = [&](size_t frame) -> std::expected<Mat4, std::string> {
+    const auto pose = motion->At(frame);
+    Mat4 clip;
+    if (!pose || !pose->clipMatrix(aspect, clip)) { return std::unexpected("invalid tile camera"); }
+    return clip * placement;
+  };
+  report.PreloadMs = BenchmarkElapsedMs(loadAt);
+  const auto frames =
+      Render::RenderMetalTile(*tile, report.Motion.Frames, clipAt, !options.Image.empty());
   if (!frames) { return std::unexpected(frames.error()); }
+  report.SetupMs += frames->SetupMs;
+  report.PreloadMs += frames->UploadMs;
+  report.Tile = BenchmarkTileCoverage{
+      .Address = {static_cast<uint32_t>(tile->Coverage.Zoom), tile->Coverage.X, tile->Coverage.Y},
+      .OriginLonLat = {tile->Origin.LongitudeDeg, tile->Origin.LatitudeDeg},
+      .Revision = tile->Revision,
+      .Triangles = tile->Indices.size() / 3,
+      .GeometricErrorM = tile->GeometricErrorM,
+      .StoredBytes = tile->StoredBytes,
+      .UploadBytes = frames->UploadedBytes,
+      .UploadMs = frames->UploadMs};
+  CaptureTileSamples(report, *frames);
   if (!options.Image.empty()) {
-    if (const auto saved = SaveImage(frames->Rgba, kFrame, options.Image); !saved) {
+    const auto imageAt = BenchmarkClock::now();
+    if (const auto saved = SaveBenchmarkImage(report, frames->Rgba, options.Image); !saved) {
       return std::unexpected(saved.error());
     }
+    report.ImageMs = BenchmarkElapsedMs(imageAt);
   }
-  auto samples = frames->GpuMs;
-  std::ranges::sort(samples);
-  const nlohmann::json report{
-      {"backend", "Metal"},
-      {"device", frames->Device},
-      {"frame_px", {kFrame.WidthPx, kFrame.HeightPx}},
-      {"rate_hz", motion.RateHz},
-      {"linear_velocity_mps", options.Motion.LinearVelocityMps.Axis},
-      {"angular_velocity_deg_s", options.Motion.AngularVelocityDegS.Axis},
-      {"frames", samples.size()},
-      {"declaration_sha256", Sha256Hex(*declaration)},
-      {"coverage", {tile->Coverage.Zoom, tile->Coverage.X, tile->Coverage.Y}},
-      {"origin_lon_lat", {tile->Origin.LongitudeDeg, tile->Origin.LatitudeDeg}},
-      {"tile_revision", tile->Revision},
-      {"geometric_error_m", tile->GeometricErrorM},
-      {"triangles", tile->Indices.size() / 3},
-      {"start_camera", TileCameraReport(*camera)},
-      {"final_camera", TileCameraReport(cameras->back())},
-      {"startup_ms", sourceMs + frames->SetupMs + frames->UploadMs},
-      {"input_ms", sourceMs},
-      {"metal_setup_ms", frames->SetupMs},
-      {"upload_ms", frames->UploadMs},
-      {"uploaded_bytes", frames->UploadedBytes},
-      {"gpu_ms",
-       {{"samples", frames->GpuMs},
-        {"p50", *QuantileOf(samples, kMiddleQuantile)},
-        {"p99", *QuantileOf(samples, kWidestQuantile)}}}};
-  return report.dump() + '\n';
+  const auto hardwareAt = BenchmarkClock::now();
+  CaptureBenchmarkHost(report, false);
+  report.HardwareMs = BenchmarkElapsedMs(hardwareAt);
+  return ScenarioBenchmarkJson(report);
 #else
   static_cast<void>(options);
   return std::unexpected("tile capture requires the Metal backend");
