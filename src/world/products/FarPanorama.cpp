@@ -27,7 +27,8 @@ constexpr size_t kHashLength = 64;
 constexpr double kMaximumWorldRangeM = 240000;
 constexpr uint32_t kPackedNearVersion = 2;
 constexpr uint32_t kPackedOverlapVersion = 3;
-constexpr uint32_t kPackedVersion = 4;
+constexpr uint32_t kPackedLightingVersion = 4;
+constexpr uint32_t kPackedVersion = 5;
 constexpr float kFilmicSafeLighting = 0x1p60f;
 constexpr float kSunDirectionTolerance = 1e-4f;
 
@@ -38,6 +39,19 @@ bool ValidLighting(const PanoramaLighting &light) {
   };
   return std::abs(Dot(light.ToSun, light.ToSun) - 1.0f) < kSunDirectionTolerance &&
          valid(light.Direct) && valid(light.Sky) && valid(light.Ground);
+}
+
+bool ValidBakedGroups(const FarPanorama &panorama) {
+  const auto &groups = panorama.BakedGroups;
+  if (groups.empty()) { return true; }
+  return panorama.AxialOverlapEndM > 0 && panorama.Lighting &&
+         groups.size() <= FarPanorama::MaximumBakedGroups && std::ranges::is_sorted(groups) &&
+         std::ranges::adjacent_find(groups) == groups.end() &&
+         std::ranges::all_of(groups, [](const std::string &key) {
+           return key.size() == kHashLength && std::ranges::all_of(key, [](char c) {
+                    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+                  });
+         });
 }
 
 bool ValidHeader(const FarPanorama &panorama) {
@@ -55,7 +69,7 @@ bool ValidHeader(const FarPanorama &panorama) {
          panorama.MaximumTranslationM >= 0 &&
          panorama.MaximumTranslationM < panorama.MaximumRangeM && panorama.ReferenceExposure > 0 &&
          panorama.ReferenceExposure <= std::numeric_limits<float>::max() &&
-         (!panorama.Lighting || ValidLighting(*panorama.Lighting)) &&
+         (!panorama.Lighting || ValidLighting(*panorama.Lighting)) && ValidBakedGroups(panorama) &&
          panorama.Revision.size() == kHashLength &&
          std::ranges::all_of(panorama.Revision,
                              [](unsigned char ch) { return std::isxdigit(ch) != 0; }) &&
@@ -94,6 +108,18 @@ bool HasEncodings(const Json &record) {
          record["colour_encoding"] == "rgba16f_linear_le_a_opaque_coverage" &&
          record.contains("depth_encoding") &&
          record["depth_encoding"] == "r32f_radial_metres_le_zero_without_geometry";
+}
+
+bool ReadBakedGroups(const Json &record, std::vector<std::string> &groups) {
+  const auto keys = record.find("baked_group_keys");
+  if (keys == record.end()) { return true; }
+  if (!keys->is_array() || keys->size() > FarPanorama::MaximumBakedGroups) { return false; }
+  groups.reserve(keys->size());
+  for (const auto &key : *keys) {
+    if (!key.is_string()) { return false; }
+    groups.push_back(key.get<std::string>());
+  }
+  return true;
 }
 
 bool SetHeader(const Json &record, FarPanorama &panorama) {
@@ -147,7 +173,7 @@ bool SetHeader(const Json &record, FarPanorama &panorama) {
     }
     panorama.OpaqueTexels[face] = counts[face].get<size_t>();
   }
-  return ValidHeader(panorama);
+  return ReadBakedGroups(record, panorama.BakedGroups) && ValidHeader(panorama);
 }
 
 std::expected<std::string, std::string> ReadAttachment(const std::filesystem::path &path,
@@ -165,6 +191,25 @@ bool ReadPackedField(BinaryValueReader &in, size_t count, std::string &field) {
   if (!bytes) { return false; }
   field.assign(reinterpret_cast<const char *>(bytes->data()), count);
   return true;
+}
+
+bool ReadPackedGroups(BinaryValueReader &in, std::vector<std::string> &groups) {
+  uint32_t count = 0;
+  if (!in(count) || count > FarPanorama::MaximumBakedGroups) { return false; }
+  groups.reserve(count);
+  for (uint32_t at = 0; at < count; ++at) {
+    const auto bytes = in.In.Take(kHashLength);
+    if (!bytes) { return false; }
+    groups.emplace_back(reinterpret_cast<const char *>(bytes->data()), bytes->size());
+  }
+  return true;
+}
+
+bool WritePackedGroups(BinaryValueWriter &out, std::span<const std::string> groups) {
+  return out(static_cast<uint32_t>(groups.size())) &&
+         std::ranges::all_of(groups, [&out](const auto &key) {
+           return out.Out.Put({reinterpret_cast<const uint8_t *>(key.data()), key.size()});
+         });
 }
 
 bool ReadPackedLighting(BinaryValueReader &in, PanoramaLighting &light) {
@@ -218,8 +263,12 @@ std::expected<std::vector<uint8_t>, std::string> EncodeFarPanorama(const FarPano
     opaque[face] = static_cast<uint32_t>(panorama.OpaqueTexels[face]);
   }
   BinaryValueWriter out(FarPanorama::MaximumPackedBytes);
-  out.Out.Reserve(panorama.Colour.size() + panorama.Depth.size() + FarPanorama::PackedHeaderBytes);
-  if (!out(panorama.Lighting ? kPackedVersion : kPackedOverlapVersion,
+  const size_t groupBytes = sizeof(uint32_t) + panorama.BakedGroups.size() * kHashLength;
+  out.Out.Reserve(panorama.Colour.size() + panorama.Depth.size() + FarPanorama::PackedHeaderBytes +
+                  groupBytes);
+  uint32_t version = panorama.Lighting ? kPackedLightingVersion : kPackedOverlapVersion;
+  if (!panorama.BakedGroups.empty()) { version = kPackedVersion; }
+  if (!out(version,
            static_cast<uint32_t>(panorama.Side),
            panorama.Origin.LongitudeDeg,
            panorama.Origin.LatitudeDeg,
@@ -236,7 +285,8 @@ std::expected<std::vector<uint8_t>, std::string> EncodeFarPanorama(const FarPano
       light && !out(light->ToSun.Axis, light->Direct.Axis, light->Sky.Axis, light->Ground.Axis)) {
     return std::unexpected("far panorama lighting could not be packed");
   }
-  if (!out.Text(panorama.Revision) || !out.Text(panorama.Colour) || !out.Text(panorama.Depth)) {
+  if ((!panorama.BakedGroups.empty() && !WritePackedGroups(out, panorama.BakedGroups)) ||
+      !out.Text(panorama.Revision) || !out.Text(panorama.Colour) || !out.Text(panorama.Depth)) {
     return std::unexpected("far panorama could not be packed");
   }
   return std::move(out.Out).TakeBytes();
@@ -261,7 +311,8 @@ std::expected<FarPanorama, std::string> DecodeFarPanorama(std::span<const uint8_
           opaque) ||
       (version >= kPackedNearVersion && !in(panorama.AxialNearM)) ||
       (version >= kPackedOverlapVersion && !in(panorama.AxialOverlapEndM)) ||
-      (version >= kPackedVersion && !ReadPackedLighting(in, panorama.Lighting.emplace())) ||
+      (version >= kPackedLightingVersion && !ReadPackedLighting(in, panorama.Lighting.emplace())) ||
+      (version >= kPackedVersion && !ReadPackedGroups(in, panorama.BakedGroups)) ||
       !ReadPackedField(in, kHashLength, panorama.Revision)) {
     return std::unexpected("invalid packed far panorama header");
   }

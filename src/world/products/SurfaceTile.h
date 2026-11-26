@@ -22,6 +22,7 @@ struct SurfaceVertex {
 };
 
 using SurfaceColour = std::array<uint8_t, 4>;
+using SurfaceInstance = std::array<float, 4>;
 
 struct SurfaceTile {
   static constexpr unsigned Version = 1;
@@ -50,6 +51,10 @@ struct SurfaceTile {
 [[nodiscard]] std::expected<SurfaceTile, std::string>
 DecodePackedSurfaceTile(std::span<const uint8_t> bytes);
 
+[[nodiscard]] bool RetainSurfaceGround(SurfaceTile &surface);
+
+[[nodiscard]] std::optional<std::vector<uint8_t>> EncodeSurfaceGround(const SurfaceTile &surface);
+
 struct SurfaceCoverageInterval {
   uint64_t Begin;
   uint64_t End;
@@ -58,6 +63,9 @@ struct SurfaceCoverageInterval {
 
 [[nodiscard]] std::optional<std::vector<SurfaceCoverageInterval>>
 SurfaceCoverage(std::span<const SurfaceTile> tiles);
+
+[[nodiscard]] bool SurfaceCoversTile(std::span<const SurfaceCoverageInterval> coverage,
+                                     Data::TileId tile);
 
 }
 #endif

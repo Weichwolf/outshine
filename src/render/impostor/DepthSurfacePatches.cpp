@@ -14,7 +14,8 @@ namespace outshine::Render {
 namespace {
 
 struct Sample {
-  double X = 0.0, Y = 0.0, Depth = 0.0;
+  uint32_t X = 0, Y = 0;
+  double Depth = 0.0;
 };
 
 template <class F>
@@ -23,63 +24,71 @@ void EachSample(DepthSurfaceSource source, const DepthSurfacePatch &patch, F &&t
     for (uint32_t x = patch.Left; x < patch.Right; ++x) {
       const size_t at = static_cast<size_t>(y) * source.Width + x;
       if (source.Surface[at] == 0) { continue; }
-      take(Sample{.X = static_cast<double>(x) + 0.5,
-                  .Y = static_cast<double>(y) + 0.5,
-                  .Depth = source.Depth[at]});
+      take(Sample{.X = x, .Y = y, .Depth = source.Depth[at]});
     }
   }
 }
 
-std::optional<DepthSurfacePatch> PlaneOf(DepthSurfaceSource source, DepthSurfacePatch patch) {
-  std::optional<Sample> first;
-  Sample second;
-  double extent = 0.0;
-  EachSample(source, patch, [&](Sample at) {
-    if (!first) { first = at; }
-    const double dx = at.X - first->X;
-    const double dy = at.Y - first->Y;
-    const double distance = dx * dx + dy * dy;
-    if (distance > extent) {
-      extent = distance;
-      second = at;
-    }
-  });
-  if (!first) { return std::nullopt; }
-  double sx = 0.0;
-  double sy = 0.0;
-  if (extent > 0.0) {
-    const double dx = second.X - first->X;
-    const double dy = second.Y - first->Y;
-    const double dz = second.Depth - first->Depth;
-    sx = dz * dx / extent;
-    sy = dz * dy / extent;
-    Sample third;
-    double determinant = 0.0;
-    EachSample(source, patch, [&](Sample at) {
-      const double cross = dx * (at.Y - first->Y) - dy * (at.X - first->X);
-      if (std::abs(cross) > std::abs(determinant)) {
-        determinant = cross;
-        third = at;
-      }
-    });
-    if (determinant != 0.0) {
-      const double tx = third.X - first->X;
-      const double ty = third.Y - first->Y;
-      const double tz = third.Depth - first->Depth;
-      sx = (dz * ty - dy * tz) / determinant;
-      sy = (dx * tz - dz * tx) / determinant;
-    }
+struct PlaneMoments {
+  double Count = 0.0;
+  double X = 0.0, Y = 0.0, Z = 0.0;
+  double XX = 0.0, XY = 0.0, YY = 0.0, XZ = 0.0, YZ = 0.0;
+
+  void Add(double x, double y, double z) {
+    ++Count;
+    X += x;
+    Y += y;
+    Z += z;
+    XX += x * x;
+    XY += x * y;
+    YY += y * y;
+    XZ += x * z;
+    YZ += y * z;
   }
-  patch.SlopeX = sx;
-  patch.SlopeY = sy;
-  patch.OriginDepth = first->Depth - sx * first->X - sy * first->Y;
-  return patch;
+
+  void Fit(DepthSurfacePatch &patch, uint32_t left, uint32_t top) const {
+    const double meanX = X / Count;
+    const double meanY = Y / Count;
+    const double meanZ = Z / Count;
+    const double xx = XX - meanX * X;
+    const double xy = XY - meanX * Y;
+    const double yy = YY - meanY * Y;
+    const double xz = XZ - meanX * Z;
+    const double yz = YZ - meanY * Z;
+    const double determinant = xx * yy - xy * xy;
+    const double trace = xx + yy;
+    if (determinant > 32 * std::numeric_limits<double>::epsilon() * trace * trace) {
+      patch.SlopeX = (yy * xz - xy * yz) / determinant;
+      patch.SlopeY = (xx * yz - xy * xz) / determinant;
+    } else if (trace > 0.0) {
+      patch.SlopeX = xz / trace;
+      patch.SlopeY = yz / trace;
+    }
+    patch.OriginDepth =
+        meanZ - patch.SlopeX * (left + 0.5 + meanX) - patch.SlopeY * (top + 0.5 + meanY);
+  }
+};
+
+std::optional<DepthSurfacePatch> PlaneOf(DepthSurfaceSource source, DepthSurfacePatch patch) {
+  PlaneMoments moments;
+  DepthSurfacePatch plane{.Left = patch.Right, .Top = patch.Bottom};
+  EachSample(source, patch, [&](Sample at) {
+    moments.Add(at.X - patch.Left, at.Y - patch.Top, at.Depth);
+    plane.Left = std::min(plane.Left, at.X);
+    plane.Top = std::min(plane.Top, at.Y);
+    plane.Right = std::max(plane.Right, at.X + 1);
+    plane.Bottom = std::max(plane.Bottom, at.Y + 1);
+  });
+  if (moments.Count == 0.0) { return std::nullopt; }
+  moments.Fit(plane, patch.Left, patch.Top);
+  return plane;
 }
 
 bool Fits(DepthSurfaceSource source, const DepthSurfacePatch &patch) {
+  if (std::hypot(patch.SlopeX, patch.SlopeY) > source.MaximumSlope) { return false; }
   bool fits = true;
   EachSample(source, patch, [&](Sample at) {
-    fits = fits && std::abs(patch.At(at.X, at.Y) - at.Depth) <= source.AllowedError;
+    fits = fits && std::abs(patch.At(at.X + 0.5, at.Y + 0.5) - at.Depth) <= source.AllowedError;
   });
   for (const auto x : {patch.Left, patch.Right}) {
     for (const auto y : {patch.Top, patch.Bottom}) {
@@ -113,7 +122,8 @@ BuildDepthSurfacePatches(DepthSurfaceSource source) {
   if (source.Depth.size() != count || source.Surface.size() != count) {
     return std::unexpected(DepthSurfaceError::InvalidSamples);
   }
-  if (!std::isfinite(source.AllowedError) || source.AllowedError < 0) {
+  if (!std::isfinite(source.AllowedError) || source.AllowedError < 0 ||
+      std::isnan(source.MaximumSlope) || source.MaximumSlope < 0) {
     return std::unexpected(DepthSurfaceError::InvalidAllowance);
   }
   for (size_t at = 0; at < source.Depth.size(); ++at) {
@@ -132,7 +142,7 @@ BuildDepthSurfacePatches(DepthSurfaceSource source) {
     if (Fits(source, *plane)) {
       result.push_back(*plane);
     } else {
-      Subdivide(pending, region);
+      Subdivide(pending, *plane);
     }
   }
   return result;

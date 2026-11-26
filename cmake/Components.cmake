@@ -109,7 +109,7 @@ target_link_libraries(outshine_app_capture PUBLIC outshine_app_scenario outshine
   PRIVATE SDL3_image::SDL3_image)
 target_link_libraries(outshine_content PUBLIC outshine_base outshine_content_assets outshine_content_shade outshine_world_products)
 target_link_libraries(outshine_content_assets PUBLIC outshine_base outshine_storage outshine_world_products
-  PRIVATE PkgConfig::libzstd ZLIB::ZLIB)
+  PRIVATE PkgConfig::libzstd PkgConfig::nlohmann_json ZLIB::ZLIB)
 target_link_libraries(outshine_content_shade PUBLIC outshine_base PRIVATE SDL3::SDL3)
 target_link_libraries(outshine_diagnostics PUBLIC outshine_base)
 target_link_libraries(outshine_diagnostics_calibration PUBLIC outshine_base outshine_render_pipelines

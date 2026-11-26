@@ -12,6 +12,7 @@ import sys
 import tempfile
 import unittest
 
+from pixels import read as read_png
 from place_gpu_profile import read_metal_profile
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -335,6 +336,8 @@ class ScenarioBenchmark(unittest.TestCase):
                 self.assertEqual(composite, foreground if distance == 2 else background)
                 self.assertEqual(metadata['render_path'], 'metal_near_far')
                 self.assertEqual(metadata['rendered_content']['draws_per_frame'], 2)
+                self.assertEqual(metadata['rendered_content']['peak_triangles_per_frame'], 3)
+                self.assertEqual(metadata['rendered_content']['near']['endpoint_triangles'], [2, 2])
                 self.assertFalse(metadata['world_complete'])
                 if distance == 2:
                     blended, _ = draw('--panorama-product', str(clipped), *near)
@@ -352,6 +355,39 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(broken.returncode, 1, broken.stderr)
             self.assertIn('invalid packed surface tile', broken.stderr)
             self.assertEqual(image.read_bytes(), foreground)
+
+    @unittest.skipUnless(os.uname().sysname == 'Darwin', 'native Metal product renderer')
+    def test_multisampled_edge_retains_foreground_and_far_depth(self):
+        with tempfile.TemporaryDirectory(prefix='outshine-benchmark-sample-edge-') as folder:
+            root = Path(folder)
+            scene = root / 'edge.scenario'
+            scene.write_text(PRODUCT_SCENE.replace('fps="30"', 'fps="30" antialiasing="msaa4"'))
+            write_panorama(root)
+            tile = root / 'edge.json'
+            image = root / 'edge.png'
+            for distance in (2, 20):
+                half = distance * 2
+                edge = 0.5 * distance * math.tan(math.radians(30)) / 360
+                z = -distance
+                low, high = [-half, 100-half, z], [edge, 100+half, z]
+                tile.write_text(json.dumps({
+                    'version': 1, 'coverage': [0, 0, 0], 'origin_lon_lat': [0, 0],
+                    'revision': '1' * 64, 'bounds_eus_m': [low, high], 'geometric_error_m': 0,
+                    'vertices_eus_m': [low, [edge, 100-half, z], high, [-half, 100+half, z]],
+                    'normals_eus': [[0, 0, 1]] * 4, 'indices': [0, 1, 2, 0, 2, 3],
+                }))
+                result = self.invoke('--scenario', str(scene), '--frames', '1', '--image', str(image),
+                                     '--panorama-product', folder, '--tile-product', str(tile))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads(result.stdout)['profile']['raster_samples'], 4)
+                width, height, channels, rgba = read_png(image)
+                start = channels * (width * (height // 2) + 638)
+                red = rgba[start:start + 5 * channels:channels]
+                if distance == 2:
+                    self.assertLess(min(red), red[2])
+                    self.assertLess(red[2], max(red))
+                else:
+                    self.assertEqual(min(red), max(red))
 
     @unittest.skipUnless(os.uname().sysname == 'Darwin', 'native Metal product renderer')
     def test_flight_uses_a_prepared_successor_without_leaving_panorama_coverage(self):
@@ -544,6 +580,54 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(alias.returncode, 2, alias.stderr)
 
     @unittest.skipUnless(os.uname().sysname == 'Darwin', 'native Metal product renderer')
+    def test_panorama_capture_exports_the_indexed_surface(self):
+        with tempfile.TemporaryDirectory(prefix='outshine-surface-panorama-') as folder:
+            root = Path(folder)
+            reference = root / 'anchor'
+            lighting = {'to_sun_eus': [0, 0, 1], 'direct': [1, 1, 1],
+                        'sky': [.1, .1, .1], 'ground': [.1, .1, .1]}
+            write_panorama(reference, axial_near=1, overlap_end=9, lighting=lighting)
+            scene = PRODUCT_SCENE.replace('widthPx="1280" heightPx="720"',
+                                          'widthPx="2" heightPx="2" antialiasing="none"')
+            scene = scene.replace('fovDeg="60"', 'fovDeg="90"')
+            scenario = root / 'capture.scenario'
+            scenario.write_text(scene)
+            tile = root / 'tile.json'
+            tile.write_text(json.dumps({
+                'version': 1, 'coverage': [0, 0, 0], 'origin_lon_lat': [0, 0],
+                'revision': '1' * 64, 'bounds_eus_m': [[-3, 97, -4], [3, 103, -4]],
+                'geometric_error_m': 0, 'vertices_eus_m': [[-3, 97, -4], [3, 97, -4],
+                                                         [3, 103, -4], [-3, 103, -4]],
+                'normals_eus': [[0, 0, 1]] * 4, 'indices': [0, 1, 2, 0, 2, 3],
+            }))
+            packed = root / 'tile.surface'
+            subprocess.run([sys.executable, '-B',
+                            str(ROOT / 'test/experiments/render/pack_surface_tile.py'),
+                            str(tile), str(packed)], check=True)
+            store = root / 'products.sqlite'
+            revision = '9' * 64
+            result = subprocess.run([str(CLIENT), 'cache', 'import-surface', str(store),
+                                     revision, str(packed)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            output = root / 'surface-capture'
+            result = self.invoke('--scenario', str(scenario), '--frames', '1', '--product-store', str(store),
+                                 '--product-revision', revision, '--panorama-product', str(reference),
+                                 '--panorama-output', str(output))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            captured = json.loads((output / 'capture.json').read_text())
+            self.assertEqual(captured['surface_product_revision'], revision)
+            self.assertEqual(captured['reference_exposure'], 1)
+            self.assertEqual([face['name'] for face in captured['faces']],
+                             ['px', 'nx', 'py', 'ny', 'pz', 'nz'])
+            depth = (100 / 4 - 1) / 99
+            self.assertEqual(struct.unpack('<4f', (output / 'py-depth.f32').read_bytes()), (0,) * 4)
+            for value in struct.unpack('<4f', (output / 'nz-depth.f32').read_bytes()):
+                self.assertAlmostEqual(value, depth)
+            colour = struct.unpack('<16f', (output / 'nz-linear.f32').read_bytes())
+            self.assertTrue(all(0 < value < 1 for value in colour[:3]))
+            self.assertEqual(colour[3::4], (1,) * 4)
+
+    @unittest.skipUnless(os.uname().sysname == 'Darwin', 'native Metal product renderer')
     def test_surface_cut_promotes_only_a_complete_decodable_partition(self):
         with tempfile.TemporaryDirectory(prefix='outshine-surface-cut-') as folder:
             root = Path(folder)
@@ -601,7 +685,14 @@ class ScenarioBenchmark(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 return json.loads(result.stdout)
 
-            publish(parent, *children[:3])
+            publish(parent)
+            complete = capture(stream=True)
+            self.assertTrue(complete['surface_stream']['initial_cut_final'])
+            self.assertEqual(complete['surface_stream']['first_refined_frame'], 0)
+            self.assertEqual(complete['unrefined_frames'], 0)
+            self.assertEqual(complete['traffic']['tile_requested_bytes'], parent.stat().st_size)
+
+            publish(*children[:3])
             capture()
             unlit = image.read_bytes()
             lighting = {'to_sun_eus': [0, 0, 1], 'direct': [0.4, 0.9, 0.7],
@@ -621,6 +712,7 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(partial['rendered_content']['near']['overlay_triangles_per_frame'], 1)
             self.assertEqual(partial['traffic']['tile_requested_bytes'], parent.stat().st_size)
             waiting = capture(stream=True)
+            self.assertFalse(waiting['surface_stream']['initial_cut_final'])
             self.assertEqual(waiting['surface_stream']['initial_tiles'], 1)
             self.assertEqual(waiting['surface_stream']['refined_tiles'], 1)
             self.assertEqual(waiting['surface_stream']['reused_tiles'], 1)
@@ -651,6 +743,41 @@ class ScenarioBenchmark(unittest.TestCase):
             self.assertEqual(recovered['rendered_content']['near']['address'], [0, 0, 0])
             self.assertEqual(recovered['traffic']['tile_decoded_bytes'], parent.stat().st_size)
             self.assertEqual(image.read_bytes(), pixels)
+            width, height, channels, bare = read_png(image)
+            centre = (width * (height // 2) + width // 2) * channels
+
+            canopy = root / 'canopy'
+            canopy.mkdir()
+            directions = [(0, 0, 1), (0, 1, 0)]
+            sides = [8, 16]
+            (canopy / 'group.json').write_text(json.dumps({
+                'surface': {'coverage': [0, 0, 0], 'origin_lon_lat': [0, 0], 'revision': '1' * 64},
+                'centre_m': [0, 100, -3], 'half_extent_m': 0.6, 'canopy_cell': 'c' * 64,
+                'card_side': min(sides), 'card_sides': sides,
+                'card_views': len(directions), 'directions': directions,
+            }))
+            for index, (axis, side) in enumerate(zip(directions, sides)):
+                texels = (4 * side * side - 1) // 3
+                body = (struct.pack('<4H3f', 0, 0, side, side, 0.5, 0, 0)
+                        + bytes((10, 190, 20, 255)) * texels + bytes((128, 128, 0, 0)) * texels)
+                header = struct.pack('<8sII3d', b'OUTSHIV1', side, 1, *axis)
+                (canopy / f'{index}.card').write_bytes(header + body)
+            installed = subprocess.run([str(CLIENT), 'cache', 'import-group',
+                                        str(database), revision, str(canopy)], capture_output=True,
+                                       text=True, check=False, timeout=30)
+            self.assertEqual(installed.returncode, 0, installed.stderr)
+            preloaded = capture(indexed=True)
+            _, _, _, complete_cut = read_png(image)
+            streamed = capture(stream=True, indexed=True)
+            self.assertEqual(streamed['surface_stream']['reused_groups'], 1)
+            self.assertEqual(streamed['rendered_content']['mid']['groups'], 1)
+            self.assertEqual(streamed['traffic']['upload_bytes'], preloaded['traffic']['upload_bytes'])
+            one_view_bytes = len(header) + len(body)
+            self.assertLess(streamed['traffic']['group_requested_bytes'],
+                            2 * preloaded['traffic']['group_requested_bytes'] - one_view_bytes)
+            _, _, _, rgba = read_png(image)
+            self.assertGreater(rgba[centre + 1], bare[centre + 1])
+            self.assertEqual(rgba[centre:centre + 3], complete_cut[centre:centre + 3])
 
 
 if __name__ == '__main__':

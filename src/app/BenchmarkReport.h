@@ -59,10 +59,32 @@ struct BenchmarkSurfaceStream {
   std::optional<size_t> FirstRefinedFrame;
   size_t Tiles = 0;
   size_t ReusedTiles = 0;
+  size_t ReusedGroups = 0;
+  size_t InitialCanopySites = 0;
   size_t Triangles = 0;
   size_t DecodedBytes = 0;
   double ReadyMs = 0;
   std::string Error;
+  bool InitialCutFinal = false;
+};
+
+struct BenchmarkGroupCoverage {
+  size_t Groups = 0;
+  size_t ResidentViews = 0;
+  size_t AvailableViews = 0;
+  size_t PeakTriangles = 0;
+  size_t PeakSurfaceAndGroupTriangles = 0;
+  size_t HandoffGroups = 0;
+  size_t BlendedFrames = 0;
+  std::array<size_t, 2> SurfaceEndpointTriangles{};
+  std::array<size_t, 2> GroupEndpointTriangles{};
+  size_t RequestedBytes = 0;
+  size_t CanopySites = 0;
+  size_t CanopyMeshGroups = 0;
+  size_t CanopyCoarseGroups = 0;
+  size_t CanopyDetailHandoffs = 0;
+  size_t CanopyInstances = 0;
+  size_t CanopyRequestedBytes = 0;
 };
 
 struct ScenarioBenchmarkReport {
@@ -79,10 +101,12 @@ struct ScenarioBenchmarkReport {
   std::optional<BenchmarkPanoramaCoverage> Panorama;
   std::optional<BenchmarkPanoramaHandoff> PanoramaHandoff;
   std::optional<BenchmarkSurfaceStream> SurfaceStream;
+  BenchmarkGroupCoverage GroupCoverage;
   std::optional<uint64_t> ProductStoreReadBytes;
   std::optional<size_t> IndexedPanoramaRequestedBytes;
   size_t TileRequestedBytes = 0;
   size_t ProductUploadBytes = 0;
+  std::optional<unsigned> ProductSamples;
   double ProductReadMs = 0;
   double ProductUploadMs = 0;
   Loading Prepared;

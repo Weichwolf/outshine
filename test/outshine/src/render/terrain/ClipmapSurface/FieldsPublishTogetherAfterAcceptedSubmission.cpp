@@ -52,10 +52,14 @@ int main() {
         "a stationary view reuses the existing ring buffer");
   Require(surface->Prepare(
       {.Camera = {{10, 0}}, .PreviousCamera = {{0.5, 0.5}}, .Shift = {{-10, 0, 0}}}));
-  CHECK(surface->LodFocus() == Vec2{},
+  CHECK(surface->Covers({{10, 0}}) && surface->LodFocus() == Vec2{},
         "a coarser accepted surface remains valid outside the finest window");
-  CHECK(!surface->Prepare({.Camera = {{20, 0}}}),
-        "accepted rings must still cover the entire requested view radius");
+  const Vec2 outside{{20, 0}};
+  Require(
+      surface->Prepare({.Camera = outside, .PreviousCamera = {{10, 0}}, .Shift = {{-20, 0, 0}}}));
+  CHECK(!surface->Covers(outside), "partial terrain cannot claim the requested view radius");
+  CHECK(surface->Fields().Rings.size() == fields.Rings.size() && surface->LodFocus() == Vec2{},
+        "already published rings remain drawable while the camera needs a replacement");
   CHECK(!surface->Publish(heights, normals, kBytes) && surface->Complete(),
         "stale preparation cannot invalidate a complete surface");
   const auto missingHeights = Samples(surface->Heights(), {{2.5, 2.5}});

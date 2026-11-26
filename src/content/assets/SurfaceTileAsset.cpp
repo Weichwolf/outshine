@@ -164,14 +164,38 @@ private:
   [[nodiscard]] std::expected<bool, std::string>
   VisitPartition(std::span<const AssetRecord *const> children) {
     const size_t checkpoint = Cut_.Products.size();
+    const size_t groups = Cut_.Groups.size();
     for (const auto *child : children) {
       const auto loaded = Visit(*child);
       if (!loaded) { return std::unexpected(loaded.error()); }
       if (!*loaded) {
         Cut_.Products.resize(checkpoint);
+        Cut_.Groups.resize(groups);
         return false;
       }
     }
+    return true;
+  }
+
+  [[nodiscard]] std::expected<bool, std::string> VisitGroup(const AssetRecord &record) {
+    if (!Demand_.GroupDemand) { return false; }
+    auto replacement = LoadGroupImpostor(Cache_, record, *Demand_.GroupDemand);
+    if (!replacement) { return std::unexpected(replacement.error()); }
+    Cut_.GroupRequestedBytes += replacement->RequestedBytes;
+    if (!replacement->Product) { return false; }
+    auto &group = *replacement->Product;
+    auto ground = std::move(group.Ground);
+    if (!ground) {
+      auto mesh = ReadRecord(Cache_, Revision_, record, Cut_.RequestedBytes);
+      if (!mesh) { return std::unexpected(mesh.error()); }
+      if (!*mesh) { return false; }
+      ground = std::move(*mesh);
+    }
+    Cut_.Groups.push_back({.Origin = ground->Origin,
+                           .Group = std::move(group.Group),
+                           .AvailableViews = group.AvailableViews,
+                           .SurfaceIndex = Cut_.Products.size()});
+    Cut_.Products.push_back(std::move(*ground));
     return true;
   }
 
@@ -203,12 +227,17 @@ private:
                            : std::span<const size_t>(Nodes_[node->second].Children);
     const auto error = record.Tile ? record.Tile->ErrorM : std::nullopt;
     const double distance = Clearance(record.Bounds, Demand_.SweptEyeEcef);
-    const bool refine = Demand_.FocalPixels > 0 && !known.empty() &&
-                        (!error || *error * Demand_.FocalPixels > distance * kMaxErrorPx);
+    const bool wantsChildren = Demand_.FocalPixels > 0 && !known.empty() &&
+                               (!error || *error * Demand_.FocalPixels > distance * kMaxErrorPx);
+    const bool deferred = wantsChildren && Demand_.GroupDemand && Demand_.GroupDemand->PreferCoarse;
+    Cut_.NeedsRefinement |= deferred;
+    const bool refine = wantsChildren && !deferred;
     if (refine) {
       const auto children = VisitChildren(request, record.Level, known);
       if (!children || *children) { return children; }
     }
+    const auto group = VisitGroup(record);
+    if (!group || *group) { return group; }
     auto tile = ReadRecord(Cache_, Revision_, record, Cut_.RequestedBytes);
     if (!tile) { return std::unexpected(tile.error()); }
     if (!*tile) {
@@ -229,6 +258,31 @@ private:
   SurfaceCutLookup Cut_;
 };
 
+void AppendCanopy(SurfaceCutLookup &cut, AttachedCanopyLookup &canopy) {
+  cut.GroupRequestedBytes += canopy.RequestedBytes;
+  cut.CanopyRequestedBytes = canopy.NearRequestedBytes;
+  cut.NeedsRefinement |= canopy.NeedsRefinement;
+  for (auto &site : canopy.Groups) {
+    cut.CanopySites.push_back(std::move(site.Key));
+    std::optional<size_t> handoff;
+    if (site.Group) {
+      if (site.Group->Handoff) { handoff = cut.Groups.size(); }
+      cut.Groups.push_back({.Origin = site.Origin,
+                            .Group = std::move(*site.Group),
+                            .AvailableViews = site.AvailableViews,
+                            .SurfaceIndex = {}});
+    }
+    if (site.Near) {
+      cut.Canopy.push_back(
+          {.Origin = site.Origin, .Near = std::move(*site.Near), .HandoffGroup = handoff});
+    }
+  }
+}
+
+}
+
+std::string SurfaceTileRequestKey(std::string_view revision, Data::TileId tile) {
+  return Request(revision, tile);
 }
 
 std::expected<void, std::string>
@@ -287,19 +341,32 @@ LoadSurfaceTileAt(AssetCache &cache, std::string_view revision, LongitudeLatitud
 std::expected<SurfaceCutLookup, std::string>
 LoadSurfaceCut(AssetCache &cache, std::string_view revision, const SurfaceCutDemand &demand) {
   const Vec3 radius{{demand.RadiusM, demand.RadiusM, demand.RadiusM}};
-  auto records = cache.Select(
-      {.Bounds = {.Min = demand.SweptEyeEcef.Min - radius, .Max = demand.SweptEyeEcef.Max + radius},
-       .Kind = kKind,
-       .Level = std::nullopt,
-       .Radius = std::nullopt,
-       .Planes = {},
-       .TileRevision = revision,
-       .SpatialFirst = true,
-       .BoundTilesOnly = true});
+  const Box bounds{.Min = demand.SweptEyeEcef.Min - radius,
+                   .Max = demand.SweptEyeEcef.Max + radius};
+  auto records = cache.Select({.Bounds = bounds,
+                               .Kind = kKind,
+                               .Level = std::nullopt,
+                               .Radius = std::nullopt,
+                               .Planes = {},
+                               .TileRevision = revision,
+                               .SpatialFirst = true,
+                               .BoundTilesOnly = true});
   if (!records) { return std::unexpected("surface cut index query failed"); }
   std::ranges::sort(*records, {}, &AssetRecord::RequestKey);
   auto cut = CutLoader(cache, revision, demand).Load(*records);
-  if (cut) { StitchSurfaceTiles(cut->Products); }
+  if (!cut || cut->Products.empty()) { return cut; }
+  StitchSurfaceTiles(cut->Products);
+  if (demand.GroupDemand) {
+    const auto coverage = SurfaceCoverage(cut->Products);
+    if (!coverage) { return std::unexpected("surface cut overlaps its canopy support"); }
+    auto canopy = LoadCanopyCut(cache,
+                                {.Revision = revision,
+                                 .Bounds = bounds,
+                                 .Ground = *coverage,
+                                 .Impostors = *demand.GroupDemand});
+    if (!canopy) { return std::unexpected(canopy.error()); }
+    AppendCanopy(*cut, *canopy);
+  }
   return cut;
 }
 

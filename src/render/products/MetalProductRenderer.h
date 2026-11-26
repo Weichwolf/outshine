@@ -3,11 +3,14 @@
 
 #include "Mat4.h"
 #include "FarPanorama.h"
+#include "GroupImpostorView.h"
+#include "ImpostorViewDemand.h"
 #include "SurfaceTile.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -24,6 +27,9 @@ struct MetalProductFrameSample {
   double RenderMs = 0;
   double SyncWaitMs = 0;
   std::optional<double> GpuMs;
+  size_t TileTriangles = 0;
+  size_t GroupTriangles = 0;
+  size_t BlendingGroups = 0;
   bool Refined = true;
 };
 
@@ -31,6 +37,7 @@ struct MetalSurfaceTransition {
   std::optional<size_t> FirstFrame;
   size_t Tiles = 0;
   size_t ReusedTiles = 0;
+  size_t ReusedGroups = 0;
   size_t Triangles = 0;
   double ReadyMs = 0;
   double UploadMs = 0;
@@ -43,6 +50,7 @@ struct MetalProductFrames {
   uint64_t ResourceBytes = 0;
   uint64_t RecommendedResourceBytes = 0;
   bool UnifiedMemory = false;
+  unsigned RasterSamples = 1;
   double SetupMs = 0;
   double UploadMs = 0;
   size_t UploadedBytes = 0;
@@ -69,27 +77,64 @@ struct PanoramaView {
   double CoverageFadeM = 0;
 };
 
+using MetalSurfaceInstance = SurfaceInstance;
+
+struct MetalSurfaceDetail {
+  Vec3 WorldCentreM;
+  ImpostorDistanceRamp Ramp;
+  bool Coarse;
+};
+
 struct MetalSurface {
   const SurfaceTile &Product;
   Mat4 WorldFromTile;
+  std::optional<size_t> HandoffGroup;
+  std::span<const MetalSurfaceInstance> Instances;
+  std::optional<MetalSurfaceDetail> Detail = std::nullopt;
 };
 
 struct MetalPlacedSurface {
-  SurfaceTile Product;
+  std::shared_ptr<const SurfaceTile> Product;
   Mat4 WorldFromTile;
+  std::optional<size_t> HandoffGroup;
+  std::vector<MetalSurfaceInstance> Instances;
+  std::optional<MetalSurfaceDetail> Detail = std::nullopt;
 };
 
-using MetalSurfaceLoad =
-    std::function<std::expected<std::vector<MetalPlacedSurface>, std::string>()>;
+struct MetalPlacedImpostorGroup {
+  std::shared_ptr<const std::vector<GroupImpostorView>> Views;
+  Mat4 WorldFromTile;
+  Vec3 CentreM;
+  double HalfExtentM;
+  std::optional<ImpostorDistanceRamp> Handoff;
+  bool FractionalCoverage = false;
+};
+
+struct MetalPlacedCut {
+  std::vector<MetalPlacedSurface> Tiles;
+  std::vector<MetalPlacedImpostorGroup> Groups;
+};
+
+using MetalSurfaceLoad = std::function<std::expected<MetalPlacedCut, std::string>()>;
 
 struct MetalSurfaceStream {
   MetalSurfaceLoad Load;
   double FrameSeconds = 0;
 };
 
+struct MetalImpostorGroup {
+  std::span<const GroupImpostorView> Views;
+  Mat4 WorldFromTile;
+  Vec3 CentreM;
+  double HalfExtentM;
+  std::optional<ImpostorDistanceRamp> Handoff;
+  bool FractionalCoverage = false;
+};
+
 struct MetalProductInputs {
   std::span<const MetalSurface> Tiles;
   std::span<const FarPanorama> Panoramas;
+  std::span<const MetalImpostorGroup> Groups;
 };
 
 struct MetalProductView {
@@ -100,13 +145,25 @@ struct MetalProductView {
 };
 
 using MetalProductViewAt = std::function<std::expected<MetalProductView, std::string>(size_t)>;
+using MetalSurfaceFaceWriter =
+    std::function<std::expected<void, std::string>(size_t, std::span<const float>)>;
+
+enum class MetalProductSampling { Single, Multisample };
 
 [[nodiscard]] std::expected<MetalProductFrames, std::string>
 RenderMetalProducts(const MetalProductInputs &products,
                     size_t count,
                     const MetalProductViewAt &viewAt,
                     bool readImage,
-                    const MetalSurfaceStream &stream = {});
+                    const MetalSurfaceStream &stream = {},
+                    MetalProductSampling sampling = MetalProductSampling::Single);
+
+[[nodiscard]] std::expected<MetalProductFrames, std::string>
+CaptureMetalSurfaceFaces(const MetalProductInputs &products,
+                         const PanoramaLighting &lighting,
+                         size_t side,
+                         std::span<const MetalProductView> views,
+                         const MetalSurfaceFaceWriter &writeFace);
 
 }
 #endif

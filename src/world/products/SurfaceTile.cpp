@@ -14,6 +14,8 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 #include <nlohmann/json.hpp>
 
 namespace outshine {
@@ -301,5 +303,92 @@ std::expected<SurfaceTile, std::string> ReadSurfaceTile(std::string_view path) {
     return std::unexpected("invalid surface tile header or mesh");
   }
   return tile;
+}
+
+bool RetainSurfaceGround(SurfaceTile &surface) {
+  const size_t grid = static_cast<size_t>(surface.GridSide) * surface.GridSide;
+  if (grid == 0 || grid > surface.Vertices.size() || surface.GroundIndices == 0 ||
+      surface.GroundIndices > surface.Indices.size() ||
+      surface.Colours.size() > surface.Vertices.size()) {
+    return false;
+  }
+  const auto firstColour = surface.Vertices.size() - surface.Colours.size();
+  surface.Vertices.resize(grid);
+  surface.Indices.resize(surface.GroundIndices);
+  surface.Colours.resize(firstColour < grid ? grid - firstColour : 0);
+  return true;
+}
+
+namespace {
+
+std::string_view SurfaceGroundFormat(const SurfaceTile &surface, bool coloured) {
+  if (!coloured) { return kGridMagic; }
+  return surface.GroundRoughness ? kGroundMaterialMagic : kPaintedMagic;
+}
+
+bool WritePackedMetadata(ByteWriter &out, const SurfaceTile &surface, std::string_view magic) {
+  const auto put = [&out](std::string_view text) {
+    return out.Put({reinterpret_cast<const uint8_t *>(text.data()), text.size()});
+  };
+  if (!put(magic) || !out.Number(static_cast<uint32_t>(surface.Coverage.Zoom)) ||
+      !out.Number(surface.Coverage.X) || !out.Number(surface.Coverage.Y) ||
+      !out.Number(surface.Origin.LongitudeDeg) || !out.Number(surface.Origin.LatitudeDeg) ||
+      !put(surface.Revision)) {
+    return false;
+  }
+  for (const auto *bound : {&surface.MinimumM, &surface.MaximumM}) {
+    for (const double value : *bound) {
+      if (!out.Number(value)) { return false; }
+    }
+  }
+  return true;
+}
+
+bool WriteGroundVertices(ByteWriter &out, std::span<const SurfaceVertex> vertices) {
+  for (const auto &vertex : vertices) {
+    for (const auto *attribute : {&vertex.PositionM, &vertex.Normal}) {
+      for (const float value : *attribute) {
+        if (!out.Number(value)) { return false; }
+      }
+    }
+  }
+  return true;
+}
+
+}
+
+std::optional<std::vector<uint8_t>> EncodeSurfaceGround(const SurfaceTile &surface) {
+  const auto side = surface.GridSide;
+  const auto vertices = side * side;
+  const auto indices = surface.GroundIndices;
+  if (!ValidMetadata(surface) || !ValidGrid(surface, surface.Vertices.size(), true) ||
+      indices == 0 || indices > surface.Indices.size() || indices % 3 != 0) {
+    return std::nullopt;
+  }
+  const bool coloured = surface.Colours.size() == surface.Vertices.size();
+  const auto magic = SurfaceGroundFormat(surface, coloured);
+  ByteWriter out(SurfaceTile::MaximumPackedBytes);
+  constexpr size_t kHeaderBytes = 172;
+  out.Reserve(kHeaderBytes +
+              vertices * (6 * sizeof(float) + (coloured ? sizeof(SurfaceColour) : 0)) +
+              indices * sizeof(uint32_t));
+  if (!WritePackedMetadata(out, surface, magic)) { return std::nullopt; }
+  if (!out.Number(surface.GeometricErrorM) || !out.Number(vertices) || !out.Number(indices) ||
+      !out.Number(side) || (coloured && !out.Number(indices))) {
+    return std::nullopt;
+  }
+  if (!WriteGroundVertices(out, std::span(surface.Vertices).first(vertices))) {
+    return std::nullopt;
+  }
+  for (const auto index : std::span(surface.Indices).first(indices)) {
+    if (index >= vertices || !out.Number(index)) { return std::nullopt; }
+  }
+  if (coloured) {
+    const auto colours = std::span(surface.Colours).first(vertices);
+    if (!out.Put({reinterpret_cast<const uint8_t *>(colours.data()), colours.size_bytes()})) {
+      return std::nullopt;
+    }
+  }
+  return std::move(out).TakeBytes();
 }
 }

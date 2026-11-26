@@ -50,7 +50,10 @@ struct FarPanorama {
       MaximumSide * MaximumSide * FaceCount * (ColourBytesPerTexel + DepthBytesPerTexel);
   static constexpr size_t PackedHeaderBytes =
       (2 + FaceCount + 3) * sizeof(uint32_t) + 10 * sizeof(double) + 64 + 12 * sizeof(float);
-  static constexpr size_t MaximumPackedBytes = MaximumPayloadBytes + PackedHeaderBytes;
+  static constexpr size_t MaximumBakedGroups = 512;
+  static constexpr size_t PackedGroupBytes = sizeof(uint32_t) + MaximumBakedGroups * 64;
+  static constexpr size_t MaximumPackedBytes =
+      MaximumPayloadBytes + PackedHeaderBytes + PackedGroupBytes;
 
   size_t Side = 0;
   LongitudeLatitude Origin;
@@ -62,6 +65,7 @@ struct FarPanorama {
   double ReferenceExposure = 0;
   std::optional<PanoramaLighting> Lighting;
   std::string Revision;
+  std::vector<std::string> BakedGroups;
   std::array<size_t, FaceCount> OpaqueTexels{};
   std::string Colour;
   std::string Depth;

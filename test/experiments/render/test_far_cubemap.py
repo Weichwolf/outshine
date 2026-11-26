@@ -1,5 +1,6 @@
 """Check cube directions, reverse-z reconstruction, translated planes and silhouettes."""
 import numpy as np
+from compose_panorama_overlap import overlap_weight, replace_nearer, round_radial_depth
 from far_cubemap import (
     FORWARD, RIGHT, DOWN, addresses, anchor_overlap, anchor_weight, directions, from_device_depth,
     reproject, unit,
@@ -20,6 +21,27 @@ device = np.full((side, side), far * bias / center_distance - bias)
 radial = from_device_depth(device, near, far)
 assert np.max(abs(radial - center_distance / rays[0, :, :, 0])) < .0005
 assert np.all(from_device_depth(np.zeros_like(device), near, far) == 0)
+
+axial = np.array([0, 1509, 1510, 1760, 1910, 2060, 2100])
+axial_scale = np.array([[1.], [1.5]])
+assert np.array_equal(overlap_weight(axial * axial_scale, axial_scale, 1510, 1760, 300),
+                      np.tile([0, 0, 1, 1, .5, 0, 0], (2, 1)))
+
+colour = np.array([1., 2., 3., 4.])
+foreground_depth = np.array([0., 9., 4., 3.])
+replace_nearer(colour, foreground_depth, np.zeros(4), np.array([3., 0., 2., 6.]))
+assert np.array_equal(colour, [0, 2, 0, 4])
+assert np.array_equal(foreground_depth, [3, 9, 2, 3])
+radius = np.array([0., .88, 1.5, 999.99, 239999.], dtype=np.float32)
+quantized, shift = round_radial_depth(radius, .44, 800)
+assert quantized[0] == 0 and quantized[-1] == 240000
+assert 0 < shift < .25
+try:
+    round_radial_depth(radius, .44, 4000)
+except ValueError:
+    pass
+else:
+    raise AssertionError("depth precision admitted beyond subpixel angular error")
 
 # A face-spanning plane perpendicular to +X has an analytic translated intersection.
 volume = np.zeros(rays.shape[:-1], np.float32)

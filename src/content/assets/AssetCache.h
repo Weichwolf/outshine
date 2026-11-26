@@ -36,6 +36,7 @@ struct AssetQuery {
   std::optional<std::string_view> TileRevision = std::nullopt;
   bool SpatialFirst = false;
   bool BoundTilesOnly = false;
+  bool BoundParentOnly = false;
 };
 
 struct AssetTileChildren {

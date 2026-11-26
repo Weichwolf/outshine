@@ -171,12 +171,13 @@ ValidateCombination(const BenchmarkOptions &options) noexcept {
                            "or geometry export options");
   }
   if (!options.Scenario->PanoramaDirectory.empty() &&
-      (prepared || !options.Scenario->GeometryDirectory.empty() ||
+      ((prepared && !stored) || options.Scenario->StreamProducts ||
+       !options.Scenario->NextPanorama.empty() || !options.Scenario->GeometryDirectory.empty() ||
        !options.Scenario->Image.empty() || options.Scenario->Motion.Frames != 1 ||
        options.Scenario->Motion.LinearVelocityMps != Vec3{} ||
        options.Scenario->Motion.AngularVelocityDegS != Vec3{} ||
        options.Output == options.Scenario->PanoramaDirectory)) {
-    return std::unexpected("--panorama-output requires a stationary world capture with --frames 1");
+    return std::unexpected("--panorama-output requires a stationary capture with --frames 1");
   }
   if (options.GpuValidation) {
     return std::unexpected("--gpu-validation applies only to synthetic calibration");
