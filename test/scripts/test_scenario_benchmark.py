@@ -32,7 +32,7 @@ PRODUCT_SCENE = """<scenario>
 
 
 def write_panorama(root, anchor=(0, 100, 0), radius=0, colour=(1, 0, 0), revision='0',
-                   axial_near=0):
+                   axial_near=0, overlap_end=0):
     root.mkdir(exist_ok=True)
     (root / 'panorama.json').write_text(json.dumps({
         'version': 1, 'representation': 'colour_radial_depth_cubemap',
@@ -41,6 +41,7 @@ def write_panorama(root, anchor=(0, 100, 0), radius=0, colour=(1, 0, 0), revisio
         'depth_encoding': 'r32f_radial_metres_le_zero_without_geometry',
         'origin_lon_lat': [0, 0], 'anchor_eus_m': anchor, 'revision': revision * 64,
         'axial_near_m': axial_near,
+        'axial_overlap_end_m': overlap_end,
         'maximum_range_m': 100, 'maximum_eye_translation_m': radius,
         'reference_exposure': 1, 'opaque_texels': [4] * 6,
     }))
@@ -530,7 +531,7 @@ class ScenarioBenchmark(unittest.TestCase):
             scene = root / 'view.scenario'
             scene.write_text(PRODUCT_SCENE)
             far = root / 'far'
-            write_panorama(far, axial_near=1)
+            write_panorama(far, axial_near=1, overlap_end=9)
             database = root / 'prepared.sqlite'
             revision = 'a' * 64
             image = root / 'frame.png'
@@ -583,6 +584,7 @@ class ScenarioBenchmark(unittest.TestCase):
             partial = capture()
             pixels = image.read_bytes()
             self.assertEqual(partial['rendered_content']['near']['address'], [0, 0, 0])
+            self.assertEqual(partial['rendered_content']['far']['axial_overlap_end_m'], 9)
             self.assertEqual(partial['rendered_content']['near']['overlay_triangles_per_frame'], 1)
             self.assertEqual(partial['traffic']['tile_requested_bytes'], parent.stat().st_size)
             waiting = capture(stream=True)

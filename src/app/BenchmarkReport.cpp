@@ -219,6 +219,8 @@ ReportJson PanoramaContent(const BenchmarkPanoramaCoverage &bake) {
           {"face_px", bake.Side},
           {"anchor_eus_m", bake.AnchorM.Axis},
           {"revision", bake.Revision},
+          {"axial_near_m", bake.AxialNearM},
+          {"axial_overlap_end_m", bake.AxialOverlapEndM},
           {"maximum_range_m", bake.MaximumRangeM},
           {"maximum_eye_translation_m", bake.MaximumTranslationM},
           {"draws_per_frame", 1},

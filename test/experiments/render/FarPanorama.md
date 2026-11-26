@@ -49,6 +49,14 @@ use the same reversed-depth buffer. The tile covers nearer samples and reproject
 while valid panorama depth covers tile samples behind it. Benchmark reports distinguish
 this two-product composition from a complete world render.
 
+For a wider transition, capture inside the planned handoff and pack with
+`--overlap-end-m` set to its axial end. Retain terrain coverage through that end.
+The compositor normalises the near and far weights where their depths agree and
+orders the layers by depth where they separate. An opaque anchor texel fills an
+unresolved reprojection beyond the handoff. A sky texel leaves valid near geometry
+visible. The 250–350 m trial uses the 350 m near-geometry reach already prepared for
+the city capture. Both distances are stored in the product and reported separately.
+
 ## Anchor handoff
 
 Capture a second panorama in the same tangent frame with matching range, resolution and

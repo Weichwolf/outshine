@@ -43,6 +43,8 @@ struct BenchmarkPanoramaCoverage {
   size_t Side = 0;
   Vec3 AnchorM;
   std::string Revision;
+  double AxialNearM = 0;
+  double AxialOverlapEndM = 0;
   double MaximumRangeM = 0;
   double MaximumTranslationM = 0;
   size_t StoredBytes = 0;

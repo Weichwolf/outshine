@@ -23,7 +23,7 @@ def attachment(path, shape):
     return values
 
 
-def pack(capture, output, exposure=None, translation_m=0):
+def pack(capture, output, exposure=None, translation_m=0, overlap_end_m=None):
     began = perf_counter()
     manifest = json.loads((capture / "capture.json").read_text())
     side = manifest["face_px"]
@@ -35,6 +35,8 @@ def pack(capture, output, exposure=None, translation_m=0):
         raise ValueError("unsupported far panorama capture")
     if not 0 <= translation_m < near:
         raise ValueError("translation domain must be within the axial near plane")
+    if overlap_end_m is not None and not near < overlap_end_m <= far:
+        raise ValueError("overlap end must be past the capture near plane and within range")
     colour = np.empty((6, side, side, 4), dtype="<f2")
     depth = np.empty((6, side, side), dtype="<f4")
     maximum = np.finfo(np.float16).max
@@ -75,6 +77,8 @@ def pack(capture, output, exposure=None, translation_m=0):
         "declaration_sha256": manifest["declaration_sha256"],
         "source_declarations": manifest["source_declarations"],
     }
+    if overlap_end_m is not None:
+        product["axial_overlap_end_m"] = overlap_end_m
     revision = hashlib.sha256(json.dumps(product, sort_keys=True).encode("utf-8"))
     revision.update(colour)
     revision.update(depth)
@@ -102,8 +106,11 @@ def main():
     parser.add_argument("--exposure", type=float, help="reference exposure from the world benchmark")
     parser.add_argument("--translation-domain-m", type=float, default=0,
                         help="declared radius for a bounded translated replay")
+    parser.add_argument("--overlap-end-m", type=float,
+                        help="axial end of the shared near-mesh/far-panorama coverage")
     options = parser.parse_args()
-    pack(options.capture, options.output, options.exposure, options.translation_domain_m)
+    pack(options.capture, options.output, options.exposure, options.translation_domain_m,
+         options.overlap_end_m)
 
 
 if __name__ == "__main__":

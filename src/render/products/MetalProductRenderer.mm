@@ -90,14 +90,16 @@ struct PanoramaFragment {
 struct PanoramaRay {
   float3 direction;
   float distanceM;
+  bool opaqueAtAnchor;
 };
 PanoramaRay reprojectPanorama(float3 ray, texturecube<float> depth,
                              float3 eye, float focalPixels) {
   constexpr sampler pointDepth(coord::normalized, filter::nearest);
   float radius = depth.sample(pointDepth, ray).r;
+  const bool opaqueAtAnchor = radius > 0.0;
   const float eye2 = dot(eye, eye);
   if (radius <= 0.0 || eye2 == 0.0) {
-    return {ray, max(radius, 0.0)};
+    return {ray, max(radius, 0.0), opaqueAtAnchor};
   }
   const float toward = dot(ray, eye);
   const float across2 = max(eye2 - toward * toward, 0.0);
@@ -107,16 +109,16 @@ PanoramaRay reprojectPanorama(float3 ray, texturecube<float> depth,
   for (uint iteration = 0; iteration < 3; ++iteration) {
     const float discriminant = radius * radius - across2;
     if (discriminant <= 0.0) {
-      return {ray, 0.0};
+      return {ray, 0.0, opaqueAtAnchor};
     }
     const float distance = sqrt(discriminant) - toward;
     if (distance <= 0.0) {
-      return {ray, 0.0};
+      return {ray, 0.0, opaqueAtAnchor};
     }
     lookup = normalize(eye + distance * ray);
     const float next = depth.sample(pointDepth, lookup).r;
     if (next <= 0.0) {
-      return {ray, 0.0};
+      return {ray, 0.0, opaqueAtAnchor};
     }
     const float inverseChange = abs(next - radius) / (next * radius);
     stable = inverseChange * pixelsTimesBaseline < 0.5;
@@ -124,14 +126,15 @@ PanoramaRay reprojectPanorama(float3 ray, texturecube<float> depth,
   }
   const float discriminant = radius * radius - across2;
   return stable && discriminant > 0.0
-      ? PanoramaRay{lookup, max(sqrt(discriminant) - toward, 0.0)}
-      : PanoramaRay{ray, 0.0};
+      ? PanoramaRay{lookup, max(sqrt(discriminant) - toward, 0.0), opaqueAtAnchor}
+      : PanoramaRay{ray, 0.0, opaqueAtAnchor};
 }
 struct PanoramaPixel {
   float3 colour;
   float3 ray;
   float distanceM;
   float forwardM;
+  bool opaqueAtAnchor;
 };
 PanoramaPixel panoramaPixel(PanoramaRaster in, constant PanoramaUniform &view,
                             texturecube<half> colour, texturecube<float> distanceM,
@@ -142,11 +145,13 @@ PanoramaPixel panoramaPixel(PanoramaRaster in, constant PanoramaUniform &view,
   const PanoramaRay projected =
       reprojectPanorama(ray, distanceM, view.eyeOffsetM.xyz, view.display.w);
   float distance = projected.distanceM;
+  bool opaqueAtAnchor = projected.opaqueAtAnchor;
   float3 linear = float3(colour.sample(linearColour, projected.direction).rgb);
   const float weight = view.nextEyeAndWeight.w;
   if (weight > 0.0) {
     const PanoramaRay next =
         reprojectPanorama(ray, nextDistanceM, view.nextEyeAndWeight.xyz, view.display.w);
+    opaqueAtAnchor = opaqueAtAnchor || next.opaqueAtAnchor;
     linear = mix(linear, float3(nextColour.sample(linearColour, next.direction).rgb), weight);
     if (next.distanceM > 0.0) {
       distance = distance > 0.0 ? min(distance, next.distanceM) : next.distanceM;
@@ -155,7 +160,7 @@ PanoramaPixel panoramaPixel(PanoramaRaster in, constant PanoramaUniform &view,
   float forwardM = distance * dot(view.forward.xyz, ray);
   float3 x = linear * view.display.z;
   float3 filmic = saturate((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14));
-  return {filmic, ray, distance, forwardM};
+  return {filmic, ray, distance, forwardM, opaqueAtAnchor};
 }
 float deviceDepth(float forwardM, constant PanoramaUniform &view) {
   return forwardM > 0.0 ? saturate(view.display.x / forwardM - view.display.y) : 0.0;
@@ -173,17 +178,34 @@ float majorAxis(float3 point) {
   const float3 a = abs(point);
   return max(a.x, max(a.y, a.z));
 }
+float overlapWeight(float nearAxial, float farAxial, float3 coverage) {
+  const float nearExit = smoothstep(coverage.x, coverage.z, nearAxial);
+  if (nearExit >= 1.0) { return 1.0; }
+  const float farEntry = smoothstep(coverage.x, coverage.z, farAxial);
+  const float nearOpacity = 1.0 - nearExit;
+  const float shared = farEntry / (nearOpacity + farEntry);
+  const float separation = nearAxial - farAxial;
+  const float orderedFar = farEntry * (separation > 0.0 ? 1.0 : nearExit);
+  const float orderedNear = nearOpacity * (separation > 0.0 ? 1.0 - farEntry : 1.0);
+  const float ordered = orderedFar / (orderedNear + orderedFar);
+  const float separated = smoothstep(coverage.y, 2.0 * coverage.y, abs(separation));
+  return mix(shared, ordered, separated);
+}
 float coverageWeight(const PanoramaPixel &far, constant PanoramaUniform &view, float nearDepth) {
   if (nearDepth <= 0.0) { return 1.0; }
-  if (far.forwardM <= 0.0) { return 0.0; }
   const float clip = view.coverage.x;
+  const float end = view.coverage.z;
+  const bool unresolved = far.forwardM <= 0.0;
+  if (unresolved && !(end > clip && far.opaqueAtAnchor)) { return 0.0; }
   const float width = view.coverage.y;
   if (width <= 0.0) { return nearDepth > deviceDepth(far.forwardM, view) ? 0.0 : 1.0; }
   const float nearForward = view.display.x / (nearDepth + view.display.y);
   const float nearDistance = nearForward / dot(view.forward.xyz, far.ray);
   const float3 eye = mix(view.eyeOffsetM.xyz, view.nextEyeAndWeight.xyz, view.nextEyeAndWeight.w);
   const float nearAxial = majorAxis(eye + nearDistance * far.ray);
+  if (unresolved) { return smoothstep(clip, end, nearAxial); }
   const float farAxial = majorAxis(eye + far.distanceM * far.ray);
+  if (end > clip) { return overlapWeight(nearAxial, farAxial, view.coverage.xyz); }
   return max(smoothstep(clip, clip + width, nearAxial),
              smoothstep(width, 2.0 * width, nearAxial - farAxial));
 }
@@ -492,7 +514,10 @@ PanoramaUniform PackView(const PanoramaView &view) {
            static_cast<float>(view.FocalPixels)},
           vector(view.EyeOffsetM),
           vector(view.NextEyeOffsetM, static_cast<float>(view.NextWeight)),
-          {static_cast<float>(view.AxialNearM), static_cast<float>(view.CoverageFadeM), 0, 0}};
+          {static_cast<float>(view.AxialNearM),
+           static_cast<float>(view.CoverageFadeM),
+           static_cast<float>(view.AxialOverlapEndM),
+           0}};
 }
 
 void DrawPanorama(id<MTLRenderCommandEncoder> draw,

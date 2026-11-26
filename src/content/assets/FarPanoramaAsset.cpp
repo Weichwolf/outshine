@@ -32,6 +32,7 @@ std::string ProfileKey(const FarPanorama &panorama) {
   auto profile =
       std::format("{}/{}/{}", panorama.Side, panorama.MaximumRangeM, panorama.ReferenceExposure);
   if (panorama.AxialNearM > 0) { profile += std::format("/{}", panorama.AxialNearM); }
+  if (panorama.AxialOverlapEndM > 0) { profile += std::format("/{}", panorama.AxialOverlapEndM); }
   return Sha256Hex(profile);
 }
 

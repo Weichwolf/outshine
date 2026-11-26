@@ -65,6 +65,7 @@ struct PanoramaView {
   double Exposure;
   double NextWeight = 0;
   double AxialNearM = 0;
+  double AxialOverlapEndM = 0;
   double CoverageFadeM = 0;
 };
 

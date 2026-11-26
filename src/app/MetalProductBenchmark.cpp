@@ -138,6 +138,7 @@ MakePanoramaView(const Camera &pose, Extent frame, const FarPanorama &panorama) 
       .DepthBias = -(1.0 + projection[10]) * 0.5,
       .Exposure = panorama.ReferenceExposure,
       .AxialNearM = panorama.AxialNearM,
+      .AxialOverlapEndM = panorama.AxialOverlapEndM,
       .CoverageFadeM =
           panorama.AxialNearM * (2 * kBlendTexels) / static_cast<double>(panorama.Side)};
 }
@@ -151,6 +152,7 @@ std::expected<std::array<double, 2>, std::string> PanoramaOverlap(
     return std::unexpected("panorama handoff requires a flight covered at both endpoints");
   }
   if (first.Side != next.Side || first.AxialNearM != next.AxialNearM ||
+      first.AxialOverlapEndM != next.AxialOverlapEndM ||
       first.MaximumRangeM != next.MaximumRangeM ||
       first.ReferenceExposure != next.ReferenceExposure) {
     return std::unexpected(
@@ -170,6 +172,8 @@ BenchmarkPanoramaCoverage PanoramaCoverage(const FarPanorama &panorama) {
   return {.Side = panorama.Side,
           .AnchorM = panorama.AnchorM,
           .Revision = panorama.Revision,
+          .AxialNearM = panorama.AxialNearM,
+          .AxialOverlapEndM = panorama.AxialOverlapEndM,
           .MaximumRangeM = panorama.MaximumRangeM,
           .MaximumTranslationM = panorama.MaximumTranslationM,
           .StoredBytes = panorama.Colour.size() + panorama.Depth.size()};
@@ -266,8 +270,10 @@ std::expected<SurfaceCutLookup, std::string> PrepareTiles(const ScenarioBenchmar
     for (const auto &pose : {report.Start.PositionM, report.Finish.PositionM}) {
       eye.Cover(frame.ToEcefPosition({.EastM = pose[0], .NorthM = -pose[2], .UpM = pose[1]}));
     }
-    const double radius =
-        std::numbers::sqrt3 * (projection->AxialNearM + projection->CoverageFadeM);
+    const double handoff = projection->AxialOverlapEndM > 0
+                               ? projection->AxialOverlapEndM
+                               : projection->AxialNearM + projection->CoverageFadeM;
+    const double radius = std::numbers::sqrt3 * handoff;
     return LoadSurfaceCut(*cache,
                           options.ProductRevision,
                           {.SweptEyeEcef = eye,
