@@ -3,7 +3,7 @@
 import unittest
 
 import numpy as np
-from grass_cover import root_elevations
+from plant_sites import root_elevations
 
 
 class GrassCoverTest(unittest.TestCase):
