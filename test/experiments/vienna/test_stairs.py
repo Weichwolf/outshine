@@ -10,6 +10,16 @@ from stairs import fit_stairway
 
 
 class StairwayTest(unittest.TestCase):
+    def test_ground_without_stairs_keeps_its_walkable_surface(self):
+        source = SimpleNamespace(height=lambda xy: np.zeros(len(xy)), features=[])
+        meshes = Meshes()
+        vertices, quads = terrain_grid(source, 4)
+        ground_surfaces(
+            meshes, source, box(-4, -4, 4, 4), shapely.Polygon(), vertices, quads
+        )
+        self.assertEqual(set(meshes), {"ground"})
+        self.assertEqual(support_height(meshes["ground"]).max(), 0)
+
     def test_steep_turn_off_a_landing_gets_treads_and_a_terrain_apron(self):
         source = SimpleNamespace(
             height=lambda xy: (
