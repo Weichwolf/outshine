@@ -134,15 +134,28 @@ def upload(ctx, program, name, vertices, faces, placements):
         return
     if faces.shape[1] == 4:
         faces = faces[:, [0, 1, 2, 0, 2, 3]]
-    points = ctx.buffer(np.asarray(vertices, dtype="f4").tobytes())
+    vertices = np.asarray(vertices, dtype="f4")
+    points = ctx.buffer(vertices.tobytes())
     idx = ctx.buffer(faces.tobytes())
     instances = ctx.buffer(np.asarray(placements, dtype="f4").tobytes())
-    vao = ctx.vertex_array(
-        program,
-        [(points, "3f", "position"), (instances, "4f 1f /i", "offsetAngle", "scale")],
-        idx,
-    )
-    return name, len(placements), vao, (instances, idx, points)
+    content = [
+        (points, "3f", "position"),
+        (instances, "4f 1f /i", "offsetAngle", "scale"),
+    ]
+    buffers = [instances, idx, points]
+    if name.endswith(" bark"):
+        a, b, c = vertices[faces].transpose(1, 0, 2)
+        area_normals = np.cross(b - a, c - a)
+        normals = np.zeros_like(vertices)
+        for corner in faces.T:
+            np.add.at(normals, corner, area_normals)
+        lengths = np.linalg.norm(normals, axis=1, keepdims=True)
+        normals /= np.maximum(lengths, np.finfo(normals.dtype).tiny)
+        shaded = ctx.buffer(normals.tobytes())
+        content.append((shaded, "3f", "vertexNormal"))
+        buffers.append(shaded)
+    vao = ctx.vertex_array(program, content, idx)
+    return name, len(placements), vao, buffers
 
 
 def shadow_projection(world):

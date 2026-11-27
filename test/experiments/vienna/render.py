@@ -137,7 +137,13 @@ def plant_woodland(world, seed, geometry):
             continue
         collection = bpy.data.collections.new(f"{species} group {group}")
         for name, (vertices, faces) in meshes.items():
-            upload(name, vertices, faces, collection=collection)
+            upload(
+                name,
+                vertices,
+                faces,
+                collection=collection,
+                smooth=name.endswith(" bark"),
+            )
         for x, y, z, angle, scale in placements:
             instance = bpy.data.objects.new(species, None)
             instance.instance_type = "COLLECTION"

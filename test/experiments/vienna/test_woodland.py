@@ -1,13 +1,16 @@
 import json
 import unittest
+from functools import partial
 from importlib.resources import files
 from types import SimpleNamespace
 
 import numpy as np
 import shapely
 from outshine_ref.vegetation import PlantPlan
+from outshine_ref.vegetation.curve_frame import arc_frame
 from scene_mesh import terrain_grid, terrain_height
-from woodland_stem import rooted_stem
+from woodland import stand_plan
+from woodland_stem import rooted_stem, template_stem
 
 
 class WoodlandTest(unittest.TestCase):
@@ -18,7 +21,8 @@ class WoodlandTest(unittest.TestCase):
         terrain, _ = terrain_grid(source, 8)
         domain = shapely.box(-4, -4, 0.9, 4)
         position = np.array([0.0, 0.0, -0.08])
-        stem = rooted_stem(plan, domain, terrain, position, 0.62, 1.6, oak=True)
+        height = partial(terrain_height, terrain)
+        stem = rooted_stem(plan, domain, height, position, 0.62, 1.6, oak=True)
 
         vertices, faces = stem["vertices"], stem["faces"]
         collar = vertices[faces[faces[:, 0] == len(vertices) - 2, 1]]
@@ -30,3 +34,36 @@ class WoodlandTest(unittest.TestCase):
         edges = np.sort(faces[:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2), axis=1)
         _, counts = np.unique(edges, axis=0, return_counts=True)
         np.testing.assert_array_equal(counts, 2)
+
+    def test_near_and_instanced_stems_enclose_the_same_first_branch(self):
+        position = np.array([1.0, -2.0, -0.08])
+        for species in ("oak", "beech"):
+            for form in (0, 1):
+                with self.subTest(species=species, form=form):
+                    plan = stand_plan(species, form)
+                    oak = species == "oak"
+                    near = (
+                        rooted_stem(
+                            plan,
+                            shapely.box(-5, -5, 5, 5),
+                            lambda xy: np.zeros(len(xy)),
+                            position,
+                            0,
+                            1,
+                            oak=oak,
+                        )["vertices"]
+                        - position
+                    )
+                    template = template_stem(plan, oak=oak)["vertices"]
+                    stem, branch = plan.axis(()), plan.axis((0,))
+                    _, direction, _, _ = arc_frame(
+                        stem.length, stem.bend, 0, branch.parent_parameter
+                    )
+                    tangent = stem.frame @ direction
+                    radius, _ = plan.radii((0,))
+                    for vertices in (near, template):
+                        from_union = vertices - branch.origin
+                        union = from_union[abs(from_union @ tangent) < 1e-8]
+                        self.assertGreaterEqual(len(union), 8)
+                        self.assertGreater(np.linalg.norm(union, axis=1).min(), radius)
+                    np.testing.assert_allclose(near[-1], template[-1], atol=1e-12)

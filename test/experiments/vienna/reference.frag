@@ -17,6 +17,7 @@ uniform bool shadowPass;
 uniform mat4 shadowMatrix;
 uniform sampler2DShadow shadowMap;
 in vec3 point;
+in vec3 smoothNormal;
 flat in vec2 rotation;
 out vec4 colour;
 uniform vec3 eye;
@@ -53,6 +54,10 @@ void main(){
   vec3 n=normalize(cross(dx,dy));
   if(dot(n,view)<0.) n=-n;
   vec3 geometricNormal=n;
+  if(dot(smoothNormal,smoothNormal)>.01) {
+    n=normalize(smoothNormal);
+    if(dot(n,view)<0.) n=-n;
+  }
   vec4 material=surface;
   if (hasDetail) {
     vec3 objectNormal=vec3(

@@ -3,7 +3,7 @@
 from functools import cache
 
 import numpy as np
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter, map_coordinates
 
 DETAIL_SPAN_M = 2.56
 MACRO_SPAN_M = 23.0
@@ -20,7 +20,8 @@ SURFACE_DETAIL = {
     "ground": "soil",
     "unpaved path": "compacted",
     "wall": "plaster",
-    "bark": "bark",
+    "oak bark": "oak bark",
+    "beech bark": "beech bark",
     "foliage": "leaf",
 }
 
@@ -61,8 +62,9 @@ def ground_detail(name):
         "soil",
         "compacted",
         "plaster",
-        "bark",
+        "oak bark",
         "leaf",
+        "beech bark",
     ).index(name)
     rng = np.random.default_rng(seed)
     fine, grain, patches = (noise(rng, scale) for scale in (0.65, 1.6, 12))
@@ -95,12 +97,23 @@ def ground_detail(name):
         tint = 1 - 0.045 * pits + 0.022 * grain + 0.026 * trowel
         roughness = 0.83 + 0.028 * pits + 0.024 * trowel
         height = -0.00060 * pits + 0.00035 * grain + 0.00060 * trowel
-    elif name == "bark":
-        ridges = noise(rng, (12, 1.0))
-        fissures = np.maximum(-ridges - 0.25, 0)
-        tint = 1 - 0.22 * fissures + 0.07 * grain + 0.06 * patches
-        roughness = 0.88 + 0.045 * fissures + 0.027 * grain
-        height = -0.0033 * fissures + 0.0012 * ridges + 0.00036 * fine
+    elif name == "oak bark":
+        y, x = np.indices((SIZE, SIZE), dtype=np.float32)
+        shift = 3.5 * noise(rng, (18, 6))
+        grain_flow = map_coordinates(
+            noise(rng, (20, 1.9)), [y, x + shift], order=1, mode="grid-wrap"
+        )
+        plates = noise(rng, (6, 2.9))
+        fissures = np.maximum(-grain_flow + 0.4 * plates - 0.40, 0)
+        tint = 1 - 0.24 * fissures + 0.075 * patches + 0.055 * plates
+        roughness = 0.90 + 0.032 * fissures + 0.019 * grain
+        height = -0.0040 * fissures + 0.0012 * plates + 0.00034 * fine
+    elif name == "beech bark":
+        mottling = noise(rng, (22, 15))
+        scars = np.maximum(noise(rng, (1.8, 8)) - 1.55, 0)
+        tint = 1 + 0.07 * mottling + 0.040 * patches - 0.17 * scars
+        roughness = 0.84 + 0.030 * mottling + 0.022 * patches
+        height = -0.0014 * scars + 0.00045 * patches + 0.00024 * grain
     else:  # Leaf tissue variation in the shared foliage batch.
         tint = 1 + 0.065 * grain + 0.15 * patches
         roughness = 0.57 + 0.04 * grain + 0.035 * patches
@@ -114,7 +127,7 @@ def ground_detail(name):
         ),
         axis=-1,
     ).astype("f4")
-    if name == "leaf":
+    if name in ("leaf", "beech bark"):
         half = SIZE // 2
         return pixels.reshape(half, 2, half, 2, 4).mean(axis=(1, 3))
     return pixels
