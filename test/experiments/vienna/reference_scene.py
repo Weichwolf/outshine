@@ -12,6 +12,7 @@ from astral.sun import azimuth, elevation
 from bridge_approach import APPROACH_SEARCH, bridge_approaches
 from bridges import plan_water_crossings
 from catalog import HERE, ROOT
+from grass_cover import blades
 from horizon import terrain_horizon
 from regional import (
     beyond_region,
@@ -174,3 +175,7 @@ class ReferenceScene:
             yield from products
             bounds.append(tile)
         yield "distant terrain", *beyond_region(self.far, self.faces, bounds)
+
+    def near_grass(self, seed):
+        if "grass" in self.local:
+            yield from blades(self.local["grass"], self.source, self.eye, seed)

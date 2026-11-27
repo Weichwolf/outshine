@@ -26,7 +26,7 @@ from ground_detail import (
     SURFACE_DETAIL,
     ground_detail,
 )
-from materials import GLASS_IOR, METALLIC, SURFACES
+from materials import DIFFUSE_TRANSMISSION, GLASS_IOR, METALLIC, SURFACES
 from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_light import configure_daylight
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
@@ -103,6 +103,15 @@ def surface_material(name):
         bsdf.inputs["IOR"].default_value = GLASS_IOR
     if detail := SURFACE_DETAIL.get(name):
         apply_detail(material, bsdf, detail, colour)
+    if transmission := DIFFUSE_TRANSMISSION.get(name):
+        tree = material.node_tree
+        backlight = tree.nodes.new("ShaderNodeBsdfTranslucent")
+        backlight.inputs["Color"].default_value = (*colour, 1)
+        mix = tree.nodes.new("ShaderNodeMixShader")
+        mix.inputs[0].default_value = transmission
+        tree.links.new(bsdf.outputs[0], mix.inputs[1])
+        tree.links.new(backlight.outputs[0], mix.inputs[2])
+        tree.links.new(mix.outputs[0], tree.nodes["Material Output"].inputs["Surface"])
     return material
 
 
@@ -180,6 +189,8 @@ def render(place, config, args):
     geometry = bpy.data.collections.new("World geometry")
     scene.collection.children.link(geometry)
     for name, verts, faces in world.surfaces():
+        upload(name, verts, faces, collection=geometry)
+    for name, verts, faces in world.near_grass(config["seed"]):
         upload(name, verts, faces, collection=geometry)
     eye, look = Vector(world.eye), Vector(world.look)
     scene.camera = configure_camera(

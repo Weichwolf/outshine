@@ -25,6 +25,7 @@ uniform vec3 eye;
 uniform vec3 sun;
 uniform vec4 surface;
 uniform float metalness;
+uniform float diffuseTransmission;
 vec2 detailCoordinates(vec3 normal) {
   vec3 axis=abs(normal);
   // Use Blender BOX axes and mirroring for the shared texture.
@@ -98,7 +99,9 @@ void main(){
     float bias=(.30+1.45*texel*slope)/18000.;
     visibility=texture(shadowMap,vec3(uvz.xy,uvz.z-bias));
   }
-  vec3 light=(b.diffuse+b.specular)*nl*2.5*visibility+material.rgb*mix(vec3(.065,.085,.115),vec3(.31,.40,.53),clamp(.5+.5*n.z,0.,1.));
+  vec3 reflected=(b.diffuse+b.specular)*nl;
+  vec3 transmitted=material.rgb*(max(0.,dot(n,-sun))/kPi);
+  vec3 light=mix(reflected,transmitted,diffuseTransmission)*2.5*visibility+material.rgb*mix(vec3(.065,.085,.115),vec3(.31,.40,.53),clamp(.5+.5*n.z,0.,1.));
   if (waterSurface) {
     vec3 ray=reflect(-view,n);
     light=mix(surface.rgb*.28,reflectedSky(ray),brdfFresnel(vec3(.0204),1.,nv))*mix(.58,1.,visibility);
