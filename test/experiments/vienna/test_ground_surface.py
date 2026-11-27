@@ -1,12 +1,29 @@
 import unittest
+from types import SimpleNamespace
 
 import numpy as np
 import shapely
 from ground_surface import at_grade_routes, partition_ground
+from reference_scene import support_height
+from scene_mesh import assemble
 from shapely.geometry import LineString, Point, Polygon, box
 
 
 class GroundSurfaceTest(unittest.TestCase):
+    def test_mapped_grass_shares_the_slope_and_leaves_the_road_clear(self):
+        source = SimpleNamespace(
+            height=lambda xy: xy[:, 0] * 0.12 + xy[:, 1] * 0.08,
+            features=[
+                ("landcover", box(-6, -6, 6, 6), {"class": "grass"}),
+                ("transportation", LineString([(-6, 0), (6, 0)]), {"class": "minor"}),
+            ],
+        )
+        meshes = assemble(source, 12)
+        self.assertAlmostEqual(support_height(meshes["grass"], (0, 4)).max(), 0.32)
+        self.assertEqual(len(support_height(meshes["grass"], (0, 1))), 0)
+        self.assertAlmostEqual(support_height(meshes["road"], (0, 1)).max(), 0.08)
+        self.assertAlmostEqual(support_height(meshes["ground"], (0, 7)).max(), 0.56)
+
     def test_mapped_footway_survives_inferred_road_width(self):
         road = LineString([(0, 0), (20, 0)])
         footway = LineString([(0, 2), (20, 2)])

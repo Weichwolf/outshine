@@ -20,6 +20,7 @@ SURFACE_DETAIL = {
     "stair limestone": "concrete",
     "foundation": "concrete",
     "ground": "soil",
+    "grass": "grass",
     "unpaved path": "compacted",
     "wall": "plaster",
     "oak bark": "oak bark",
@@ -66,6 +67,7 @@ def ground_detail(name):
         "plaster",
         "oak bark",
         "leaf",
+        "grass",
         "beech bark",
     ).index(name)
     rng = np.random.default_rng(seed)
@@ -116,6 +118,12 @@ def ground_detail(name):
         tint = 1 + 0.07 * mottling + 0.040 * patches - 0.17 * scars
         roughness = 0.84 + 0.030 * mottling + 0.022 * patches
         height = -0.0014 * scars + 0.00045 * patches + 0.00024 * grain
+    elif name == "grass":
+        clumps = noise(rng, (3.6, 1.8))
+        tips = np.maximum(fine - 0.45, 0)
+        tint = 1 + 0.12 * clumps + 0.07 * grain - 0.10 * tips
+        roughness = 0.90 + 0.030 * clumps - 0.020 * tips
+        height = 0.0022 * clumps + 0.0008 * tips
     else:  # Leaf tissue variation in the shared foliage batch.
         tint = 1 + 0.065 * grain + 0.15 * patches
         roughness = 0.57 + 0.04 * grain + 0.035 * patches
