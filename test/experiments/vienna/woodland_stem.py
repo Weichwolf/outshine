@@ -16,13 +16,12 @@ def lean_tree(plan, vertices, *, oak, scale=1):
     bend = axis.bend * height
     arc_sweep = 0.5 * bend * height * np.sinc(bend / (2 * np.pi)) ** 2
     lean = height**2 * (0.025 + 0.055 * np.cos(axis.phase))
-    # One change of curvature in the lower stem, with a broader sweep above it.
     lower = height**2 * (1 - height) ** 5 * 28
     upper = np.sin(np.pi * height) ** 2
-    lean += lower * (0.035 if oak else 0.025) * np.sin(axis.phase + 0.7)
+    lean += lower * (0.070 if oak else 0.059) * np.sin(axis.phase + 0.7)
     sweep = upper * (0.045 if oak else 0.024)
-    sweep -= lower * (0.040 if oak else 0.027) * np.cos(axis.phase - 0.6)
-    sweep -= (0.68 if oak else 0.90) * arc_sweep
+    sweep -= lower * (0.085 if oak else 0.065) * np.cos(axis.phase - 0.6)
+    sweep -= (0.44 if oak else 0.54) * arc_sweep
     drift = lean[..., None] * axis.frame[:, 0] + sweep[..., None] * axis.frame[:, 2]
     return vertices + length * drift
 
@@ -49,7 +48,7 @@ def stem_knots(t, azimuth, heights, bearings, widths, radius, oak):
     shoulder = np.exp(-distance)
     stub = np.exp(-2.0 * ((axial - 0.40) ** 2 + 7 * (1 - np.cos(angle))))
     centre = np.exp(-6 * distance)
-    relief = 0.24 * shoulder + (0.60 if oak else 0.39) * stub - 0.18 * centre
+    relief = 0.19 * shoulder + (0.45 if oak else 0.23) * stub - 0.17 * centre
     return radius * relief.sum(axis=2)
 
 
@@ -70,7 +69,7 @@ def stem_profile(plan, scale, *, oak, grounded, seed):
     collar_end = min(ROOT_COLLAR_RADII * radius / length, 1)
     knots = np.array([0.11, 0.22, 0.34]) + rng.uniform(-0.037, 0.037, 3)
     bearings = axis.phase + np.array([0, 2.40, 4.80]) + rng.uniform(-0.8, 0.8, 3)
-    widths = rng.uniform(0.031, 0.044, 3)
+    widths = (radius / length) * rng.uniform(0.75, 1.25, 3)
     scar_samples = [-1.25, -0.55, 0.24, 0.7, 1.4] if grounded else [0.4]
     scar_sections = knots + widths * np.asarray(scar_samples)[:, None]
     body = np.linspace(0, 1, 43 if grounded else 10)

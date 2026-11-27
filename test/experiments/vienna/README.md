@@ -122,12 +122,15 @@ guides the soil, bark and leaf palette. The renderer infers material for paths w
 surface tags. [Adlerhof, 21 August 2008](https://presse.wien.gv.at/bilder/2008/08/21/adlerhof-innenhof) · [Lobau near Dechantlacke, 9 August 2022](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg)
 
 The Vienna stand derives two deterministic trunk and limb forms each for oak and beech.
-The stem grows upright at its base and changes direction below the crown. The taper swells
-around old branch stubs and live limb attachments. Close trees vary the stubs, section width
-and root buttresses using their tile-seeded placements. Oak has narrow, broken fissures.
-Beech has finer grain, shallow scars and patches of lichen. A lower-resolution mesh retains
-the stem profile and attachments beyond 32 m. The root buttresses follow the terrain and
-contract at path and water boundaries. The offset views share the same tile-seeded trees.
+One form develops an ascending scaffold low on the stem. The other keeps a longer clear
+bole and spreads its larger limbs higher up. Managed avenue trees start their crowns
+higher. The stem changes direction below the crown and swells around old branch scars and
+living limbs. Close trees vary the scars, section width and root buttresses using their
+tile-seeded placements. Oak has broken, ridged plates. Beech has finer grain, narrow
+branch scars and patches of lichen. A lower-resolution mesh retains the stem profile and
+attachments beyond 32 m. The root buttresses follow the terrain and contract at path and
+water boundaries. Dechantlacke-Stem-Oblique shows the same shore trees from the next
+path position, with the lower forks above the root contacts in frame.
 [Weber and Penn, Creation and Rendering of Realistic Trees](https://doi.org/10.1145/218380.218427)
 
 ## Photographic targets at eye level
