@@ -4,7 +4,8 @@
 
 Ich baue eine weltweite, datengetriebene Open-World-Sandbox. Aus OpenFreeMap, Mapterhorn,
 Open-Meteo, Szenariozeit und prozeduralen Rezepten entsteht eine plausible, funktionale Erde.
-Ich entwickle und prüfe die erste Welt aus bodennahen Perspektiven zu Fuß und im Auto.
+Ich entwickle und prüfe die erste Welt aus Fußgänger- und Autoperspektiven. Maßgeblich
+ist die begeh- oder befahrbare Fläche, auch auf einem Turmdeck oder Berg.
 Ich rendere physikalisch basiert und orientiere Architektur, Vegetation, Materialien
 und Licht an der realen Region.
 GTA VI gibt Orientierung für Umgebungsqualität, Fallout 4 für Himmel und offene Erkundung.
