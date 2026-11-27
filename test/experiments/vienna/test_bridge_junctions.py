@@ -12,6 +12,39 @@ from tram_rails import RAIL_HEAD_RISE_M, RAIL_HEAD_WIDTH_M
 
 
 class BridgeJunctionTest(unittest.TestCase):
+    def test_pedestrian_deck_meets_the_footways_on_both_banks(self):
+        deck = box(-20, -5, 20, 5)
+        span = WaterSpan(np.array([-20, 0]), np.array([1, 0]), 40, 1.2, 0)
+        crossing = WaterCrossing(deck, span, deck.difference(deck), 1)
+        walk = {"class": "path", "subclass": "pedestrian", "surface": "paved"}
+        source = SimpleNamespace(
+            height=lambda xy: np.where(abs(xy[:, 0]) < 12, -2, 0.4),
+            datum=0,
+            lat=0,
+            lon=0,
+            metres=np.array([111000.0, 111000.0]),
+            features=[
+                ("water", box(-12, -150, 20.25, 150), {}),
+                (
+                    "transportation",
+                    LineString([(-20, 0), (20, 0)]),
+                    walk | {"brunnel": "bridge", "layer": 1},
+                ),
+                ("transportation", LineString([(-120, 0), (-20, 0)]), walk),
+                ("transportation", LineString([(20, 0), (120, 0)]), walk),
+            ],
+        )
+        mesh = assemble(source, 150, crossings=[crossing])
+        for edge, sign in ((-20.0, -1), (20.9, 1)):
+            for y in np.linspace(-0.8, 0.8, 9):
+                deck_top = support_height(
+                    mesh["bridge deck"], (edge - sign * 0.02, y)
+                ).max()
+                bank = support_height(mesh["paving"], (edge + sign * 0.02, y)).max()
+                self.assertLess(abs(deck_top - bank), 0.005)
+        rails, _ = mesh["bridge metal"]
+        self.assertLess(np.asarray(rails)[:, 0].max(), 20.05)
+
     def test_tagged_road_fragment_uses_the_fitted_bank_surface(self):
         deck = box(-20, -5, 20, 5)
         carriageway = LineString([(-20.4, 0), (20.3, 0)])

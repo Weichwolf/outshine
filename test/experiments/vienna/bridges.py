@@ -94,6 +94,7 @@ class WaterCrossing:
     span: WaterSpan
     pavement: shapely.Geometry
     layer: int
+    bank_contact: shapely.Geometry | None = None
 
     @property
     def thickness(self):
@@ -145,6 +146,8 @@ def draw_water_crossings(
         thickness = crossing.thickness
         slab(meshes, "bridge deck", footprint, span.height, thickness, paved=pavement)
         access = () if walk_edges is None else walk_edges.get(id(span), ())
+        if crossing.bank_contact is not None:
+            access = (*access, crossing.bank_contact)
         if opens_deck_side(access, span) or not draw_open_truss(
             meshes, footprint, span
         ):

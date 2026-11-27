@@ -5,7 +5,11 @@ from itertools import pairwise
 
 import numpy as np
 import shapely
-from bridge_junctions import bridge_junctions, connected_bridge_crossings
+from bridge_junctions import (
+    bridge_junctions,
+    connected_bridge_crossings,
+    pedestrian_deck_contacts,
+)
 from ground_surface import at_grade_width, path_material, route_area
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry.sampling import SurfaceSampler
@@ -433,12 +437,13 @@ def fit_bridge_levels(
 def bridge_terrain(
     source, crossings, domain, water, roads, vertices, quads, terrain, stairs
 ):
+    decks = pedestrian_deck_contacts(source.features, crossings, water)
     plan = fit_bridge_levels(
-        source, crossings, domain, water, roads, vertices, quads, terrain, stairs
+        source, decks, domain, water, roads, vertices, quads, terrain, stairs
     )
     if plan is not None:
         return plan
     junctions, spans = bridge_junctions(
-        source.features, crossings, domain, water, roads, vertices, terrain
+        source.features, decks, domain, water, roads, vertices, terrain
     )
-    return crossings, junctions, spans, []
+    return decks if spans else crossings, junctions, spans, []

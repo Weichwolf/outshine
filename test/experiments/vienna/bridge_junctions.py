@@ -1,6 +1,6 @@
-"""Shared grade-limited terrain surfaces for road and tram bridgeheads."""
+"""Shared grade-limited terrain surfaces at bridgeheads."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 import shapely
@@ -50,34 +50,95 @@ def junction_pavement(features, crossings, junctions, joined_spans, roads):
     return carried
 
 
-def connected_bridge_crossings(features, crossings):
-    road_ends, routes = set(), {}
+def bridge_routes(features):
+    ends, routes = {"road": {}, "pedestrian": {}}, {}
     for name, geom, tags in features:
         if name != "transportation" or not geom.geom_type.endswith("LineString"):
             continue
         kind = tags.get("class")
-        is_road = kind in ROAD_WIDTH and kind != "path"
-        is_tram = tags.get("subclass") == "tram"
-        if not (is_road or is_tram):
+        if tags.get("subclass") == "tram":
+            mode = "tram"
+        elif kind == "path" and tags.get("subclass") != "steps":
+            mode = "pedestrian"
+        elif kind in ROAD_WIDTH and kind != "path":
+            mode = "road"
+        else:
             continue
         for line in shapely.get_parts(geom):
             if line.is_empty:
                 continue
             if tags.get("brunnel") == "bridge":
-                routes.setdefault(tags.get("layer", 1), []).append((line, is_tram))
-            elif is_road and at_grade_width(tags) is not None:
-                road_ends.update((line.coords[0], line.coords[-1]))
+                routes.setdefault(tags.get("layer", 1), []).append((line, mode))
+            elif mode != "tram" and at_grade_width(tags) is not None:
+                for end in (line.coords[0], line.coords[-1]):
+                    ends[mode].setdefault(end, []).append(line)
+    return ends, routes
+
+
+def connected_bridge_crossings(features, crossings):
+    ends, routes = bridge_routes(features)
     return [
         crossing
         for crossing in crossings
         if any(
             route.intersection(crossing.footprint).length > crossing.span.length / 2
             and (
-                tram or (route.coords[0] in road_ends and route.coords[-1] in road_ends)
+                mode == "tram"
+                or (
+                    (mode == "road" or crossing.pavement.is_empty)
+                    and route.coords[0] in ends[mode]
+                    and route.coords[-1] in ends[mode]
+                )
             )
-            for route, tram in routes.get(crossing.layer, ())
+            for route, mode in routes.get(crossing.layer, ())
         )
     ]
+
+
+def pedestrian_deck_contacts(features, crossings, water):
+    if water.is_empty or not any(c.pavement.is_empty for c in crossings):
+        return crossings
+    ends, routes = bridge_routes(features)
+    paths = ends["pedestrian"]
+    width = ROAD_WIDTH["path"]
+    planned = []
+    for crossing in crossings:
+        deck = crossing.footprint
+        extensions = []
+        if crossing.pavement.is_empty:
+            nearby = deck.buffer(width / 2, quad_segs=2)
+            for route, mode in routes.get(crossing.layer, ()):
+                first, last = route.coords[0], route.coords[-1]
+                if (
+                    mode != "pedestrian"
+                    or first not in paths
+                    or last not in paths
+                    or route.intersection(deck).length <= crossing.span.length / 2
+                ):
+                    continue
+                connected = shapely.line_merge(
+                    shapely.union_all([route, *paths[first], *paths[last]])
+                )
+                contact = route_area(connected, width).intersection(nearby)
+                for extension in shapely.get_parts(
+                    contact.difference(deck, grid_size=1e-6)
+                ):
+                    joined = deck.union(extension, grid_size=1e-6)
+                    if (
+                        extension.intersection(water).area > 0
+                        and extension.difference(water).area > 0
+                        and joined.geom_type == "Polygon"
+                    ):
+                        deck = joined
+                        extensions.append(extension)
+        if extensions:
+            crossing = replace(
+                crossing,
+                footprint=shapely.orient_polygons(deck),
+                bank_contact=shapely.union_all(extensions),
+            )
+        planned.append(crossing)
+    return planned
 
 
 def approach_core(crossing):
@@ -132,7 +193,9 @@ def patch_mesh(footprint, terrain, lattice, spacing, *, breaks=()):
     return Mesh(np.c_[xy, terrain(xy)], inverse.reshape(-1, 3))
 
 
-def graded_patch(mesh, footprint, exterior, core, crossings, road, track, shoulder):
+def graded_patch(
+    mesh, footprint, exterior, core, crossings, road, track, shoulder, walkways
+):
     xy = mesh.vertices[:, :2]
     points = shapely.points(xy)
     border = shapely.dwithin(points, exterior, 2e-6)
@@ -148,6 +211,7 @@ def graded_patch(mesh, footprint, exterior, core, crossings, road, track, should
     triangles = shapely.polygons(xy[mesh.triangles])
     limits = np.full(len(triangles), 0.55)
     limits[shapely.intersects(triangles, road)] = 0.085
+    limits[shapely.intersects(triangles, walkways)] = 0.08
     limits[shapely.intersects(triangles, track)] = 0.065
     blend = np.clip(
         shapely.distance(shapely.centroid(triangles), core) / shoulder, 0, 1
@@ -171,7 +235,12 @@ def bridge_junctions(features, crossings, domain, water, roads, vertices, terrai
             and not tags.get("brunnel")
         ]
     )
-    core = shapely.union_all([approach_core(crossing) for crossing in served])
+    cores = [(crossing, approach_core(crossing)) for crossing in served]
+    core = shapely.union_all([shape for _, shape in cores])
+    pedestrian_core = shapely.union_all(
+        [shape for crossing, shape in cores if crossing.pavement.is_empty]
+    )
+    pedestrian = roads["sidewalk"].union(roads["paving"]).intersection(pedestrian_core)
     shoulder = 20.0
     spacing = (vertices[1, 0] - vertices[0, 0]) / 2
     lattice = vertices[0, :2]
@@ -184,7 +253,15 @@ def bridge_junctions(features, crossings, domain, water, roads, vertices, terrai
             continue
         mesh = patch_mesh(piece, terrain, lattice, spacing)
         solved = graded_patch(
-            mesh, piece, outline.boundary, core, served, roads, track, shoulder
+            mesh,
+            piece,
+            outline.boundary,
+            core,
+            served,
+            roads["road"],
+            track,
+            shoulder,
+            pedestrian,
         )
         if solved is None:
             return [], []

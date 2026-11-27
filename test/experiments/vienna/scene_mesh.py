@@ -245,7 +245,7 @@ def ground_surfaces(
         crossings,
         extent,
         bodies,
-        roads["road"],
+        roads,
         vertices,
         quads,
         height,
