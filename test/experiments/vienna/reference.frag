@@ -5,6 +5,7 @@ const float kPi=3.14159265359;
 #include "clear_air.glsl"
 #include "skyViewLookup.glsl"
 #include "display.glsl"
+#include "environmentSampling.glsl"
 uniform sampler2D skyView;
 uniform sampler2D veil;
 uniform sampler2D detailMap;
@@ -45,6 +46,8 @@ uniform float metalness;
 uniform float diffuseTransmission;
 uniform bool useSkyIrradiance;
 uniform vec3 skyIrradiance[9];
+uniform sampler2D skySpecularMap;
+uniform sampler2D skyBrdf;
 vec2 detailCoordinates(vec3 normal) {
   vec3 axis=abs(normal);
   // Use Blender BOX axes and mirroring for the shared texture.
@@ -80,6 +83,15 @@ vec3 diffuseSky(vec3 n) {
     1.092548431 * (x * y * skyIrradiance[4] + y * z * skyIrradiance[5] + x * z * skyIrradiance[7]) +
     .3153915653 * (3. * z * z - 1.) * skyIrradiance[6] +
     .5462742153 * (x * x - y * y) * skyIrradiance[8]);
+}
+
+vec3 filteredSky(vec3 direction, float roughness) {
+  float level = clamp(roughness, 0., 1.) * float(kEnvironmentSpecularLevels - 1);
+  float lower = floor(level);
+  float upper = min(lower + 1., float(kEnvironmentSpecularLevels - 1));
+  vec3 low = textureLod(skySpecularMap, environmentUv(direction, lower), 0.).rgb;
+  vec3 high = textureLod(skySpecularMap, environmentUv(direction, upper), 0.).rgb;
+  return mix(low, high, level - lower);
 }
 
 float sunVisibility(vec3 position, vec3 normal) {
@@ -189,12 +201,21 @@ void main(){
   float visibility = sunVisibility(point, geometricNormal);
   vec3 reflected=(b.diffuse+b.specular)*nl;
   vec3 transmitted=material.rgb*(max(0.,dot(n,-sun))/kPi);
-  vec3 ambient = mix(vec3(.065,.085,.115), vec3(.31,.40,.53), clamp(.5+.5*n.z,0.,1.));
+  vec3 environment = material.rgb *
+    mix(vec3(.065,.085,.115), vec3(.31,.40,.53), clamp(.5+.5*n.z,0.,1.));
   if (useSkyIrradiance) {
-    ambient = (1. - metalness) * mix(diffuseSky(n), diffuseSky(-n), diffuseTransmission);
+    vec3 diffuseColour = material.rgb * (1. - metalness);
+    vec3 front = diffuseColour * diffuseSky(n);
+    if (!waterSurface && glassIor <= 1.) {
+      float roughness = clamp(material.a, 0., 1.);
+      vec2 brdf = textureLod(skyBrdf, vec2(roughness, nv), 0.).rg;
+      vec3 reflectance = clamp(f0 * brdf.x + vec3(brdf.y), 0., 1.);
+      front = (1. - reflectance) * front +
+              reflectance * filteredSky(reflect(-view, n), roughness);
+    }
+    environment = mix(front, diffuseColour * diffuseSky(-n), diffuseTransmission);
   }
-  vec3 light = mix(reflected, transmitted, diffuseTransmission) * 2.5 * visibility +
-               material.rgb * ambient;
+  vec3 light = mix(reflected, transmitted, diffuseTransmission) * 2.5 * visibility + environment;
   gl_FragDepth=log2(1.+1./gl_FragCoord.w)/log2(240001.);
   if (reflectionCapture) { colour=vec4(light,1.); return; }
   if (waterSurface) {
