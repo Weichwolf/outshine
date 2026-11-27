@@ -25,7 +25,15 @@ local terrain. Real DEM rings extend the terrain from the 250 m local square to 
 each axis. The far terrain currently has a uniform material.
 
 The first twelve-image review shows missing steps at Strudlhofstiege, a missing passage at
-Adlerhof, a facade across the Schemerlbrücke view and striping at Prater Hochstraße.
+Adlerhof and striping at Prater Hochstraße. The Schemerlbrücke camera looks from a mapped
+bank path across the channel: the deck currently warps toward the water and lacks its truss.
 Hauptallee and Dechantlacke need trees and bank vegetation, Wienerblick needs its city
 skyline, and Franz-Karl-Fernsicht needs a recognizable Alpine silhouette. The shore levels,
 road profiles, material variety, sky and light still need comparison with real scenes.
+
+Two dated photographs anchor the structural review. The November 2023 stair photograph shows
+paired flights, landings and retaining walls; compare geometry across seasons. The June 2017
+bridge photograph shows horizontal clearance, the supporting piers and a continuous truss.
+
+- [Strudlhofstiege, 23 November 2023](https://commons.wikimedia.org/wiki/File:Strudlhofstiege_2023-11-23_01.jpg)
+- [Schemerlbrücke, 1 June 2017](https://commons.wikimedia.org/wiki/File:2017-06-01_AT_Wien_19_D%C3%B6bling_%26_Wien_20_Brigittenau,_Donaukanal,_Nussdorfer_Wehr,_Schemerlbr%C3%BCcke_(50699212833).jpg)
