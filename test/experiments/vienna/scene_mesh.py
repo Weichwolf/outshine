@@ -13,6 +13,7 @@ from outshine_ref.buildings.recessed_facades import RecessPlan, recess_surface
 from outshine_ref.buildings.structures import suppressed
 from outshine_ref.water.geodetic import local_points
 from shapely.geometry import Point, box
+from stair_landings import local_landings
 from stairs import local_stairways
 from viaducts import draw_viaduct
 
@@ -165,8 +166,10 @@ def ground_surfaces(
         ((g, p) for layer, g, p in source.features if layer == "transportation"),
         extent,
     )
-    stairs = local_stairways(
-        source.features, extent, bodies, lambda points: terrain_height(vertices, points)
+    height = lambda points: terrain_height(vertices, points)
+    stairs = local_stairways(source.features, extent, bodies, height)
+    landings, joined_edges = local_landings(
+        source.features, stairs, extent, bodies, height
     )
     pieces = [
         (foot, z, stair.material)
@@ -178,13 +181,17 @@ def ground_surfaces(
     stair_tops = {
         i: (z, name) for i, (_, z, name) in enumerate(pieces, start=first_stair)
     }
-    earthworks = [(a, "road") for a in approaches if a.footprint.intersects(extent)] + [
-        (cut, "ground") for cut in bank_cuts(vertices, quads, crossings, extent)
-    ]
+    earthworks = (
+        [(landing, landing.material) for landing in landings]
+        + [(a, "road") for a in approaches if a.footprint.intersects(extent)]
+        + [(cut, "ground") for cut in bank_cuts(vertices, quads, crossings, extent)]
+    )
     graded = {
         i: item for i, item in enumerate(earthworks, start=first_stair + len(pieces))
     }
     stair_limit = shapely.union_all([stair.footprint for stair in stairs]).boundary
+    if not joined_edges.is_empty:
+        stair_limit = stair_limit.difference(joined_edges, grid_size=1e-6)
     names.update({i: i for i in stair_tops.keys() | graded.keys()})
     footprints = {1: bodies}
     footprints.update(

@@ -9,11 +9,19 @@ from ground_surface import at_grade_width, path_material
 
 
 @dataclass(frozen=True)
+class StairPort:
+    point: tuple
+    edge: np.ndarray
+    elevation: float
+
+
+@dataclass(frozen=True)
 class Stairway:
     treads: np.ndarray
     heights: np.ndarray
     footprint: shapely.Geometry
     material: str
+    ports: tuple[StairPort, StairPort]
 
 
 def fit_riser_counts(heights, capacities, count):
@@ -98,7 +106,16 @@ def fit_stairway(line, width, height, material="sidewalk"):
         or outline.area < shapely.area(treads).sum() - 1e-6
     ):
         return None
-    return Stairway(treads, heights, outline, material)
+    ports = tuple(
+        StairPort(tuple(point), np.round(edge, 6), float(height))
+        for point, edge, height in zip(
+            points[[0, -1]],
+            (corners[0, :2], corners[-1, 2:]),
+            heights[[0, -1]],
+            strict=True,
+        )
+    )
+    return Stairway(treads, heights, outline, material, ports)
 
 
 def local_stairways(features, domain, water, height):
