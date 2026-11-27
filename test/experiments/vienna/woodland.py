@@ -165,14 +165,13 @@ def woodland_surface(surfaces):
     )
 
 
-def tree_batches(source, radius, seed, focal_pixels, *, soil=None):
+def tree_batches(source, radius, seed, focal_pixels, root_domain, *, soil=None):
     domain = habitat(source)
     if domain is None or domain.is_empty:
         return
     templates = {}
     plans = {}
     stems = Meshes()
-    root_domain = habitat(source, stems=False)
     terrain, _ = terrain_grid(source, radius)
     sampler = woodland_surface(soil) if soil is not None else None
 

@@ -24,7 +24,6 @@ from ground_detail import (
 )
 from materials import DIFFUSE_TRANSMISSION, GLASS_IOR, METALLIC, SURFACES
 from reference_scene import ReferenceScene
-from woodland import tree_batches
 
 SCREEN = """#version 410 core
 out vec2 ndc;
@@ -201,11 +200,11 @@ def render(ctx, place, config, out):
     ctx.enable(moderngl.DEPTH_TEST)
     draws = [
         upload(ctx, prog, n, v, f, [(0, 0, 0, 0, 1)])
-        for n, v, f in chain(world.surfaces(), world.near_grass(config["seed"]))
+        for n, v, f in chain(
+            world.surfaces(), world.grass_and_understory(config["seed"])
+        )
     ]
-    for _, _, meshes, plants in tree_batches(
-        world.source, 250, config["seed"], world.focal, soil=world.local
-    ):
+    for _, _, meshes, plants in world.trees(config["seed"]):
         draws.extend(upload(ctx, prog, n, v, f, plants) for n, (v, f) in meshes.items())
     draws = [batch for batch in draws if batch is not None]
     shadow = ctx.depth_texture((4096, 4096))

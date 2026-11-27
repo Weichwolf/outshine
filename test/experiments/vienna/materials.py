@@ -11,6 +11,8 @@ SURFACES = {
     "grass": ((0.097, 0.145, 0.043), 0.9),
     "grass blades": ((0.083, 0.165, 0.037), 0.86),
     "grass pale blades": ((0.147, 0.201, 0.058), 0.87),
+    "woodland ferns": ((0.085, 0.195, 0.035), 0.84),
+    "woodland grasses": ((0.127, 0.174, 0.043), 0.89),
     "regional wood": ((0.054, 0.139, 0.041), 0.89),
     "regional water": ((0.028, 0.084, 0.095), 0.09),
     "regional deck": ((0.21, 0.20, 0.18), 0.82),
@@ -34,4 +36,9 @@ SURFACES = {
 }
 
 METALLIC = {"rail head": 1.0}
-DIFFUSE_TRANSMISSION = {"grass blades": 0.34, "grass pale blades": 0.34}
+DIFFUSE_TRANSMISSION = {
+    "grass blades": 0.34,
+    "grass pale blades": 0.34,
+    "woodland ferns": 0.36,
+    "woodland grasses": 0.34,
+}

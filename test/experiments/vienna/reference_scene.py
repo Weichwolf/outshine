@@ -3,7 +3,7 @@
 import json
 import math
 from datetime import datetime
-from functools import partial
+from functools import cached_property, partial
 
 import numpy as np
 import shapely
@@ -23,7 +23,9 @@ from regional import (
 )
 from scene_mesh import assemble
 from source_scene import LocalScene
+from understory import woodland_cover
 from viaducts import local_viaducts
+from woodland import habitat, tree_batches
 
 SUPPORT_MATERIALS = {
     "sidewalk": ("sidewalk", "paving", "unpaved path"),
@@ -176,6 +178,19 @@ class ReferenceScene:
             bounds.append(tile)
         yield "distant terrain", *beyond_region(self.far, self.faces, bounds)
 
-    def near_grass(self, seed):
+    @cached_property
+    def woodland_floor(self):
+        return habitat(self.source, stems=False)
+
+    def grass_and_understory(self, seed):
         if "grass" in self.local:
             yield from blades(self.local["grass"], self.source, self.eye, seed)
+        if "ground" in self.local:
+            yield from woodland_cover(
+                self.local["ground"], self.source, self.woodland_floor, self.eye, seed
+            )
+
+    def trees(self, seed):
+        yield from tree_batches(
+            self.source, 250, seed, self.focal, self.woodland_floor, soil=self.local
+        )
