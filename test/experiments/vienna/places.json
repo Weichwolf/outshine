@@ -1,0 +1,11 @@
+{
+  "source_snapshot": "20260927_080001_pt",
+  "eye_height_m": 1.7,
+  "vertical_fov_deg": 54,
+  "seed": 2083,
+  "utc": "2026-06-21T10:00:00Z",
+  "weather": "clear",
+  "places": [
+    {"id":"Adlerhof","latitude":48.2022899,"longitude":16.3508729,"heading_deg":76,"pitch_deg":0,"support":"street"}
+  ]
+}
