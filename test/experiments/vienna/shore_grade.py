@@ -9,6 +9,7 @@ from ground_surface import polygons
 
 SHORE_REACH_M = 14.0
 CONTACT_TOLERANCE_M = 2e-6
+RETAINING_SETBACK_M = 9.0
 
 
 @dataclass(frozen=True)
@@ -96,12 +97,31 @@ class ShoreGrade:
             local = protection.weight(bank_points[uses], xy[uses], distance[uses])
             weights[uses] += blend * (local - weights[uses])
         influence *= weights
-        heights = ground[:, 2].copy()
+        heights = ground[:, 2].astype(float)
         for i in np.unique(bodies):
             uses = bodies == i
             rows = vertices[uses]
-            level = self.bodies[i].heights(source, ground[rows, :2])
+            body = self.bodies[i]
+            level = body.heights(source, ground[rows, :2])
             heights[rows] += influence[uses] * (level - heights[rows])
+            if body.control is None or body.control.retaining_limits_m is None:
+                continue
+            segments = index.geometries[indices[1, chosen[uses]]]
+            feet = coast_feet(segments, bank_points[uses])
+            coast_xy = shapely.get_coordinates(feet)
+            retained, dry = body.control.retaining_profile(source, coast_xy)
+            gain = (
+                retained
+                * weights[uses]
+                * (1 - smoothstep(np.clip(distance[uses] / RETAINING_SETBACK_M, 0, 1)))
+            )
+            active = gain > 0
+            if not active.any():
+                continue
+            crest = source.height(coast_xy[active] + RETAINING_SETBACK_M * dry[active])
+            crest = np.maximum(crest, body.control.upstream_m - source.datum + 0.3)
+            sites = rows[active]
+            heights[sites] += gain[active] * np.maximum(crest - heights[sites], 0)
         return heights
 
     def deform(self, source, ground):
@@ -122,6 +142,12 @@ class ShoreGrade:
 
 def smoothstep(t):
     return t * t * (3 - 2 * t)
+
+
+def coast_feet(segments, points):
+    return shapely.line_interpolate_point(
+        segments, shapely.line_locate_point(segments, points)
+    )
 
 
 def segment_index(geometries):

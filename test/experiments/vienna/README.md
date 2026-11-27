@@ -146,6 +146,9 @@ relative drops from the KWD 2020 160 m³/s profile along the simplified OpenFree
 between the cut and the canal mouth. The gate face, shore grade and pedestrian clearance
 use this same water model. A stationary overflow sheet joins the crest to the lower
 reach in the reference. `Schemerlbruecke-Downstream` observes the crest from the lower bank.
+The retaining reach uses the mapped water edges for the wall faces. Its inferred crest
+follows Mapterhorn ground 9 m inland. The retained grade blends into the natural bank
+at the ends of the reach and preserves the fitted transport surfaces.
 [Nußdorfer Wehr, 29 May 2018](https://commons.wikimedia.org/wiki/File:Wien_-_Nu%C3%9Fdorfer_Wehr_(1).JPG)
 
 ```sh

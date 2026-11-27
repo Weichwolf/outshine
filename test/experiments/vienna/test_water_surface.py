@@ -5,6 +5,7 @@ import numpy as np
 from bridge_passages import FLOOR_ABOVE_WATER_M, water_clearance
 from reference_scene import support_height
 from river_control import RiverControl, control_surfaces
+from scene_mesh import Meshes, shore_walls
 from shapely.geometry import GeometryCollection, LineString, Point, Polygon, box
 from shore_grade import SHORE_REACH_M, shore_grade
 from water_bed import nearshore_bed
@@ -128,6 +129,41 @@ class WaterSurfaceTests(TestCase):
         self.assertLess(channel[1], channel[2])
         np.testing.assert_array_equal(texel(-0.5, 15), [0, 0, 0])
         self.assertTrue((texel(-0.5, 29) < 0.08).all())
+
+    def test_retained_shore_uses_dry_ground_and_ties_into_the_natural_bank(self):
+        source = SimpleNamespace(
+            lon=16.4,
+            lat=48.2,
+            metres=np.array([74300, 111180]),
+            datum=160,
+            height=lambda xy: np.full(len(xy), 2.5),
+        )
+        control = RiverControl.from_recipe(
+            {
+                "water_class": "river",
+                "water_id": 4,
+                "plateaus_model_m": [161.0, 158.0],
+                "retaining_limits_m": [-10, 12],
+                "section_lon_lat": [[16.3998, 48.2], [16.4002, 48.2]],
+                "downstream_centerline_lon_lat": [[16.4, 48.2], [16.4, 48.19]],
+                "station_km_and_adria_m": [[0.58, 157.9], [1.58, 157.5]],
+            }
+        )
+        water = (WaterBody(box(-8, -35, 8, 35), -2.0, control=control),)
+        extent = box(-30, -25, 30, 25)
+        road = box(8, -3, 14, -1)
+        shore = shore_grade(water, extent, road)
+        sites = np.array([[8, 0, 0], [8, -20, 0], [9, -2, 4]])
+        expected = water[0].heights(source, sites[:, :2])[1]
+        np.testing.assert_allclose(shore.heights(source, sites), [2.5, expected, 4])
+
+        wet = np.array([[[8.0, -0.5, 0], [8.0, 0.0, 0]]])
+        dry = np.array([[[8.0, 0.0, 3.8], [8.0, -0.5, 4.2]]])
+        meshes = Meshes()
+        shore_walls(meshes, "ground", source, shore, wet, dry_banks=dry)
+        wall_points, faces = meshes["retaining wall"]
+        np.testing.assert_allclose(wall_points[:2], dry[0])
+        self.assertEqual(len(faces), 2)
 
     def test_line_fragments_do_not_disable_paved_shore_protection(self):
         source = SimpleNamespace(

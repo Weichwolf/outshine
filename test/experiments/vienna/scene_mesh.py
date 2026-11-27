@@ -148,7 +148,23 @@ def staircase_risers(meshes, stairs):
                 vertical_faces(meshes, "sidewalk", face[None], stair.heights[i + 1])
 
 
-def shore_walls(meshes, material, source, shore, banks):
+def retained_wall_edges(body, source, edges):
+    if body.control is None or body.control.retaining_limits_m is None:
+        return np.zeros(len(edges), dtype=bool)
+    strength, _ = body.control.retaining_profile(source, edges[:, :, :2].mean(axis=1))
+    return strength > 0.02
+
+
+def dry_shore_edges(shore, vertices, faces):
+    triangles = vertices[faces]
+    a, b, c = triangles[:, :, :2].transpose(1, 0, 2)
+    u, v = b - a, c - a
+    up = u[:, 0] * v[:, 1] - u[:, 1] * v[:, 0] > 1e-12
+    sides = triangles[up][:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2, 3)
+    return shore.shoreline_edges(sides)
+
+
+def shore_walls(meshes, material, source, shore, banks, *, dry_banks=None):
     banks = shore.shoreline_edges(banks)
     if not len(banks):
         return
@@ -160,7 +176,22 @@ def shore_walls(meshes, material, source, shore, banks):
         level = body.heights(source, points[:, :2]).reshape(-1, 2)
         top = points.reshape(-1, 2, 3)
         wall = (abs(top[:, :, 2] - level) > 0.005).any(axis=1)
-        vertical_faces(meshes, material, top[wall], level[wall] - 0.005)
+        retained = retained_wall_edges(body, source, top)
+        natural = wall & ~retained
+        vertical_faces(meshes, material, top[natural], level[natural] - 0.005)
+        if dry_banks is None:
+            wet_side = wall & retained
+            vertical_faces(
+                meshes, "retaining wall", top[wet_side], level[wet_side] - 0.005
+            )
+            continue
+        if body.control is None or body.control.retaining_limits_m is None:
+            continue
+        dry = boundary_edges(dry_banks, contact)
+        dry = dry[retained_wall_edges(body, source, dry)]
+        water = body.heights(source, dry.reshape(-1, 3)[:, :2]).reshape(-1, 2)
+        exposed = (dry[:, :, 2] > water + 0.005).any(axis=1)
+        vertical_faces(meshes, "retaining wall", dry[exposed], water[exposed] - 0.005)
 
 
 def compound_ground(vertices, quads, junctions, footprint):
@@ -413,6 +444,11 @@ def ground_surfaces(
     shore = shore_grade(water_plan, extent, protected)
     meshes.shore = shore
     banks = np.empty((0, 2, 3))
+    dry_banks = []
+    retain = any(
+        body.control is not None and body.control.retaining_limits_m is not None
+        for body in shore.bodies
+    )
     surface, indices = compound_ground(vertices, quads, junctions, junction_area)
     for name, points, faces in partition_triangles(
         surface,
@@ -435,6 +471,8 @@ def ground_surfaces(
                 points, faces, earthwork, ground_material, rim
             ):
                 meshes.add(material, graded_vertices, indices)
+                if retain:
+                    dry_banks.append(dry_shore_edges(shore, graded_vertices, indices))
             continue
         if name == "water" or name in stair_tops:
             edges = points[faces][:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2, 3)
@@ -452,7 +490,10 @@ def ground_surfaces(
             terrain = points[used]
             if name == "ground":
                 terrain = shore.deform(source, terrain)
-            meshes.add(name, terrain, inverse.reshape(-1, 3))
+            triangles = inverse.reshape(-1, 3)
+            meshes.add(name, terrain, triangles)
+            if retain:
+                dry_banks.append(dry_shore_edges(shore, terrain, triangles))
     for link in links:
         meshes.add(link.material, link.mesh.vertices, link.mesh.triangles)
         edges, ground_z = link.retaining_sections()
@@ -463,7 +504,14 @@ def ground_surfaces(
     )
     for body, footprint in water:
         meshes.add("water", *body.mesh(source, footprint))
-    shore_walls(meshes, "ground", source, shore, banks)
+    shore_walls(
+        meshes,
+        "ground",
+        source,
+        shore,
+        banks,
+        dry_banks=np.concatenate(dry_banks) if dry_banks else None,
+    )
     draw_tram_rails(meshes, routes, junctions)
     walk_edges = {}
     for link in links:

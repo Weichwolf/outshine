@@ -200,7 +200,7 @@ class ReferenceScene:
             crossings=crossings,
             water_plan=self.water_plan,
         )
-        self.water_bed = nearshore_bed(self.local.shore, domain)
+        self.water_bed = nearshore_bed(self.local.shore, domain, source=self.source)
         self.look = direction(place["heading_deg"], place["pitch_deg"])
         observer = Observer(place["latitude"], place["longitude"])
         utc = datetime.fromisoformat(place.get("utc", config["utc"]))

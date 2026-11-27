@@ -9,6 +9,7 @@
       "section_lon_lat": [[16.3690997, 48.2588264], [16.3694969, 48.2588762]],
       "plateaus_model_m": [161.0, 158.0],
       "overflow_run_m": 1.1,
+      "retaining_limits_m": [-50, 18],
       "profile_source": "https://www.viadonau.org/fileadmin/content/viadonau/02Infrastruktur/Dokumente/2024/KWD2020_web.pdf",
       "reference_flow_m3_s": 160,
       "station_km_and_adria_m": [[0.58, 157.9], [1.1, 157.71], [2.16, 157.23], [6.28, 156.04], [8.24, 155.5], [9.92, 154.83], [11.64, 154.02], [14.5, 152.53], [17.04, 151.82]],

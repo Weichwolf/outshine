@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import shapely
-from shore_grade import smoothstep
+from shore_grade import coast_feet, smoothstep
 
 BED_REACH_M = 10.0
 BED_TEXEL_M = 0.75
@@ -23,7 +23,7 @@ class WaterBed:
         return (*self.origin, 1 / (width * BED_TEXEL_M), 1 / (height * BED_TEXEL_M))
 
 
-def nearshore_bed(shore, extent):
+def nearshore_bed(shore, extent, *, source=None):
     if not shore.contacts:
         return None
     coast = shapely.union_all(shore.contacts)
@@ -44,12 +44,16 @@ def nearshore_bed(shore, extent):
     if not len(rows):
         return None
     portions = index.geometries[segments]
-    foot = shapely.line_interpolate_point(
-        portions, shapely.line_locate_point(portions, points[rows])
-    )
-    natural = shore.protection.weight(
-        foot, shapely.get_coordinates(foot), np.full(len(rows), 2.5)
-    )
+    foot = coast_feet(portions, points[rows])
+    coast_xy = shapely.get_coordinates(foot)
+    natural = shore.protection.weight(foot, coast_xy, np.full(len(rows), 2.5))
+    body_ids = owners[segments]
+    if source is not None:
+        for i, body in enumerate(shore.bodies):
+            if body.control is not None and body.control.retaining_limits_m is not None:
+                uses = body_ids == i
+                wall, _ = body.control.retaining_profile(source, coast_xy[uses])
+                natural[uses] *= 1 - wall
     # The bed slopes and mean two-way optical path are reference parameters.
     slopes = [
         0.5
@@ -57,7 +61,7 @@ def nearshore_bed(shore, extent):
         else (0.42 if body.water_class == "river" else 0.30)
         for body in shore.bodies
     ]
-    depth = distance * np.asarray(slopes)[owners[segments]]
+    depth = distance * np.asarray(slopes)[body_ids]
     transmission = np.exp(-2.5 * depth[:, None] * EXTINCTION_PER_M)
     off_bank = 1 - smoothstep(np.clip((distance - 7.0) / 3.0, 0, 1))
     # Fade the local product to deep-water shading before the regional seam.

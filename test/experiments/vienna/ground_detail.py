@@ -16,6 +16,7 @@ SURFACE_DETAIL = {
     "road": "asphalt",
     "paving": "stone",
     "bridge deck": "concrete",
+    "retaining wall": "concrete",
     "sidewalk": "concrete",
     "stair limestone": "concrete",
     "ground": "soil",

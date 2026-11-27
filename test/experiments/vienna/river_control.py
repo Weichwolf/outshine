@@ -64,6 +64,7 @@ class RiverControl:
     downstream_m: float
     profile: RiverProfile
     overflow_run_m: float = 0.0
+    retaining_limits_m: tuple[float, float] | None = None
 
     @classmethod
     def from_recipe(cls, recipe):
@@ -80,6 +81,15 @@ class RiverControl:
         overflow = float(recipe.get("overflow_run_m", 0.0))
         if not np.isfinite(overflow) or not 0 <= overflow <= upstream - downstream:
             raise ValueError("Expected a bounded horizontal overflow run")
+        limits = recipe.get("retaining_limits_m")
+        if limits is not None:
+            if (
+                len(limits) != 2
+                or not np.isfinite(limits).all()
+                or not limits[0] < 0 < limits[1]
+            ):
+                raise ValueError("Expected a retaining reach spanning the weir crest")
+            limits = tuple(limits)
         return cls(
             (recipe["water_class"], str(recipe["water_id"])),
             section,
@@ -87,6 +97,7 @@ class RiverControl:
             downstream,
             RiverProfile.from_recipe(recipe),
             overflow,
+            limits,
         )
 
     def section_frame(self, source):
@@ -107,6 +118,18 @@ class RiverControl:
         for part in split(footprint, cut).geoms:
             witness = np.asarray(part.representative_point().coords[0])
             yield part, (witness - a) @ normal > 0
+
+    def retaining_profile(self, source, xy):
+        a, b, across, along = self.section_frame(source)
+        lo, hi = self.retaining_limits_m
+        cross = (xy - (a + b) / 2) @ across
+        station = (xy - a) @ along
+        half_width = np.linalg.norm(b - a) / 2 + 4.0
+        end_distance = np.minimum(station - lo, hi - station)
+        taper = np.clip(end_distance / 5.0, 0, 1)
+        weight = taper**2 * (3.0 - 2.0 * taper) * (abs(cross) < half_width)
+        inland = np.where(cross[:, None] < 0, -across, across)
+        return weight, inland
 
 
 def control_surfaces(source, bodies):
