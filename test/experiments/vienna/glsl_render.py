@@ -49,6 +49,8 @@ from water_reflection import (
 REFLECTION_SIZE = (640, 360)
 REGIONAL_SHADOW_SPAN = (4800.0, 18000.0)
 LOCAL_SHADOW_SPAN = (96.0, 1024.0)
+NEAR_SHADOW_WIDTH = 16.0
+NEAR_SHADOW_RESOLUTION = 2048
 
 SCREEN = """#version 410 core
 out vec2 ndc;
@@ -232,7 +234,7 @@ def upload(ctx, program, name, vertices, faces, placements):
     return name, len(placements), vao, tuple(buffers)
 
 
-def shadow_projection(world, span, forward_offset):
+def shadow_projection(world, span, forward_offset, *, resolution=None):
     right = np.cross([0.0, 0.0, 1.0], world.sun)
     if np.linalg.norm(right) < 1e-6:
         right = np.array([1.0, 0.0, 0.0])
@@ -245,6 +247,9 @@ def shadow_projection(world, span, forward_offset):
         [2 * right / width, 2 * up / width, -2 * world.sun / depth]
     )
     light[:3, 3] = -light[:3, :3] @ center
+    if resolution is not None:
+        step = 2.0 / resolution
+        light[:2, 3] = np.rint(light[:2, 3] / step) * step
     return light
 
 
@@ -261,6 +266,44 @@ def shadow_depth(ctx, prog, draws, light, size):
             vao.render(instances=count)
     target.release()
     return texture
+
+
+def render_shadows(ctx, prog, draws, world):
+    regional = shadow_projection(world, REGIONAL_SHADOW_SPAN, 1000)
+    local = shadow_projection(world, LOCAL_SHADOW_SPAN, 12)
+    near = shadow_projection(
+        world,
+        (NEAR_SHADOW_WIDTH, LOCAL_SHADOW_SPAN[1]),
+        3,
+        resolution=NEAR_SHADOW_RESOLUTION,
+    )
+    # The two maps share the sunward plane used to test regional casters.
+    near[2] = local[2]
+    passes = (
+        ("shadowMap", "shadowMatrix", 3, regional, 4096),
+        ("localShadowMap", "localShadowMatrix", 6, local, 2048),
+        ("nearShadowMap", "nearShadowMatrix", 9, near, NEAR_SHADOW_RESOLUTION),
+    )
+    prog["regionalShadowSpan"].value = REGIONAL_SHADOW_SPAN
+    prog["localShadowSpan"].value = LOCAL_SHADOW_SPAN
+    prog["nearShadowWidth"].value = NEAR_SHADOW_WIDTH
+    placeholder = ctx.depth_texture((1, 1))
+    for sampler, matrix, unit, projection, _ in passes:
+        placeholder.use(unit)
+        prog[sampler].value = unit
+        prog[matrix].write(projection.T.astype("f4").tobytes())
+    prog["shadowPass"].value = True
+    query = ctx.query(time=True)
+    with query:
+        textures = [
+            shadow_depth(ctx, prog, draws, matrix.T.astype("f4").tobytes(), size)
+            for _, _, _, matrix, size in passes
+        ]
+    prog["shadowPass"].value = False
+    for (_, _, unit, _, _), texture in zip(passes, textures, strict=True):
+        texture.use(unit)
+    placeholder.release()
+    return textures, query
 
 
 def draw_surfaces(ctx, prog, draws, textures, *, capture=False):
@@ -410,28 +453,7 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
     for _, _, meshes, plants in world.woody_plants(config["seed"]):
         draws.extend(upload(ctx, prog, n, v, f, plants) for n, (v, f) in meshes.items())
     draws = [batch for batch in draws if batch is not None]
-    # Bind complete textures on both units while rendering depth attachments.
-    placeholder = ctx.depth_texture((1, 1))
-    placeholder.use(3)
-    placeholder.use(6)
-    prog["shadowMap"].value = 3
-    prog["localShadowMap"].value = 6
-    regional_light = shadow_projection(world, REGIONAL_SHADOW_SPAN, 1000)
-    local_light = shadow_projection(world, LOCAL_SHADOW_SPAN, 12)
-    regional_light = regional_light.T.astype("f4").tobytes()
-    local_light = local_light.T.astype("f4").tobytes()
-    prog["shadowMatrix"].write(regional_light)
-    prog["localShadowMatrix"].write(local_light)
-    prog["regionalShadowSpan"].value = REGIONAL_SHADOW_SPAN
-    prog["localShadowSpan"].value = LOCAL_SHADOW_SPAN
-    prog["shadowPass"].value = True
-    shadow_time = ctx.query(time=True)
-    with shadow_time:
-        shadow = shadow_depth(ctx, prog, draws, regional_light, 4096)
-        local_shadow = shadow_depth(ctx, prog, draws, local_light, 2048)
-    shadow.use(3)
-    local_shadow.use(6)
-    prog["shadowPass"].value = False
+    shadow_maps, shadow_time = render_shadows(ctx, prog, draws, world)
     textures = {}
     planes = reflection_planes(world)
     reflection, reflection_ms = capture_reflections(
@@ -446,9 +468,8 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
             buffer.release()
     for texture in textures.values():
         texture.release()
-    placeholder.release()
-    shadow.release()
-    local_shadow.release()
+    for shadow in shadow_maps:
+        shadow.release()
     reflection.release()
     bed_map.release()
     save_view(target, out / place["id"], linear=linear)

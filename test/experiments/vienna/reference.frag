@@ -31,10 +31,13 @@ uniform float reflectionRange;
 uniform float reflectionTolerance;
 uniform mat4 shadowMatrix;
 uniform mat4 localShadowMatrix;
+uniform mat4 nearShadowMatrix;
 uniform sampler2DShadow shadowMap;
 uniform sampler2DShadow localShadowMap;
+uniform sampler2DShadow nearShadowMap;
 uniform vec2 regionalShadowSpan;
 uniform vec2 localShadowSpan;
+uniform float nearShadowWidth;
 in vec3 point;
 in vec3 smoothNormal;
 flat in vec2 rotation;
@@ -95,13 +98,21 @@ vec3 filteredSky(vec3 direction, float roughness) {
   return mix(low, high, level - lower);
 }
 
+float shadowWeight(vec3 uv) {
+  float edge = 2. * max(abs(uv.x - .5), abs(uv.y - .5));
+  return uv.z > 0. && uv.z < 1. ? 1. - smoothstep(.84, 1., edge) : 0.;
+}
+
+float localDepthVisibility(sampler2DShadow depthMap, vec3 uv, vec2 span, float slope) {
+  float texel = span.x / float(textureSize(depthMap, 0).x);
+  float bias = texel * (.5 + .8 * slope) / span.y;
+  return texture(depthMap, vec3(uv.xy, uv.z - bias));
+}
+
 float sunVisibility(vec3 position, vec3 normal) {
   vec4 worldPoint = vec4(position, 1.);
   vec3 localUV = (localShadowMatrix * worldPoint).xyz * .5 + .5;
-  float edge = 2. * max(abs(localUV.x - .5), abs(localUV.y - .5));
-  float localWeight = 0.;
-  if (localUV.z > 0. && localUV.z < 1.)
-    localWeight = 1. - smoothstep(.84, 1., edge);
+  float localWeight = shadowWeight(localUV);
   float lightAngle = max(0., dot(normal, sun));
   float slope = sqrt(max(0., 1. - lightAngle * lightAngle)) / max(lightAngle, .10);
   vec3 regionalUV = (shadowMatrix * worldPoint).xyz * .5 + .5;
@@ -121,9 +132,15 @@ float sunVisibility(vec3 position, vec3 normal) {
   }
   if (localWeight == 0.)
     return regionalVisibility;
-  float texel = localShadowSpan.x / float(textureSize(localShadowMap, 0).x);
-  float bias = texel * (.5 + .8 * slope) / localShadowSpan.y;
-  float localVisibility = texture(localShadowMap, vec3(localUV.xy, localUV.z - bias));
+  vec3 nearUV = (nearShadowMatrix * worldPoint).xyz * .5 + .5;
+  float nearWeight = shadowWeight(nearUV);
+  float localVisibility = nearWeight < 1.
+    ? localDepthVisibility(localShadowMap, localUV, localShadowSpan, slope) : 1.;
+  if (nearWeight > 0.) {
+    vec2 nearSpan = vec2(nearShadowWidth, localShadowSpan.y);
+    float nearVisibility = localDepthVisibility(nearShadowMap, nearUV, nearSpan, slope);
+    localVisibility = mix(localVisibility, nearVisibility, nearWeight);
+  }
   return mix(regionalVisibility, localVisibility * outsideVisibility, localWeight);
 }
 

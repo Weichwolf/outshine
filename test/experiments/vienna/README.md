@@ -29,11 +29,12 @@ The volumes follow the generated passages and join around neighbouring portals.
 Shading inside them includes world visibility and diffuse bounce. The render report
 records the bake separately from the warm PNG interval.
 
-Standalone GLSL uses a 96 m local shadow map over 2048 texels per axis. It blends
-into the 4.8 km regional map at the local footprint edge. The regional depth also
-retains shadows from sunward casters beyond the local map's depth range. Near the
-camera, finer depth resolves leaf shadows and root contact. The GLSL command prints
-the combined GPU time for both depth passes.
+Standalone GLSL uses 16 m and 96 m camera-centred shadow footprints with 2048 texels
+per axis. They resolve close sills, leaf shadows and root contact. Visibility blends
+into the coarser maps at their footprint edges. The 16 m footprint moves in whole
+shadow texels. Both share a depth interval, and the
+4.8 km regional map also retains sunward casters beyond it. The GLSL command prints
+the combined GPU time for the depth passes.
 
 ## Matched sky radiance
 
