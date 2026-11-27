@@ -11,6 +11,7 @@ from outshine_ref.vegetation import PlantPlan
 from outshine_ref.vegetation.axis_surface import axis_mesh
 from outshine_ref.vegetation.ground_cover import GroundCoverPlan
 from scene_mesh import Meshes, terrain_grid, terrain_height
+from woodland_stem import rooted_stem
 
 
 def habitat(source, *, stems=True):
@@ -58,10 +59,12 @@ def roots(source, domain, radius, seed):
             yield xy[keep], sites["marks"][keep]
 
 
-def geometry(plan, step):
+def geometry(plan, step, *, has_stem):
     rows = plan.tables(sum(plan.axis_counts), sum(plan.leaf_counts))
     meshes = Meshes()
     for i in range(len(rows["axis_ids"])):
+        if not has_stem and rows["axis_parent_ids"][i] == -1:
+            continue
         part = axis_mesh(
             rows["axis_lengths"][i], rows["axis_bends"][i], *rows["axis_radii"][i], 4, 6
         )
@@ -101,41 +104,13 @@ def geometry(plan, step):
     return meshes
 
 
-def surface_roots(meshes, domain, terrain, xy, angle, stem_radius):
-    stations = np.linspace(0.0, 1.0, 9)
-    section = np.linspace(0, np.pi, 9)
-    widths = stem_radius * (0.74 * (1.0 - stations) ** 1.4 + 0.04)
-    heights = stem_radius * (
-        0.96 * (1.0 - stations) ** 2.0 + 0.08 * np.sin(np.pi * stations)
-    )
-    ridges = (np.sin(section)[None, :] * heights[:, None] - 0.012).ravel()
-    sides = len(section)
-    cells = np.arange(len(stations) * sides).reshape(-1, sides)[:-1, :-1]
-    faces = (cells[..., None] + [0, 1, sides, 1, sides + 1, sides]).reshape(-1, 3)
-    for i, reach in enumerate((5.0, 6.6, 3.5, 4.3, 4.5)):
-        bearing = angle + i * (2 * np.pi / 5) + 0.22 * np.sin(angle + i)
-        direction = np.array([np.cos(bearing), np.sin(bearing)])
-        across = np.array([-direction[1], direction[0]])
-        curve = 0.72 * np.sin(bearing + i + 0.6) * np.sin(np.pi * stations)
-        lateral = np.cos(section)[None, :] * widths[:, None]
-        lateral += stem_radius * curve[:, None]
-        for fraction in (1.0, 0.72, 0.48):
-            line = xy + stations[:, None] * reach * stem_radius * fraction * direction
-            points = (line[:, None, :] + lateral[:, :, None] * across).reshape(-1, 2)
-            outline = shapely.MultiPoint(points).convex_hull
-            if domain.covers(outline):
-                z = terrain_height(terrain, points) + ridges
-                meshes.add("bark", np.column_stack((points, z)), faces)
-                break
-
-
 def tree_batches(source, radius, seed, focal_pixels):
     domain = habitat(source)
     if domain is None or domain.is_empty:
         return
     templates = {}
     plans = {}
-    root_mesh = Meshes()
+    stems = Meshes()
     root_domain = habitat(source, stems=False)
     terrain, _ = terrain_grid(source, radius)
 
@@ -158,19 +133,23 @@ def tree_batches(source, radius, seed, focal_pixels):
             width_px = plan.blades[0].width * scale * focal_pixels / max(1, distance)
             group = 1 if width_px >= 1 else (4 if width_px >= 0.5 else 16)
             angle = rotation * 2 * np.pi
-            if distance < 32:
+            near_stem = distance < 32
+            if near_stem:
                 z = terrain_height(terrain, xy[None])[0]
-                surface_roots(
-                    root_mesh,
+                stem = rooted_stem(
+                    plan,
                     root_domain,
                     terrain,
-                    xy,
+                    np.array([*xy, z - 0.08]),
                     angle,
-                    plan.levels[0].base_radius * scale,
+                    scale,
+                    oak=species == "oak",
                 )
-            key = species, group
+                stems.add("bark", stem["vertices"], stem["faces"])
+            key = species, group, near_stem
             templates.setdefault(key, []).append((*xy, z - 0.08, angle, scale))
-    for (species, group), placements in templates.items():
-        yield species, group, geometry(plans[species], group), np.asarray(placements)
-    if root_mesh:
-        yield "surface roots", None, root_mesh, np.array([[0, 0, 0, 0, 1]])
+    for (species, group, near_stem), placements in templates.items():
+        meshes = geometry(plans[species], group, has_stem=not near_stem)
+        yield species, group, meshes, np.asarray(placements)
+    if stems:
+        yield "rooted stems", None, stems, np.array([[0, 0, 0, 0, 1]])

@@ -53,7 +53,12 @@ for unmodelled interiors.
 
 The Adlerhof photo guides the plaster and rectangular paving. The Dechantlacke photo
 guides the soil, bark and leaf palette. The renderer infers material for paths without
-surface tags and generates the exposed root geometry. [Adlerhof, 21 August 2008](https://presse.wien.gv.at/bilder/2008/08/21/adlerhof-innenhof) · [Lobau near Dechantlacke, 9 August 2022](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg)
+surface tags. [Adlerhof, 21 August 2008](https://presse.wien.gv.at/bilder/2008/08/21/adlerhof-innenhof) · [Lobau near Dechantlacke, 9 August 2022](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg)
+
+Within 32 m of the camera anchor, each trunk uses a continuous mesh with a terrain-following
+root flare and an irregular section. Its lower curve rejoins the authored stem before
+the first branch attachment. The same tree retains its shape across the offset views.
+[Weber and Penn, Creation and Rendering of Realistic Trees](https://doi.org/10.1145/218380.218427)
 
 ## Reference geometry
 
