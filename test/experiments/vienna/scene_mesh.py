@@ -15,6 +15,7 @@ from bridges import draw_water_crossings, plan_water_crossings
 from building_foundations import BuildingStamps, building_foundations
 from building_passages import building_passages, vault_panels
 from deck_walk_links import DeckWalkLink, deck_walk_links
+from facade import FacadeView, draw_facade
 from ground_surface import (
     ROUTE_MATERIALS,
     at_grade_routes,
@@ -25,8 +26,6 @@ from ground_surface import (
     polygons,
     terrain_triangles,
 )
-from outshine_ref.buildings.facades import FacadeRepeat
-from outshine_ref.buildings.recessed_facades import RecessPlan, recess_surface
 from outshine_ref.buildings.structures import suppressed
 from passage_trim import draw_passage_trim
 from shapely.geometry import Point, box
@@ -62,7 +61,9 @@ def cap(meshes, name, polygon, elevation, *, underside=False):
     meshes.add(name, np.column_stack((xy, z)), faces[:, ::-1] if underside else faces)
 
 
-def building(meshes, polygon, properties, source, foundation, passages, grade):
+def building(
+    meshes, polygon, properties, source, foundation, passages, grade, facade_view
+):
     floor = properties.get("render_min_height", 0)
     roof = properties.get("render_height", 0)
     if roof <= floor or suppressed(properties):
@@ -78,10 +79,20 @@ def building(meshes, polygon, properties, source, foundation, passages, grade):
         corridor = shapely.union_all([item.corridor for item in passages])
         passage_ceilings(meshes, polygon, passages, corridor, soffit, grade)
         for pier in polygons(polygon.difference(corridor)):
-            building_walls(meshes, pier, base + floor, soffit, foundation, bays=False)
-        building_walls(meshes, polygon, soffit, base + roof)
+            building_walls(
+                meshes, pier, base + floor, soffit, facade_view, foundation, bays=False
+            )
+        building_walls(meshes, polygon, soffit, base + roof, facade_view)
     else:
-        building_walls(meshes, polygon, base + floor, base + roof, foundation)
+        building_walls(
+            meshes,
+            polygon,
+            base + floor,
+            base + roof,
+            facade_view,
+            foundation,
+            grounded=floor == 0,
+        )
 
 
 def passage_ceilings(meshes, polygon, passages, corridor, storey_top, grade):
@@ -121,7 +132,9 @@ def passage_ceiling(meshes, panel, boundary, storey_top, elevation):
         vertical_faces(meshes, "wall", edges, elevation(edges[:, :, :2]))
 
 
-def building_walls(meshes, polygon, bottom, top, foundation=None, *, bays=True):
+def building_walls(
+    meshes, polygon, bottom, top, view, foundation=None, *, grounded=False, bays=True
+):
     for ring in [polygon.exterior, *polygon.interiors]:
         corners = np.asarray(ring.coords)
         if foundation:
@@ -129,36 +142,7 @@ def building_walls(meshes, polygon, bottom, top, foundation=None, *, bays=True):
             edges = np.stack((support[:-1], support[1:]), axis=1)
             vertical_faces(meshes, "foundation", edges, foundation.sole_m)
         for a, b in itertools.pairwise(corners):
-            span = b - a
-            length = np.linalg.norm(span)
-            if length < 0.01:
-                continue
-            height = top - bottom
-            if bays and np.linalg.norm((a + b) / 2) < 85 and length > 2 and height > 2:
-                repeat = FacadeRepeat(
-                    length,
-                    height,
-                    max(1, round(length / 3.4)),
-                    max(1, round(height / 3.2)),
-                    0.47,
-                    0.57,
-                )
-                surface = recess_surface(RecessPlan(repeat))
-                u, v, n = surface["vertices"].T
-                axis = span / length
-                xy = a + u[:, None] * axis + n[:, None] * [axis[1], -axis[0]]
-                vertices = np.column_stack((xy, bottom + v))
-                for role, name in enumerate(("wall", "glass", "frame")):
-                    faces = surface["faces"][surface["roles"] == role]
-                    used, inverse = np.unique(faces, return_inverse=True)
-                    meshes.add(name, vertices[used], inverse.reshape(-1, 3))
-            else:
-                xy = np.array([a, b, b, a])
-                meshes.add(
-                    "wall",
-                    np.column_stack((xy, [bottom, bottom, top, top])),
-                    [(0, 1, 2), (0, 2, 3)],
-                )
+            draw_facade(meshes, a, b, bottom, top, view, grounded=grounded, bays=bays)
 
 
 def terrain_grid(source, radius):
@@ -606,8 +590,16 @@ def ground_surfaces(
 
 
 def assemble(
-    source, radius, viaducts=(), approaches=(), *, crossings=None, water_plan=None
+    source,
+    radius,
+    viaducts=(),
+    approaches=(),
+    *,
+    crossings=None,
+    water_plan=None,
+    facade_view=None,
 ):
+    facade_view = facade_view or FacadeView()
     meshes = Meshes()
     extent = box(-radius, -radius, radius, radius)
     vertices, quads = terrain_grid(source, radius)
@@ -703,6 +695,7 @@ def assemble(
             foundation,
             passages.get(polygon, ()),
             grade,
+            facade_view,
         )
     for name, geom, prop in source.features:
         if name == "transportation" and prop.get("brunnel") != "tunnel":

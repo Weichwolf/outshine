@@ -42,6 +42,11 @@ show the adjoining arches in both directions. Adlerhof-Near keeps the oblique
 paving and facade view. The Dechantlacke path views look past the same exposed
 roots. Select these extra views explicitly to keep the twelve-view run in order.
 
+KarlMarxHof checks that window rows read across the courtyard. Nevillebruecke
+checks the same window grid as the streetscape recedes. Near openings have
+recesses, frames and projecting sills. Smaller visible openings keep the same
+spacing in a flat wall mesh.
+
 ```sh
 blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/render.py -- \
   --place Adlerhof --place Adlerhof-Near --place Dechantlacke-Path --place Dechantlacke-Path-Near \

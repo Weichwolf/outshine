@@ -13,6 +13,7 @@ from bank_vegetation import bank_plants
 from bridge_approach import APPROACH_SEARCH, bridge_approaches
 from bridges import plan_water_crossings
 from catalog import HERE, ROOT
+from facade import FacadeView
 from grass_cover import blades
 from horizon import terrain_horizon
 from meadow import meadow_cover
@@ -199,6 +200,11 @@ class ReferenceScene:
         self.water_plan = reference_water(
             self.source, self.transport, domain, 250, config
         )
+        xy = place.get("offset_east_north_m", (0.0, 0.0))
+        if "absolute_eye_m" in place:
+            view_z = place["absolute_eye_m"] - self.source.datum
+        else:
+            view_z = self.source.height(np.array([xy]))[0] + config["eye_height_m"]
         self.local = assemble(
             self.source,
             250,
@@ -206,16 +212,16 @@ class ReferenceScene:
             approaches,
             crossings=crossings,
             water_plan=self.water_plan,
+            facade_view=FacadeView(tuple(xy), self.focal, view_z),
         )
         self.water_bed = nearshore_bed(self.local.shore, domain, source=self.source)
         self.look = direction(place["heading_deg"], place["pitch_deg"])
         observer = Observer(place["latitude"], place["longitude"])
         utc = datetime.fromisoformat(place.get("utc", config["utc"]))
         self.sun = direction(azimuth(observer, utc), elevation(observer, utc))
-        xy = place.get("offset_east_north_m", (0.0, 0.0))
         if "absolute_eye_m" in place:
             self.support = "absolute station"
-            z = place["absolute_eye_m"] - self.source.datum
+            z = view_z
         else:
             names = SUPPORT_MATERIALS.get(place["support"], (place["support"],))
             hits = [
