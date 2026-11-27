@@ -62,6 +62,24 @@ the same silhouette and attachments beyond 32 m. Nearby root buttresses follow t
 and contract at path and water boundaries. The offset views share the same tile-seeded trees.
 [Weber and Penn, Creation and Rendering of Realistic Trees](https://doi.org/10.1145/218380.218427)
 
+## Photographic targets at eye level
+
+The street, water and woodland references use the pinned Vienna catalog at 1.70 m.
+The photo dates and locations identify the construction, surface scale and light
+relationships to compare. The photographs and generated views use different camera poses.
+The first review used 1280×720 EEVEE on Iris Xe Vulkan at `f65afb793`.
+
+| View | Target from the site photograph | Gap in the generated view |
+|---|---|---|
+| Adlerhof | Close-set stone blocks lead through a deep sequence of plaster arches. A short stair links the courtyard levels. The bright exit and shaded recess remain legible together. [Hans Strunz, 21 August 2008](https://presse.wien.gv.at/bilder/2008/08/21/adlerhof-innenhof) | The stone joints and shallow window recesses read at walking distance. The exterior shell has a repeated flat rhythm. The passage, stairs and layered entrance are missing from this view. [#2055](https://github.com/Weichwolf/outshine/issues/2055) |
+| Schemerlbruecke-Downstream | Retaining faces and the bridge enclose the channel. The drop interrupts the reflectivity of the upper reach and aerated water brightens the lower pool. [C. Stadler/Bwag, 29 May 2018](https://commons.wikimedia.org/wiki/File:Wien_-_Nu%C3%9Fdorfer_Wehr_(1).JPG) | The mapped crest, lower pool and reflected structure read from the east bank. Angular earthworks and the smooth lower pool leave less separation between spill and calm water than in the photograph. [#1966](https://github.com/Weichwolf/outshine/issues/1966) |
+| Dechantlacke-Bank | Leaves at several heights interrupt the gaps between oak-sized trunks. Small sunlit patches break up trunks and woodland floor. [Leonhard Lenz, 9 August 2022](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg) | The shore shows rooted shrubs, distinct stems and a reflected second layer of crowns. The opposite bank and canopy gaps remain more open than the photographed interior stand. [#1961](https://github.com/Weichwolf/outshine/issues/1961) · [#2063](https://github.com/Weichwolf/outshine/issues/2063) |
+
+Use the same fitted surfaces and material recipes at neighboring viewpoints. Compare
+plaster and setts in direct sun and shade, the spill and calm surface under one sky,
+and lit crown edges beside shaded undergrowth. In shade, retain readable surface texture,
+local contrast and recognizable material colours.
+
 ## Reference geometry
 
 The initial integration covers the local DEM, mapped building shells, near recessed facade cells
