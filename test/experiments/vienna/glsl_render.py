@@ -4,6 +4,7 @@ import argparse
 import json
 import re
 import sys
+from itertools import chain
 from pathlib import Path
 from time import perf_counter
 
@@ -21,7 +22,7 @@ from ground_detail import (
     SURFACE_DETAIL,
     ground_detail,
 )
-from materials import GLASS_IOR, METALLIC, SURFACES
+from materials import DIFFUSE_TRANSMISSION, GLASS_IOR, METALLIC, SURFACES
 from reference_scene import ReferenceScene
 from woodland import tree_batches
 
@@ -199,7 +200,8 @@ def render(ctx, place, config, out):
     prog["eyeKm"].value = 6360 + (world.eye[2] + world.source.datum) * 0.001
     ctx.enable(moderngl.DEPTH_TEST)
     draws = [
-        upload(ctx, prog, n, v, f, [(0, 0, 0, 0, 1)]) for n, v, f in world.surfaces()
+        upload(ctx, prog, n, v, f, [(0, 0, 0, 0, 1)])
+        for n, v, f in chain(world.surfaces(), world.near_grass(config["seed"]))
     ]
     for _, _, meshes, plants in tree_batches(
         world.source, 250, config["seed"], world.focal
@@ -232,6 +234,7 @@ def render(ctx, place, config, out):
         rgb, rough = SURFACES[name]
         prog["surface"].value = (*rgb, rough)
         prog["metalness"].value = METALLIC.get(name, 0.0)
+        prog["diffuseTransmission"].value = DIFFUSE_TRANSMISSION.get(name, 0.0)
         prog["waterSurface"].value = name in ("water", "regional water")
         prog["glassIor"].value = GLASS_IOR if name == "glass" else 1.0
         detail = SURFACE_DETAIL.get(name)

@@ -1,6 +1,6 @@
-# Linear reflectance, perceptual roughness.
 GLASS_IOR = 1.52
 
+# Linear reflectance, perceptual roughness.
 SURFACES = {
     "bridge deck": ((0.23, 0.22, 0.20), 0.82),
     "bridge metal": ((0.085, 0.13, 0.115), 0.46),
@@ -9,6 +9,8 @@ SURFACES = {
     "foliage": ((0.095, 0.205, 0.044), 0.52),
     "regional soil": ((0.19, 0.16, 0.105), 0.95),
     "grass": ((0.097, 0.145, 0.043), 0.9),
+    "grass blades": ((0.083, 0.165, 0.037), 0.86),
+    "grass pale blades": ((0.147, 0.201, 0.058), 0.87),
     "regional wood": ((0.054, 0.139, 0.041), 0.89),
     "regional water": ((0.028, 0.084, 0.095), 0.09),
     "regional deck": ((0.21, 0.20, 0.18), 0.82),
@@ -32,3 +34,4 @@ SURFACES = {
 }
 
 METALLIC = {"rail head": 1.0}
+DIFFUSE_TRANSMISSION = {"grass blades": 0.34, "grass pale blades": 0.34}

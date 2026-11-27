@@ -8,10 +8,9 @@ from importlib.resources import files
 import numpy as np
 import shapely
 from ground_surface import at_grade_width, route_area
-from outshine_ref.places.sources import tile_geography
 from outshine_ref.vegetation import PlantPlan
 from outshine_ref.vegetation.axis_surface import axis_mesh
-from outshine_ref.vegetation.ground_cover import GroundCoverPlan
+from plant_sites import tile_sites
 from scene_mesh import Meshes, terrain_grid, terrain_height
 from woodland_stem import rooted_stem, template_stem
 
@@ -74,28 +73,12 @@ def habitat(source, *, stems=True):
 
 
 def roots(source, domain, radius, seed):
-    camera = np.array([source.lon, source.lat])
-    for receipt in source.receipts:
-        if receipt["kind"] != "vector":
-            continue
-        tile = receipt["tile"]
-        lat, lon = tile_geography([[0, 1], [1, 0]], 1, tile)
-        sw, ne = np.column_stack((lon, lat))
-        meters = np.array([111319.49 * np.cos(np.deg2rad(lat.mean())), 111132.0])
-        lo = np.maximum(sw, camera - radius / source.metres)
-        hi = np.minimum(ne, camera + radius / source.metres)
-        if np.any(hi <= lo):
-            continue
-        plan = GroundCoverPlan(
-            seed ^ (tile[1] << 24) ^ tile[2], density_m2=0.012, cell_m=16
-        )
-        sites = plan.sites((lo - sw) * meters, (hi - sw) * meters)
-        xy = (sw - camera + sites["xy"] / meters) * source.metres
-        keep = shapely.contains_xy(domain, *xy.T) & (
-            np.linalg.norm(xy, axis=1) < radius
-        )
+    for xy, marks in tile_sites(
+        source, np.zeros(2), radius, seed, density=0.012, cell_size=16
+    ):
+        keep = shapely.contains_xy(domain, *xy.T)
         if keep.any():
-            yield xy[keep], sites["marks"][keep]
+            yield xy[keep], marks[keep]
 
 
 def geometry(plan, step, *, has_stem, oak):
