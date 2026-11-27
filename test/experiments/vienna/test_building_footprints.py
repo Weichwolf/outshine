@@ -4,11 +4,49 @@ from types import SimpleNamespace
 import numpy as np
 import shapely
 from building_footprints import building_footprints
+from outshine_ref.places.camera import axes, ecef
 from regional_detail import building_shells
 from shapely.geometry import mapping
 
 
 class BuildingFootprintTest(unittest.TestCase):
+    def test_skyline_keeps_the_tall_footprint_in_the_terrain_enu_frame(self):
+        source = SimpleNamespace(
+            lon=16.24, lat=48.18, datum=400, metres=np.array([74000.0, 111200.0])
+        )
+        dem = SimpleNamespace(
+            sample_with_zoom=lambda lat, lon, **kw: (np.full(len(lat), 170.0), None)
+        )
+        tile = {
+            "building": {
+                "extent": 100,
+                "features": [
+                    {
+                        "geometry": mapping(shapely.box(*bounds)),
+                        "properties": {"render_height": height},
+                    }
+                    for bounds, height in (
+                        ((10, 20, 20, 30), 80),
+                        ((30, 20, 40, 30), 12),
+                    )
+                ],
+            }
+        }
+        nw, se = np.array([12000.0, 600.0]), np.array([13000.0, -400.0])
+        roof, wall = building_shells(tile, nw, se, source, dem, 250, 700, distant=True)
+        self.assertEqual(
+            (roof[0], len(roof[2]), wall[0], len(wall[2])),
+            ("regional roofs", 2, "regional walls", 4),
+        )
+        xy = nw + np.array([[10, 20], [20, 20], [10, 30], [20, 30]]) / 100 * (se - nw)
+        lon, lat = (xy / source.metres + [source.lon, source.lat]).T
+        expected = (
+            ecef(lat, lon, 250.0) - ecef(source.lat, source.lon, source.datum)
+        ) @ axes(source.lat, source.lon).T
+        np.testing.assert_allclose(
+            np.unique(roof[1], axis=0), np.unique(expected, axis=0)
+        )
+
     def test_touching_buildings_retain_their_individual_boundaries(self):
         a = shapely.box(0, 0, 4, 4)
         b = shapely.box(4, 0, 8, 4)

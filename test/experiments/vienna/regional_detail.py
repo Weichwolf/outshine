@@ -5,7 +5,10 @@ import shapely
 from building_colours import facade_colours, wall_material
 from building_footprints import building_footprints
 from outshine_ref.buildings.structures import suppressed
+from outshine_ref.places.camera import axes, ecef
 from shapely.geometry import box, shape
+
+SKYLINE_MIN_PIXEL_HEIGHT = 2.0
 
 
 def metric_polygons(group, nw, se, key):
@@ -25,16 +28,29 @@ def metric_polygons(group, nw, se, key):
     return geoms, np.asarray(values)
 
 
-def building_shells(data, nw, se, source, dem, radius, focal):
+def building_shells(data, nw, se, source, dem, radius, focal, *, distant=False):
     group = data.get("building", {})
+    tile = box(nw[0], se[1], se[0], nw[1])
+    minimum_height = (
+        SKYLINE_MIN_PIXEL_HEIGHT * tile.distance(shapely.Point(0, 0)) / focal
+        if distant
+        else 0
+    )
 
     def interval(p):
         high = p.get("render_height", 0)
         low = p.get("render_min_height", 0)
-        return (low, high) if high > low and not suppressed(p) else None
+        return (
+            (low, high)
+            if high > low and high >= minimum_height and not suppressed(p)
+            else None
+        )
 
     geoms, properties = metric_polygons(
-        group, nw, se, lambda p: p if interval(p) or p.get("colour") else None
+        group,
+        nw,
+        se,
+        lambda p: p if interval(p) or (not distant and p.get("colour")) else None,
     )
     geoms, owners = building_footprints(geoms)
     if not len(geoms):
@@ -43,6 +59,9 @@ def building_shells(data, nw, se, source, dem, radius, focal):
     colours = np.asarray(facade_colours(geoms, properties), dtype=object)
     heights = np.asarray([interval(p) or (0.0, 0.0) for p in properties])
     renderable = heights[:, 1] > heights[:, 0]
+    if distant:
+        distance = shapely.distance(geoms, shapely.Point(0, 0))
+        renderable &= heights[:, 1] * focal >= SKYLINE_MIN_PIXEL_HEIGHT * distance
     geoms, heights, colours = (
         geoms[renderable],
         heights[renderable],
@@ -51,9 +70,7 @@ def building_shells(data, nw, se, source, dem, radius, focal):
     if not len(geoms):
         return []
     # Tile buffers contain duplicate source footprints. Each tile owns its interior.
-    domain = box(nw[0], se[1], se[0], nw[1]).difference(
-        box(-radius, -radius, radius, radius)
-    )
+    domain = tile.difference(box(-radius, -radius, radius, radius))
     partial = ~shapely.covered_by(geoms, domain)
     clipped = geoms.copy()
     clipped[partial] = shapely.intersection(geoms[partial], domain)
@@ -77,7 +94,10 @@ def building_shells(data, nw, se, source, dem, radius, focal):
             xy[missing] / source.metres + [source.lon, source.lat]
         ).T
         base[missing] = dem.sample(fallback_lat, fallback_lon)
-    base -= source.datum + np.sum(xy * xy, axis=1) / (2 * 6371000.0)
+    if distant:
+        base -= source.datum
+    else:
+        base -= source.datum + np.sum(xy * xy, axis=1) / (2 * 6371000.0)
     low = base[remap] + heights[index, 0]
     high = base[remap] + heights[index, 1]
     # Batches preserve courtyards, recessed corners and actual roof silhouettes.
@@ -110,6 +130,14 @@ def building_shells(data, nw, se, source, dem, radius, focal):
     for name in np.unique(edge_material):
         vertices = walls[edge_material == name].reshape(-1, 3)
         products.append((name, vertices, np.arange(len(vertices)).reshape(-1, 4)))
+    if distant:
+        anchor = ecef(source.lat, source.lon, source.datum)
+        enu = axes(source.lat, source.lon).T
+        for i, (name, vertices, faces) in enumerate(products):
+            geo = vertices[:, :2] / source.metres + [source.lon, source.lat]
+            xyz = ecef(geo[:, 1], geo[:, 0], vertices[:, 2] + source.datum)
+            products[i] = name, (xyz - anchor) @ enu, faces
+        return products
     windows = visible_windows(
         a,
         b,
