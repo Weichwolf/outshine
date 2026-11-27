@@ -7,6 +7,20 @@
   "weather": "clear",
   "comparison_views": [
     {
+      "id": "Adlerhof-Courtyard",
+      "origin": "Adlerhof",
+      "offset_east_north_m": [15.6, 20.1],
+      "heading_deg": 351,
+      "pitch_deg": -0.5
+    },
+    {
+      "id": "Adlerhof-Reverse",
+      "origin": "Adlerhof",
+      "offset_east_north_m": [15.5, 21.2],
+      "heading_deg": 170,
+      "pitch_deg": -1
+    },
+    {
       "id": "Adlerhof-Near",
       "origin": "Adlerhof",
       "offset_east_north_m": [3.0, -0.5],
@@ -86,8 +100,9 @@
       "id": "Adlerhof",
       "latitude": 48.2022899,
       "longitude": 16.3508729,
-      "heading_deg": 76,
-      "pitch_deg": 0,
+      "offset_east_north_m": [18.7, -1.7],
+      "heading_deg": 352,
+      "pitch_deg": -0.5,
       "support": "street"
     },
     {

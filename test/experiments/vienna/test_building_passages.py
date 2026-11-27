@@ -1,0 +1,78 @@
+import unittest
+
+import numpy as np
+import shapely
+from building_passages import building_passages
+from reference_scene import support_height
+from scene_mesh import assemble
+
+FOOTWAY = {"class": "path", "subclass": "footway", "surface": "paving_stones"}
+TUNNEL = FOOTWAY | {"brunnel": "tunnel", "layer": -1}
+HOUSE = {"render_height": 12, "render_min_height": 0}
+
+
+def line(*points):
+    return shapely.LineString(points)
+
+
+class Survey:
+    def __init__(self, features):
+        self.features = features
+
+    def height(self, points):
+        return np.asarray(points)[:, 1] * 0.04
+
+
+class BuildingPassageTest(unittest.TestCase):
+    def setUp(self):
+        self.block = shapely.box(-4, -5, 4, 5)
+        self.tunnel = line((0, -5), (0, 5))
+        self.walks = [
+            (line((0, -9), (0, -5)), FOOTWAY),
+            (line((0, 5), (0, 9)), FOOTWAY),
+        ]
+
+    def test_covered_walk_connects_at_grade_approaches(self):
+        features = [(self.block, HOUSE), *self.walks, (self.tunnel, TUNNEL)]
+        source = Survey(
+            [
+                ("building" if props == HOUSE else "transportation", geom, props)
+                for geom, props in features
+            ]
+        )
+        meshes = assemble(source, 16)
+        for y in range(-8, 9):
+            point = (0.0, y + 0.13)
+            pavement = support_height(meshes["paving"], point)
+            self.assertGreater(len(pavement), 0, point)
+            if abs(point[1]) < 5:
+                soffit = support_height(meshes["wall"], point)
+                self.assertGreater(len(soffit), 0, point)
+                self.assertGreater(max(soffit) - max(pavement), 2.9)
+                self.assertLess(max(soffit) - max(pavement), 3.5)
+                spring = max(support_height(meshes["wall"], (1.15, point[1])))
+                self.assertLess(spring, max(soffit) - 0.4)
+                self.assertGreater(spring, max(pavement) + 2)
+
+        points, faces = meshes["wall"]
+        walls = np.asarray(points)[faces]
+        at_eye = walls[:, :, 2].max(axis=1) > 1.7
+        at_eye &= walls[:, :, 2].min(axis=1) < 1.7
+        mask = np.ptp(walls[:, :, 1], axis=1) < 1e-7
+        blocked = (walls[:, :, 0].min(axis=1) < 0) & (walls[:, :, 0].max(axis=1) > 0)
+        self.assertFalse((at_eye & mask & blocked).any())
+
+    def test_tunnels_without_two_exposed_pedestrian_approaches_stay_buried(self):
+        extent = shapely.box(-30, -30, 30, 30)
+        independent = shapely.affinity.translate(self.tunnel, xoff=12)
+        under_second_block = shapely.box(-4, 4, 4, 8)
+        cases = [
+            ([(self.tunnel, TUNNEL), self.walks[0]], [self.block]),
+            ([(independent, TUNNEL), *self.walks], [self.block]),
+            ([(self.tunnel, TUNNEL), *self.walks], [self.block, under_second_block]),
+        ]
+        for transport, footprints in cases:
+            with self.subTest(transport=transport):
+                self.assertFalse(
+                    building_passages(transport, footprints, extent, Survey([]).height)
+                )
