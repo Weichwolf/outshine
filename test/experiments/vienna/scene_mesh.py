@@ -4,8 +4,9 @@ import itertools
 
 import numpy as np
 import shapely
-from bridge_approach import approach_meshes
-from bridges import build_water_bridges
+from bridge_approach import earthwork_meshes
+from bridge_contacts import bank_cuts
+from bridges import draw_water_crossings, plan_water_crossings
 from ground_surface import at_grade_routes, at_grade_width, partition_ground
 from outshine_ref.buildings.facades import FacadeRepeat
 from outshine_ref.buildings.recessed_facades import RecessPlan, recess_surface
@@ -157,7 +158,9 @@ def water_surfaces(meshes, source, bodies, vertices, banks):
         vertical_faces(meshes, "ground", top, water_height(shore).reshape(-1, 2) - 0.1)
 
 
-def ground_surfaces(meshes, source, extent, bodies, vertices, quads, approaches=()):
+def ground_surfaces(
+    meshes, source, extent, bodies, vertices, quads, approaches=(), crossings=()
+):
     roads = at_grade_routes(
         ((g, p) for layer, g, p in source.features if layer == "transportation"),
         extent,
@@ -175,28 +178,32 @@ def ground_surfaces(meshes, source, extent, bodies, vertices, quads, approaches=
     stair_tops = {
         i: (z, name) for i, (_, z, name) in enumerate(pieces, start=first_stair)
     }
-    ramps = {
-        i: a
-        for i, a in enumerate(approaches, start=first_stair + len(pieces))
-        if a.footprint.intersects(extent)
+    earthworks = [(a, "road") for a in approaches if a.footprint.intersects(extent)] + [
+        (cut, "ground") for cut in bank_cuts(vertices, quads, crossings, extent)
+    ]
+    graded = {
+        i: item for i, item in enumerate(earthworks, start=first_stair + len(pieces))
     }
     stair_limit = shapely.union_all([stair.footprint for stair in stairs]).boundary
-    names.update({i: i for i in stair_tops.keys() | ramps.keys()})
+    names.update({i: i for i in stair_tops.keys() | graded.keys()})
     footprints = {1: bodies}
     footprints.update(
         {i: foot for i, (foot, _, _) in enumerate(pieces, start=first_stair)}
     )
-    footprints.update({i: a.footprint.intersection(extent) for i, a in ramps.items()})
+    footprints.update(
+        {i: work.footprint.intersection(extent) for i, (work, _) in graded.items()}
+    )
     footprints.update({2: roads["road"], 3: roads["sidewalk"], 4: roads["paving"]})
     banks = np.empty((0, 2, 3))
     for name, points, faces in partition_ground(
         vertices, quads, np.zeros(len(quads), dtype=int), names, footprints
     ):
-        if name in ramps:
-            for material, ramp_vertices, indices in approach_meshes(
-                points, faces, ramps[name]
+        if name in graded:
+            earthwork, ground_material = graded[name]
+            for material, graded_vertices, indices in earthwork_meshes(
+                points, faces, earthwork, ground_material
             ):
-                meshes.add(material, ramp_vertices, indices)
+                meshes.add(material, graded_vertices, indices)
             continue
         if name == "water" or name in stair_tops:
             edges = points[faces][:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2, 3)
@@ -216,7 +223,7 @@ def ground_surfaces(meshes, source, extent, bodies, vertices, quads, approaches=
     water_surfaces(meshes, source, bodies, vertices, banks)
 
 
-def assemble(source, radius, viaducts=(), approaches=()):
+def assemble(source, radius, viaducts=(), approaches=(), *, crossings=None):
     meshes = Meshes()
     extent = box(-radius, -radius, radius, radius)
     vertices, quads = terrain_grid(source, radius)
@@ -227,10 +234,14 @@ def assemble(source, radius, viaducts=(), approaches=()):
             if layer == "water"
         ]
     )
-    ground_surfaces(meshes, source, extent, bodies, vertices, quads, approaches)
-    bridges = build_water_bridges(
-        meshes, source.features, extent, bodies, source.height
+    if crossings is None:
+        crossings = list(
+            plan_water_crossings(source.features, extent, bodies, source.height)
+        )
+    ground_surfaces(
+        meshes, source, extent, bodies, vertices, quads, approaches, crossings
     )
+    bridges = draw_water_crossings(meshes, crossings, bodies, source.height, approaches)
     for viaduct in viaducts:
         draw_viaduct(meshes, viaduct, source.height, approaches)
     for name, geom, prop in source.features:

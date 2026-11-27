@@ -3,15 +3,23 @@
 import json
 import math
 from datetime import datetime
+from functools import partial
 
 import numpy as np
 import shapely
 from astral import Observer
 from astral.sun import azimuth, elevation
 from bridge_approach import APPROACH_SEARCH, bridge_approaches
+from bridges import plan_water_crossings
 from catalog import HERE, ROOT
 from horizon import terrain_horizon
-from regional import beyond_region, regional_meshes, regional_sources, tile_rect
+from regional import (
+    beyond_region,
+    bridgehead_sources,
+    regional_meshes,
+    regional_sources,
+    tile_rect,
+)
 from scene_mesh import assemble
 from source_scene import LocalScene
 from viaducts import local_viaducts
@@ -47,8 +55,8 @@ def support_height(mesh, xy=(0.0, 0.0)):
     return (a[keep, 2] + w * edge[keep, 2] + v * side[keep, 2])[hits]
 
 
-def viaduct_approaches(source, viaducts, domain, region):
-    if not viaducts:
+def local_bridge_approaches(source, spans, domain, region):
+    if not spans:
         return []
     features = []
     for receipt in region:
@@ -67,26 +75,46 @@ def viaduct_approaches(source, viaducts, domain, region):
     water = shapely.union_all(
         [shapely.make_valid(geom) for name, geom, _ in features if name == "water"]
     )
-    return bridge_approaches(
-        [(deck.footprint, deck) for deck in viaducts], features, source.height, water
-    )
+    return bridge_approaches(spans, features, source.height, water)
 
 
 class ReferenceScene:
     def __init__(self, place, config):
         cache = ROOT / "build/vienna-sources"
         self.source = LocalScene(place, config["source_snapshot"], cache, 250)
-        self.viaducts = local_viaducts(
-            self.source.features, shapely.box(-250, -250, 250, 250), self.source.height
+        domain = shapely.box(-250, -250, 250, 250)
+        self.viaducts = local_viaducts(self.source.features, domain, self.source.height)
+        water = shapely.union_all(
+            [
+                shapely.make_valid(geom)
+                for name, geom, _ in self.source.features
+                if name == "water"
+            ]
         )
+        crossings = list(
+            plan_water_crossings(
+                self.source.features, domain, water, self.source.height
+            )
+        )
+        spans = [
+            *((deck.footprint, deck) for deck in self.viaducts),
+            *((crossing.footprint, crossing.span) for crossing in crossings),
+        ]
         self.fov = place.get("vertical_fov_deg", config["vertical_fov_deg"])
         self.focal = 360 / math.tan(math.radians(self.fov) / 2)
         pins = json.loads((HERE / "sources.json").read_text())
+        self.bridgeheads = partial(
+            bridgehead_sources,
+            self.source,
+            snapshot=config["source_snapshot"],
+            cache=cache,
+            pins=pins,
+        )
         transport_domain = shapely.union_all(
             [
                 shapely.Point(end).buffer(APPROACH_SEARCH)
-                for deck in self.viaducts
-                for end in (deck.origin, deck.origin + deck.length * deck.direction)
+                for _, span in spans
+                for end in (span.origin, span.origin + span.length * span.direction)
             ]
         )
         self.region = regional_sources(
@@ -102,10 +130,12 @@ class ReferenceScene:
         for row in self.source.receipts + receipts + self.region:
             if pins.get(row["url"]) != row["sha256"]:
                 raise ValueError(f"Unpinned or changed Vienna source: {row['url']}")
-        self.approaches = viaduct_approaches(
-            self.source, self.viaducts, transport_domain, self.region
+        self.approaches = local_bridge_approaches(
+            self.source, spans, transport_domain, self.region
         )
-        self.local = assemble(self.source, 250, self.viaducts, self.approaches)
+        self.local = assemble(
+            self.source, 250, self.viaducts, self.approaches, crossings=crossings
+        )
         self.look = direction(place["heading_deg"], place["pitch_deg"])
         observer = Observer(place["latitude"], place["longitude"])
         utc = datetime.fromisoformat(place.get("utc", config["utc"]))
@@ -139,6 +169,7 @@ class ReferenceScene:
             250,
             viaducts=self.viaducts,
             local_approaches=self.approaches,
+            connect_bridgeheads=self.bridgeheads,
         ):
             yield from products
             bounds.append(tile)

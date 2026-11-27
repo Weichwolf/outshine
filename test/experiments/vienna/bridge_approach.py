@@ -78,7 +78,7 @@ def fit_approach(line, deck, span, terrain, width, length):
     footprint = corridor.difference(deck)
     if footprint.geom_type != "Polygon":
         return None
-    mouth_edge = footprint.intersection(deck.boundary)
+    mouth_edge = corridor.intersection(deck.boundary)
     if mouth_edge.length < width / 2:
         return None
     return BridgeApproach(
@@ -92,16 +92,16 @@ def fit_approach(line, deck, span, terrain, width, length):
     )
 
 
-def approach_meshes(ground, faces, approach):
+def earthwork_meshes(ground, faces, earthwork, material):
     used, remap = np.unique(faces, return_inverse=True)
     ground = ground[used]
     faces = remap.reshape(faces.shape)
     top = ground.copy()
-    top[:, 2] = approach.heights(ground)
-    yield "road", top, faces
+    top[:, 2] = earthwork.heights(ground)
+    yield material, top, faces
     edges = faces[:, [[0, 1], [1, 2], [2, 0]]].reshape(-1, 2)
     mid = top[edges, :2].mean(axis=1)
-    rim = shapely.dwithin(shapely.points(mid), approach.footprint.boundary, 2e-6)
+    rim = shapely.dwithin(shapely.points(mid), earthwork.footprint.boundary, 2e-6)
     edges = edges[rim]
     changed = (np.abs(top[edges, 2] - ground[edges, 2]) > 0.005).any(axis=1)
     edges = edges[changed]

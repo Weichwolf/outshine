@@ -4,8 +4,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import shapely
-from bridge_approach import approach_meshes, bridge_approaches
-from bridges import build_water_bridges
+from bridge_approach import APPROACH_SEARCH, bridge_approaches, earthwork_meshes
+from bridge_contacts import bank_cuts
+from bridges import draw_water_crossings, plan_water_crossings
 from ground_surface import ROAD_WIDTH, partition_ground, route_footprints
 from outshine_ref.buildings.structures import suppressed
 from outshine_ref.places.height import Elevation
@@ -81,6 +82,35 @@ def regional_sources(
         return list(workers.map(lambda s: acquire(s, cache, fetch=True), sources))
 
 
+def bridgehead_sources(source, spans, receipts, snapshot, cache, pins):
+    known = {row["url"] for row in receipts}
+    needed = set()
+    for _, span in spans:
+        for position in (span.origin, span.origin + span.length * span.direction):
+            lon, lat = position / source.metres + [source.lon, source.lat]
+            needed.update(covering_tiles(lat, lon, APPROACH_SEARCH, 14))
+    nearby = []
+    for tile in sorted(needed):
+        _, x, y = tile
+        key = "/".join(map(str, tile))
+        vector = f"https://tiles.openfreemap.org/planet/{snapshot}/{key}.pbf"
+        dem = f"https://tiles.mapterhorn.com/12/{x >> 2}/{y >> 2}.webp"
+        if vector in known or vector not in pins or dem not in pins:
+            continue
+        for kind, index, url in (
+            ("elevation", (12, x >> 2, y >> 2), dem),
+            ("vector", tile, vector),
+        ):
+            if url in known:
+                continue
+            receipt = acquire((kind, index, url), cache, fetch=True)
+            if receipt["sha256"] != pins[url]:
+                raise ValueError(f"Changed Vienna bridgehead source: {url}")
+            nearby.append(receipt)
+            known.add(url)
+    return nearby
+
+
 def paint(image, feature, extent, value):
     geom = feature["geometry"]
     polygons = geom["coordinates"]
@@ -132,7 +162,16 @@ def class_fields(data, size, elevated, detail):
 
 
 def tile_surface(
-    source, receipt, dem, focal, radius, data, elevated, approaches, seam=None
+    source,
+    receipt,
+    dem,
+    focal,
+    radius,
+    data,
+    elevated,
+    approaches,
+    seam=None,
+    crossings=(),
 ):
     nw, se = tile_rect(source, receipt["tile"])
     tile = box(nw[0], se[1], se[0], nw[1])
@@ -195,33 +234,34 @@ def tile_surface(
             tile
         )
         routes = route_footprints(data.get("transportation", {}), nw, se, tile, focal)
-        mask = (land < 3) & outside
-        ramps = {
-            i: approach
-            for i, approach in enumerate(approaches, start=len(names))
-            if tile.intersects(approach.footprint)
-        }
+        mask = outside
+        earthworks = [
+            (a, "road") for a in approaches if tile.intersects(a.footprint)
+        ] + [
+            (cut, "regional soil")
+            for cut in bank_cuts(ground, faces[mask], crossings, tile)
+        ]
+        graded = dict(enumerate(earthworks, start=len(names)))
         parts = partition_ground(
             ground,
             faces[mask],
             land[mask],
-            dict(enumerate(names)) | {i: i for i in ramps},
+            dict(enumerate(names)) | {i: i for i in graded},
             {3: water}
-            | {
-                i: corridor.footprint.intersection(tile)
-                for i, corridor in ramps.items()
-            }
+            | {i: work.footprint.intersection(tile) for i, (work, _) in graded.items()}
             | {5: routes["road"], 6: routes["sidewalk"], 7: routes["paving"]},
         )
         for name, vertices, triangles in parts:
-            if name in ramps:
-                products.extend(approach_meshes(vertices, triangles, ramps[name]))
+            if name in graded:
+                work, material = graded[name]
+                products.extend(earthwork_meshes(vertices, triangles, work, material))
             else:
                 products.append((name, vertices, triangles))
-    for i in range(4 if detail else 0, 5):
-        mask = (land == i) & outside
-        if mask.any():
-            products.append((names[i], ground, faces[mask]))
+    else:
+        for i, name in enumerate(names[:5]):
+            mask = (land == i) & outside
+            if mask.any():
+                products.append((name, ground, faces[mask]))
     mask = (height > 0) & outside
     if mask.any():
         q = ground[faces[mask]].copy()
@@ -253,21 +293,24 @@ def tile_surface(
 
 
 def regional_meshes(
-    source, receipts, focal, radius, *, viaducts=(), local_approaches=()
+    source,
+    receipts,
+    focal,
+    radius,
+    *,
+    viaducts=(),
+    local_approaches=(),
+    connect_bridgeheads=None,
 ):
     dem = Elevation(receipts)
-    features, water, originals = [], [], []
+    features, water_shapes, originals = [], [], []
     nearby = {}
     reach = 2.5 * focal
-    for row in receipts:
+
+    def collect(row):
         if row["kind"] != "vector":
-            continue
+            return
         nw, se = tile_rect(source, row["tile"])
-        if (
-            box(*np.minimum(nw, se), *np.maximum(nw, se)).distance(shapely.Point(0, 0))
-            > reach
-        ):
-            continue
         data = nearby[row["url"]] = decode_vector(row)
         for name in ("water", "transportation"):
             group = data.get(name)
@@ -294,7 +337,7 @@ def regional_meshes(
                     ),
                 )
                 if name == "water":
-                    water.append(shapely.make_valid(geom))
+                    water_shapes.append(shapely.make_valid(geom))
                 else:
                     if props.get("class") == "bridge":
                         layer = props.get("layer", 1)
@@ -302,6 +345,16 @@ def regional_meshes(
                         if elevated_outline(geom, layer, viaducts):
                             continue
                     features.append((name, geom, props))
+
+    for row in receipts:
+        if row["kind"] != "vector":
+            continue
+        nw, se = tile_rect(source, row["tile"])
+        if (
+            box(*np.minimum(nw, se), *np.maximum(nw, se)).distance(shapely.Point(0, 0))
+            <= reach
+        ):
+            collect(row)
     bridges = Meshes()
 
     def terrain(xy):
@@ -312,21 +365,30 @@ def regional_meshes(
             - np.sum(xy * xy, axis=1) / (2 * 6371000.0)
         )
 
-    spans = []
-    water = shapely.union_all(water)
-    solved = build_water_bridges(
-        bridges,
-        features,
-        box(-reach, -reach, reach, reach),
-        water,
-        terrain,
-        exclude=box(-radius, -radius, radius, radius),
-        spans=spans,
+    water = shapely.union_all(water_shapes)
+    crossings = list(
+        plan_water_crossings(
+            features,
+            box(-reach, -reach, reach, reach),
+            water,
+            terrain,
+            exclude=box(-radius, -radius, radius, radius),
+        )
     )
+    spans = [(crossing.footprint, crossing.span) for crossing in crossings]
+    if connect_bridgeheads is not None:
+        extra = connect_bridgeheads(spans, receipts)
+        if extra:
+            receipts = [*receipts, *extra]
+            dem = Elevation(receipts)
+            for row in extra:
+                collect(row)
+            water = shapely.union_all(water_shapes)
     approaches = [
         *local_approaches,
         *bridge_approaches(spans, features, terrain, water),
     ]
+    solved = draw_water_crossings(bridges, crossings, water, terrain, approaches)
     boundary = box(-radius, -radius, radius, radius).boundary
     seam = (
         terrain_grid(source, radius)[0]
@@ -352,6 +414,7 @@ def regional_meshes(
                 elevated if data is not None else (),
                 approaches,
                 seam,
+                crossings,
             )
     yield [(n, *mesh) for n, mesh in bridges.items()], shapely.Polygon()
 

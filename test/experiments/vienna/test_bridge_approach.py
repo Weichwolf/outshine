@@ -1,12 +1,46 @@
 import unittest
 
 import numpy as np
-from bridge_approach import bridge_approaches
+import shapely
+from bridge_approach import bridge_approaches, fit_approach
+from bridge_contacts import bank_cuts
+from bridges import WaterCrossing
 from outshine_ref.transport.water_span import WaterSpan
+from shapely.affinity import affine_transform
 from shapely.geometry import LineString, box
 
 
 class BridgeApproachTest(unittest.TestCase):
+    def test_bank_cut_exposes_a_buried_deck_without_cutting_the_lower_route(self):
+        extent = box(0, 0, 4, 2)
+        span = WaterSpan(np.array([0, 1]), np.array([1, 0]), 4, 3, 0)
+        crossing = WaterCrossing(extent, span, extent, 1)
+        vertices = np.array([[0, 0, 0], [4, 0, 4], [4, 2, 4], [0, 2, 0]])
+        [cut] = bank_cuts(vertices, [[0, 1, 2, 3]], [crossing], extent)
+        self.assertFalse(cut.footprint.covers(shapely.Point(2, 1)))
+        self.assertTrue(cut.footprint.covers(shapely.Point(3.5, 1)))
+        self.assertAlmostEqual(cut.heights(np.array([[3.5, 1, 3.5]]))[0], 2.88)
+
+    def test_oblique_deck_contact_uses_the_whole_carrying_edge(self):
+        along = np.array([0.77772399, 0.62860591])
+        along /= np.linalg.norm(along)
+        east, north = along
+        origin = np.array([205.69, -308.65])
+        transform = (east, -north, north, east, *origin)
+        deck = affine_transform(box(-50, -8, 0, 8), transform)
+        line = affine_transform(LineString([(0.09, 0), (110, 0)]), transform)
+        span = WaterSpan(origin - 50 * along, along, 50, 3.5, 0.01)
+        approach = fit_approach(
+            line, deck, span, lambda xy: np.full(len(xy), 2.0), 7, 90
+        )
+        self.assertIsNotNone(approach)
+        self.assertAlmostEqual(approach.mouth_edge.length, 7)
+        points = np.array(approach.mouth_edge.coords)
+        np.testing.assert_allclose(
+            approach.heights(np.column_stack((points, np.zeros(len(points))))),
+            span.height(points),
+        )
+
     def test_tagged_exit_does_not_cut_the_through_carriageway_short(self):
         deck = box(0, -8, 50, 8)
         span = WaterSpan(np.array([0, 0]), np.array([1, 0]), 50, 4, 0)
