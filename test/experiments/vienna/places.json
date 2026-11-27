@@ -86,6 +86,14 @@
       "pitch_deg": -3
     },
     {
+      "id": "KarlMarxHof-Street",
+      "origin": "KarlMarxHof",
+      "offset_east_north_m": [143.32, 182.81],
+      "heading_deg": 112,
+      "pitch_deg": 3,
+      "utc": "2026-06-21T16:30:00Z"
+    },
+    {
       "id": "Schemerlbruecke-Bank",
       "origin": "Schemerlbruecke",
       "offset_east_north_m": [-13.94, 80.51],

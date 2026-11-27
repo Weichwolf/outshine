@@ -2,12 +2,9 @@
 
 from string import hexdigits
 
-import numpy as np
-import shapely
+from building_envelope import outline_matches
 from outshine_ref.buildings.structures import suppressed
 from PIL import ImageColor
-
-MIN_PARENT_COVERAGE = 0.9
 
 
 def mapped_colour(properties):
@@ -30,41 +27,12 @@ def mapped_colour(properties):
 
 def facade_colours(geometries, properties):
     colours = [mapped_colour(p) for p in properties]
-    parents = [
-        index
-        for index, p in enumerate(properties)
-        if colours[index] is not None and suppressed(p)
-    ]
-    if not parents:
-        return colours
+    parents = [i for i, p in enumerate(properties) if colours[i] and suppressed(p)]
     children = [
-        index
-        for index, p in enumerate(properties)
-        if colours[index] is None and not suppressed(p)
+        i for i, p in enumerate(properties) if not colours[i] and not suppressed(p)
     ]
-    if not children:
-        return colours
-    shapes = np.asarray(geometries, dtype=object)
-    index = shapely.STRtree(shapes[parents])
-    child_ids, parent_ids = index.query(shapes[children], predicate="intersects")
-    child_ids = np.asarray(children)[child_ids]
-    parent_ids = np.asarray(parents)[parent_ids]
-    child_shapes = shapes[child_ids]
-    parent_shapes = shapes[parent_ids]
-    child_area = shapely.area(child_shapes)
-    overlap = shapely.area(shapely.intersection(child_shapes, parent_shapes))
-    coverage = np.divide(
-        overlap, child_area, out=np.zeros_like(overlap), where=child_area > 0
-    )
-    eligible = coverage >= MIN_PARENT_COVERAGE
-    child_ids, parent_ids = child_ids[eligible], parent_ids[eligible]
-    coverage = coverage[eligible]
-    parent_area = shapely.area(shapes[parent_ids])
     owner = {}
-    for child, parent, fraction, area in zip(
-        child_ids, parent_ids, coverage, parent_area, strict=True
-    ):
-        rank = (-fraction, area)
+    for child, parent, rank in outline_matches(geometries, parents, children):
         prior = owner.get(child)
         if prior is None or rank < prior[0]:
             owner[child] = (rank, colours[parent])

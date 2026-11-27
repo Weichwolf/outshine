@@ -30,6 +30,8 @@ SURFACE_DETAIL = {
     "meadow": "meadow",
     "unpaved path": "compacted",
     "wall": "plaster",
+    "street base": "plaster",
+    "street trim": "concrete",
     "oak bark": "oak bark",
     "beech bark": "beech bark",
     "foliage": "leaf",

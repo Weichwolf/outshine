@@ -3,16 +3,16 @@ from types import SimpleNamespace
 
 import numpy as np
 import shapely
-from facade import FacadeView
-from ground_surface import surface_elevations
-from low_facade import (
+from entrances import (
     APPROACH_DEPTH_M,
     DOOR_HEIGHT_M,
-    draw_front,
     frontages,
     pave_entrances,
 )
+from facade import FacadeView
+from ground_surface import surface_elevations
 from scene_mesh import Meshes
+from street_facade import draw_low_front
 
 
 class LowFacadeTest(unittest.TestCase):
@@ -24,6 +24,7 @@ class LowFacadeTest(unittest.TestCase):
             top=4.50,
             polygon=polygon,
             passages=(),
+            group=None,
         )
         path = [
             (
@@ -45,7 +46,7 @@ class LowFacadeTest(unittest.TestCase):
         corners = np.array(polygon.exterior.coords)
         a, b = corners[front.side : front.side + 2]
         meshes = Meshes()
-        draw_front(meshes, a, b, 0.50, 4.50, "wall", FacadeView((0, -9)), front)
+        draw_low_front(meshes, a, b, 0.50, 4.50, "wall", FacadeView((0, -9)), front)
         door = np.asarray(meshes["entrance door"][0])
         stairs = np.asarray(meshes["foundation"][0])
         np.testing.assert_allclose(

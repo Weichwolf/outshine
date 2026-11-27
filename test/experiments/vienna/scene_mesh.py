@@ -15,6 +15,7 @@ from bridges import draw_water_crossings, plan_water_crossings
 from building_colours import facade_colours, wall_material
 from building_envelope import (
     BuildingVolume,
+    building_groups,
     building_neighbours,
     exposed_cap,
     exposed_wall,
@@ -26,6 +27,7 @@ from building_foundations import (
 )
 from building_passages import building_passages, vault_panels
 from deck_walk_links import DeckWalkLink, deck_walk_links
+from entrances import STREET_STOREY_M, frontages, has_street_storey, pave_entrances
 from facade import FacadeView, draw_facade
 from ground_surface import (
     ROUTE_MATERIALS,
@@ -38,7 +40,6 @@ from ground_surface import (
     polygons,
     terrain_triangles,
 )
-from low_facade import draw_front, frontages, pave_entrances
 from outshine_ref.buildings.structures import suppressed
 from passage_trim import draw_passage_trim
 from shapely.geometry import Point, box
@@ -47,6 +48,7 @@ from stair_branches import local_stair_branches
 from stair_guards import draw_stair_guards
 from stair_landings import local_landings
 from stairs import local_stairways
+from street_facade import draw_low_front, draw_street_storey
 from tram_rails import draw_tram_rails, tram_routes
 from viaducts import draw_viaduct
 from water_surface import clipped_water, water_bodies
@@ -86,6 +88,7 @@ class BuildingForm:
     corridor: shapely.Polygon
     piers: tuple
     soffit: float
+    group: int | None
 
     def volumes(self):
         foot = self.foundation.sole_m if self.foundation else self.bottom
@@ -97,7 +100,7 @@ class BuildingForm:
         return [BuildingVolume(self.polygon, foot, self.top)]
 
 
-def building_form(polygon, floor, roof, source, foundation, passages, wall):
+def building_form(polygon, floor, roof, source, foundation, passages, wall, group):
     base = (
         foundation.seat_m
         if foundation
@@ -117,6 +120,7 @@ def building_form(polygon, floor, roof, source, foundation, passages, wall):
         corridor,
         piers,
         soffit,
+        group,
     )
 
 
@@ -166,6 +170,7 @@ def building(meshes, form, grade, facade_view, neighbours, front=None):
             grounded=form.minimum_height == 0,
             wall=form.wall,
             front=front,
+            street=has_street_storey(form),
         )
 
 
@@ -222,6 +227,7 @@ def building_walls(
     bays=True,
     wall,
     front=None,
+    street=False,
 ):
     for ring_index, ring in enumerate([polygon.exterior, *polygon.interiors]):
         corners = np.asarray(ring.coords)
@@ -244,20 +250,38 @@ def building_walls(
                     wall="foundation",
                     exposed=exposed_wall(a, b, sole, bottom, neighbours),
                 )
-            if front is not None and ring_index == 0 and side == front.side:
-                draw_front(meshes, a, b, bottom, top, wall, view, front)
+            entry = (
+                front
+                if front is not None and ring_index == 0 and side == front.side
+                else None
+            )
+            if entry is not None and entry.low:
+                draw_low_front(meshes, a, b, bottom, top, wall, view, entry)
                 continue
+            floor_top = bottom + STREET_STOREY_M if street else bottom
+            if street:
+                draw_street_storey(
+                    meshes,
+                    a,
+                    b,
+                    bottom,
+                    floor_top,
+                    wall,
+                    view,
+                    exposed_wall(a, b, bottom, floor_top, neighbours),
+                    entry,
+                )
             draw_facade(
                 meshes,
                 a,
                 b,
-                bottom,
+                floor_top,
                 top,
                 view,
-                grounded=grounded,
-                bays=bays and front is None,
+                grounded=grounded and not street,
+                bays=bays and (front is None or not front.low),
                 wall=wall,
-                exposed=exposed_wall(a, b, bottom, top, neighbours),
+                exposed=exposed_wall(a, b, floor_top, top, neighbours),
             )
 
 
@@ -747,7 +771,11 @@ def assemble(
         )
         if polygon.distance(centre) <= radius
     ]
-    colours = facade_colours([g for g, _ in footprints], [p for _, p in footprints])
+    geometries = [g for g, _ in footprints]
+    tags = [p for _, p in footprints]
+    colours = facade_colours(geometries, tags)
+    parents = building_groups(geometries, tags)
+    groups = {geometries[i]: parent for i, parent in parents.items()}
     buildings = [
         (polygon, properties, wall_material("wall", colour))
         for (polygon, properties), colour in zip(footprints, colours, strict=True)
@@ -824,6 +852,7 @@ def assemble(
                     by_footprint.get(polygon) if floor == 0 else None,
                     passages.get(polygon, ()),
                     wall,
+                    groups.get(polygon),
                 )
             )
     neighbours = building_neighbours(
