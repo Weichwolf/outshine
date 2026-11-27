@@ -48,6 +48,7 @@ uniform bool useSkyIrradiance;
 uniform vec3 skyIrradiance[9];
 uniform sampler2D skySpecularMap;
 uniform sampler2D skyBrdf;
+uniform bool linearOutput;
 vec2 detailCoordinates(vec3 normal) {
   vec3 axis=abs(normal);
   // Use Blender BOX axes and mirroring for the shared texture.
@@ -239,5 +240,5 @@ void main(){
       MediumLutSize(float(skySize.x), float(skySize.y)));
   vec3 airlight = texture(skyView, vec2(hazeUv.U, hazeUv.V)).rgb * (2.5 / 1.2);
   light = mix(airlight, light, transmission);
-  colour=vec4(pow(filmic(max(light,vec3(0.))),vec3(1./2.2)),1.);
+  colour=vec4(linearOutput ? light : pow(filmic(max(light,vec3(0.))),vec3(1./2.2)),1.);
 }

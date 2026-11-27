@@ -82,11 +82,12 @@ def shader(path):
     return re.sub(r'^#include "([^"]+)"', include, src, flags=re.MULTILINE)
 
 
-def atmosphere(ctx, target, world, right, up, *, environment=False):
+def atmosphere(ctx, target, world, right, up, *, environment=False, linear=False):
     prog = ctx.program(
         vertex_shader=SCREEN, fragment_shader=shader(HERE / "atmosphere.frag")
     )
     quad = ctx.vertex_array(prog, [])
+    prog["linearOutput"].value = linear
     for key, value in {
         "eyeKm": 6360 + (world.eye[2] + world.source.datum) * 0.001,
         "sun": tuple(world.sun),
@@ -333,15 +334,31 @@ def capture_reflections(ctx, prog, draws, textures, world, projection_matrix, pl
     return atlas, query.elapsed * 1e-6
 
 
-def render(ctx, place, config, out, *, sky_dir=None):
+def save_view(target, path, *, linear):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if linear:
+        width, height = target.size
+        data = target.read(components=3, dtype="f4", alignment=1)
+        rgb = np.frombuffer(data, dtype="f4").reshape(height // 2, 2, width // 2, 2, 3)
+        np.save(path.with_suffix(".npy"), rgb.mean(axis=(1, 3))[::-1])
+        return
+    image = Image.frombytes(
+        "RGB", target.size, target.read(components=3, alignment=1)
+    ).transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+    image.resize((1280, 720), Image.Resampling.BOX).save(path.with_suffix(".png"))
+
+
+def render(ctx, place, config, out, *, sky_dir=None, linear=False):
     start = perf_counter()
     world = ReferenceScene(place, config)
-    target = ctx.simple_framebuffer((2560, 1440), components=4)
+    target = ctx.simple_framebuffer(
+        (2560, 1440), components=4, dtype="f4" if linear else "f1"
+    )
     target.use()
     target.clear(depth=1)
     ctx.disable(moderngl.DEPTH_TEST)
     m, right, up = projection(world)
-    veil, sky = atmosphere(ctx, target, world, right, up)
+    veil, sky = atmosphere(ctx, target, world, right, up, linear=linear)
     prog = ctx.program(
         vertex_shader=shader(HERE / "reference.vert"),
         fragment_shader=shader(HERE / "reference.frag"),
@@ -349,6 +366,7 @@ def render(ctx, place, config, out, *, sky_dir=None):
     prog["viewProjection"].write(m.T.astype("f4").tobytes())
     prog["eye"].value = tuple(world.eye)
     prog["sun"].value = tuple(world.sun)
+    prog["linearOutput"].value = linear
     sky_path = environment_path(sky_dir, place) if sky_dir is not None else None
     prog["useSkyIrradiance"].value = sky_path is not None
     sky_tables = ()
@@ -435,12 +453,7 @@ def render(ctx, place, config, out, *, sky_dir=None):
     local_shadow.release()
     reflection.release()
     bed_map.release()
-    im = Image.frombytes(
-        "RGB", target.size, target.read(components=3, alignment=1)
-    ).transpose(Image.Transpose.FLIP_TOP_BOTTOM)
-    im = im.resize((1280, 720), Image.Resampling.BOX)
-    out.mkdir(parents=True, exist_ok=True)
-    im.save(out / (place["id"] + ".png"))
+    save_view(target, out / place["id"], linear=linear)
     target.release()
     prog.release()
     veil.release()
@@ -456,7 +469,9 @@ def render(ctx, place, config, out, *, sky_dir=None):
                 "shadow_gpu_ms": round(shadow_time.elapsed * 1e-6, 2),
                 "reflection_levels_m": [round(plane.height, 3) for plane in planes],
                 "reflection_gpu_ms": round(reflection_ms, 2),
-                "build_and_png_s": round(perf_counter() - start, 2),
+                "build_and_npy_s" if linear else "build_and_png_s": round(
+                    perf_counter() - start, 2
+                ),
             }
         ),
         flush=True,
@@ -475,10 +490,22 @@ if __name__ == "__main__":
         "--export-sky", action="store_true", help="write scene-linear sky radiance only"
     )
     sky_args.add_argument("--sky-dir", type=Path, help="use exported sky lighting")
+    parser.add_argument(
+        "--linear", action="store_true", help="write scene-linear RGB NPY"
+    )
     args = parser.parse_args()
+    if args.export_sky and args.linear:
+        parser.error("--linear exports the camera view. Use --export-sky for radiance.")
     with moderngl.create_standalone_context(require=410) as ctx:
         for place in selected_views(config, args.place):
             if args.export_sky:
                 export_sky(ctx, place, config, args.output)
             else:
-                render(ctx, place, config, args.output, sky_dir=args.sky_dir)
+                render(
+                    ctx,
+                    place,
+                    config,
+                    args.output,
+                    sky_dir=args.sky_dir,
+                    linear=args.linear,
+                )

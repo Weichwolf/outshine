@@ -6,6 +6,7 @@
 in vec2 ndc;
 out vec4 colour;
 uniform int stage;
+uniform bool linearOutput;
 uniform vec2 extent;
 uniform float eyeKm;
 uniform vec3 sun;
@@ -54,6 +55,7 @@ void main() {
       rgb+=mediumTransmittanceToTop(air,MediumLook(eyeKm,dir.z),kTransmittanceSteps)/
         (OUTSHINE_PI*kSunHalfAngleRad*kSunHalfAngleRad);
     }
-    colour=vec4(pow(filmic(rgb*(2.5/1.2)),vec3(1./2.2)),1.);
+    vec3 light = rgb * (2.5 / 1.2);
+    colour=vec4(linearOutput ? light : pow(filmic(light),vec3(1./2.2)),1.);
   }
 }

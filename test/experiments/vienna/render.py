@@ -38,7 +38,10 @@ from materials import (
     surface_properties,
 )
 from outshine_ref.rendering.blender_camera import configure_camera
-from outshine_ref.rendering.blender_light import configure_daylight
+from outshine_ref.rendering.blender_light import (
+    configure_daylight,
+    configure_research_view,
+)
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
 from passage_light import bake_passage_lighting
 from reference_scene import ReferenceScene
@@ -336,13 +339,64 @@ def render(place, config, args):
     )
 
 
+def display_linear(paths, output):
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    scene = bpy.context.scene
+    view = configure_research_view(scene)
+    settings = scene.render.image_settings
+    settings.file_format = "PNG"
+    settings.color_mode = "RGB"
+    settings.color_depth = "16"
+    settings.compression = 0
+    output.mkdir(parents=True, exist_ok=True)
+    for path in paths:
+        with path.open("rb") as source:
+            rgb = np.load(source, allow_pickle=False)
+        if (
+            not isinstance(rgb, np.ndarray)
+            or rgb.ndim != 3
+            or rgb.shape[2] != 3
+            or not rgb.size
+            or rgb.dtype.kind != "f"
+            or rgb.dtype.itemsize != 4
+            or not np.isfinite(rgb).all()
+        ):
+            raise ValueError(
+                f"Expected finite scene-linear float32 RGB pixels in {path}"
+            )
+        height, width, _ = rgb.shape
+        rgba = np.ones((height, width, 4), dtype="f4")
+        rgba[:, :, :3] = rgb[::-1]
+        image = bpy.data.images.new(
+            path.stem, width, height, alpha=True, float_buffer=True
+        )
+        try:
+            image.colorspace_settings.name = "Linear Rec.709"
+            image.pixels.foreach_set(rgba.ravel())
+            destination = (output / path.with_suffix(".png").name).resolve()
+            image.save_render(str(destination), scene=scene)
+        finally:
+            bpy.data.images.remove(image)
+        print(
+            json.dumps({"linear": str(path), "png": str(destination), **view}),
+            flush=True,
+        )
+
+
 if __name__ == "__main__":
     config = load_catalog()
     p = argparse.ArgumentParser()
-    p.add_argument(
+    inputs = p.add_mutually_exclusive_group()
+    inputs.add_argument(
         "--place", action="append", choices=[v["id"] for v in available_views(config)]
     )
-    p.add_argument("--output", type=Path, default=ROOT / "build/shots/places")
+    inputs.add_argument(
+        "--display-linear",
+        type=Path,
+        nargs="+",
+        help="apply the Blender view to RGB NPY images",
+    )
+    p.add_argument("--output", type=Path)
     p.add_argument("--engine", choices=["eevee", "cycles"], default="eevee")
     p.add_argument(
         "--sky-dir", type=Path, help="use exported scene-linear sky radiance"
@@ -351,5 +405,11 @@ if __name__ == "__main__":
     args = p.parse_args(
         sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     )
-    for place in selected_views(config, args.place):
-        render(place, config, args)
+    if args.display_linear is not None:
+        display_linear(
+            args.display_linear, args.output or ROOT / "build/shots/glsl-agx"
+        )
+    else:
+        args.output = args.output or ROOT / "build/shots/places"
+        for place in selected_views(config, args.place):
+            render(place, config, args)
