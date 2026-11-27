@@ -94,7 +94,8 @@ def geometry(plan, step, *, has_stem, oak):
         main_limb = rows["axis_parent_ids"][i] == 0
         rings, sides = (5, 8) if main_limb else (4, 6)
         if step > 1 and not main_limb:
-            rings, sides = 3, 5
+            # These twigs have a radius below one sixth of the subpixel leaf width.
+            rings, sides = 3, 3
         part = axis_mesh(
             rows["axis_lengths"][i],
             rows["axis_bends"][i],

@@ -27,16 +27,21 @@ def root_flare(azimuth, phase, radius, height, oak):
     return radius * ((decay * reaches) @ lobes.T)
 
 
-def stem_profile(plan, scale, *, oak, sides, spacing):
+def stem_profile(plan, scale, *, oak, grounded):
     axis = plan.axis(())
     radius, tip = np.asarray(plan.radii(())) * scale
     length = axis.length * scale
     branches = [plan.axis(path) for path in plan.children(())]
     joints = np.array([branch.parent_parameter for branch in branches])
     limb_radii = np.array([plan.radii(branch.path)[0] for branch in branches]) * scale
-    height = np.r_[0.15, 0.35, 0.6, np.arange(0.9, 3.7, 0.4)] * radius / length
+    root_sections = (
+        np.r_[0.15, 0.35, 0.6, np.arange(0.9, 3.7, 0.4)]
+        if grounded
+        else np.array([0.35, 0.9, 1.7])
+    )
+    height = root_sections * radius / length
     collar_end = min(3.7 * radius / length, 1)
-    body = np.linspace(0, 1, spacing)
+    body = np.linspace(0, 1, 28 if grounded else 9)
     t = np.unique(
         np.round(
             np.r_[
@@ -49,7 +54,7 @@ def stem_profile(plan, scale, *, oak, sides, spacing):
             10,
         )
     )
-    azimuth = np.linspace(0, 2 * np.pi, sides, endpoint=False)
+    azimuth = np.linspace(0, 2 * np.pi, 36 if grounded else 12, endpoint=False)
     centre, tangent, lateral, normal = arc_frame(length, axis.bend, 0, t)
     centre, tangent = centre @ axis.frame.T, tangent @ axis.frame.T
     lateral, normal = lateral @ axis.frame.T, normal @ axis.frame.T
@@ -91,11 +96,7 @@ def stem_profile(plan, scale, *, oak, sides, spacing):
 def stem_mesh(plan, scale, *, oak, position=None, rotation=0, domain=None, height=None):
     grounded = height is not None
     centre, tangent, radial, sections, flare, collar = stem_profile(
-        plan,
-        scale,
-        oak=oak,
-        sides=36 if grounded else 12,
-        spacing=28 if grounded else 14,
+        plan, scale, oak=oak, grounded=grounded
     )
     surface = centre[:, None, :] + radial * sections[..., None]
     surface = lean_tree(plan, surface, oak=oak, scale=scale)
