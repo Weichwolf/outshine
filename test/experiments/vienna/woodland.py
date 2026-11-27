@@ -48,7 +48,7 @@ def stand_plan(species, form):
         first=first[form],
         attachment_jitter=0.49,
         angle=inclination[form],
-        angle_tip=0.47 if form == 0 else 0.59,
+        angle_tip=0.96 if species == "oak" else 0.84,
         angle_variation=0.29,
         azimuth_variation=0.92,
         bend=0.29,
@@ -59,6 +59,7 @@ def stand_plan(species, form):
     twigs = replace(
         twigs,
         branches=twig_counts[form],
+        length=twigs.length * (1.23 if species == "oak" else 1.14),
         radius_parent_ratio=0.36,
         attachment_jitter=0.40,
         angle_variation=0.38,
@@ -69,21 +70,21 @@ def stand_plan(species, form):
     )
     shoots = replace(
         twigs,
-        branches=7,
-        length=0.63 if species == "oak" else 0.57,
-        first=0.16,
-        last=0.92,
+        branches=11 if species == "oak" else 13,
+        length=0.53 if species == "oak" else 0.50,
+        first=0.26,
+        last=0.98,
         base_radius=0.0022,
         tip_radius=0.00045,
         radius_parent_ratio=0.63,
-        tip_scale=0.50,
-        angle=1.1,
-        angle_tip=0.62,
+        tip_scale=0.62,
+        angle=1.28,
+        angle_tip=0.95,
         attachment_jitter=0.42,
         angle_variation=0.36,
         upward_bias=0.20,
-        azimuth_variation=1.23,
-        leaf_internode=0.019,
+        azimuth_variation=1.38,
+        leaf_internode=0.023 if species == "oak" else 0.018,
         leaf_sky_alignment=0.49,
     )
     return PlantPlan(base.seed + 19 * form, (stem, limbs, twigs, shoots), base.blades)
@@ -147,6 +148,23 @@ def represented_leaves(rows, areas, step):
     return selected, size, origins
 
 
+def crown_leaf_frames(rows, seed, *, oak):
+    """Roll blades about their midribs, with flatter shade leaves lower in the crown."""
+    frames = rows["leaf_frames"].copy()
+    height = rows["leaf_origins"][:, 2]
+    if not len(height):
+        return frames
+    crown_height = (height - height.min()) / max(np.ptp(height), 1e-6)
+    roll_std = np.deg2rad(33 if oak else 19) * (0.65 + 0.70 * crown_height)
+    roll = np.random.default_rng(seed).standard_normal(len(frames)) * roll_std
+    roll = np.clip(roll, -1.25, 1.25)
+    cosine, sine = np.cos(roll)[:, None], np.sin(roll)[:, None]
+    side, normal = frames[:, :, 0].copy(), frames[:, :, 2].copy()
+    frames[:, :, 0] = cosine * side - sine * normal
+    frames[:, :, 2] = sine * side + cosine * normal
+    return frames
+
+
 def geometry(plan, step, *, has_stem, oak):
     rows = plan.tables(sum(plan.axis_counts), sum(plan.leaf_counts))
     meshes = Meshes()
@@ -155,13 +173,16 @@ def geometry(plan, step, *, has_stem, oak):
         part = template_stem(plan, oak=oak)
         meshes.add(bark, part["vertices"], part["faces"])
     for i in range(1, len(rows["axis_ids"])):
-        if step > 1 and rows["axis_paths"][i, 2] >= 0:
+        shoot = rows["axis_paths"][i, 2] >= 0
+        if step > 1 and shoot:
             continue
         main_limb = rows["axis_parent_ids"][i] == 0
         if step >= 16 and not main_limb:
             continue
         if main_limb:
             rings, sides = (9, 10) if step <= 4 else (5, 8)
+        elif shoot:
+            rings, sides = 3, 4
         elif step > 1:
             # These twigs have a radius below one sixth of the subpixel leaf width.
             rings, sides = 3, 3
@@ -180,11 +201,11 @@ def geometry(plan, step, *, has_stem, oak):
     variants = rows["leaf_variants"]
     areas = np.array([blade.area() for blade in plan.blades])
     selected, size, origins = represented_leaves(rows, areas, step)
+    frames = crown_leaf_frames(rows, plan.seed, oak=oak)[selected]
     for variant, blade in enumerate(plan.blades):
         where = variants[selected] == variant
         if not where.any():
             continue
-        idx = selected[where]
         part = blade.mesh(4 if step == 1 else 2)
         leaf_scale = size[where]
         if step > 1:
@@ -192,12 +213,13 @@ def geometry(plan, step, *, has_stem, oak):
             coarse_area = np.linalg.norm(np.cross(b - a, c - a), axis=1).sum() / 2
             leaf_scale = leaf_scale * np.sqrt(areas[variant] / coarse_area)
         verts = (
-            np.einsum("mj,nij->nmi", part["vertices"], rows["leaf_frames"][idx])
+            np.einsum("mj,nij->nmi", part["vertices"], frames[where])
             * leaf_scale[:, None, None]
             + origins[where, None, :]
         )
         faces = (
-            part["faces"] + (len(part["vertices"]) * np.arange(len(idx)))[:, None, None]
+            part["faces"]
+            + (len(part["vertices"]) * np.arange(len(verts)))[:, None, None]
         )
         meshes.add(
             "foliage",
