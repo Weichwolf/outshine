@@ -20,6 +20,10 @@ Omit `--place Adlerhof` to render the twelve pedestrian views in catalog order. 
 second interval measures the warm image, including PNG encoding and writing. Allow up to five
 seconds at 1280×720 for this reference workflow.
 
+The Eevee directional shadow map uses a minimum 16 mm texel. The default 1 mm texel
+produced false shadows on sunlit roads with the full terrain horizon. The 16 mm limit
+keeps the terrain and directional shadows in the reference.
+
 The initial integration covers the local DEM, mapped building shells, near recessed facade cells
 and ground-level road surfaces. A separate level mesh fills mapped water polygons cut from the
 local terrain. Real DEM rings extend the terrain from the 250 m local square to 100 km along

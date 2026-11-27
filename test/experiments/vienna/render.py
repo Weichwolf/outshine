@@ -32,6 +32,8 @@ from outshine_ref.rendering.blender_render import configure_gpu, render_png
 from reference_scene import ReferenceScene
 from woodland import tree_batches
 
+SUN_SHADOW_MIN_TEXEL_M = 0.016
+
 
 def apply_detail(material, bsdf, name, colour):
     pixels = ground_detail(name)
@@ -144,6 +146,7 @@ def render(place, config, args):
     sunlight = Vector(world.sun)
     sun = next(o for o in scene.objects if o.type == "LIGHT" and o.data.type == "SUN")
     sun.rotation_euler = (-sunlight).to_track_quat("-Z", "Y").to_euler()
+    sun.data.shadow_maximum_resolution = SUN_SHADOW_MIN_TEXEL_M
     sky = scene.world.node_tree.nodes.new("ShaderNodeTexSky")
     sky.sky_type = "HOSEK_WILKIE"
     sky.sun_direction = sunlight
