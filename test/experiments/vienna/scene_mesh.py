@@ -415,6 +415,18 @@ def ground_surfaces(
         )
         building_stamps = BuildingStamps(foundations, reserved)
         breaks.extend(building_stamps.breaks())
+    grass = shapely.union_all(
+        [
+            part
+            for layer, geometry, properties in source.features
+            if layer == "landcover" and properties.get("class") == "grass"
+            for part in polygons(shapely.make_valid(geometry))
+        ]
+    ).intersection(extent)
+    if not grass.is_empty:
+        ground_cover = first_stair + len(pieces) + len(earthworks)
+        names[ground_cover] = "grass"
+        footprints[ground_cover] = grass
     for name, points, faces in partition_triangles(
         surface,
         indices,
@@ -448,7 +460,7 @@ def ground_surfaces(
         if len(faces):
             used, inverse = np.unique(faces, return_inverse=True)
             retained = points[used]
-            if name == "ground" and building_stamps is not None:
+            if name in {"ground", "grass"} and building_stamps is not None:
                 retained[:, 2] = building_stamps.heights(retained)
             meshes.add(name, retained, inverse.reshape(-1, 3))
     for link in links:

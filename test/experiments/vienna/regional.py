@@ -224,7 +224,7 @@ def tile_surface(
     )
     names = (
         "regional soil",
-        "regional grass",
+        "grass",
         "regional wood",
         "regional water",
         "regional deck",
