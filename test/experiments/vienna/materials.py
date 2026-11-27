@@ -37,6 +37,7 @@ SURFACES = {
 
 METALLIC = {"rail head": 1.0}
 DIFFUSE_TRANSMISSION = {
+    "foliage": 0.32,
     "grass blades": 0.34,
     "grass pale blades": 0.34,
     "woodland ferns": 0.36,
