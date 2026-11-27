@@ -30,6 +30,13 @@ from materials import (
     surface_properties,
 )
 from reference_scene import ReferenceScene
+from sky_environment import (
+    SKY_ENVIRONMENT_SIZE,
+    diffuse_coefficients,
+    environment_path,
+    load_environment,
+    save_environment,
+)
 from water_bed import BED_ALBEDO
 from water_reflection import (
     LEVEL_TOLERANCE_M,
@@ -74,7 +81,7 @@ def shader(path):
     return re.sub(r'^#include "([^"]+)"', include, src, flags=re.MULTILINE)
 
 
-def atmosphere(ctx, target, world, right, up):
+def atmosphere(ctx, target, world, right, up, *, environment=False):
     prog = ctx.program(
         vertex_shader=SCREEN, fragment_shader=shader(HERE / "atmosphere.frag")
     )
@@ -113,7 +120,7 @@ def atmosphere(ctx, target, world, right, up):
         tex.use(i)
         prog[key].value = i
     target.use()
-    prog["stage"].value = 3
+    prog["stage"].value = 4 if environment else 3
     prog["extent"].value = target.size
     quad.render(vertices=3)
     placeholder.release()
@@ -122,6 +129,24 @@ def atmosphere(ctx, target, world, right, up):
     veil, multi_scatter, sky_view = textures
     multi_scatter.release()
     return veil, sky_view
+
+
+def export_sky(ctx, place, config, out):
+    world = ReferenceScene(place, config)
+    _, right, up = projection(world)
+    target = ctx.simple_framebuffer(SKY_ENVIRONMENT_SIZE, components=4, dtype="f4")
+    ctx.disable(moderngl.DEPTH_TEST)
+    veil, sky = atmosphere(ctx, target, world, right, up, environment=True)
+    width, height = target.size
+    pixels = np.frombuffer(target.read(components=3, dtype="f4"), dtype="f4")
+    path = environment_path(out, place)
+    eye_m = world.eye[2] + world.source.datum
+    save_environment(path, pixels.reshape(height, width, 3), world.sun, eye_m)
+    for resource in (veil, sky, target):
+        resource.release()
+    print(
+        json.dumps({"place": place["id"], "sky": str(path), "eye_m": eye_m}), flush=True
+    )
 
 
 def projection(world):
@@ -273,7 +298,7 @@ def capture_reflections(ctx, prog, draws, textures, world, projection_matrix, pl
     return atlas, query.elapsed * 1e-6
 
 
-def render(ctx, place, config, out):
+def render(ctx, place, config, out, *, sky_dir=None):
     start = perf_counter()
     world = ReferenceScene(place, config)
     target = ctx.simple_framebuffer((2560, 1440), components=4)
@@ -289,6 +314,15 @@ def render(ctx, place, config, out):
     prog["viewProjection"].write(m.T.astype("f4").tobytes())
     prog["eye"].value = tuple(world.eye)
     prog["sun"].value = tuple(world.sun)
+    sky_path = environment_path(sky_dir, place) if sky_dir is not None else None
+    prog["useSkyIrradiance"].value = sky_path is not None
+    if sky_path is not None:
+        radiance = load_environment(
+            sky_path,
+            world.sun,
+            world.eye[2] + world.source.datum,
+        )
+        prog["skyIrradiance"].write(diffuse_coefficients(radiance).tobytes())
     sky.use(0)
     prog["skyView"].value = 0
     sky.use(2)
@@ -374,6 +408,7 @@ def render(ctx, place, config, out):
             {
                 "place": place["id"],
                 "device": ctx.info["GL_RENDERER"],
+                "sky_radiance": str(sky_path) if sky_path is not None else None,
                 "shadow_gpu_ms": round(shadow_time.elapsed * 1e-6, 2),
                 "reflection_levels_m": [round(plane.height, 3) for plane in planes],
                 "reflection_gpu_ms": round(reflection_ms, 2),
@@ -391,7 +426,17 @@ if __name__ == "__main__":
         "--place", action="append", choices=[v["id"] for v in available_views(config)]
     )
     parser.add_argument("--output", type=Path, default=ROOT / "build/shots/glsl")
+    sky_args = parser.add_mutually_exclusive_group()
+    sky_args.add_argument(
+        "--export-sky", action="store_true", help="write scene-linear sky radiance only"
+    )
+    sky_args.add_argument(
+        "--sky-dir", type=Path, help="use exported sky diffuse lighting"
+    )
     args = parser.parse_args()
     with moderngl.create_standalone_context(require=410) as ctx:
         for place in selected_views(config, args.place):
-            render(ctx, place, config, args.output)
+            if args.export_sky:
+                export_sky(ctx, place, config, args.output)
+            else:
+                render(ctx, place, config, args.output, sky_dir=args.sky_dir)
