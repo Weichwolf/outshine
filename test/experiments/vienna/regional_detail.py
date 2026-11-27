@@ -50,13 +50,21 @@ def building_shells(data, nw, se, source, dem, radius, focal):
     index = index[valid]
     if not len(polys):
         return []
-    visible, remap = np.unique(index, return_inverse=True)
+    visible, first, remap = np.unique(index, return_index=True, return_inverse=True)
     anchors = shapely.point_on_surface(geoms[visible])
     xy = shapely.get_coordinates(anchors)
     lon, lat = (xy / source.metres + [source.lon, source.lat]).T
-    base = (
-        dem.sample(lat, lon) - source.datum - np.sum(xy * xy, axis=1) / (2 * 6371000.0)
-    )
+    base, _ = dem.sample_with_zoom(lat, lon, allow_missing=True)
+    missing = ~np.isfinite(base)
+    if missing.any():
+        xy[missing] = shapely.get_coordinates(
+            shapely.point_on_surface(polys[first[missing]])
+        )
+        fallback_lon, fallback_lat = (
+            xy[missing] / source.metres + [source.lon, source.lat]
+        ).T
+        base[missing] = dem.sample(fallback_lat, fallback_lon)
+    base -= source.datum + np.sum(xy * xy, axis=1) / (2 * 6371000.0)
     low = base[remap] + heights[index, 0]
     high = base[remap] + heights[index, 1]
     # Batches preserve courtyards, recessed corners and actual roof silhouettes.

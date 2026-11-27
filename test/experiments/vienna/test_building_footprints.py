@@ -23,6 +23,7 @@ class BuildingFootprintTest(unittest.TestCase):
             [
                 shapely.box(10, 20, 20, 30),
                 shapely.box(70, 20, 80, 30),
+                shapely.box(95, 20, 140, 30),
                 shapely.box(170, 20, 180, 30),
             ]
         )
@@ -43,12 +44,19 @@ class BuildingFootprintTest(unittest.TestCase):
             self.assertTrue((lon < 100).all())
             return lon * 0.2
 
-        dem = SimpleNamespace(sample=sample)
+        def sample_with_zoom(lat, lon, *, allow_missing):
+            self.assertTrue(allow_missing)
+            self.assertTrue((lon < 140).all())
+            return np.where(lon < 100, lon * 0.2, np.nan), np.where(lon < 100, 12, -1)
+
+        dem = SimpleNamespace(sample=sample, sample_with_zoom=sample_with_zoom)
         roofs, walls, *_ = building_shells(
             data, np.array([0, 100]), np.array([100, 0]), source, dem, 1, 600
         )
         for vertices, elevation in ((roofs[1], 8), (walls[1], 3)):
             near = vertices[vertices[:, 0] < 40, 2]
             far = vertices[vertices[:, 0] > 60, 2]
+            clipped = vertices[vertices[:, 0] >= 95, 2]
             self.assertAlmostEqual(near.min(), elevation, delta=0.002)
             self.assertAlmostEqual(far.min(), elevation + 12, delta=0.002)
+            self.assertAlmostEqual(clipped.min(), elevation + 16.5, delta=0.002)
