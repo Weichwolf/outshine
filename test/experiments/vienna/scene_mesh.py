@@ -42,6 +42,7 @@ from water_surface import clipped_water, water_bodies
 
 class Meshes(dict):
     shore = None
+    covered_walks = ()
 
     def add(self, name, vertices, faces):
         points, triangles = self.setdefault(name, ([], []))
@@ -659,6 +660,7 @@ def assemble(
             passages[polygon] = [
                 item for item in passages[polygon] if item.crown_m + 0.4 < ridge
             ]
+    meshes.covered_walks = tuple(item for group in passages.values() for item in group)
     approaches, carried, track_paving, crossings, openings, walk_edges = (
         ground_surfaces(
             meshes,
@@ -672,7 +674,7 @@ def assemble(
             water=water,
             water_plan=water_plan,
             foundations=foundations,
-            covered_walks=[item for group in passages.values() for item in group],
+            covered_walks=meshes.covered_walks,
         )
     )
     if not track_paving.is_empty:

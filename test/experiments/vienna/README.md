@@ -24,6 +24,11 @@ The Eevee directional shadow map uses a minimum 16 mm texel. The default 1 mm te
 produced false shadows on sunlit roads with the full terrain horizon. The 16 mm limit
 keeps the terrain and directional shadows in the reference.
 
+EEVEE bakes diffuse irradiance volumes around nearby source-derived covered walks.
+The volumes follow the generated passages and join around neighbouring portals.
+Shading inside them includes world visibility and diffuse bounce. The render report
+records the bake separately from the warm PNG interval.
+
 Standalone GLSL uses a 96 m local shadow map over 2048 texels per axis. It blends
 into the 4.8 km regional map at the local footprint edge. The regional depth also
 retains shadows from sunward casters beyond the local map's depth range. Near the

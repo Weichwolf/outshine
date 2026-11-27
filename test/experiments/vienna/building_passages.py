@@ -63,6 +63,7 @@ class BuildingPassage:
     route: shapely.LineString
     corridor: shapely.Polygon
     properties: dict
+    floor_m: float
     crown_m: float
 
 
@@ -110,12 +111,14 @@ def building_passages(transport, footprints, extent, height):
                         shapely.GeometryCollection([line, corridor.boundary]), 1
                     )
                 )
+                elevations = height(samples)
                 passages.setdefault(footprint, []).append(
                     BuildingPassage(
                         line,
                         corridor,
                         floor_tags,
-                        float(height(samples).max()) + VAULT_HEIGHT_M,
+                        float(elevations.min()),
+                        float(elevations.max()) + VAULT_HEIGHT_M,
                     )
                 )
     return passages
