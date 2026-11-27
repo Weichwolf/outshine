@@ -31,7 +31,7 @@ from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_light import configure_daylight
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
 from reference_scene import ReferenceScene
-from water_reflection import reflection_levels
+from water_reflection import reflection_planes
 from woodland import tree_batches
 
 SUN_SHADOW_MIN_TEXEL_M = 0.016
@@ -195,13 +195,13 @@ def render(place, config, args):
     scene.render.resolution_percentage = 100
     trees = plant_woodland(world, config["seed"], geometry)
     scene.eevee.taa_render_samples = 16
-    levels = reflection_levels(world) if args.engine == "eevee" else ()
+    planes = reflection_planes(world) if args.engine == "eevee" else ()
     capture_s = 0.0
-    if levels:
-        images, capture_s = capture_images(scene, geometry, levels)
+    if planes:
+        images, capture_s = capture_images(scene, geometry, planes)
         for name in WATER_MATERIALS:
             if material := bpy.data.materials.get(name):
-                apply_reflection(material, world.eye, levels, images)
+                apply_reflection(material, world.eye, planes, images)
     configure_aerial(scene, geometry, eye.z + world.source.datum)
     if args.engine == "cycles":
         device = configure_gpu(scene, "cycles")
@@ -216,7 +216,7 @@ def render(place, config, args):
                 "woodland_trees": trees,
                 "eye_m": eye.z + world.source.datum,
                 **device,
-                "reflection_levels_m": [round(level, 3) for level in levels],
+                "reflection_levels_m": [round(plane.height, 3) for plane in planes],
                 "reflection_capture_s": round(capture_s, 3),
                 "seconds_to_png": times,
             }

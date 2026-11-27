@@ -35,6 +35,14 @@
       "pitch_deg": -16
     },
     {
+      "id": "Schemerlbruecke-Downstream",
+      "origin": "Schemerlbruecke",
+      "offset_east_north_m": [32.612, -109.872],
+      "heading_deg": 10,
+      "pitch_deg": -4,
+      "support": "ground"
+    },
+    {
       "id": "Dechantlacke-Bank",
       "origin": "Dechantlacke",
       "offset_east_north_m": [3.42, 5.77],

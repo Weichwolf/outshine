@@ -8,20 +8,26 @@ import shapely
 from bridges import cap_mesh
 from ground_surface import polygons
 from outshine_ref.water.geodetic import local_points
+from river_control import RiverControl, RiverProfile
 
 
 @dataclass(frozen=True)
 class WaterBody:
     footprint: shapely.Geometry
     level: float
+    profile: RiverProfile | None = None
+    control: RiverControl | None = None
+
+    def level_at(self, lonlat):
+        if self.profile is None:
+            return np.full(len(lonlat), self.level)
+        return self.level + self.profile.drop(lonlat)
 
     def heights(self, source, points):
         lonlat = points / source.metres + [source.lon, source.lat]
+        level = self.level_at(lonlat) + source.datum
         return (
-            local_points((source.lon, source.lat), lonlat, self.level + source.datum)[
-                :, 2
-            ]
-            - source.datum
+            local_points((source.lon, source.lat), lonlat, level)[:, 2] - source.datum
         )
 
     def mesh(self, source, footprint):
@@ -37,20 +43,22 @@ def water_footprints(features):
             key = props.get("class", ""), str(props.get("id", ""))
             groups[key].extend(polygons(shapely.make_valid(geometry)))
     # Touching mapped reaches keep their identities. Resolve area overlaps once.
-    shapes = [
-        part
+    entries = [
+        (key, part)
         for key in sorted(groups)
         for part in polygons(shapely.union_all(groups[key]))
     ]
+    shapes = [shape for _, shape in entries]
     index = shapely.STRtree(shapes)
-    for i, shape in enumerate(shapes):
+    for i, (key, shape) in enumerate(entries):
         earlier = [
             shapes[j] for j in index.query(shape, predicate="intersects") if j < i
         ]
         if earlier:
-            yield from polygons(shape.difference(shapely.union_all(earlier)))
+            for part in polygons(shape.difference(shapely.union_all(earlier))):
+                yield key, part
         else:
-            yield shape
+            yield key, shape
 
 
 def water_level(body, xy, height):
@@ -60,8 +68,30 @@ def water_level(body, xy, height):
     return float(np.median(height(samples)))
 
 
-def water_bodies(features, domain, samples, local_height, regional_height):
-    for footprint in water_footprints(features):
+def water_bodies(
+    features,
+    domain,
+    samples,
+    local_height,
+    regional_height,
+    *,
+    source=None,
+    controls=(),
+):
+    control_by_key = {}
+    for control in controls:
+        if source is None or control.key in control_by_key:
+            raise ValueError(
+                "Water control requires a source frame and a unique mapped ID"
+            )
+        control_by_key[control.key] = control
+    for key, footprint in water_footprints(features):
+        if control := control_by_key.get(key):
+            for part, downstream in control.reaches(source, footprint):
+                level = control.downstream_m if downstream else control.upstream_m
+                profile = control.profile if downstream else None
+                yield WaterBody(part, level - source.datum, profile, control)
+            continue
         local = footprint.intersection(domain)
         if local.area > 0:
             level = water_level(local, samples, local_height)

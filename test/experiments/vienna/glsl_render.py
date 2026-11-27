@@ -24,11 +24,9 @@ from materials import GLASS_IOR, METALLIC, SURFACES, WATER_MATERIALS
 from reference_scene import ReferenceScene
 from water_reflection import (
     LEVEL_TOLERANCE_M,
-    MAX_REFLECTIONS,
     REFLECTION_RANGE_M,
     camera_axes,
-    reflection_levels,
-    reflection_transform,
+    reflection_planes,
 )
 from woodland import tree_batches
 
@@ -188,21 +186,20 @@ def draw_surfaces(ctx, prog, draws, textures, *, capture=False):
         vao.render(instances=count)
 
 
-def capture_reflections(ctx, prog, draws, textures, world, projection_matrix, levels):
+def capture_reflections(ctx, prog, draws, textures, world, projection_matrix, planes):
     prog["reflectionMap"].value = 4
     prog["reflectionRange"].value = REFLECTION_RANGE_M
     prog["reflectionTolerance"].value = LEVEL_TOLERANCE_M
-    prog["reflectionLevels"].value = (
-        *levels,
-        *(0.0,) * (MAX_REFLECTIONS - len(levels)),
-    )
-    prog["reflectionCount"].value = len(levels)
+    for i in range(2):
+        coefficients = planes[i].coefficients() if i < len(planes) else (0.0,) * 4
+        prog[f"reflectionPlane{i}"].value = coefficients
+    prog["reflectionCount"].value = len(planes)
     placeholder = ctx.texture((1, 1), 4, data=b"\0" * 4)
     placeholder.use(4)
-    if not levels:
+    if not planes:
         return placeholder, 0.0
     width, height = REFLECTION_SIZE
-    size = (width, height * len(levels))
+    size = (width, height * len(planes))
     atlas = ctx.texture(size, 4, dtype="f2")
     atlas.repeat_x = atlas.repeat_y = False
     atlas.filter = (moderngl.LINEAR, moderngl.LINEAR)
@@ -213,14 +210,17 @@ def capture_reflections(ctx, prog, draws, textures, world, projection_matrix, le
     prog["reflectionCapture"].value = True
     query = ctx.query(time=True)
     with query:
-        for slot, level in enumerate(levels):
+        for slot, plane in enumerate(planes):
             ctx.viewport = (0, slot * height, width, height)
-            mirror = reflection_transform(level)
+            mirror = plane.mirror()
             prog["viewProjection"].write(
                 (projection_matrix @ mirror).T.astype("f4").tobytes()
             )
             prog["eye"].value = tuple((mirror @ np.r_[world.eye, 1.0])[:3])
-            prog["reflectionClip"].value = level - LEVEL_TOLERANCE_M / 2
+            prog["reflectionClip"].value = (
+                *plane.normal,
+                plane.offset + LEVEL_TOLERANCE_M / 2,
+            )
             draw_surfaces(ctx, prog, draws, textures, capture=True)
     prog["reflectionCapture"].value = False
     prog["eye"].value = tuple(world.eye)
@@ -288,9 +288,9 @@ def render(ctx, place, config, out):
     shadow.use(3)
     prog["shadowPass"].value = False
     textures = {}
-    levels = reflection_levels(world)
+    planes = reflection_planes(world)
     reflection, reflection_ms = capture_reflections(
-        ctx, prog, draws, textures, world, m, levels
+        ctx, prog, draws, textures, world, m, planes
     )
     target.use()
     prog["viewProjection"].write(m.T.astype("f4").tobytes())
@@ -320,7 +320,7 @@ def render(ctx, place, config, out):
             {
                 "place": place["id"],
                 "device": ctx.info["GL_RENDERER"],
-                "reflection_levels_m": [round(level, 3) for level in levels],
+                "reflection_levels_m": [round(plane.height, 3) for plane in planes],
                 "reflection_gpu_ms": round(reflection_ms, 2),
                 "build_and_png_s": round(perf_counter() - start, 2),
             }

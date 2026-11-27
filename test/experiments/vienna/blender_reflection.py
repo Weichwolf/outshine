@@ -22,6 +22,17 @@ def scalar(tree, operation, a, b):
     return node.outputs[0]
 
 
+def fade_out(tree, source, start, end):
+    node = tree.nodes.new("ShaderNodeMapRange")
+    node.interpolation_type = "SMOOTHSTEP"
+    tree.links.new(source, node.inputs["Value"])
+    node.inputs["From Min"].default_value = start
+    node.inputs["From Max"].default_value = end
+    node.inputs["To Min"].default_value = 1
+    node.inputs["To Max"].default_value = 0
+    return node.outputs[0]
+
+
 @contextmanager
 def capture_clip(materials):
     patches = []
@@ -32,21 +43,22 @@ def capture_clip(materials):
             source = target.links[0].from_socket
             nodes = tree.nodes
             position = nodes.new("ShaderNodeNewGeometry")
-            coordinates = nodes.new("ShaderNodeSeparateXYZ")
+            normal = nodes.new("ShaderNodeVectorMath")
+            normal.operation = "DOT_PRODUCT"
             clip = nodes.new("ShaderNodeMath")
             clip.operation = "LESS_THAN"
             transparent = nodes.new("ShaderNodeBsdfTransparent")
             mix = nodes.new("ShaderNodeMixShader")
             patches.append(
-                (tree, target, source, (position, coordinates, clip, transparent, mix))
+                (tree, target, source, (position, normal, clip, transparent, mix))
             )
-            tree.links.new(position.outputs["Position"], coordinates.inputs[0])
-            tree.links.new(coordinates.outputs["Z"], clip.inputs[0])
+            tree.links.new(position.outputs["Position"], normal.inputs[0])
+            tree.links.new(normal.outputs["Value"], clip.inputs[0])
             tree.links.new(clip.outputs[0], mix.inputs[0])
             tree.links.new(source, mix.inputs[1])
             tree.links.new(transparent.outputs[0], mix.inputs[2])
             tree.links.new(mix.outputs[0], target)
-        yield [nodes[2].inputs[1] for _, _, _, nodes in patches]
+        yield [(nodes[1].inputs[1], nodes[2].inputs[1]) for _, _, _, nodes in patches]
     finally:
         for tree, target, source, nodes in patches:
             for node in reversed(nodes):
@@ -54,15 +66,13 @@ def capture_clip(materials):
             tree.links.new(source, target)
 
 
-def mirrored_camera(scene, level, pose):
-    mirror = Matrix.Identity(4)
-    mirror[2][2] = -1
-    mirror[2][3] = 2 * level
+def mirrored_camera(scene, plane, pose):
+    mirror = Matrix(plane.mirror().tolist())
     flip_up = Matrix.Diagonal((1, -1, 1, 1))
     scene.camera.matrix_world = mirror @ pose @ flip_up
 
 
-def capture_images(scene, geometry, levels):
+def capture_images(scene, geometry, planes):
     start = perf_counter()
     settings = scene.render
     format_before = settings.image_settings.file_format
@@ -98,10 +108,11 @@ def capture_images(scene, geometry, levels):
             TemporaryDirectory(prefix="outshine-vienna-reflection-") as tmp,
             capture_clip(materials) as clips,
         ):
-            for i, level in enumerate(levels):
-                mirrored_camera(scene, level, pose)
-                for value in clips:
-                    value.default_value = level - LEVEL_TOLERANCE_M / 2
+            for i, plane in enumerate(planes):
+                mirrored_camera(scene, plane, pose)
+                for normal, threshold in clips:
+                    normal.default_value = plane.normal
+                    threshold.default_value = -plane.offset - LEVEL_TOLERANCE_M / 2
                 settings.filepath = str(Path(tmp) / f"plane-{i}.exr")
                 if "FINISHED" not in bpy.ops.render.render(
                     write_still=True, scene=scene.name
@@ -124,7 +135,7 @@ def capture_images(scene, geometry, levels):
     return images, perf_counter() - start
 
 
-def apply_reflection(material, eye, levels, images):
+def apply_reflection(material, eye, planes, images):
     tree = material.node_tree
     nodes, link = tree.nodes, tree.links.new
     coordinates = nodes.new("ShaderNodeTexCoord")
@@ -135,8 +146,6 @@ def apply_reflection(material, eye, levels, images):
     window.inputs[2].default_value = (0.0, 1.0, 0.0)
 
     position = nodes.new("ShaderNodeNewGeometry").outputs["Position"]
-    world = nodes.new("ShaderNodeSeparateXYZ")
-    link(position, world.inputs[0])
     relative = nodes.new("ShaderNodeVectorMath")
     relative.operation = "SUBTRACT"
     link(position, relative.inputs[0])
@@ -148,23 +157,23 @@ def apply_reflection(material, eye, levels, images):
     distance = nodes.new("ShaderNodeVectorMath")
     distance.operation = "LENGTH"
     link(horizontal.outputs[0], distance.inputs[0])
-    fade = nodes.new("ShaderNodeMapRange")
-    fade.interpolation_type = "SMOOTHSTEP"
-    link(distance.outputs["Value"], fade.inputs["Value"])
-    fade.inputs["From Min"].default_value = 0.8 * REFLECTION_RANGE_M
-    fade.inputs["From Max"].default_value = REFLECTION_RANGE_M
-    fade.inputs["To Min"].default_value = 1
-    fade.inputs["To Max"].default_value = 0
+    fade = fade_out(
+        tree, distance.outputs["Value"], 0.8 * REFLECTION_RANGE_M, REFLECTION_RANGE_M
+    )
 
     fresnel = nodes.new("ShaderNodeFresnel")
     fresnel.inputs["IOR"].default_value = WATER_IOR
-    strength = scalar(tree, "MULTIPLY", fresnel.outputs[0], fade.outputs[0])
+    strength = scalar(tree, "MULTIPLY", fresnel.outputs[0], fade)
     target = nodes["Material Output"].inputs["Surface"]
     shaded = target.links[0].from_socket
-    errors = [
-        scalar(tree, "ABSOLUTE", scalar(tree, "SUBTRACT", world.outputs["Z"], level), 0)
-        for level in levels
-    ]
+    errors = []
+    for plane in planes:
+        normal = nodes.new("ShaderNodeVectorMath")
+        normal.operation = "DOT_PRODUCT"
+        link(position, normal.inputs[0])
+        normal.inputs[1].default_value = plane.normal
+        signed = scalar(tree, "ADD", normal.outputs["Value"], plane.offset)
+        errors.append(scalar(tree, "ABSOLUTE", signed, 0))
     selection = [1]
     if len(errors) == 2:
         second = scalar(tree, "LESS_THAN", errors[1], errors[0])
@@ -174,7 +183,7 @@ def apply_reflection(material, eye, levels, images):
         texture.image = image
         texture.extension = "CLIP"
         link(window.outputs[0], texture.inputs[0])
-        match = scalar(tree, "LESS_THAN", error, LEVEL_TOLERANCE_M)
+        match = fade_out(tree, error, 0.75 * LEVEL_TOLERANCE_M, LEVEL_TOLERANCE_M)
         match = scalar(tree, "MULTIPLY", match, belongs)
         opacity = scalar(tree, "MULTIPLY", texture.outputs["Alpha"], match)
         mix = nodes.new("ShaderNodeMixShader")

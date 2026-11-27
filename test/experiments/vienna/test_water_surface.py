@@ -2,13 +2,72 @@ from types import SimpleNamespace
 from unittest import TestCase
 
 import numpy as np
+from bridge_passages import FLOOR_ABOVE_WATER_M, water_clearance
 from reference_scene import support_height
+from river_control import RiverControl, gate_faces
 from shapely.geometry import LineString, Point, Polygon, box
 from shore_grade import SHORE_REACH_M, shore_grade
 from water_surface import WaterBody, clipped_water, water_bodies
 
 
 class WaterSurfaceTests(TestCase):
+    def test_gate_splits_one_id_and_keeps_grade_across_tile_edges(self):
+        source = SimpleNamespace(
+            lon=16.4, lat=48.2, metres=np.array([74300, 111180]), datum=160
+        )
+        control = RiverControl.from_recipe(
+            {
+                "water_class": "river",
+                "water_id": 4,
+                "plateaus_model_m": [161.0, 158.0],
+                "section_lon_lat": [[16.3998, 48.2], [16.4002, 48.2]],
+                "downstream_centerline_lon_lat": [[16.4, 48.2], [16.4, 48.19]],
+                "station_km_and_adria_m": [[0.58, 157.9], [1.58, 157.5]],
+            }
+        )
+        tags = {"class": "river", "id": 4}
+        extent = box(-10, -1000, 10, 100)
+        height = lambda xy: np.full(len(xy), -1.0)
+
+        def solution(features):
+            return tuple(
+                water_bodies(
+                    features,
+                    extent,
+                    np.array([[0, 0]]),
+                    height,
+                    height,
+                    source=source,
+                    controls=(control,),
+                )
+            )
+
+        bodies = solution([("water", extent, tags)])
+        self.assertEqual(len(bodies), 2)
+        self.assertAlmostEqual(sum(body.footprint.area for body in bodies), extent.area)
+        still = solution([("water", box(-10, -800, 10, -200), tags)])
+        self.assertEqual(len(still), 1)
+        low = next(body for body in bodies if body.profile is not None)
+        near_xy = np.array([[0.0, -20], [0.0, -400], [0.0, -600]])
+        z = low.heights(source, near_xy)
+        self.assertTrue((np.diff(z) < 0).all())
+        np.testing.assert_allclose(still[0].heights(source, near_xy[1:]), z[1:])
+
+        ((_, north_patch),) = clipped_water(bodies, box(-10, -400, 10, -1))
+        ((_, south_patch),) = clipped_water(bodies, box(-10, -800, 10, -400))
+        a = support_height(low.mesh(source, north_patch), (0, -399.97)).max()
+        b = support_height(low.mesh(source, south_patch), (0, -400.03)).max()
+        self.assertLess(abs(a - b), 0.001)
+
+        ((wall, faces),) = gate_faces(source, bodies)
+        self.assertGreater(len(faces), 0)
+        crest, toe = np.split(wall[:, 2], 2)
+        np.testing.assert_allclose(crest - toe, 3.25, atol=1e-6)
+        floors = [(body.footprint, body) for body in bodies]
+        lower = water_clearance(source, floors, np.array([[12, 5], [12, -100]]))
+        self.assertAlmostEqual(lower[0], 1 + FLOOR_ABOVE_WATER_M)
+        self.assertLess(lower[1], -2 + FLOOR_ABOVE_WATER_M)
+
     def test_natural_shore_meets_water_and_preserves_pavement(self):
         source = SimpleNamespace(
             lon=16.4, lat=48.2, metres=np.array([74300, 111180]), datum=160

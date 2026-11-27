@@ -15,10 +15,11 @@ uniform float glassIor;
 uniform bool waterSurface;
 uniform bool shadowPass;
 uniform bool reflectionCapture;
-uniform float reflectionClip;
+uniform vec4 reflectionClip;
+uniform vec4 reflectionPlane0;
+uniform vec4 reflectionPlane1;
 uniform sampler2D reflectionMap;
 uniform int reflectionCount;
-uniform vec2 reflectionLevels;
 uniform mat4 viewProjection;
 uniform float reflectionRange;
 uniform float reflectionTolerance;
@@ -59,11 +60,14 @@ vec3 reflectedEnvironment(vec3 ray) {
   float distance = length(point.xy - eye.xy);
   if (reflectionCount == 0 || distance >= reflectionRange)
     return sky;
-  vec2 error = abs(reflectionLevels - point.z);
+  vec4 worldPoint = vec4(point,1.);
+  vec2 signedError = vec2(dot(reflectionPlane0,worldPoint),dot(reflectionPlane1,worldPoint));
+  vec2 error = abs(signedError);
   int layer = reflectionCount > 1 && error.y < error.x ? 1 : 0;
   if (error[layer] > reflectionTolerance)
     return sky;
-  vec4 projection = viewProjection * vec4(point.xy,2.*reflectionLevels[layer]-point.z,1.);
+  vec3 normal = layer == 0 ? reflectionPlane0.xyz : reflectionPlane1.xyz;
+  vec4 projection = viewProjection * vec4(point-2.*signedError[layer]*normal,1.);
   if (projection.w<=0.)
     return sky;
   vec2 uv = .5 + .5*projection.xy/projection.w;
@@ -81,13 +85,14 @@ vec3 reflectedEnvironment(vec3 ray) {
   scene += .15 * texture(reflectionMap,clamp(centre-vec2(blur,0.),lo,hi)/extent);
   scene += .15 * texture(reflectionMap,clamp(centre+vec2(0.,blur),lo,hi)/extent);
   scene += .15 * texture(reflectionMap,clamp(centre-vec2(0.,blur),lo,hi)/extent);
-  float weight = 1.-smoothstep(.8*reflectionRange,reflectionRange,distance);
+  float weight = (1.-smoothstep(.8*reflectionRange,reflectionRange,distance)) *
+                 (1.-smoothstep(.75*reflectionTolerance,reflectionTolerance,error[layer]));
   return weight*scene.rgb + sky * (1.-weight*scene.a);
 }
 
 void main(){
   if (shadowPass) { gl_FragDepth=gl_FragCoord.z; return; }
-  if (reflectionCapture && point.z<reflectionClip) discard;
+  if (reflectionCapture && dot(reflectionClip,vec4(point,1.))<0.) discard;
   vec3 view=normalize(eye-point);
   vec3 dx=dFdx(point),dy=dFdy(point);
   vec3 n=normalize(cross(dx,dy));

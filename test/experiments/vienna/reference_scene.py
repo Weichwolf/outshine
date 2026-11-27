@@ -22,6 +22,7 @@ from regional import (
     regional_transport,
     tile_rect,
 )
+from river_control import RiverControl, gate_faces
 from scene_mesh import assemble, terrain_grid
 from source_scene import LocalScene
 from viaducts import local_viaducts
@@ -81,7 +82,7 @@ def local_bridge_approaches(source, spans, domain, region):
     return bridge_approaches(spans, features, source.height, water)
 
 
-def reference_water(source, transport, domain, radius):
+def reference_water(source, transport, domain, radius, config):
     receipts = {
         row["url"]: row
         for row in [*source.receipts, *transport.receipts]
@@ -104,8 +105,22 @@ def reference_water(source, transport, domain, radius):
         return dem.sample(lat, lon) - source.datum
 
     samples = terrain_grid(source, radius)[0][:, :2]
+    recipe = json.loads((HERE / "water_controls.json").read_text())
+    if recipe["source_snapshot"] != config["source_snapshot"]:
+        raise ValueError("Water controls require the pinned vector snapshot")
     return tuple(
-        water_bodies(features(), domain, samples, source.height, regional_height)
+        water_bodies(
+            features(),
+            domain,
+            samples,
+            source.height,
+            regional_height,
+            source=source,
+            controls=tuple(
+                RiverControl.from_recipe(control)
+                for control in recipe["water_controls"]
+            ),
+        )
     )
 
 
@@ -173,7 +188,9 @@ class ReferenceScene:
             local_approaches=approaches,
             connect_bridgeheads=self.bridgeheads,
         )
-        self.water_plan = reference_water(self.source, self.transport, domain, 250)
+        self.water_plan = reference_water(
+            self.source, self.transport, domain, 250, config
+        )
         self.local = assemble(
             self.source,
             250,
@@ -207,6 +224,8 @@ class ReferenceScene:
     def surfaces(self):
         for name, (verts, faces) in self.local.items():
             yield name, verts, faces
+        for verts, faces in gate_faces(self.source, self.water_plan):
+            yield "bridge deck", verts, faces
         bounds = []
         for products, tile in regional_meshes(
             self.source,

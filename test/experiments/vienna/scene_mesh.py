@@ -254,7 +254,7 @@ def ground_surfaces(
         quads,
         height,
         stairs,
-        [(footprint, body.level) for body, footprint in water],
+        [(footprint, body) for body, footprint in water],
     )
     openings = shapely.union_all([passage.footprint for passage in passages])
     junction_area = shapely.union_all([j.footprint for j in junctions])
