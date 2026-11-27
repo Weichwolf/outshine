@@ -1,6 +1,7 @@
 #version 410 core
 #include "medium.glsl"
 #include "skyViewLookup.glsl"
+#include "display.glsl"
 in vec2 ndc;
 out vec4 colour;
 uniform int stage;
@@ -41,6 +42,6 @@ void main() {
       rgb+=mediumTransmittanceToTop(air,MediumLook(eyeKm,dir.z),kTransmittanceSteps)/
         (OUTSHINE_PI*kSunHalfAngleRad*kSunHalfAngleRad);
     }
-    colour=vec4(pow(max(vec3(0.),rgb*2.5),vec3(1./2.2)),1.);
+    colour=vec4(pow(filmic(rgb*(2.5/1.2)),vec3(1./2.2)),1.);
   }
 }

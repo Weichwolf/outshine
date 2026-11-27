@@ -25,6 +25,10 @@ void main(){ndc=vec2((gl_VertexID<<1)&2,gl_VertexID&2)*2.-1.;gl_Position=vec4(nd
 
 def shader(path):
     src = path.read_text()
+    if path.name == "display.glsl":
+        src = src.replace(
+            "layout(std140, set = 3, binding = DISPLAY_BINDING)", "layout(std140)"
+        )
     # GLSL 4.10 requires constant initializers for local const declarations.
     if path.name == "AtmosphereCore.h":
         src = re.sub(r"(?m)^(\s+)const (float|bool) ", r"\1\2 ", src)
@@ -86,8 +90,9 @@ def atmosphere(ctx, target, world, right, up):
     placeholder.release()
     quad.release()
     prog.release()
-    for t in textures:
+    for t in textures[:-1]:
         t.release()
+    return textures[-1]
 
 
 def projection(world):
@@ -128,6 +133,7 @@ def draw(ctx, program, name, vertices, faces, placements):
     )
     rgb, rough = SURFACES[name]
     program["surface"].value = (*rgb, rough)
+    program["waterSurface"].value = name in ("water", "regional water")
     vao.render(instances=len(placements))
     vao.release()
     instances.release()
@@ -143,7 +149,7 @@ def render(ctx, place, config, out):
     target.clear(depth=1)
     ctx.disable(moderngl.DEPTH_TEST)
     m, right, up = projection(world)
-    atmosphere(ctx, target, world, right, up)
+    sky = atmosphere(ctx, target, world, right, up)
     prog = ctx.program(
         vertex_shader=shader(HERE / "reference.vert"),
         fragment_shader=shader(HERE / "reference.frag"),
@@ -151,6 +157,9 @@ def render(ctx, place, config, out):
     prog["viewProjection"].write(m.T.astype("f4").tobytes())
     prog["eye"].value = tuple(world.eye)
     prog["sun"].value = tuple(world.sun)
+    sky.use(0)
+    prog["skyView"].value = 0
+    prog["eyeKm"].value = 6360 + (world.eye[2] + world.source.datum) * 0.001
     ctx.enable(moderngl.DEPTH_TEST)
     for name, pts, faces in world.surfaces():
         draw(ctx, prog, name, pts, faces, [(0, 0, 0, 0, 1)])
@@ -166,6 +175,7 @@ def render(ctx, place, config, out):
     im.save(out / (place["id"] + ".png"))
     target.release()
     prog.release()
+    sky.release()
     print(
         json.dumps(
             {
