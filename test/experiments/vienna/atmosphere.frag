@@ -33,11 +33,23 @@ void main() {
     colour=vec4(mediumSkyRay(air,eyeKm,ray,sun.z,transmittance,multiScatter,kSkyViewSteps,
       kMediumLuminanceSegment,kMediumGroundLiftKm),1.);
   } else {
-    vec3 dir=normalize(forward+ndc.x*rightRay+ndc.y*upRay);
+    vec3 dir;
+    if (stage == 4) {
+      // Blender's environment map has +X at the centre and +Z at the top.
+      float lon = OUTSHINE_PI * (1. - 2. * uv.x);
+      float lat = OUTSHINE_PI * (uv.y - .5);
+      dir = vec3(cos(lat) * vec2(cos(lon), sin(lon)), sin(lat));
+    } else {
+      dir = normalize(forward + ndc.x * rightRay + ndc.y * upRay);
+    }
     ivec2 res=textureSize(skyView,0);
     SkyViewSample sampleAt=skyViewSample(air.BottomRadiusKm,eyeKm,
       SkyViewLook(dir.z,skyLightViewCos(dir,vec3(0.,0.,1.),sun)), MediumLutSize(float(res.x),float(res.y)));
     vec3 rgb=texture(skyView,vec2(sampleAt.Uv.U,sampleAt.Uv.V)).rgb;
+    if (stage == 4) {
+      colour = vec4(rgb * (2.5 / 1.2), 1.);
+      return;
+    }
     if(!sampleAt.HitsGround && dot(dir,sun)>cos(kSunHalfAngleRad)){
       rgb+=mediumTransmittanceToTop(air,MediumLook(eyeKm,dir.z),kTransmittanceSteps)/
         (OUTSHINE_PI*kSunHalfAngleRad*kSunHalfAngleRad);

@@ -35,6 +35,27 @@ retains shadows from sunward casters beyond the local map's depth range. Near th
 camera, finer depth resolves leaf shadows and root contact. The GLSL command prints
 the combined GPU time for both depth passes.
 
+## Matched sky radiance
+
+Export the GLSL atmosphere for a fixed view and pass the directory to both renderers.
+Each archive stores a scene-linear 512 × 256 equirectangular image, solar direction and
+rendered eye altitude. Direct sunlight comes from the separate sun in each renderer.
+Blender uses the image as its world environment. GLSL integrates the same image with a
+Lambert cosine kernel and evaluates unoccluded diffuse light from nine spherical harmonics.
+This profile controls the incident environment for diffuse comparisons. The renderers
+retain their respective local transport and display transforms.
+
+```sh
+build/blender-python/bin/python test/experiments/vienna/glsl_render.py --export-sky \
+  --place Dechantlacke-Path-Near-Afternoon --output build/shots/1965/sky
+build/blender-python/bin/python test/experiments/vienna/glsl_render.py \
+  --place Dechantlacke-Path-Near-Afternoon --sky-dir build/shots/1965/sky \
+  --output build/shots/1965/sky-glsl
+blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/render.py -- \
+  --place Dechantlacke-Path-Near-Afternoon --sky-dir build/shots/1965/sky \
+  --repeat --output build/shots/1965/sky-eevee
+```
+
 ## Near material comparisons
 
 Adlerhof faces the passage from the street. Adlerhof-Courtyard and Adlerhof-Reverse

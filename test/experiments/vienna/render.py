@@ -41,6 +41,7 @@ from outshine_ref.rendering.blender_light import configure_daylight
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
 from passage_light import bake_passage_lighting
 from reference_scene import ReferenceScene
+from sky_environment import environment_path, load_environment
 from water_bed import BED_ALBEDO
 from water_reflection import reflection_planes
 
@@ -214,6 +215,32 @@ def plant_woodland(world, seed, geometry):
     return count
 
 
+def configure_world_sky(scene, sunlight, radiance):
+    nodes = scene.world.node_tree.nodes
+    background = nodes["Background"]
+    if radiance is None:
+        sky = nodes.new("ShaderNodeTexSky")
+        sky.sky_type = "HOSEK_WILKIE"
+        sky.sun_direction = sunlight
+        sky.turbidity = 2.2
+        background.inputs["Strength"].default_value = 0.25
+    else:
+        height, width, _ = radiance.shape
+        image = bpy.data.images.new(
+            "Outshine sky radiance", width, height, alpha=False, float_buffer=True
+        )
+        image.colorspace_settings.name = "Non-Color"
+        rgba = np.ones((height, width, 4), dtype="f4")
+        rgba[:, :, :3] = radiance
+        image.pixels.foreach_set(rgba.ravel())
+        sky = nodes.new("ShaderNodeTexEnvironment")
+        sky.projection = "EQUIRECTANGULAR"
+        sky.image = image
+        background.inputs["Strength"].default_value = 1.0
+        scene.world.sun_threshold = 0.0
+    scene.world.node_tree.links.new(sky.outputs["Color"], background.inputs["Color"])
+
+
 def render(place, config, args):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
@@ -224,13 +251,13 @@ def render(place, config, args):
     sun = next(o for o in scene.objects if o.type == "LIGHT" and o.data.type == "SUN")
     sun.rotation_euler = (-sunlight).to_track_quat("-Z", "Y").to_euler()
     sun.data.shadow_maximum_resolution = SUN_SHADOW_MIN_TEXEL_M
-    sky = scene.world.node_tree.nodes.new("ShaderNodeTexSky")
-    sky.sky_type = "HOSEK_WILKIE"
-    sky.sun_direction = sunlight
-    sky.turbidity = 2.2
-    background = scene.world.node_tree.nodes["Background"]
-    background.inputs["Strength"].default_value = 0.25
-    scene.world.node_tree.links.new(sky.outputs["Color"], background.inputs["Color"])
+    sky_dir = getattr(args, "sky_dir", None)
+    sky_path = environment_path(sky_dir, place) if sky_dir is not None else None
+    eye_m = world.eye[2] + world.source.datum
+    radiance = (
+        load_environment(sky_path, world.sun, eye_m) if sky_path is not None else None
+    )
+    configure_world_sky(scene, sunlight, radiance)
     scene.cycles.seed = config["seed"]
     geometry = bpy.data.collections.new("World geometry")
     scene.collection.children.link(geometry)
@@ -271,7 +298,7 @@ def render(place, config, args):
     sky_s = configure_aerial(
         scene,
         geometry,
-        eye.z + world.source.datum,
+        eye_m,
         cache_sky=args.engine == "eevee" and args.repeat,
     )
     if args.engine == "cycles":
@@ -285,8 +312,9 @@ def render(place, config, args):
                 "place": place["id"],
                 "surface": world.support,
                 "woodland_instances": woody_plants,
-                "eye_m": eye.z + world.source.datum,
+                "eye_m": eye_m,
                 **device,
+                "sky_radiance": str(sky_path) if sky_path is not None else None,
                 "passage_irradiance_volumes": probes,
                 "passage_irradiance_bake_s": round(bake_s, 3),
                 "reflection_levels_m": [round(plane.height, 3) for plane in planes],
@@ -307,6 +335,9 @@ if __name__ == "__main__":
     )
     p.add_argument("--output", type=Path, default=ROOT / "build/shots/places")
     p.add_argument("--engine", choices=["eevee", "cycles"], default="eevee")
+    p.add_argument(
+        "--sky-dir", type=Path, help="use exported scene-linear sky radiance"
+    )
     p.add_argument("--repeat", action="store_true")
     args = p.parse_args(
         sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
