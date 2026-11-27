@@ -56,3 +56,14 @@ The regional reference samples the mapped building heights, water, woods, grass 
 footprints around each camera. Its height field extends to the distance at which a 12 m
 building occupies one pixel (6–15 km range). This first regional representation resolves the
 urban silhouette but aliases oblique shorelines, and bridge cells still lack an elevated span.
+
+The native Wien capture is the first reproduction target. Compare the same view in
+`build/shots/places/Wien.png` (Blender) and `build/shots/glsl/Wien.png` (standalone GPU).
+Both consume the same camera, source products, material values, sun direction and tree
+instances. GLSL uses Outshine's metal/rough BRDF and atmospheric transmittance, multiple
+scattering and sky-view lookup kernels. Blender provides its own BSDF and sky model.
+
+```sh
+build/blender-python/bin/python -m pip install moderngl
+build/blender-python/bin/python test/experiments/vienna/glsl_render.py --place Wien
+```

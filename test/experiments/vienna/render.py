@@ -2,9 +2,7 @@
 
 import argparse
 import json
-import math
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import bpy
@@ -18,18 +16,13 @@ sys.path.extend(
     map(str, (ROOT / "build/blender-python/lib").glob("python*/site-packages"))
 )
 
-from astral import Observer
-from astral.sun import azimuth, elevation
 from catalog import load_catalog
-from horizon import terrain_horizon
 from materials import SURFACES
 from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_light import configure_daylight
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
-from regional import beyond_region, regional_meshes, regional_sources
-from scene_mesh import assemble
-from source_scene import LocalScene
-from woodland import plant_woodland
+from reference_scene import ReferenceScene
+from woodland import tree_batches
 
 
 def upload(name, vertices, faces, *, collection=None):
@@ -60,88 +53,59 @@ def upload(name, vertices, faces, *, collection=None):
     return obj
 
 
+def plant_woodland(world, seed):
+    count = 0
+    for species, group, meshes, placements in tree_batches(
+        world.source, 250, seed, world.focal
+    ):
+        collection = bpy.data.collections.new(f"{species} group {group}")
+        for name, (vertices, faces) in meshes.items():
+            upload(name, vertices, faces, collection=collection)
+        for x, y, z, angle, scale in placements:
+            instance = bpy.data.objects.new(species, None)
+            instance.instance_type = "COLLECTION"
+            instance.instance_collection = collection
+            instance.location = (x, y, z)
+            instance.rotation_euler.z = angle
+            instance.scale = (scale,) * 3
+            bpy.context.scene.collection.objects.link(instance)
+        count += len(placements)
+    return count
+
+
 def render(place, config, args):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     device = configure_gpu(scene, "eevee")
     configure_daylight(scene)
-    observer = Observer(place["latitude"], place["longitude"])
-    utc = datetime.fromisoformat(place.get("utc", config["utc"]))
-    fov = place.get("vertical_fov_deg", config["vertical_fov_deg"])
-    bearing = math.radians(azimuth(observer, utc))
-    altitude = math.radians(elevation(observer, utc))
-    sunlight = Vector(
-        (
-            math.sin(bearing) * math.cos(altitude),
-            math.cos(bearing) * math.cos(altitude),
-            math.sin(altitude),
-        )
-    )
+    world = ReferenceScene(place, config)
+    sunlight = Vector(world.sun)
     sun = next(o for o in scene.objects if o.type == "LIGHT" and o.data.type == "SUN")
     sun.rotation_euler = (-sunlight).to_track_quat("-Z", "Y").to_euler()
+    sky = scene.world.node_tree.nodes.new("ShaderNodeTexSky")
+    sky.sky_type = "HOSEK_WILKIE"
+    sky.sun_direction = sunlight
+    sky.turbidity = 2.2
+    background = scene.world.node_tree.nodes["Background"]
+    background.inputs["Strength"].default_value = 0.25
+    scene.world.node_tree.links.new(sky.outputs["Color"], background.inputs["Color"])
     scene.cycles.seed = config["seed"]
-    source = LocalScene(
-        place, config["source_snapshot"], ROOT / "build/vienna-sources", 250
-    )
-    far, faces, receipts = terrain_horizon(source, ROOT / "build/vienna-sources", 250)
-    pins = json.loads((HERE / "sources.json").read_text())
-    region = regional_sources(
-        source, place, config["source_snapshot"], ROOT / "build/vienna-sources", fov
-    )
-    for row in source.receipts + receipts + region:
-        if pins.get(row["url"]) != row["sha256"]:
-            raise ValueError(f"Unpinned or changed Vienna source: {row['url']}")
-    objects = {n: upload(n, *mesh) for n, mesh in assemble(source, 250).items()}
-    focal_pixels = 360 / math.tan(math.radians(fov) / 2)
-    tiles = []
-    for products, bounds in regional_meshes(source, region, focal_pixels, 250):
-        for name, vertices, indices in products:
-            upload(name, vertices, indices)
-        tiles.append(bounds)
-    upload("distant terrain", *beyond_region(far, faces, tiles))
-    bpy.context.view_layer.update()
-    if "absolute_eye_m" in place:
-        surface = "absolute station"
-        eye = Vector((0, 0, place["absolute_eye_m"] - source.datum))
-    else:
-        candidates = (
-            ("sidewalk", "road")
-            if place["support"] == "street"
-            else (place["support"],)
-        )
-        hits = []
-        for name in candidates:
-            if name in objects:
-                hit, pos, _, _ = objects[name].ray_cast(
-                    Vector((0, 0, 300)), Vector((0, 0, -1))
-                )
-                if hit:
-                    hits.append((pos.z, name))
-        if not hits:
-            raise ValueError(f"{place['id']}: no walkable {candidates} at camera")
-        support, surface = max(hits)
-        eye = Vector((0, 0, support + config["eye_height_m"]))
-    yaw, pitch = map(math.radians, (place["heading_deg"], place["pitch_deg"]))
-    look = Vector(
-        (
-            math.sin(yaw) * math.cos(pitch),
-            math.cos(yaw) * math.cos(pitch),
-            math.sin(pitch),
-        )
-    )
+    for name, verts, faces in world.surfaces():
+        upload(name, verts, faces)
+    eye, look = Vector(world.eye), Vector(world.look)
     scene.camera = configure_camera(
         {
             "eye": eye,
             "target": eye + look,
             "projection": "perspective",
-            "vertical_fov_deg": fov,
+            "vertical_fov_deg": world.fov,
             "clip_near_m": 0.05,
             "clip_far_m": 240000,
         }
     )
     scene.render.resolution_x, scene.render.resolution_y = 1280, 720
     scene.render.resolution_percentage = 100
-    trees = plant_woodland(source, 250, config["seed"], focal_pixels, upload)
+    trees = plant_woodland(world, config["seed"])
     scene.eevee.taa_render_samples = 16
     if args.engine == "cycles":
         device = configure_gpu(scene, "cycles")
@@ -152,9 +116,9 @@ def render(place, config, args):
         json.dumps(
             {
                 "place": place["id"],
-                "surface": surface,
+                "surface": world.support,
                 "woodland_trees": trees,
-                "eye_m": eye.z + source.datum,
+                "eye_m": eye.z + world.source.datum,
                 **device,
                 "seconds_to_png": times,
             }

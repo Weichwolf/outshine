@@ -3,7 +3,6 @@
 import json
 from importlib.resources import files
 
-import bpy
 import numpy as np
 import shapely
 from outshine_ref.places.sources import tile_geography
@@ -98,13 +97,13 @@ def geometry(plan, step):
     return meshes
 
 
-def plant_woodland(source, radius, seed, focal_pixels, upload):
+def tree_batches(source, radius, seed, focal_pixels):
     domain = habitat(source)
     if domain is None or domain.is_empty:
-        return 0
+        return
     templates = {}
     plans = {}
-    total = 0
+
     for positions, marks in roots(source, domain, radius, seed):
         heights = source.height(positions)
         for xy, z, (family, rotation, scale) in zip(
@@ -125,17 +124,8 @@ def plant_woodland(source, radius, seed, focal_pixels, upload):
             )
             group = 1 if width_px >= 1 else (4 if width_px >= 0.5 else 16)
             key = species, group
-            if key not in templates:
-                coll = bpy.data.collections.new(f"{species} group {group}")
-                for name, (vertices, faces) in geometry(plan, group).items():
-                    upload(name, vertices, faces, collection=coll)
-                templates[key] = coll
-            instance = bpy.data.objects.new(species, None)
-            instance.instance_type = "COLLECTION"
-            instance.instance_collection = templates[key]
-            instance.location = (*xy, z - 0.08)
-            instance.scale = (scale,) * 3
-            instance.rotation_euler.z = rotation * 2 * np.pi
-            bpy.context.scene.collection.objects.link(instance)
-            total += 1
-    return total
+            templates.setdefault(key, []).append(
+                (*xy, z - 0.08, rotation * 2 * np.pi, scale)
+            )
+    for (species, group), placements in templates.items():
+        yield species, group, geometry(plans[species], group), np.asarray(placements)

@@ -1,0 +1,190 @@
+"""Render generated reference geometry with the shared Outshine GLSL on the hardware GPU."""
+
+import argparse
+import json
+import re
+import sys
+from pathlib import Path
+from time import perf_counter
+
+import moderngl
+import numpy as np
+from catalog import HERE, ROOT, load_catalog
+from PIL import Image
+
+sys.path.insert(0, str(ROOT / "lib/src"))
+from materials import SURFACES
+from reference_scene import ReferenceScene
+from woodland import tree_batches
+
+SCREEN = """#version 410 core
+out vec2 ndc;
+void main(){ndc=vec2((gl_VertexID<<1)&2,gl_VertexID&2)*2.-1.;gl_Position=vec4(ndc,0.,1.);}
+"""
+
+
+def shader(path):
+    src = path.read_text()
+    # GLSL 4.10 requires constant initializers for local const declarations.
+    if path.name == "AtmosphereCore.h":
+        src = re.sub(r"(?m)^(\s+)const (float|bool) ", r"\1\2 ", src)
+
+    def include(m):
+        name = m[1]
+        target = next(
+            p
+            for p in (ROOT / "src/render/shaders" / name, ROOT / "src" / name)
+            if p.is_file()
+        )
+        return shader(target)
+
+    return re.sub(r'^#include "([^"]+)"', include, src, flags=re.MULTILINE)
+
+
+def atmosphere(ctx, target, world, right, up):
+    prog = ctx.program(
+        vertex_shader=SCREEN, fragment_shader=shader(HERE / "atmosphere.frag")
+    )
+    quad = ctx.vertex_array(prog, [])
+    for key, value in {
+        "eyeKm": 6360 + (world.eye[2] + world.source.datum) * 0.001,
+        "sun": tuple(world.sun),
+        "rightRay": tuple(right),
+        "upRay": tuple(up),
+        "forward": tuple(world.look),
+    }.items():
+        prog[key].value = value
+    placeholder = ctx.texture(
+        (1, 1), 4, dtype="f4", data=np.zeros(4, dtype="f4").tobytes()
+    )
+    for unit, key in enumerate(("transmittance", "multiScatter", "skyView")):
+        placeholder.use(unit)
+        prog[key].value = unit
+    textures = []
+    for i, (key, size) in enumerate(
+        (
+            ("transmittance", (512, 64)),
+            ("multiScatter", (32, 32)),
+            ("skyView", (192, 108)),
+        )
+    ):
+        tex = ctx.texture(size, 4, dtype="f4")
+        tex.repeat_x = tex.repeat_y = False
+        dest = ctx.framebuffer([tex])
+        dest.use()
+        prog["stage"].value = i
+        prog["extent"].value = size
+        quad.render(vertices=3)
+        dest.release()
+        textures.append(tex)
+        tex.use(i)
+        prog[key].value = i
+    target.use()
+    prog["stage"].value = 3
+    prog["extent"].value = target.size
+    quad.render(vertices=3)
+    placeholder.release()
+    quad.release()
+    prog.release()
+    for t in textures:
+        t.release()
+
+
+def projection(world):
+    forward = world.look
+    right = np.cross(forward, [0, 0, 1])
+    right /= np.linalg.norm(right)
+    up = np.cross(right, forward)
+    view = np.eye(4)
+    view[:3, :3] = np.array([right, up, -forward])
+    view[:3, 3] = -view[:3, :3] @ world.eye
+    t = 360 / world.focal
+    near = 0.05
+    far = 240000.0
+    clip = np.array(
+        [
+            [720 / (1280 * t), 0, 0, 0],
+            [0, 1 / t, 0, 0],
+            [0, 0, -(far + near) / (far - near), -2 * far * near / (far - near)],
+            [0, 0, -1, 0],
+        ]
+    )
+    return clip @ view, right * t * 1280 / 720, up * t
+
+
+def draw(ctx, program, name, vertices, faces, placements):
+    faces = np.asarray(faces, dtype="i4")
+    if not faces.size:
+        return
+    if faces.shape[1] == 4:
+        faces = faces[:, [0, 1, 2, 0, 2, 3]]
+    points = ctx.buffer(np.asarray(vertices, dtype="f4").tobytes())
+    idx = ctx.buffer(faces.tobytes())
+    instances = ctx.buffer(np.asarray(placements, dtype="f4").tobytes())
+    vao = ctx.vertex_array(
+        program,
+        [(points, "3f", "position"), (instances, "4f 1f /i", "offsetAngle", "scale")],
+        idx,
+    )
+    rgb, rough = SURFACES[name]
+    program["surface"].value = (*rgb, rough)
+    vao.render(instances=len(placements))
+    vao.release()
+    instances.release()
+    idx.release()
+    points.release()
+
+
+def render(ctx, place, config, out):
+    start = perf_counter()
+    world = ReferenceScene(place, config)
+    target = ctx.simple_framebuffer((1280, 720), components=4)
+    target.use()
+    target.clear(depth=1)
+    ctx.disable(moderngl.DEPTH_TEST)
+    m, right, up = projection(world)
+    atmosphere(ctx, target, world, right, up)
+    prog = ctx.program(
+        vertex_shader=shader(HERE / "reference.vert"),
+        fragment_shader=shader(HERE / "reference.frag"),
+    )
+    prog["viewProjection"].write(m.T.astype("f4").tobytes())
+    prog["eye"].value = tuple(world.eye)
+    prog["sun"].value = tuple(world.sun)
+    ctx.enable(moderngl.DEPTH_TEST)
+    for name, pts, faces in world.surfaces():
+        draw(ctx, prog, name, pts, faces, [(0, 0, 0, 0, 1)])
+    for _, _, meshes, plants in tree_batches(
+        world.source, 250, config["seed"], world.focal
+    ):
+        for name, (pts, faces) in meshes.items():
+            draw(ctx, prog, name, pts, faces, plants)
+    im = Image.frombytes(
+        "RGB", target.size, target.read(components=3, alignment=1)
+    ).transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+    out.mkdir(parents=True, exist_ok=True)
+    im.save(out / (place["id"] + ".png"))
+    target.release()
+    prog.release()
+    print(
+        json.dumps(
+            {
+                "place": place["id"],
+                "device": ctx.info["GL_RENDERER"],
+                "build_and_png_s": round(perf_counter() - start, 2),
+            }
+        ),
+        flush=True,
+    )
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--place", action="append")
+    parser.add_argument("--output", type=Path, default=ROOT / "build/shots/glsl")
+    args = parser.parse_args()
+    config = load_catalog()
+    with moderngl.create_standalone_context(require=410) as ctx:
+        for p in config["places"]:
+            if not args.place or p["id"] in args.place:
+                render(ctx, p, config, args.output)
