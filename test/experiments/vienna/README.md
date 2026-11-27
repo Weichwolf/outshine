@@ -75,10 +75,32 @@ The first review used 1280×720 EEVEE on Iris Xe Vulkan at `f65afb793`.
 | Schemerlbruecke-Downstream | Retaining faces and the bridge enclose the channel. The drop interrupts the reflectivity of the upper reach and aerated water brightens the lower pool. [C. Stadler/Bwag, 29 May 2018](https://commons.wikimedia.org/wiki/File:Wien_-_Nu%C3%9Fdorfer_Wehr_(1).JPG) | The mapped crest, lower pool and reflected structure read from the east bank. Angular earthworks and the smooth lower pool leave less separation between spill and calm water than in the photograph. [#1966](https://github.com/Weichwolf/outshine/issues/1966) |
 | Dechantlacke-Bank | Leaves at several heights interrupt the gaps between oak-sized trunks. Small sunlit patches break up trunks and woodland floor. [Leonhard Lenz, 9 August 2022](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg) | The shore shows rooted shrubs, distinct stems and a reflected second layer of crowns. The opposite bank and canopy gaps remain more open than the photographed interior stand. [#1961](https://github.com/Weichwolf/outshine/issues/1961) · [#2063](https://github.com/Weichwolf/outshine/issues/2063) |
 
-Use the same fitted surfaces and material recipes at neighboring viewpoints. Compare
-plaster and setts in direct sun and shade, the spill and calm surface under one sky,
-and lit crown edges beside shaded undergrowth. In shade, retain readable surface texture,
-local contrast and recognizable material colours.
+The site data supplies Adlerhof's building and route footprints, the canal and mapped
+weir crest, and the Lobau water, paths and woodland boundary. Building openings and
+setts use repeat recipes. The weir head and sediment at the bank are model estimates.
+The woodland recipe chooses species, age variation and undergrowth within the mapped
+habitat. The photographs guide those choices at pedestrian scale.
+
+The clear-day pairs use the same pin set, pose, geometry, material recipes and AgX
+exposure. Their clocks are 10:00 and 16:30 UTC on 21 June 2026. Adlerhof turns from
+sunlit plaster and setts to façade shade. Dechantlacke turns from backlit stems and
+dappled path shade toward more directly lit bark and path. In shade, look for
+readable surface texture, local contrast and recognizable material colours.
+
+```sh
+blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/render.py -- \
+  --place Adlerhof-Near --place Adlerhof-Near-Afternoon --place Dechantlacke-Path-Near \
+  --place Dechantlacke-Path-Near-Afternoon --output build/shots/2044/light/eevee
+```
+
+The 1280×720 Iris Xe Vulkan captures show the same joints, window recesses, root
+collars and path edges at both times. A ray probe selected fixed pixels that cross
+the geometric sun/shade boundary between frames. Median PNG luma on a 0–255 scale
+changes from 163 to 43 on Adlerhof plaster and from 171 to 22 on the setts. At
+Dechantlacke it changes from 23 to 104 on oak bark, 31 to 136 on beech bark and
+17 to 86 on the unpaved path. The afternoon sun makes the bark contrast and stem
+curvature clearer. In shade the paving and path lose much of their fine relief.
+The diffuse-light comparison belongs to [#1965](https://github.com/Weichwolf/outshine/issues/1965).
 
 ## Reference geometry
 

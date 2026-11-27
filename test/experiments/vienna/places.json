@@ -14,6 +14,14 @@
       "pitch_deg": -6
     },
     {
+      "id": "Adlerhof-Near-Afternoon",
+      "origin": "Adlerhof",
+      "offset_east_north_m": [3.0, -0.5],
+      "heading_deg": 66,
+      "pitch_deg": -6,
+      "utc": "2026-06-21T16:30:00Z"
+    },
+    {
       "id": "Dechantlacke-Path",
       "origin": "Dechantlacke",
       "offset_east_north_m": [-1.6, -3.0],
@@ -26,6 +34,14 @@
       "offset_east_north_m": [-2.7, -5.1],
       "heading_deg": 167,
       "pitch_deg": -15
+    },
+    {
+      "id": "Dechantlacke-Path-Near-Afternoon",
+      "origin": "Dechantlacke",
+      "offset_east_north_m": [-2.7, -5.1],
+      "heading_deg": 167,
+      "pitch_deg": -15,
+      "utc": "2026-06-21T16:30:00Z"
     },
     {
       "id": "Schemerlbruecke-Bank",
