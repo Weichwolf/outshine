@@ -9,7 +9,7 @@ from time import perf_counter
 
 import moderngl
 import numpy as np
-from catalog import HERE, ROOT, load_catalog
+from catalog import HERE, ROOT, load_catalog, selected_views
 from PIL import Image
 
 sys.path.insert(0, str(ROOT / "lib/src"))
@@ -236,12 +236,13 @@ def render(ctx, place, config, out):
 
 
 if __name__ == "__main__":
+    config = load_catalog()
     parser = argparse.ArgumentParser()
-    parser.add_argument("--place", action="append")
+    parser.add_argument(
+        "--place", action="append", choices=[v["id"] for v in config["places"]]
+    )
     parser.add_argument("--output", type=Path, default=ROOT / "build/shots/glsl")
     args = parser.parse_args()
-    config = load_catalog()
     with moderngl.create_standalone_context(require=410) as ctx:
-        for p in config["places"]:
-            if not args.place or p["id"] in args.place:
-                render(ctx, p, config, args.output)
+        for place in selected_views(config, args.place):
+            render(ctx, place, config, args.output)

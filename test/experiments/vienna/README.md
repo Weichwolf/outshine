@@ -15,7 +15,8 @@ an independent lighting comparison. Inputs are genuine ZXY tiles pinned in sourc
 The seed, camera, clear sky and UTC are in places.json. The final eye position follows a vertical
 intersection with the rendered support mesh.
 
-Omit `--place Adlerhof` to render the thirteen views in catalog order. With `--repeat`, the
+Omit `--place Adlerhof` to render the twelve pedestrian views in catalog order. Use
+`--place Wien` for the historical reference. With `--repeat`, the
 second interval measures the warm image, including PNG encoding and writing. Allow up to five
 seconds at 1280×720 for this reference workflow.
 

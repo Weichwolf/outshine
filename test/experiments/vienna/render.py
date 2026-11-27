@@ -17,7 +17,7 @@ sys.path.extend(
 )
 
 from blender_air import configure_aerial
-from catalog import load_catalog
+from catalog import load_catalog, selected_views
 from materials import SURFACES
 from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_light import configure_daylight
@@ -131,13 +131,16 @@ def render(place, config, args):
 
 
 if __name__ == "__main__":
+    config = load_catalog()
     p = argparse.ArgumentParser()
-    p.add_argument("--place", action="append")
+    p.add_argument(
+        "--place", action="append", choices=[v["id"] for v in config["places"]]
+    )
     p.add_argument("--output", type=Path, default=ROOT / "build/shots/places")
     p.add_argument("--engine", choices=["eevee", "cycles"], default="eevee")
     p.add_argument("--repeat", action="store_true")
-    args = p.parse_args(sys.argv[sys.argv.index("--") + 1 :])
-    config = load_catalog()
-    for place in config["places"]:
-        if not args.place or place["id"] in args.place:
-            render(place, config, args)
+    args = p.parse_args(
+        sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
+    )
+    for place in selected_views(config, args.place):
+        render(place, config, args)

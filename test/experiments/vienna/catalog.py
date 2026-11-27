@@ -29,3 +29,9 @@ def load_catalog():
                 utc=scenario.find("clock").attrib["start"],
             )
     return config
+
+
+def selected_views(config, names):
+    if names:
+        return [place for place in config["places"] if place["id"] in names]
+    return [place for place in config["places"] if "absolute_eye_m" not in place]
