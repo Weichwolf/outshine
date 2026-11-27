@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import shapely
+from building_footprints import building_footprints
 from outshine_ref.places.height import Elevation
 from outshine_ref.places.sources import (
     acquire,
@@ -49,11 +50,19 @@ class LocalScene:
 
     def add_features(self, receipt, radius):
         centre = Point(0, 0)
-        for record in self.metric_features(
+        for name, geometry, properties in self.metric_features(
             receipt, ("building", "transportation", "water", "landcover")
         ):
-            if record[1].distance(centre) <= radius:
-                self.features.append(record)
+            if geometry.distance(centre) > radius:
+                continue
+            if name == "building":
+                footprints, _ = building_footprints(geometry)
+                nearby = footprints[shapely.dwithin(footprints, centre, radius)]
+                self.features.extend(
+                    (name, footprint, properties) for footprint in nearby
+                )
+            else:
+                self.features.append((name, geometry, properties))
 
     def metric_features(self, receipt, names, data=None):
         tile = receipt["tile"]
