@@ -24,30 +24,47 @@ class BridgeJunction:
 
 def junction_pavement(features, crossings, junctions, joined_spans, roads):
     if not junctions:
-        return set()
+        return {}
     approach_area = shapely.union_all([j.footprint for j in junctions])
     served = [c for c in crossings if any(c.span is s for s in joined_spans)]
-    carried = set()
+    endpoints, _ = bridge_routes(("transportation", g, tags) for g, tags in features)
+    carried = {}
     for geom, tags in features:
-        width = ROAD_WIDTH.get(tags.get("class"))
+        kind = tags.get("class")
+        width = ROAD_WIDTH.get(kind)
         if (
             width is None
             or tags.get("brunnel") != "bridge"
             or not geom.geom_type.endswith("LineString")
         ):
             continue
-        for crossing in served:
-            if (
-                tags.get("layer", 1) != crossing.layer
-                or geom.intersection(crossing.footprint).length <= geom.length / 2
+        material = path_material(tags) if kind == "path" else "road"
+        neighbors = endpoints["pedestrian" if kind == "path" else "road"]
+        parts = []
+        for route in shapely.get_parts(geom):
+            if not any(
+                tags.get("layer", 1) == crossing.layer
+                and route.intersection(crossing.footprint).length > route.length / 2
+                for crossing in served
             ):
                 continue
-            carried.add(id(geom))
-            material = path_material(tags) if tags["class"] == "path" else "road"
-            surface = route_area(geom, width).intersection(approach_area)
-            roads[material] = roads[material].union(surface, grid_size=1e-6)
-            break
+            parts.append(route)
+            surface = route_area(route_with_banks(route, neighbors), width)
+            surface = surface.intersection(route.buffer(width / 2))
+            fitted = shapely.get_parts(surface.intersection(approach_area))
+            paved = fitted[shapely.get_dimensions(fitted) == 2]
+            roads[material] = shapely.union_all(
+                [roads[material], *paved], grid_size=1e-6
+            )
+        if parts:
+            carried[id(geom)] = shapely.union_all(parts)
     return carried
+
+
+def route_with_banks(route, endpoints):
+    first = endpoints.get(route.coords[0], ())
+    last = endpoints.get(route.coords[-1], ())
+    return shapely.line_merge(shapely.union_all([route, *first, *last]))
 
 
 def bridge_routes(features):
@@ -68,73 +85,69 @@ def bridge_routes(features):
             if line.is_empty:
                 continue
             if tags.get("brunnel") == "bridge":
-                routes.setdefault(tags.get("layer", 1), []).append((line, mode))
+                width = ROAD_WIDTH.get(kind)
+                routes.setdefault(tags.get("layer", 1), []).append((line, mode, width))
             elif mode != "tram" and at_grade_width(tags) is not None:
                 for end in (line.coords[0], line.coords[-1]):
                     ends[mode].setdefault(end, []).append(line)
     return ends, routes
 
 
+def crossing_routes(crossing, endpoints, routes):
+    for route, mode, width in routes.get(crossing.layer, ()):
+        if route.intersection(crossing.footprint).length <= crossing.span.length / 2:
+            continue
+        if mode == "tram" or (
+            (mode == "road" or crossing.pavement.is_empty)
+            and route.coords[0] in endpoints[mode]
+            and route.coords[-1] in endpoints[mode]
+        ):
+            yield route, mode, width
+
+
 def connected_bridge_crossings(features, crossings):
-    ends, routes = bridge_routes(features)
+    endpoints, routes = bridge_routes(features)
     return [
         crossing
         for crossing in crossings
-        if any(
-            route.intersection(crossing.footprint).length > crossing.span.length / 2
-            and (
-                mode == "tram"
-                or (
-                    (mode == "road" or crossing.pavement.is_empty)
-                    and route.coords[0] in ends[mode]
-                    and route.coords[-1] in ends[mode]
-                )
-            )
-            for route, mode in routes.get(crossing.layer, ())
-        )
+        if any(crossing_routes(crossing, endpoints, routes))
     ]
 
 
-def pedestrian_deck_contacts(features, crossings, water):
-    if water.is_empty or not any(c.pavement.is_empty for c in crossings):
+def deck_bank_contacts(features, crossings, water):
+    if water.is_empty or not crossings:
         return crossings
-    ends, routes = bridge_routes(features)
-    paths = ends["pedestrian"]
-    width = ROAD_WIDTH["path"]
+    endpoints, routes = bridge_routes(features)
     planned = []
     for crossing in crossings:
-        deck = crossing.footprint
+        deck, pavement = crossing.footprint, crossing.pavement
         extensions = []
-        if crossing.pavement.is_empty:
-            nearby = deck.buffer(width / 2, quad_segs=2)
-            for route, mode in routes.get(crossing.layer, ()):
-                first, last = route.coords[0], route.coords[-1]
-                if (
-                    mode != "pedestrian"
-                    or first not in paths
-                    or last not in paths
-                    or route.intersection(deck).length <= crossing.span.length / 2
-                ):
+        for route, mode, width in crossing_routes(crossing, endpoints, routes):
+            if mode == "tram":
+                continue
+            connected = route_with_banks(route, endpoints[mode])
+            nearby = crossing.footprint.buffer(width / 2, quad_segs=2)
+            contact = route_area(connected, width).intersection(nearby)
+            for extension in shapely.get_parts(
+                contact.difference(deck, grid_size=1e-6)
+            ):
+                if not extension.intersects(water):
                     continue
-                connected = shapely.line_merge(
-                    shapely.union_all([route, *paths[first], *paths[last]])
-                )
-                contact = route_area(connected, width).intersection(nearby)
-                for extension in shapely.get_parts(
-                    contact.difference(deck, grid_size=1e-6)
+                joined = deck.union(extension, grid_size=1e-6)
+                if (
+                    extension.intersection(water).area > 0
+                    and extension.difference(water).area > 0
+                    and joined.geom_type == "Polygon"
                 ):
-                    joined = deck.union(extension, grid_size=1e-6)
-                    if (
-                        extension.intersection(water).area > 0
-                        and extension.difference(water).area > 0
-                        and joined.geom_type == "Polygon"
-                    ):
-                        deck = joined
-                        extensions.append(extension)
+                    deck = joined
+                    extensions.append(extension)
+                    if mode == "road":
+                        pavement = pavement.union(extension, grid_size=1e-6)
         if extensions:
             crossing = replace(
                 crossing,
                 footprint=shapely.orient_polygons(deck),
+                pavement=pavement,
                 bank_contact=shapely.union_all(extensions),
             )
         planned.append(crossing)

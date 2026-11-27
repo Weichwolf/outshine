@@ -8,7 +8,7 @@ import shapely
 from bridge_junctions import (
     bridge_junctions,
     connected_bridge_crossings,
-    pedestrian_deck_contacts,
+    deck_bank_contacts,
 )
 from ground_surface import at_grade_width, path_material, route_area
 from outshine_ref.contracts import Mesh
@@ -437,7 +437,7 @@ def fit_bridge_levels(
 def bridge_terrain(
     source, crossings, domain, water, roads, vertices, quads, terrain, stairs
 ):
-    decks = pedestrian_deck_contacts(source.features, crossings, water)
+    decks = deck_bank_contacts(source.features, crossings, water)
     plan = fit_bridge_levels(
         source, decks, domain, water, roads, vertices, quads, terrain, stairs
     )

@@ -473,8 +473,10 @@ def assemble(source, radius, viaducts=(), approaches=(), *, crossings=None):
                 if poly.distance(Point(0, 0)) <= radius:
                     building(meshes, poly, prop, source)
         elif name == "transportation" and prop.get("brunnel") != "tunnel":
-            if at_grade_width(prop) is not None or id(geom) in carried:
+            if at_grade_width(prop) is not None:
                 continue
+            if owned := carried.get(id(geom)):
+                geometry = geometry.difference(owned)
             material = "sidewalk" if prop.get("class") == "path" else "road"
             clipped = geometry.intersection(extent)
             if "LineString" in clipped.geom_type:
