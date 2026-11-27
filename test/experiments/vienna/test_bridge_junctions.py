@@ -1,0 +1,69 @@
+import unittest
+from types import SimpleNamespace
+
+import numpy as np
+from bridges import WaterCrossing
+from outshine_ref.transport.water_span import WaterSpan
+from reference_scene import support_height
+from scene_mesh import assemble
+from shapely.geometry import LineString, box
+
+
+class BridgeJunctionTest(unittest.TestCase):
+    def test_tagged_road_fragment_uses_the_fitted_bank_surface(self):
+        deck = box(-20, -5, 20, 5)
+        carriageway = LineString([(-20.4, 0), (20.3, 0)])
+        span = WaterSpan(np.array([-20, 0]), np.array([1, 0]), 40, 1.2, 0.01)
+        crossing = WaterCrossing(
+            deck, span, carriageway.buffer(2).intersection(deck), 1
+        )
+        source = SimpleNamespace(
+            height=lambda xy: 1.60 + 0.012 * xy[:, 0] + 0.002 * xy[:, 1],
+            datum=0,
+            lat=0,
+            lon=0,
+            metres=np.array([111000.0, 111000.0]),
+            features=[
+                ("water", box(-16, -150, 16, 150), {}),
+                (
+                    "transportation",
+                    carriageway,
+                    {"class": "secondary", "brunnel": "bridge", "layer": 1},
+                ),
+                (
+                    "transportation",
+                    LineString([(-20.4, 0), (-130, 0)]),
+                    {"class": "secondary"},
+                ),
+                (
+                    "transportation",
+                    LineString([(20.3, 0), (130, 0)]),
+                    {"class": "secondary"},
+                ),
+                (
+                    "transportation",
+                    LineString([(-20, -1), (20, -1)]),
+                    {
+                        "class": "transit",
+                        "subclass": "tram",
+                        "brunnel": "bridge",
+                        "layer": 1,
+                    },
+                ),
+            ],
+        )
+        mesh = assemble(source, 150, crossings=[crossing])
+        vertices, faces = mesh["bridge deck"]
+        triangles = np.asarray(vertices)[faces]
+        for x in (-20.0, 20.0):
+            left = support_height(mesh["road"], (x - 0.02, 0)).max()
+            right = support_height(mesh["road"], (x + 0.02, 0)).max()
+            self.assertLess(abs(left - right), 0.005)
+            self.assertAlmostEqual(
+                (left + right) / 2, span.height(np.array([x, 0])), places=2
+            )
+            mouth = triangles[np.isclose(triangles[:, :, 0], x, atol=1e-6).all(axis=1)]
+            self.assertGreater(len(mouth), 0)
+            self.assertLessEqual(
+                mouth[:, :, 2].max(), span.height(np.array([x, 0])) + 1e-6
+            )

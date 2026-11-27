@@ -36,7 +36,7 @@ def above_deck(ground, difference):
     return shapely.union_all(polygons, grid_size=1e-6)
 
 
-def bank_cuts(vertices, quads, crossings, extent):
+def bank_cuts(vertices, quads, crossings, extent, *, joined_ground=None):
     if not crossings:
         return
     cells = vertices[quads]
@@ -55,9 +55,12 @@ def bank_cuts(vertices, quads, crossings, extent):
         high = (difference > 0).any(axis=1)
         floor = above_deck(triangles[high], difference[high]).intersection(region)
         if floor.area > 0:
+            retaining_edge = crossing.footprint.boundary
+            if joined_ground is not None:
+                retaining_edge = retaining_edge.difference(joined_ground)
             yield BankCut(
                 floor,
-                crossing.footprint.boundary,
+                retaining_edge,
                 crossing.span,
                 crossing.thickness + 0.02,
             )

@@ -120,7 +120,12 @@ def surface_labels(points, base, footprints):
 
 def partition_ground(vertices, quads, base, names, footprints):
     triangles = quads[:, [0, 1, 2, 0, 2, 3]].reshape(-1, 3)
-    base = np.repeat(base, 2)
+    yield from partition_triangles(
+        vertices, triangles, np.repeat(base, 2), names, footprints
+    )
+
+
+def partition_triangles(vertices, triangles, base, names, footprints):
     xyz = vertices[triangles]
     areas = shapely.polygons(xyz[:, :, :2])
     boundary = shapely.boundary(list(footprints.values()))
