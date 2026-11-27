@@ -49,7 +49,24 @@ def stand_plan(species, form):
         tip_scale=0.62,
     )
     twigs = replace(twigs, branches=10 if form == 0 else 9, radius_parent_ratio=0.36)
-    return PlantPlan(base.seed + 19 * form, (stem, limbs, twigs), base.blades)
+    shoots = replace(
+        twigs,
+        branches=5,
+        length=0.77 if species == "oak" else 0.65,
+        first=0.24,
+        last=0.92,
+        base_radius=0.0022,
+        tip_radius=0.00045,
+        radius_parent_ratio=0.63,
+        tip_scale=0.50,
+        angle=1.1,
+        angle_tip=0.62,
+        upward_bias=0.27,
+        azimuth_variation=0.85,
+        leaf_internode=0.018,
+        leaf_sky_alignment=0.49,
+    )
+    return PlantPlan(base.seed + 19 * form, (stem, limbs, twigs, shoots), base.blades)
 
 
 def habitat(source, *, stems=True):
@@ -89,6 +106,8 @@ def geometry(plan, step, *, has_stem, oak):
         part = template_stem(plan, oak=oak)
         meshes.add(bark, part["vertices"], part["faces"])
     for i in range(1, len(rows["axis_ids"])):
+        if step > 1 and rows["axis_paths"][i, 2] >= 0:
+            continue
         main_limb = rows["axis_parent_ids"][i] == 0
         rings, sides = (5, 8) if main_limb else (4, 6)
         if step > 1 and not main_limb:
@@ -123,10 +142,15 @@ def geometry(plan, step, *, has_stem, oak):
         if not where.any():
             continue
         idx = selected[where]
-        part = blade.mesh(4)
+        part = blade.mesh(4 if step == 1 else 2)
+        leaf_scale = size[where]
+        if step > 1:
+            a, b, c = part["vertices"][part["faces"]].transpose(1, 0, 2)
+            coarse_area = np.linalg.norm(np.cross(b - a, c - a), axis=1).sum() / 2
+            leaf_scale = leaf_scale * np.sqrt(areas[variant] / coarse_area)
         verts = (
             np.einsum("mj,nij->nmi", part["vertices"], rows["leaf_frames"][idx])
-            * size[where, None, None]
+            * leaf_scale[:, None, None]
             + rows["leaf_origins"][idx, None, :]
         )
         faces = (
