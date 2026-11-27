@@ -287,7 +287,18 @@ def tile_surface(
     near_bank = (
         (local_shore, local.boundary) if use_seam and local_shore is not None else None
     )
-    shore = shore_grade(water_plan, tile, protected, neighbor=near_bank)
+
+    def retaining_height(points):
+        lon, lat = (points / source.metres + [source.lon, source.lat]).T
+        return dem.sample(lat, lon) - source.datum
+
+    shore = shore_grade(
+        water_plan,
+        tile,
+        protected,
+        neighbor=near_bank,
+        retaining_height=retaining_height,
+    )
     if detail or tile_water:
         shore_parts = Meshes()
         seam_band = local.boundary.buffer(SHORE_REACH_M, quad_segs=2)

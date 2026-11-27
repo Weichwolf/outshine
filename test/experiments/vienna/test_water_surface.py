@@ -157,6 +157,16 @@ class WaterSurfaceTests(TestCase):
         expected = water[0].heights(source, sites[:, :2])[1]
         np.testing.assert_allclose(shore.heights(source, sites), [2.5, expected, 4])
 
+        regional = shore_grade(
+            water, extent, road, retaining_height=lambda xy: np.full(len(xy), 3.5)
+        )
+        no_local_dem = SimpleNamespace(
+            lon=source.lon, lat=source.lat, metres=source.metres, datum=source.datum
+        )
+        np.testing.assert_allclose(
+            regional.deform(no_local_dem, sites)[:, 2], [3.5, expected, 4]
+        )
+
         wet = np.array([[[8.0, -0.5, 0], [8.0, 0.0, 0]]])
         dry = np.array([[[8.0, 0.0, 3.8], [8.0, -0.5, 4.2]]])
         meshes = Meshes()

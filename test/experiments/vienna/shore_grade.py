@@ -1,5 +1,6 @@
 """Grade terrain into the mapped WGS84 water contact."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cached_property
 
@@ -55,6 +56,7 @@ class ShoreGrade:
     contacts: tuple
     protection: ShoreProtection
     neighbor: tuple[ShoreProtection, shapely.Geometry] | None = None
+    retaining_height: Callable[[np.ndarray], np.ndarray] | None = None
 
     @cached_property
     def coast_segments(self):
@@ -118,7 +120,8 @@ class ShoreGrade:
             active = gain > 0
             if not active.any():
                 continue
-            crest = source.height(coast_xy[active] + RETAINING_SETBACK_M * dry[active])
+            height = self.retaining_height or source.height
+            crest = height(coast_xy[active] + RETAINING_SETBACK_M * dry[active])
             crest = np.maximum(crest, body.control.upstream_m - source.datum + 0.3)
             sites = rows[active]
             heights[sites] += gain[active] * np.maximum(crest - heights[sites], 0)
@@ -159,7 +162,7 @@ def segment_index(geometries):
     return shapely.STRtree(edges), owners[parent[lines[starts]]]
 
 
-def shore_grade(bodies, extent, protected, *, neighbor=None):
+def shore_grade(bodies, extent, protected, *, neighbor=None, retaining_height=None):
     protection = ShoreProtection(protected)
     neighborhood = extent.buffer(SHORE_REACH_M + 1.0, quad_segs=2)
     nearby = tuple(b for b in bodies if b.footprint.intersects(neighborhood))
@@ -181,4 +184,5 @@ def shore_grade(bodies, extent, protected, *, neighbor=None):
         tuple(contact for _, contact in active),
         protection,
         neighbor,
+        retaining_height,
     )
