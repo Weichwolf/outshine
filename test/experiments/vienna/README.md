@@ -44,8 +44,8 @@ Blender uses the image as its world environment. GLSL integrates the same image 
 Lambert cosine kernel and evaluates unoccluded diffuse light from nine spherical harmonics.
 For opaque materials, GLSL also filters the shared sky into the native renderer's
 bordered octahedral roughness atlas and integrates a GGX reflectance table.
-This profile controls the incident environment for diffuse comparisons. The renderers
-retain their respective local transport and display transforms.
+This profile controls the incident environment for diffuse and reflected light.
+The renderers retain their respective local transport and display transforms.
 
 ```sh
 build/blender-python/bin/python test/experiments/vienna/glsl_render.py --export-sky \
