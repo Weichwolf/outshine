@@ -1,5 +1,7 @@
 # Linear reflectance, perceptual roughness.
 GLASS_IOR = 1.52
+WATER_IOR = 1.333
+WATER_MATERIALS = ("water", "regional water")
 
 SURFACES = {
     "bridge deck": ((0.23, 0.22, 0.20), 0.82),

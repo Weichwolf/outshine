@@ -124,6 +124,11 @@ layer and Principled BSDF render in scene-linear light. It uses Beer–Lambert a
 at the green-band Rayleigh coefficient and the camera-altitude density for clear-air
 depth, independently of the GLSL tables.
 
+The reference cameras select up to two water levels for 640×360 planar reflection captures.
+Clipped scene geometry supplies the reflected forms and the sky fills the uncovered rays.
+GLSL captures the mirrors on the GPU. EEVEE prepares them once for each static camera pose
+and reuses them for warm renders. The reported capture seconds are part of scene setup.
+
 ```sh
 build/blender-python/bin/python -m pip install moderngl
 build/blender-python/bin/python test/experiments/vienna/glsl_render.py --place Wien

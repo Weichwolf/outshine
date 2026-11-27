@@ -14,6 +14,14 @@ uniform float eyeKm;
 uniform float glassIor;
 uniform bool waterSurface;
 uniform bool shadowPass;
+uniform bool reflectionCapture;
+uniform float reflectionClip;
+uniform sampler2D reflectionMap;
+uniform int reflectionCount;
+uniform vec2 reflectionLevels;
+uniform mat4 viewProjection;
+uniform float reflectionRange;
+uniform float reflectionTolerance;
 uniform mat4 shadowMatrix;
 uniform sampler2DShadow shadowMap;
 in vec3 point;
@@ -46,8 +54,40 @@ vec3 reflectedSky(vec3 ray) {
   return texture(skyView,vec2(s.Uv.U,s.Uv.V)).rgb*(2.5/1.2);
 }
 
+vec3 reflectedEnvironment(vec3 ray) {
+  vec3 sky = reflectedSky(ray);
+  float distance = length(point.xy - eye.xy);
+  if (reflectionCount == 0 || distance >= reflectionRange)
+    return sky;
+  vec2 error = abs(reflectionLevels - point.z);
+  int layer = reflectionCount > 1 && error.y < error.x ? 1 : 0;
+  if (error[layer] > reflectionTolerance)
+    return sky;
+  vec4 projection = viewProjection * vec4(point.xy,2.*reflectionLevels[layer]-point.z,1.);
+  if (projection.w<=0.)
+    return sky;
+  vec2 uv = .5 + .5*projection.xy/projection.w;
+  if (any(lessThan(uv,vec2(0.))) || any(greaterThan(uv,vec2(1.))))
+    return sky;
+  vec2 extent = vec2(textureSize(reflectionMap,0));
+  float height = extent.y / float(reflectionCount);
+  float first = float(layer) * height;
+  vec2 centre = vec2(uv.x*extent.x, uv.y*height+first);
+  vec2 lo = vec2(.5, first+.5);
+  vec2 hi = vec2(extent.x-.5, first+height-.5);
+  float blur = max(1., 14.*surface.a);
+  vec4 scene = .4 * texture(reflectionMap,clamp(centre,lo,hi)/extent);
+  scene += .15 * texture(reflectionMap,clamp(centre+vec2(blur,0.),lo,hi)/extent);
+  scene += .15 * texture(reflectionMap,clamp(centre-vec2(blur,0.),lo,hi)/extent);
+  scene += .15 * texture(reflectionMap,clamp(centre+vec2(0.,blur),lo,hi)/extent);
+  scene += .15 * texture(reflectionMap,clamp(centre-vec2(0.,blur),lo,hi)/extent);
+  float weight = 1.-smoothstep(.8*reflectionRange,reflectionRange,distance);
+  return weight*scene.rgb + sky * (1.-weight*scene.a);
+}
+
 void main(){
   if (shadowPass) { gl_FragDepth=gl_FragCoord.z; return; }
+  if (reflectionCapture && point.z<reflectionClip) discard;
   vec3 view=normalize(eye-point);
   vec3 dx=dFdx(point),dy=dFdy(point);
   vec3 n=normalize(cross(dx,dy));
@@ -81,9 +121,11 @@ void main(){
     visibility=texture(shadowMap,vec3(uvz.xy,uvz.z-bias));
   }
   vec3 light=(b.diffuse+b.specular)*nl*2.5*visibility+material.rgb*mix(vec3(.065,.085,.115),vec3(.31,.40,.53),clamp(.5+.5*n.z,0.,1.));
+  gl_FragDepth=log2(1.+1./gl_FragCoord.w)/log2(240001.);
+  if (reflectionCapture) { colour=vec4(light,1.); return; }
   if (waterSurface) {
     vec3 ray=reflect(-view,n);
-    light=mix(surface.rgb*.28,reflectedSky(ray),brdfFresnel(vec3(.0204),1.,nv))*mix(.58,1.,visibility);
+    light=mix(surface.rgb*.28,reflectedEnvironment(ray),brdfFresnel(vec3(.0204),1.,nv))*mix(.58,1.,visibility);
   } else if (glassIor>1.) {
     vec3 ray=reflect(-view,n);
     vec3 sky=reflectedSky(normalize(vec3(ray.xy,max(ray.z,.001))));
@@ -100,5 +142,4 @@ void main(){
   vec3 airlight = texture(skyView, vec2(hazeUv.U, hazeUv.V)).rgb * (2.5 / 1.2);
   light = mix(airlight, light, transmission);
   colour=vec4(pow(filmic(max(light,vec3(0.))),vec3(1./2.2)),1.);
-  gl_FragDepth=log2(1.+1./gl_FragCoord.w)/log2(240001.);
 }

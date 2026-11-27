@@ -48,6 +48,13 @@
       "heading_deg": 14,
       "pitch_deg": -12,
       "support": "unpaved path"
+    },
+    {
+      "id": "AspernerSee-East-Bank",
+      "origin": "AspernerSee",
+      "offset_east_north_m": [77.023, -5.05],
+      "heading_deg": 14,
+      "pitch_deg": -8
     }
   ],
   "places": [
