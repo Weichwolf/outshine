@@ -14,6 +14,9 @@ uniform bool hasDetail;
 uniform float eyeKm;
 uniform float glassIor;
 uniform bool waterSurface;
+uniform sampler2D waterBedMap;
+uniform vec4 waterBedTransform;
+uniform vec3 bedAlbedo;
 uniform bool shadowPass;
 uniform bool reflectionCapture;
 uniform vec4 reflectionClip;
@@ -148,7 +151,10 @@ void main(){
   if (reflectionCapture) { colour=vec4(light,1.); return; }
   if (waterSurface) {
     vec3 ray=reflect(-view,n);
-    light=mix(surface.rgb*.28,reflectedEnvironment(ray),brdfFresnel(vec3(.0204),1.,nv))*mix(.58,1.,visibility);
+    vec2 bedUV=(point.xy-waterBedTransform.xy)*waterBedTransform.zw;
+    vec3 transmission=texture(waterBedMap,bedUV).rgb;
+    vec3 bodyColour=mix(surface.rgb,bedAlbedo,transmission);
+    light=mix(bodyColour*.28,reflectedEnvironment(ray),brdfFresnel(vec3(.0204),1.,nv))*mix(.58,1.,visibility);
   } else if (glassIor>1.) {
     vec3 ray=reflect(-view,n);
     vec3 sky=reflectedSky(normalize(vec3(ray.xy,max(ray.z,.001))));

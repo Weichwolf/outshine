@@ -23,6 +23,7 @@ from ground_detail import (
 )
 from materials import GLASS_IOR, METALLIC, SURFACES, WATER_MATERIALS
 from reference_scene import ReferenceScene
+from water_bed import BED_ALBEDO
 from water_reflection import (
     LEVEL_TOLERANCE_M,
     REFLECTION_RANGE_M,
@@ -267,6 +268,16 @@ def render(ctx, place, config, out):
     prog["detailMap"].value = 2
     prog["detailScale"].value = (DETAIL_SPAN_M, MACRO_SPAN_M, HEIGHT_SPAN_M)
     prog["barkBoxBlend"].value = BARK_BOX_BLEND
+    bed = world.water_bed
+    transmission = bed.transmission if bed is not None else np.zeros((1, 1, 3))
+    bed_map = ctx.texture(
+        transmission.shape[1::-1], 3, transmission.astype("f2").tobytes(), dtype="f2"
+    )
+    bed_map.repeat_x = bed_map.repeat_y = False
+    bed_map.use(5)
+    prog["waterBedMap"].value = 5
+    prog["waterBedTransform"].value = bed.transform if bed is not None else (0, 0, 1, 1)
+    prog["bedAlbedo"].value = BED_ALBEDO
     veil.use(1)
     prog["veil"].value = 1
     prog["eyeKm"].value = 6360 + (world.eye[2] + world.source.datum) * 0.001
@@ -320,6 +331,7 @@ def render(ctx, place, config, out):
     placeholder.release()
     shadow.release()
     reflection.release()
+    bed_map.release()
     im = Image.frombytes(
         "RGB", target.size, target.read(components=3, alignment=1)
     ).transpose(Image.Transpose.FLIP_TOP_BOTTOM)

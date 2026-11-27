@@ -7,6 +7,7 @@ from reference_scene import support_height
 from river_control import RiverControl, gate_faces
 from shapely.geometry import GeometryCollection, LineString, Point, Polygon, box
 from shore_grade import SHORE_REACH_M, shore_grade
+from water_bed import nearshore_bed
 from water_surface import WaterBody, clipped_water, water_bodies
 
 
@@ -94,6 +95,26 @@ class WaterSurfaceTests(TestCase):
         east = WaterBody(box(0, -100, 100, 100), 4.0)
         grade = shore_grade((west, east), extent, Polygon())
         self.assertEqual(grade.contacts, ())
+        self.assertIsNone(nearshore_bed(grade, extent))
+
+    def test_inferred_bed_fades_with_depth_and_leaves_quay_dark(self):
+        water = (WaterBody(box(-40, -40, 0, 40), 0, water_class="lake"),)
+        extent = box(-30, -30, 30, 30)
+        grade = shore_grade(water, extent, box(-1, 10, 5, 20))
+        bed = nearshore_bed(grade, extent)
+        east, north, sx, sy = bed.transform
+        h, w = bed.transmission.shape[:2]
+
+        def texel(x, y):
+            return bed.transmission[int(h * (y - north) * sy), int(w * (x - east) * sx)]
+
+        bank = texel(-0.5, -10)
+        channel = texel(-4.0, -10)
+        self.assertTrue((bank > channel).all())
+        self.assertLess(channel[0], channel[1])
+        self.assertLess(channel[1], channel[2])
+        np.testing.assert_array_equal(texel(-0.5, 15), [0, 0, 0])
+        self.assertTrue((texel(-0.5, 29) < 0.08).all())
 
     def test_line_fragments_do_not_disable_paved_shore_protection(self):
         source = SimpleNamespace(

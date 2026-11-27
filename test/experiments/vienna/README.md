@@ -132,6 +132,12 @@ GLSL captures the mirrors on the GPU. EEVEE prepares them once for each static c
 and reuses them for warm renders. The reported capture seconds are part of scene setup.
 For a graded reach, the capture plane is fitted to the visible water samples.
 
+Both paths sample the same 0.75 m nearshore transmission raster. In the first 10 m from
+a mapped natural bank, a reference bed slope and RGB extinction approximate the fading
+return from underwater sediment. Roads and quay contacts suppress the sediment response.
+The band fades before the regional seam. The slopes and optical coefficients are estimates
+for these comparisons. [Rendering Natural Waters](https://doi.org/10.1111/1467-8659.00548)
+
 The Nußdorf entry in `water_controls.json` cuts the pinned Donaukanal polygon at the
 mapped weir crest downstream of Schemerlbrücke. The upper reach runs beneath the
 bridge. The two plateaus use Mapterhorn estimates. The canal below the weir uses the

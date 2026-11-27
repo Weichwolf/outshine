@@ -32,6 +32,7 @@ from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_light import configure_daylight
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
 from reference_scene import ReferenceScene
+from water_bed import BED_ALBEDO
 from water_reflection import reflection_planes
 from woodland import tree_batches
 
@@ -108,6 +109,40 @@ def surface_material(name):
     if detail := SURFACE_DETAIL.get(name):
         apply_detail(material, bsdf, detail, colour)
     return material
+
+
+def apply_water_bed(bed):
+    height, width = bed.transmission.shape[:2]
+    image = bpy.data.images.new(
+        "Water bed transmission", width, height, float_buffer=True
+    )
+    image.colorspace_settings.name = "Non-Color"
+    pixels = np.ones((height, width, 4), dtype="f4")
+    pixels[..., :3] = bed.transmission
+    image.pixels.foreach_set(pixels.ravel())
+    east, north, inv_width, inv_height = bed.transform
+    for name in WATER_MATERIALS:
+        if (material := bpy.data.materials.get(name)) is None:
+            continue
+        tree = material.node_tree
+        nodes, link = tree.nodes, tree.links.new
+        position = nodes.new("ShaderNodeNewGeometry").outputs["Position"]
+        coords = nodes.new("ShaderNodeVectorMath")
+        coords.operation = "MULTIPLY_ADD"
+        coords.inputs[1].default_value = (inv_width, inv_height, 0)
+        coords.inputs[2].default_value = (-east * inv_width, -north * inv_height, 0)
+        link(position, coords.inputs[0])
+        texture = nodes.new("ShaderNodeTexImage")
+        texture.image = image
+        texture.extension = "CLIP"
+        link(coords.outputs["Vector"], texture.inputs["Vector"])
+        colour = nodes.new("ShaderNodeVectorMath")
+        colour.operation = "MULTIPLY_ADD"
+        water = np.asarray(SURFACES[name][0])
+        colour.inputs[1].default_value = np.asarray(BED_ALBEDO) - water
+        colour.inputs[2].default_value = water
+        link(texture.outputs["Color"], colour.inputs[0])
+        link(colour.outputs["Vector"], nodes["Principled BSDF"].inputs["Base Color"])
 
 
 def upload(name, vertices, faces, *, collection, smooth=False):
@@ -203,6 +238,8 @@ def render(place, config, args):
     scene.render.resolution_x, scene.render.resolution_y = 1280, 720
     scene.render.resolution_percentage = 100
     trees = plant_woodland(world, config["seed"], geometry)
+    if world.water_bed is not None:
+        apply_water_bed(world.water_bed)
     scene.eevee.taa_render_samples = 16
     planes = reflection_planes(world) if args.engine == "eevee" else ()
     capture_s = 0.0

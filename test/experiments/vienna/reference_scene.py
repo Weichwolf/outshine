@@ -26,6 +26,7 @@ from river_control import RiverControl, gate_faces
 from scene_mesh import assemble, terrain_grid
 from source_scene import LocalScene
 from viaducts import local_viaducts
+from water_bed import nearshore_bed
 from water_surface import water_bodies
 
 SUPPORT_MATERIALS = {
@@ -199,6 +200,7 @@ class ReferenceScene:
             crossings=crossings,
             water_plan=self.water_plan,
         )
+        self.water_bed = nearshore_bed(self.local.shore, domain)
         self.look = direction(place["heading_deg"], place["pitch_deg"])
         observer = Observer(place["latitude"], place["longitude"])
         utc = datetime.fromisoformat(place.get("utc", config["utc"]))

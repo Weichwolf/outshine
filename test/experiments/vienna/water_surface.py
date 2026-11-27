@@ -17,6 +17,7 @@ class WaterBody:
     level: float
     profile: RiverProfile | None = None
     control: RiverControl | None = None
+    water_class: str = ""
 
     def level_at(self, lonlat):
         if self.profile is None:
@@ -90,7 +91,7 @@ def water_bodies(
             for part, downstream in control.reaches(source, footprint):
                 level = control.downstream_m if downstream else control.upstream_m
                 profile = control.profile if downstream else None
-                yield WaterBody(part, level - source.datum, profile, control)
+                yield WaterBody(part, level - source.datum, profile, control, key[0])
             continue
         local = footprint.intersection(domain)
         if local.area > 0:
@@ -101,7 +102,7 @@ def water_bodies(
             y = y0 + (0.5 + np.arange(24)) * (y1 - y0) / 24
             xy = np.stack(np.meshgrid(x, y), axis=-1).reshape(-1, 2)
             level = water_level(footprint, xy, regional_height)
-        yield WaterBody(footprint, level)
+        yield WaterBody(footprint, level, water_class=key[0])
 
 
 def clipped_water(bodies, domain):
