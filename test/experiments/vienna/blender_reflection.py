@@ -135,7 +135,24 @@ def capture_images(scene, geometry, planes):
     return images, perf_counter() - start
 
 
-def apply_reflection(material, eye, planes, images):
+def shared_water_shaders(tree, sky_image, coordinates):
+    nodes, link = tree.nodes, tree.links.new
+    original = nodes["Principled BSDF"].inputs["Base Color"]
+    body = nodes.new("ShaderNodeBsdfDiffuse")
+    if original.is_linked:
+        link(original.links[0].from_socket, body.inputs["Color"])
+    else:
+        body.inputs["Color"].default_value = original.default_value
+    sky = nodes.new("ShaderNodeTexEnvironment")
+    sky.image = sky_image
+    sky.projection = "EQUIRECTANGULAR"
+    link(coordinates.outputs["Reflection"], sky.inputs["Vector"])
+    emission = nodes.new("ShaderNodeEmission")
+    link(sky.outputs["Color"], emission.inputs["Color"])
+    return body.outputs[0], emission.outputs[0]
+
+
+def apply_reflection(material, eye, planes, images, *, sky_image=None):
     tree = material.node_tree
     nodes, link = tree.nodes, tree.links.new
     coordinates = nodes.new("ShaderNodeTexCoord")
@@ -163,9 +180,13 @@ def apply_reflection(material, eye, planes, images):
 
     fresnel = nodes.new("ShaderNodeFresnel")
     fresnel.inputs["IOR"].default_value = WATER_IOR
-    strength = scalar(tree, "MULTIPLY", fresnel.outputs[0], fade)
     target = nodes["Material Output"].inputs["Surface"]
     shaded = target.links[0].from_socket
+    if sky_image is not None:
+        body, shaded = shared_water_shaders(tree, sky_image, coordinates)
+        strength = fade
+    else:
+        strength = scalar(tree, "MULTIPLY", fresnel.outputs[0], fade)
     errors = []
     for plane in planes:
         normal = nodes.new("ShaderNodeVectorMath")
@@ -174,7 +195,7 @@ def apply_reflection(material, eye, planes, images):
         normal.inputs[1].default_value = plane.normal
         signed = scalar(tree, "ADD", normal.outputs["Value"], plane.offset)
         errors.append(scalar(tree, "ABSOLUTE", signed, 0))
-    selection = [1]
+    selection = [1] * len(errors)
     if len(errors) == 2:
         second = scalar(tree, "LESS_THAN", errors[1], errors[0])
         selection = [scalar(tree, "SUBTRACT", 1, second), second]
@@ -185,12 +206,25 @@ def apply_reflection(material, eye, planes, images):
         link(window.outputs[0], texture.inputs[0])
         match = fade_out(tree, error, 0.75 * LEVEL_TOLERANCE_M, LEVEL_TOLERANCE_M)
         match = scalar(tree, "MULTIPLY", match, belongs)
-        opacity = scalar(tree, "MULTIPLY", texture.outputs["Alpha"], match)
+        alpha = texture.outputs["Alpha"]
+        opacity = scalar(tree, "MULTIPLY", alpha, match)
         mix = nodes.new("ShaderNodeMixShader")
         emission = nodes.new("ShaderNodeEmission")
-        link(texture.outputs["Color"], emission.inputs["Color"])
+        straight = nodes.new("ShaderNodeVectorMath")
+        straight.operation = "SCALE"
+        link(texture.outputs["Color"], straight.inputs[0])
+        # Transfer coverage to the shader mix once, including filtered silhouette texels.
+        divisor = scalar(tree, "MAXIMUM", alpha, 1.0e-6)
+        link(scalar(tree, "DIVIDE", 1, divisor), straight.inputs["Scale"])
+        link(straight.outputs[0], emission.inputs["Color"])
         link(scalar(tree, "MULTIPLY", opacity, strength), mix.inputs[0])
         link(shaded, mix.inputs[1])
         link(emission.outputs[0], mix.inputs[2])
+        shaded = mix.outputs[0]
+    if sky_image is not None:
+        mix = nodes.new("ShaderNodeMixShader")
+        link(fresnel.outputs[0], mix.inputs[0])
+        link(body, mix.inputs[1])
+        link(shaded, mix.inputs[2])
         shaded = mix.outputs[0]
     link(shaded, target)
