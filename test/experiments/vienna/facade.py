@@ -4,14 +4,17 @@ from dataclasses import dataclass
 from itertools import pairwise
 
 import numpy as np
+import shapely
 from outshine_ref.buildings.facades import FacadeRepeat
 from outshine_ref.buildings.recessed_facades import RecessPlan, recess_surface
+from shapely.affinity import translate
 
 OPENING_PIXELS = 1.5
 RELIEF_M = 0.12
 RELIEF_PIXELS = 1.2
 BAY_PITCH_M = 3.4
 STOREY_PITCH_M = 3.2
+SILL_MARGIN_M = 0.075
 
 
 @dataclass(frozen=True)
@@ -104,8 +107,11 @@ def detailed_bays(repeat):
         used, inverse = np.unique(faces, return_inverse=True)
         yield name, surface["vertices"][used], inverse.reshape(-1, 3)
     u, v = opening_axes(repeat)
-    ledge = v[:, :1] + [-0.075, 0.0]
-    yield "window sill", *members(u + [-0.075, 0.075], ledge, -0.025, RELIEF_M)
+    ledge = v[:, :1] + [-SILL_MARGIN_M, 0.0]
+    yield (
+        "window sill",
+        *members(u + [-SILL_MARGIN_M, SILL_MARGIN_M], ledge, -0.025, RELIEF_M),
+    )
     if (u[0, 1] - u[0, 0]) > 1.05:
         sash = u.mean(axis=1)[:, None] + [-0.0275, 0.0275]
         yield (
@@ -124,6 +130,62 @@ def wall_panel(meshes, a, b, bottom, top, material):
     )
 
 
+def placed(meshes, material, vertices, faces, a, axis, normal, bottom):
+    u, v, n = vertices.T
+    xy = a + u[:, None] * axis + n[:, None] * normal
+    meshes.add(material, np.column_stack((xy, bottom + v)), faces)
+
+
+def clipped_wall(visible, holes):
+    area = visible.difference(shapely.union_all(holes)) if holes else visible
+    triangles = shapely.orient_polygons(
+        shapely.get_parts(shapely.constrained_delaunay_triangles(area))
+    )
+    points = shapely.get_coordinates(triangles).reshape(-1, 4, 2)[:, :3].reshape(-1, 2)
+    return np.column_stack((points, np.zeros(len(points)))), np.arange(
+        len(points)
+    ).reshape(-1, 3)
+
+
+def intact_windows(visible, repeat, start, rise, detailed):
+    u, v = opening_axes(repeat)
+    quads = rectangles(u + start, v + rise)
+    x0, z0 = quads[:, 0].T
+    x1, z1 = quads[:, 2].T
+    margin = SILL_MARGIN_M if detailed else 0.0
+    clearance = shapely.box(x0 - margin, z0 - margin, x1 + margin, z1)
+    intact = shapely.covers(visible, clearance)
+    holes = shapely.box(x0[intact], z0[intact], x1[intact], z1[intact])
+    return intact, quads[intact], holes
+
+
+def isolated_bays(repeat, intact, quads, start, rise, *, detailed):
+    if not len(quads):
+        return
+    if not detailed:
+        vertices = quads.reshape(-1, 2)
+        yield (
+            "glass",
+            np.column_stack((vertices, np.zeros(len(vertices)))),
+            face_grid(len(quads)),
+        )
+        return
+    grid = np.indices((repeat.columns, repeat.rows)).reshape(2, -1).T
+    offsets = grid[intact] * repeat.cell_size_m + [start, rise]
+    offsets = np.column_stack((offsets, np.zeros(len(offsets))))
+    cell = FacadeRepeat(
+        *repeat.cell_size_m, 1, 1, repeat.opening_width, repeat.opening_height
+    )
+    for name, points, faces in detailed_bays(cell):
+        if name == "wall":
+            faces = faces[np.any(points[faces, 2] != 0.0, axis=1)]
+        vertices = points[None, :, :] + offsets[:, None, :]
+        indices = faces[None, :, :] + np.arange(len(offsets))[:, None, None] * len(
+            points
+        )
+        yield name, vertices.reshape(-1, 3), indices.reshape(-1, 3)
+
+
 def bay_detail(view, offset, axis, normal, pitch, columns, bottom, top):
     steps = np.arange(columns) * pitch
     along = offset @ axis
@@ -139,35 +201,73 @@ def bay_detail(view, offset, axis, normal, pitch, columns, bottom, top):
     return np.where(visible, np.where(detailed, 2, 1), 0)
 
 
-def draw_facade(meshes, a, b, bottom, top, view, *, grounded, bays, wall="wall"):
+def draw_facade(
+    meshes, a, b, bottom, top, view, *, grounded, bays, wall="wall", exposed=None
+):
     span = b - a
     width = np.linalg.norm(span)
     if width < 0.01:
         return
-    height = top - bottom
-    if not bays or width <= 2 or height <= 2:
-        wall_panel(meshes, a, b, bottom, top, wall)
+    if exposed is not None and exposed.is_empty:
         return
     axis = span / width
     normal = np.array([axis[1], -axis[0]])
+    height = top - bottom
+    visible = translate(exposed, yoff=-bottom) if exposed is not None else None
+    if not bays or width <= 2 or height <= 2:
+        if visible is None:
+            wall_panel(meshes, a, b, bottom, top, wall)
+        else:
+            vertices, faces = clipped_wall(visible, [])
+            placed(meshes, wall, vertices, faces, a, axis, normal, bottom)
+        return
     offset = np.asarray(view.eye) - a
     columns = max(1, round(width / BAY_PITCH_M))
     pitch = width / columns
     detail = bay_detail(view, offset, axis, normal, pitch, columns, bottom, top)
     boundaries = np.r_[0, np.flatnonzero(detail[1:] != detail[:-1]) + 1, columns]
+    holes = []
     for start, stop in pairwise(boundaries):
-        origin = a + start * pitch * axis
+        offset_m = start * pitch
+        origin = a + offset_m * axis
         span_m = (stop - start) * pitch
         if detail[start] == 0:
-            wall_panel(meshes, origin, a + stop * pitch * axis, bottom, top, wall)
+            if visible is None:
+                wall_panel(meshes, origin, a + stop * pitch * axis, bottom, top, wall)
             continue
-        emit = detailed_bays if detail[start] == 2 else flat_bays
+        detailed = detail[start] == 2
+        emit = detailed_bays if detailed else flat_bays
         for rise, repeat in facade_bands(span_m, height, int(stop - start), grounded):
-            for material, vertices, faces in emit(repeat):
-                u, v, n = vertices.T
-                xy = origin + u[:, None] * axis + n[:, None] * normal
-                meshes.add(
-                    wall if material == "wall" else material,
-                    np.column_stack((xy, bottom + rise + v)),
-                    faces,
+            if visible is None:
+                for name, points, faces in emit(repeat):
+                    placed(
+                        meshes,
+                        wall if name == "wall" else name,
+                        points,
+                        faces,
+                        origin,
+                        axis,
+                        normal,
+                        bottom + rise,
+                    )
+            else:
+                intact, quads, openings = intact_windows(
+                    visible, repeat, offset_m, rise, detailed
                 )
+                holes.extend(openings)
+                for name, points, faces in isolated_bays(
+                    repeat, intact, quads, offset_m, rise, detailed=detailed
+                ):
+                    placed(
+                        meshes,
+                        wall if name == "wall" else name,
+                        points,
+                        faces,
+                        a,
+                        axis,
+                        normal,
+                        bottom,
+                    )
+    if visible is not None:
+        vertices, faces = clipped_wall(visible, holes)
+        placed(meshes, wall, vertices, faces, a, axis, normal, bottom)
