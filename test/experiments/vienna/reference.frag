@@ -10,6 +10,7 @@ uniform sampler2D skyView;
 uniform sampler2D veil;
 uniform sampler2D detailMap;
 uniform vec3 detailScale;
+uniform vec3 detailTint;
 uniform float barkBoxBlend;
 uniform bool hasDetail;
 uniform float eyeKm;
@@ -185,9 +186,9 @@ void main(){
         dot(vec2(rotation.x,rotation.y),n.xy),
         dot(vec2(-rotation.y,rotation.x),n.xy),n.z);
     vec2 uv=detailCoordinates(objectNormal);
-    vec3 fine=bark ? barkDetail(objectNormal,detailScale.x).rgb : texture(detailMap,uv/detailScale.x).rgb;
+    vec4 fine=bark ? barkDetail(objectNormal,detailScale.x) : texture(detailMap,uv/detailScale.x);
     float macro=bark ? barkDetail(objectNormal,detailScale.y).a : texture(detailMap,uv/detailScale.y).a;
-    material.rgb*=fine.r*(1.68+.64*macro);
+    material.rgb*=fine.r*(1.68+.64*macro)*mix(vec3(1.),detailTint,fine.a);
     material.a=fine.g;
     n=bumpNormal(n,dx,dy,fine.b*detailScale.z);
   }

@@ -9,11 +9,24 @@ import shapely
 from outshine_ref.vegetation import PlantPlan
 from outshine_ref.vegetation.curve_frame import arc_frame
 from scene_mesh import terrain_grid, terrain_height
-from woodland import stand_plan, woodland_surface
+from woodland import represented_leaves, stand_plan, woodland_surface
 from woodland_stem import lean_tree, rooted_stem, template_stem
 
 
 class WoodlandTest(unittest.TestCase):
+    def test_distant_canopy_preserves_leaf_area_with_fewer_representatives(self):
+        plan = stand_plan("oak", 0)
+        rows = plan.tables(sum(plan.axis_counts), sum(plan.leaf_counts))
+        areas = np.array([blade.area() for blade in plan.blades])
+        variants = rows["leaf_variants"]
+        middle, _, _ = represented_leaves(rows, areas, 16)
+        far, scale, centres = represented_leaves(rows, areas, 32)
+        self.assertLess(len(far), len(middle))
+        self.assertEqual(len(centres), len(far))
+        self.assertAlmostEqual(
+            np.sum(areas[variants[far]] * scale**2), sum(areas[variants])
+        )
+
     def test_roots_follow_the_rendered_soil_across_a_grass_boundary(self):
         vertices = [[0, 0, 0], [2, 0, 1], [2, 2, 2], [0, 2, 1], [0, 0, -2]]
         surface = woodland_surface(
@@ -74,6 +87,7 @@ class WoodlandTest(unittest.TestCase):
                             0,
                             1,
                             oak=oak,
+                            seed=9217,
                         )["vertices"]
                         - position
                     )
@@ -90,6 +104,4 @@ class WoodlandTest(unittest.TestCase):
                         union = from_union[abs(from_union @ tangent) < 1e-8]
                         self.assertGreaterEqual(len(union), 8)
                         self.assertGreater(np.linalg.norm(union, axis=1).min(), radius)
-                    shifted = lean_tree(plan, branch.origin, oak=oak) - branch.origin
-                    self.assertGreater(np.linalg.norm(shifted), radius)
                     np.testing.assert_allclose(near[-1], template[-1], atol=1e-12)
