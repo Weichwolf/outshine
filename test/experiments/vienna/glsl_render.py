@@ -150,7 +150,7 @@ def shadow_projection(world):
 def render(ctx, place, config, out):
     start = perf_counter()
     world = ReferenceScene(place, config)
-    target = ctx.simple_framebuffer((1280, 720), components=4)
+    target = ctx.simple_framebuffer((2560, 1440), components=4)
     target.use()
     target.clear(depth=1)
     ctx.disable(moderngl.DEPTH_TEST)
@@ -210,6 +210,7 @@ def render(ctx, place, config, out):
     im = Image.frombytes(
         "RGB", target.size, target.read(components=3, alignment=1)
     ).transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+    im = im.resize((1280, 720), Image.Resampling.BOX)
     out.mkdir(parents=True, exist_ok=True)
     im.save(out / (place["id"] + ".png"))
     target.release()
