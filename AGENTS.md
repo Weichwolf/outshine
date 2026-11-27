@@ -4,10 +4,12 @@
 
 Ich baue eine weltweite, datengetriebene Open-World-Sandbox. Aus OpenFreeMap, Mapterhorn,
 Open-Meteo, Szenariozeit und prozeduralen Rezepten entsteht eine plausible, funktionale Erde.
-Sie reicht vom Orbit bis zu Details auf Augenhöhe. Die Darstellung nutzt PBR und eine eigene,
-regional geprägte 2050-Solarpunk-Gestaltung. GTA VI gibt Orientierung für Umgebungsqualität,
-Fallout 4 für Himmel und offene Erkundung. Datierte Webcam-Archive sind meine erste
-Bildreferenz für reale Orte, Jahreszeiten, Tageslicht und Wetter.
+Ich entwickle und prüfe die erste Welt aus Fußgänger- und Autoperspektiven. Maßgeblich
+ist die begeh- oder befahrbare Fläche, auch auf einem Turmdeck oder Berg.
+Ich rendere physikalisch basiert und orientiere Architektur, Vegetation, Materialien
+und Licht an der realen Region.
+GTA VI gibt Orientierung für Umgebungsqualität, Fallout 4 für Himmel und offene Erkundung.
+Datierte Aufnahmen sind meine Bildreferenz für reale Orte, Jahreszeiten, Tageslicht und Wetter.
 Die [Konzeptbilder](doc/images/concept/) zeigen exemplarische Fähigkeiten. Die Abnahme nutzt
 wechselnde Orte, Tageszeiten und Spielsituationen.
 
@@ -29,8 +31,8 @@ Abnahme. Alle Profile zeigen vollständige Inhalte und bis zu 240 km Sichtweite,
 und Aussicht sie zulassen. Dichte Stadt und dichter Wald teilen sich das gleiche Gesamtbudget für
 GPU-Zeit, Bandbreite und Speicher. Ich stecke Detail in die sichtbare Bildwirkung.
 
-- Ich halte zwölf wechselnde Places als Vergleich, auch unabhängige Gegenbeispiele. Kopfbewegung,
-  Drehung und Flug prüfen. Ich öffne aktuelle PNGs und Zwischenbilder. Pro Place bleibt unter
+- Ich halte zwölf wechselnde Places als Vergleich, auch unabhängige Gegenbeispiele. Ich prüfe
+  Gehen, Blickdrehungen und Fahrten aus Autoperspektive. Ich öffne aktuelle PNGs und Zwischenbilder. Pro Place bleibt unter
   `build/shots/places/` das neueste PNG. Bilder publiziere ich nur auf ausdrücklichen Auftrag.
 - Ich messe CPU-/GPU-p50 und -p99, Passzeiten, IO, Uploads sowie physischen Speicher. Vorher/Nachher
   gelten bei drei gepaarten Läufen auf demselben Gerät und Profil. [Benchmark #1956](https://github.com/Weichwolf/outshine/issues/1956)
