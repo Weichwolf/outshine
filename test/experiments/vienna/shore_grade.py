@@ -5,6 +5,7 @@ from functools import cached_property
 
 import numpy as np
 import shapely
+from ground_surface import polygons
 
 SHORE_REACH_M = 14.0
 CONTACT_TOLERANCE_M = 2e-6
@@ -13,6 +14,11 @@ CONTACT_TOLERANCE_M = 2e-6
 @dataclass(frozen=True)
 class ShoreProtection:
     footprint: shapely.Geometry
+
+    def __post_init__(self):
+        if self.footprint.geom_type not in ("Polygon", "MultiPolygon"):
+            areas = shapely.union_all(tuple(polygons(self.footprint)))
+            object.__setattr__(self, "footprint", areas)
 
     @cached_property
     def index(self):

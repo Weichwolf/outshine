@@ -5,7 +5,7 @@ import numpy as np
 from bridge_passages import FLOOR_ABOVE_WATER_M, water_clearance
 from reference_scene import support_height
 from river_control import RiverControl, gate_faces
-from shapely.geometry import LineString, Point, Polygon, box
+from shapely.geometry import GeometryCollection, LineString, Point, Polygon, box
 from shore_grade import SHORE_REACH_M, shore_grade
 from water_surface import WaterBody, clipped_water, water_bodies
 
@@ -94,6 +94,23 @@ class WaterSurfaceTests(TestCase):
         east = WaterBody(box(0, -100, 100, 100), 4.0)
         grade = shore_grade((west, east), extent, Polygon())
         self.assertEqual(grade.contacts, ())
+
+    def test_line_fragments_do_not_disable_paved_shore_protection(self):
+        source = SimpleNamespace(
+            lon=16.4, lat=48.2, metres=np.array([74300, 111180]), datum=160
+        )
+        water = (WaterBody(box(-40, -20, 0, 20), 0.0),)
+        extent = box(-35, -15, 20, 15)
+        road = box(7, -2, 14, 2)
+        fragment = LineString([(2, 6), (9, 8)])
+        mixed = shore_grade(water, extent, GeometryCollection([road, fragment]))
+        paved = shore_grade(water, extent, road)
+        sites = np.array([[6.99, 0, 3], [7, 0, 3], [7.01, 0, 3], [5.5, 7, 3]])
+        z = mixed.heights(source, sites)
+        np.testing.assert_allclose(z, paved.heights(source, sites))
+        self.assertLess(abs(z[0] - z[1]), 0.001)
+        self.assertEqual(z[2], 3)
+        self.assertLess(z[3], 2)
 
     def test_oblique_bank_survives_clipping_at_a_patch_boundary(self):
         source = SimpleNamespace(
