@@ -41,7 +41,10 @@ GPU-Zeit, Bandbreite und Speicher. Ich stecke Detail in die sichtbare Bildwirkun
 
 Meine Referenzserie umfasst zwölf Wiener Fußgängerperspektiven und die erhöhte Kamera aus
 Wien.scenario. Vegetation ist in allen dreizehn Ansichten aktiv. Ich iteriere mit Python und
-den gemeinsamen GLSL-Shadern. Blender GPU liefert den unabhängigen Bild- und Lichtvergleich. Ich prüfe die Bilder auf Augenhöhe und verbessere Rezepte, Materialien und Licht
+den gemeinsamen GLSL-Shadern. Zuerst reproduzieren Python/GLSL und Python/Blender den
+bekannten nativen Wien-Shot bei identischer Kamera und Zeit. Blender GPU liefert den
+unabhängigen Bild- und Lichtvergleich. Ich prüfe die Bilder auf Augenhöhe und verbessere
+Rezepte, Materialien und Licht
 an mehreren Standorten und benachbarten Blickpunkten. EEVEE und Cycles nutzen die GPU.
 Warme EEVEE-Arbeitsbilder bei 720p dürfen je Standort fünf Sekunden brauchen.
 Die [visuelle Abnahme](https://github.com/Weichwolf/outshine/issues/2084) bestimmt die Vorlage
