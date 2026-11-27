@@ -199,7 +199,7 @@ def upload(name, vertices, faces, *, collection, smooth=False):
     return obj
 
 
-def plant_woodland(world, seed, geometry):
+def place_woody_plants(world, seed, geometry):
     count = 0
     for species, group, meshes, placements in world.woody_plants(seed):
         if group is None:
@@ -293,7 +293,7 @@ def render(place, config, args):
     scene.render.resolution_x, scene.render.resolution_y = 1280, 720
     scene.render.resolution_percentage = 100
     scene.render.image_settings.compression = 0
-    woody_plants = plant_woodland(world, config["seed"], geometry)
+    woody_instances = place_woody_plants(world, config["seed"], geometry)
     if world.water_bed is not None:
         apply_water_bed(world.water_bed)
     scene.eevee.taa_render_samples = 16
@@ -329,7 +329,7 @@ def render(place, config, args):
             {
                 "place": place["id"],
                 "surface": world.support,
-                "woodland_instances": woody_plants,
+                "woody_instances": woody_instances,
                 "eye_m": eye_m,
                 **device,
                 "sky_radiance": str(sky_path) if sky_path is not None else None,

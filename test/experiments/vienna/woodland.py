@@ -12,6 +12,7 @@ from outshine_ref.contracts import Mesh
 from outshine_ref.geometry.sampling import SurfaceSampler
 from outshine_ref.vegetation import PlantPlan
 from outshine_ref.vegetation.axis_surface import axis_mesh
+from park_avenue import avenue_sites
 from scene_mesh import Meshes, terrain_grid, terrain_height
 from woodland_sites import woodland_sites
 from woodland_stem import lean_tree, rooted_stem, template_stem
@@ -103,6 +104,14 @@ def habitat(source, *, stems=True):
     if not woods:
         return None
     return shapely.union_all(woods).difference(shapely.union_all(excluded))
+
+
+def avenue_plan(form):
+    beech = stand_plan("beech", form)
+    stem, limbs, *outer = beech.levels
+    stem = replace(stem, length=stem.length + 2.1, bend=stem.bend * 0.55)
+    limbs = replace(limbs, first=0.47, upward_bias=0.12)
+    return PlantPlan(beech.seed + 821, (stem, limbs, *outer), beech.blades)
 
 
 def represented_leaves(rows, areas, step):
@@ -218,9 +227,14 @@ def tree_batches(
     source, radius, seed, focal_pixels, root_domain, *, eye_xy=(0, 0), soil=None
 ):
     domain = habitat(source)
+    lawn, avenue, avenue_marks = avenue_sites(source, radius, seed)
     if domain is None or domain.is_empty:
-        return
-    positions, marks = woodland_sites(source, domain, np.zeros(2), radius, seed)
+        positions, marks = np.empty((0, 2)), np.empty((0, 3))
+    else:
+        positions, marks = woodland_sites(source, domain, np.zeros(2), radius, seed)
+    stand_count = len(positions)
+    positions = np.concatenate((positions, avenue))
+    marks = np.concatenate((marks, avenue_marks))
     if not len(positions):
         return
     templates = {}
@@ -242,14 +256,15 @@ def tree_batches(
 
     heights = height(positions, source.height)
     distances = np.linalg.norm(positions - eye_xy, axis=1)
-    for xy, z, (family, rotation, scale), distance in zip(
-        positions, heights, marks, distances, strict=True
+    for index, (xy, z, (family, rotation, scale), distance) in enumerate(
+        zip(positions, heights, marks, distances, strict=True)
     ):
-        species = "oak" if family < 0.5 else "beech"
+        managed = index >= stand_count
+        species = "oak" if family < 0.5 and not managed else "beech"
         form = int(family * 4) % 2
-        key = species, form
+        key = species, form, managed
         if key not in plans:
-            plans[key] = stand_plan(species, form)
+            plans[key] = avenue_plan(form) if managed else stand_plan(species, form)
         plan = plans[key]
         width_px = plan.blades[0].width * scale * focal_pixels / max(1, distance)
         group = (
@@ -267,7 +282,7 @@ def tree_batches(
             z = root_height(xy[None])[0]
             stem = rooted_stem(
                 plan,
-                root_domain,
+                lawn if managed else root_domain,
                 root_height,
                 np.array([*xy, z - 0.08]),
                 angle,
@@ -276,12 +291,20 @@ def tree_batches(
                 seed=int(rotation * 2**32),
             )
             stems.add(f"{species} bark", stem["vertices"], stem["faces"])
-        key = species, form, group, near_stem
+        key = species, form, managed, group, near_stem
         templates.setdefault(key, []).append((*xy, z - 0.08, angle, scale))
-    for (species, form, group, near_stem), placements in templates.items():
+    for (species, form, managed, group, near_stem), placements in templates.items():
         meshes = geometry(
-            plans[species, form], group, has_stem=not near_stem, oak=species == "oak"
+            plans[species, form, managed],
+            group,
+            has_stem=not near_stem,
+            oak=species == "oak",
         )
-        yield species, group, meshes, np.asarray(placements)
+        yield (
+            f"avenue {species}" if managed else species,
+            group,
+            meshes,
+            np.asarray(placements),
+        )
     if stems:
         yield "rooted stems", None, stems, np.array([[0, 0, 0, 0, 1]])
