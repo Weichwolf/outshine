@@ -240,7 +240,10 @@ def bridge_junctions(features, crossings, domain, water, roads, vertices, terrai
     pedestrian_core = shapely.union_all(
         [shape for crossing, shape in cores if crossing.pavement.is_empty]
     )
-    pedestrian = roads["sidewalk"].union(roads["paving"]).intersection(pedestrian_core)
+    walkways = shapely.union_all(
+        [shape for name, shape in roads.items() if name != "road"]
+    )
+    pedestrian = walkways.intersection(pedestrian_core)
     shoulder = 20.0
     spacing = (vertices[1, 0] - vertices[0, 0]) / 2
     lattice = vertices[0, :2]
