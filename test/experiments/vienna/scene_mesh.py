@@ -38,6 +38,7 @@ from ground_surface import (
     polygons,
     terrain_triangles,
 )
+from low_facade import draw_front, frontages, pave_entrances
 from outshine_ref.buildings.structures import suppressed
 from passage_trim import draw_passage_trim
 from shapely.geometry import Point, box
@@ -119,7 +120,7 @@ def building_form(polygon, floor, roof, source, foundation, passages, wall):
     )
 
 
-def building(meshes, form, grade, facade_view, neighbours):
+def building(meshes, form, grade, facade_view, neighbours, front=None):
     for roof in polygons(exposed_cap(form.polygon, form.top, neighbours)):
         cap(meshes, "roof", roof, lambda xy: form.top)
     if form.minimum_height > 0:
@@ -164,6 +165,7 @@ def building(meshes, form, grade, facade_view, neighbours):
             form.foundation,
             grounded=form.minimum_height == 0,
             wall=form.wall,
+            front=front,
         )
 
 
@@ -219,14 +221,15 @@ def building_walls(
     grounded=False,
     bays=True,
     wall,
+    front=None,
 ):
-    for ring in [polygon.exterior, *polygon.interiors]:
+    for ring_index, ring in enumerate([polygon.exterior, *polygon.interiors]):
         corners = np.asarray(ring.coords)
         if foundation and not neighbours:
             support = np.column_stack((corners, np.full(len(corners), bottom)))
             edges = np.stack((support[:-1], support[1:]), axis=1)
             vertical_faces(meshes, "foundation", edges, foundation.sole_m)
-        for a, b in itertools.pairwise(corners):
+        for side, (a, b) in enumerate(itertools.pairwise(corners)):
             if foundation and neighbours:
                 sole = foundation.sole_m
                 draw_facade(
@@ -241,6 +244,9 @@ def building_walls(
                     wall="foundation",
                     exposed=exposed_wall(a, b, sole, bottom, neighbours),
                 )
+            if front is not None and ring_index == 0 and side == front.side:
+                draw_front(meshes, a, b, bottom, top, wall, view, front)
+                continue
             draw_facade(
                 meshes,
                 a,
@@ -249,7 +255,7 @@ def building_walls(
                 top,
                 view,
                 grounded=grounded,
-                bays=bays,
+                bays=bays and front is None,
                 wall=wall,
                 exposed=exposed_wall(a, b, bottom, top, neighbours),
             )
@@ -823,8 +829,10 @@ def assemble(
     neighbours = building_neighbours(
         [form.polygon for form in forms], [form.volumes() for form in forms]
     )
-    for form, adjacent in zip(forms, neighbours, strict=True):
-        building(meshes, form, grade, facade_view, adjacent)
+    fronts = frontages(forms, neighbours, source.features, bodies, meshes)
+    pave_entrances(meshes, fronts)
+    for index, (form, adjacent) in enumerate(zip(forms, neighbours, strict=True)):
+        building(meshes, form, grade, facade_view, adjacent, fronts.get(index))
     for name, geom, prop in source.features:
         if name == "transportation" and prop.get("brunnel") != "tunnel":
             if at_grade_width(prop) is not None:

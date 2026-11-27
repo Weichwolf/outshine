@@ -3,8 +3,9 @@
 from functools import cache
 
 import numpy as np
+from ground_surface import surface_elevations
 from outshine_ref.vegetation.blade_surface import Blade
-from plant_sites import root_elevations, scatter_mesh, tile_sites
+from plant_sites import scatter_mesh, tile_sites
 
 GRASS_REACH_M = 20.0
 FULL_COVER_M = 6.0
@@ -47,7 +48,7 @@ def blades(mesh, source, eye, seed):
         return
     xy = np.concatenate([b[0] for b in batches])
     marks = np.concatenate([b[1] for b in batches])
-    heights = root_elevations(mesh, xy)
+    heights = surface_elevations(mesh, xy)
     present = np.isfinite(heights)
     anchor = np.column_stack((xy[present], heights[present] - 0.008))
     marks = marks[present]

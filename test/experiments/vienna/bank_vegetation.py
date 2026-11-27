@@ -4,12 +4,12 @@ from functools import cache
 
 import numpy as np
 import shapely
-from ground_surface import SOIL_MATERIALS
+from ground_surface import SOIL_MATERIALS, surface_elevations
 from outshine_ref.vegetation import Blade, Shoot
 from outshine_ref.vegetation.axis_surface import axis_mesh
 from outshine_ref.vegetation.curve_frame import arc_frame
 from outshine_ref.vegetation.graminoid import graminoid_tuft_mesh
-from plant_sites import patch_density, root_elevations, scatter_mesh, tile_sites
+from plant_sites import patch_density, scatter_mesh, tile_sites
 from scene_mesh import Meshes
 
 BANK_REACH_M = 40.0
@@ -140,7 +140,7 @@ def bank_plants(surfaces, source, shore, eye, seed):
     height = np.full(len(xy), -np.inf)
     for name in SOIL_MATERIALS:
         if name in surfaces:
-            np.maximum(height, root_elevations(surfaces[name], xy), out=height)
+            np.maximum(height, surface_elevations(surfaces[name], xy), out=height)
     above_water = height - level
     anchors = np.column_stack((xy, height - 0.014))
     patches = patch_density(source, xy, seed ^ 7831)

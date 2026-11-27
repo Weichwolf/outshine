@@ -5,11 +5,12 @@ from functools import cache
 import numpy as np
 import shapely
 from grass_cover import tuft
+from ground_surface import surface_elevations
 from outshine_ref.vegetation import Bellflower, Blade
 from outshine_ref.vegetation.axis_surface import axis_mesh
 from outshine_ref.vegetation.curve_frame import arc_frame
 from outshine_ref.vegetation.graminoid import graminoid_tuft_mesh
-from plant_sites import patch_density, root_elevations, scatter_mesh, tile_sites
+from plant_sites import patch_density, scatter_mesh, tile_sites
 from scene_mesh import Meshes
 
 MEADOW_REACH_M = 28.0
@@ -92,7 +93,7 @@ def meadow_cover(mesh, source, eye, seed):
         return
     xy = np.concatenate([points for points, _ in batches])
     marks = np.concatenate([values for _, values in batches])
-    heights = root_elevations(mesh, xy)
+    heights = surface_elevations(mesh, xy)
     grounded = np.isfinite(heights)
     if not grounded.any():
         return

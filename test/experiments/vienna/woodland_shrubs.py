@@ -4,9 +4,10 @@ from functools import cache
 
 import numpy as np
 import shapely
+from ground_surface import surface_elevations
 from outshine_ref.vegetation import AxisLevel, Blade, PlantPlan
 from outshine_ref.vegetation.axis_surface import axis_mesh
-from plant_sites import root_elevations, tile_sites
+from plant_sites import tile_sites
 from scene_mesh import Meshes
 
 SHRUB_REACH_M = 42.0
@@ -117,7 +118,7 @@ def woodland_shrubs(mesh, source, domain, eye, seed):
         shapely.contains_xy(habitat, *xy.T)
     )
     xy, marks = xy[active], marks[active]
-    elevations = root_elevations(mesh, xy)
+    elevations = surface_elevations(mesh, xy)
     anchors = np.column_stack((xy, elevations - 0.025))
     clearance = shapely.distance(habitat.boundary, shapely.points(xy))
     saplings = marks[:, 0] >= 0.71
