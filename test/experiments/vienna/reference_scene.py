@@ -5,6 +5,7 @@ import math
 from datetime import datetime
 
 import numpy as np
+import shapely
 from astral import Observer
 from astral.sun import azimuth, elevation
 from catalog import HERE, ROOT
@@ -12,6 +13,7 @@ from horizon import terrain_horizon
 from regional import beyond_region, regional_meshes, regional_sources
 from scene_mesh import assemble
 from source_scene import LocalScene
+from viaducts import local_viaducts
 
 
 def direction(bearing, altitude):
@@ -43,7 +45,10 @@ class ReferenceScene:
     def __init__(self, place, config):
         cache = ROOT / "build/vienna-sources"
         self.source = LocalScene(place, config["source_snapshot"], cache, 250)
-        self.local = assemble(self.source, 250)
+        self.viaducts = local_viaducts(
+            self.source.features, shapely.box(-250, -250, 250, 250), self.source.height
+        )
+        self.local = assemble(self.source, 250, self.viaducts)
         self.fov = place.get("vertical_fov_deg", config["vertical_fov_deg"])
         self.focal = 360 / math.tan(math.radians(self.fov) / 2)
         self.look = direction(place["heading_deg"], place["pitch_deg"])
@@ -85,7 +90,7 @@ class ReferenceScene:
             yield name, verts, faces
         bounds = []
         for products, tile in regional_meshes(
-            self.source, self.region, self.focal, 250
+            self.source, self.region, self.focal, 250, viaducts=self.viaducts
         ):
             yield from products
             bounds.append(tile)

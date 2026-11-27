@@ -18,6 +18,7 @@ from PIL import Image, ImageDraw
 from regional_detail import building_shells, metric_polygons
 from scene_mesh import Meshes
 from shapely.geometry import Polygon, box, shape
+from viaducts import elevated_outline
 
 
 def tile_rect(source, tile):
@@ -215,7 +216,7 @@ def tile_surface(source, receipt, dem, focal, radius, data, elevated):
     return products, tile
 
 
-def regional_meshes(source, receipts, focal, radius):
+def regional_meshes(source, receipts, focal, radius, *, viaducts=()):
     dem = Elevation(receipts)
     features, water, originals = [], [], []
     nearby = {}
@@ -247,9 +248,12 @@ def regional_meshes(source, receipts, focal, radius):
                 if name == "water":
                     water.append(shapely.make_valid(geom))
                 else:
-                    features.append((name, geom, props))
                     if props.get("class") == "bridge":
-                        originals.append((id(f), geom, props.get("layer", 1)))
+                        layer = props.get("layer", 1)
+                        originals.append((id(f), geom, layer))
+                        if elevated_outline(geom, layer, viaducts):
+                            continue
+                    features.append((name, geom, props))
     bridges = Meshes()
 
     def terrain(xy):
@@ -271,7 +275,8 @@ def regional_meshes(source, receipts, focal, radius):
     elevated = {
         k
         for k, g, l in originals
-        if l in solved and solved[l].covers(g.representative_point())
+        if (l in solved and solved[l].covers(g.representative_point()))
+        or elevated_outline(g, l, viaducts)
     }
     for receipt in receipts:
         if receipt["kind"] == "vector":

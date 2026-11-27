@@ -12,6 +12,7 @@ from outshine_ref.buildings.structures import suppressed
 from outshine_ref.water.geodetic import local_points
 from shapely.geometry import Point, box
 from stairs import local_stairways
+from viaducts import draw_viaduct
 
 
 class Meshes(dict):
@@ -196,7 +197,7 @@ def ground_surfaces(meshes, source, extent, bodies, vertices, quads):
     water_surfaces(meshes, source, bodies, vertices, banks)
 
 
-def assemble(source, radius):
+def assemble(source, radius, viaducts=()):
     meshes = Meshes()
     extent = box(-radius, -radius, radius, radius)
     vertices, quads = terrain_grid(source, radius)
@@ -211,6 +212,8 @@ def assemble(source, radius):
     bridges = build_water_bridges(
         meshes, source.features, extent, bodies, source.height
     )
+    for viaduct in viaducts:
+        draw_viaduct(meshes, viaduct, source.height)
     for name, geom, prop in source.features:
         geometry = shapely.make_valid(geom) if not geom.is_valid else geom
         if name == "building":
@@ -229,6 +232,14 @@ def assemble(source, radius):
                 clipped = clipped.buffer(width / 2, cap_style="flat")
             if prop.get("brunnel") == "bridge" and prop.get("layer", 1) in bridges:
                 clipped = clipped.difference(bridges[prop.get("layer", 1)])
+            if prop.get("brunnel") == "bridge":
+                for viaduct in viaducts:
+                    is_outline = (
+                        prop.get("class") == "bridge"
+                        and prop.get("layer", 1) == viaduct.outline_layer
+                    )
+                    if is_outline or id(geom) in viaduct.carriageways:
+                        clipped = clipped.difference(viaduct.footprint)
             for poly in polygons(clipped):
                 cap(
                     meshes,

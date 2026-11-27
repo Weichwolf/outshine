@@ -8,14 +8,21 @@ import shapely
 from outshine_ref.transport.water_span import solve_water_span
 
 
-def slab(meshes, material, polygon, height, thickness):
+def cap_mesh(polygon, height):
     triangles = shapely.get_parts(shapely.constrained_delaunay_triangles(polygon))
     xy = np.array(
         [p.exterior.coords[:3] for p in shapely.orient_polygons(triangles)]
     ).reshape(-1, 2)
-    top = np.column_stack((xy, height(xy)))
-    faces = np.arange(len(xy)).reshape(-1, 3)
-    meshes.add(material, top, faces)
+    return np.column_stack((xy, height(xy))), np.arange(len(xy)).reshape(-1, 3)
+
+
+def slab(meshes, material, polygon, height, thickness, *, paved=None):
+    top, faces = cap_mesh(polygon, height)
+    if paved is None or paved.is_empty:
+        meshes.add(material, top, faces)
+    else:
+        meshes.add(material, *cap_mesh(polygon.difference(paved), height))
+        meshes.add("road", *cap_mesh(paved, height))
     meshes.add(material, top - [0, 0, thickness], faces[:, ::-1])
     for ring in [polygon.exterior, *polygon.interiors]:
         xy = np.asarray(ring.coords)
