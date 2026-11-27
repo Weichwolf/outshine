@@ -130,6 +130,8 @@ The reference cameras select up to two water levels for 640×360 planar reflecti
 Clipped scene geometry supplies the reflected forms and the sky fills the uncovered rays.
 GLSL captures the mirrors on the GPU. EEVEE prepares them once for each static camera pose
 and reuses them for warm renders. The reported capture seconds are part of scene setup.
+With `--repeat`, EEVEE also prepares the clear-sky compositing layer once in scene-linear
+precision. The sky capture time is reported separately from PNG generation.
 For a graded reach, the capture plane is fitted to the visible water samples.
 
 Both paths sample the same 0.75 m nearshore transmission raster. In the first 10 m from

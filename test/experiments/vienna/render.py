@@ -251,7 +251,12 @@ def render(place, config, args):
         for name in WATER_MATERIALS:
             if material := bpy.data.materials.get(name):
                 apply_reflection(material, world.eye, planes, images)
-    configure_aerial(scene, geometry, eye.z + world.source.datum)
+    sky_s = configure_aerial(
+        scene,
+        geometry,
+        eye.z + world.source.datum,
+        cache_sky=args.engine == "eevee" and args.repeat,
+    )
     if args.engine == "cycles":
         device = configure_gpu(scene, "cycles")
     image = args.output / (place["id"] + ".png")
@@ -267,6 +272,7 @@ def render(place, config, args):
                 **device,
                 "reflection_levels_m": [round(plane.height, 3) for plane in planes],
                 "reflection_capture_s": round(capture_s, 3),
+                "sky_capture_s": round(sky_s, 3),
                 "seconds_to_png": times,
             }
         ),
