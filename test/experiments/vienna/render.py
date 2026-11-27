@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 import bpy
+import numpy as np
 from mathutils import Vector
 
 HERE = Path(__file__).resolve().parent
@@ -21,34 +22,30 @@ from astral import Observer
 from astral.sun import azimuth, elevation
 from catalog import load_catalog
 from horizon import terrain_horizon
+from materials import SURFACES
 from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_light import configure_daylight
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
+from regional import beyond_region, regional_meshes, regional_sources
 from scene_mesh import assemble
 from source_scene import LocalScene
 from woodland import plant_woodland
 
-# Linear reflectance, perceptual roughness.
-SURFACES = {
-    "bridge deck": ((0.23, 0.22, 0.20), 0.82),
-    "bridge metal": ((0.085, 0.13, 0.115), 0.46),
-    "bark": ((0.12, 0.075, 0.045), 0.92),
-    "foliage": ((0.095, 0.205, 0.044), 0.52),
-    "water": ((0.028, 0.084, 0.095), 0.09),
-    "distant terrain": ((0.11, 0.16, 0.10), 0.95),
-    "ground": ((0.15, 0.13, 0.095), 0.9),
-    "road": ((0.075, 0.08, 0.082), 0.82),
-    "sidewalk": ((0.27, 0.25, 0.22), 0.77),
-    "roof": ((0.20, 0.10, 0.06), 0.77),
-    "wall": ((0.48, 0.40, 0.30), 0.82),
-    "frame": ((0.21, 0.18, 0.14), 0.65),
-    "glass": ((0.08, 0.12, 0.15), 0.11),
-}
-
 
 def upload(name, vertices, faces, *, collection=None):
     mesh = bpy.data.meshes.new(name)
-    mesh.from_pydata(vertices, [], faces)
+    if isinstance(vertices, np.ndarray) and isinstance(faces, np.ndarray):
+        used, indices = np.unique(faces, return_inverse=True)
+        mesh.vertices.add(len(used))
+        mesh.vertices.foreach_set("co", np.asarray(vertices[used], np.float32).ravel())
+        mesh.loops.add(faces.size)
+        mesh.loops.foreach_set("vertex_index", np.asarray(indices, np.int32).ravel())
+        mesh.polygons.add(len(faces))
+        mesh.polygons.foreach_set(
+            "loop_start", np.arange(0, faces.size, faces.shape[1], dtype=np.int32)
+        )
+    else:
+        mesh.from_pydata(vertices, [], faces)
     mesh.update()
     material = bpy.data.materials.get(name) or bpy.data.materials.new(name)
     material.use_nodes = True
@@ -88,11 +85,20 @@ def render(place, config, args):
     )
     far, faces, receipts = terrain_horizon(source, ROOT / "build/vienna-sources", 250)
     pins = json.loads((HERE / "sources.json").read_text())
-    for row in source.receipts + receipts:
+    region = regional_sources(
+        source, place, config["source_snapshot"], ROOT / "build/vienna-sources", fov
+    )
+    for row in source.receipts + receipts + region:
         if pins.get(row["url"]) != row["sha256"]:
             raise ValueError(f"Unpinned or changed Vienna source: {row['url']}")
     objects = {n: upload(n, *mesh) for n, mesh in assemble(source, 250).items()}
-    upload("distant terrain", far, faces)
+    focal_pixels = 360 / math.tan(math.radians(fov) / 2)
+    tiles = []
+    for products, bounds in regional_meshes(source, region, focal_pixels, 250):
+        for name, vertices, indices in products:
+            upload(name, vertices, indices)
+        tiles.append(bounds)
+    upload("distant terrain", *beyond_region(far, faces, tiles))
     bpy.context.view_layer.update()
     if "absolute_eye_m" in place:
         surface = "absolute station"
@@ -135,7 +141,6 @@ def render(place, config, args):
     )
     scene.render.resolution_x, scene.render.resolution_y = 1280, 720
     scene.render.resolution_percentage = 100
-    focal_pixels = 360 / math.tan(math.radians(fov) / 2)
     trees = plant_woodland(source, 250, config["seed"], focal_pixels, upload)
     scene.eevee.taa_render_samples = 16
     if args.engine == "cycles":

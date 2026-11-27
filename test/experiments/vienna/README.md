@@ -51,3 +51,8 @@ The thirteenth reference, Wien, reads the elevated camera and clock directly fro
 [`doc/images/wien.png`](../../../doc/images/wien.png) (commit `ab335a928`).
 The current reference series enables vegetation for every camera, including Wien.
 Wienerblick remains an independent, eye-level site.
+
+The regional reference samples the mapped building heights, water, woods, grass and deck
+footprints around each camera. Its height field extends to the distance at which a 12 m
+building occupies one pixel (6–15 km range). This first regional representation resolves the
+urban silhouette but aliases oblique shorelines, and bridge cells still lack an elevated span.
