@@ -68,7 +68,8 @@ and rose finishes stay distinct on separately modelled building parts.
 KarlMarxHof-Courtyard retains the longer view for window rows. Nevillebruecke
 checks the same window grid as the streetscape recedes. Near openings have
 recesses, frames and projecting sills. Smaller visible openings keep the same
-spacing in a flat wall mesh.
+spacing in a flat wall mesh. Where building parts overlap, only exposed walls
+receive windows. Openings and sills fit entirely on those walls.
 
 ```sh
 blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/render.py -- \

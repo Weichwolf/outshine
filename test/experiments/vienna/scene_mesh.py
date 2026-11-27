@@ -1,7 +1,7 @@
 """Assemble source geometry in local east/north/up metres for Blender."""
 
 import itertools
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from functools import partial
 
 import numpy as np
@@ -13,7 +13,17 @@ from bridge_junctions import junction_pavement
 from bridge_passages import bridge_terrain
 from bridges import draw_water_crossings, plan_water_crossings
 from building_colours import facade_colours, wall_material
-from building_foundations import BuildingStamps, building_foundations
+from building_envelope import (
+    BuildingVolume,
+    building_neighbours,
+    exposed_cap,
+    exposed_wall,
+)
+from building_foundations import (
+    BuildingFoundation,
+    BuildingStamps,
+    building_foundations,
+)
 from building_passages import building_passages, vault_panels
 from deck_walk_links import DeckWalkLink, deck_walk_links
 from facade import FacadeView, draw_facade
@@ -62,45 +72,97 @@ def cap(meshes, name, polygon, elevation, *, underside=False):
     meshes.add(name, np.column_stack((xy, z)), faces[:, ::-1] if underside else faces)
 
 
-def building(
-    meshes, polygon, properties, source, foundation, passages, grade, facade_view, wall
-):
-    floor = properties.get("render_min_height", 0)
-    roof = properties.get("render_height", 0)
-    if roof <= floor or suppressed(properties):
-        return
+@dataclass(frozen=True)
+class BuildingForm:
+    polygon: shapely.Polygon
+    bottom: float
+    top: float
+    foundation: BuildingFoundation | None
+    passages: tuple
+    wall: str
+    minimum_height: float
+    corridor: shapely.Polygon
+    piers: tuple
+    soffit: float
+
+    def volumes(self):
+        foot = self.foundation.sole_m if self.foundation else self.bottom
+        if self.passages:
+            return [
+                *(BuildingVolume(pier, foot, self.soffit) for pier in self.piers),
+                BuildingVolume(self.polygon, self.soffit, self.top),
+            ]
+        return [BuildingVolume(self.polygon, foot, self.top)]
+
+
+def building_form(polygon, floor, roof, source, foundation, passages, wall):
     base = (
         foundation.seat_m
         if foundation
         else float(source.height(np.asarray(polygon.representative_point().coords))[0])
     )
-    cap(meshes, "roof", polygon, lambda xy: roof + base)
+    corridor = shapely.union_all([item.corridor for item in passages])
+    piers = tuple(polygons(polygon.difference(corridor))) if passages else ()
+    soffit = max((item.crown_m for item in passages), default=base + floor)
+    return BuildingForm(
+        polygon,
+        base + floor,
+        base + roof,
+        foundation,
+        tuple(passages),
+        wall,
+        floor,
+        corridor,
+        piers,
+        soffit,
+    )
+
+
+def building(meshes, form, grade, facade_view, neighbours):
+    for roof in polygons(exposed_cap(form.polygon, form.top, neighbours)):
+        cap(meshes, "roof", roof, lambda xy: form.top)
+    if form.minimum_height > 0:
+        for underside in polygons(
+            exposed_cap(form.polygon, form.bottom, neighbours, underside=True)
+        ):
+            cap(meshes, form.wall, underside, lambda xy: form.bottom, underside=True)
+    passages = form.passages
     if passages:
-        soffit = max(item.crown_m for item in passages)
-        corridor = shapely.union_all([item.corridor for item in passages])
-        passage_ceilings(meshes, polygon, passages, corridor, soffit, grade, wall)
-        for pier in polygons(polygon.difference(corridor)):
+        passage_ceilings(
+            meshes, form.polygon, passages, form.corridor, form.soffit, grade, form.wall
+        )
+        for pier in form.piers:
             building_walls(
                 meshes,
                 pier,
-                base + floor,
-                soffit,
+                form.bottom,
+                form.soffit,
                 facade_view,
-                foundation,
+                neighbours,
+                form.foundation,
                 bays=False,
-                wall=wall,
+                wall=form.wall,
             )
-        building_walls(meshes, polygon, soffit, base + roof, facade_view, wall=wall)
+        building_walls(
+            meshes,
+            form.polygon,
+            form.soffit,
+            form.top,
+            facade_view,
+            neighbours,
+            wall=form.wall,
+        )
     else:
         building_walls(
             meshes,
-            polygon,
-            base + floor,
-            base + roof,
+            form.polygon,
+            form.bottom,
+            form.top,
             facade_view,
-            foundation,
-            grounded=floor == 0,
-            wall=wall,
+            neighbours,
+            form.foundation,
+            grounded=form.minimum_height == 0,
+            wall=form.wall,
         )
 
 
@@ -150,6 +212,7 @@ def building_walls(
     bottom,
     top,
     view,
+    neighbours,
     foundation=None,
     *,
     grounded=False,
@@ -158,13 +221,36 @@ def building_walls(
 ):
     for ring in [polygon.exterior, *polygon.interiors]:
         corners = np.asarray(ring.coords)
-        if foundation:
+        if foundation and not neighbours:
             support = np.column_stack((corners, np.full(len(corners), bottom)))
             edges = np.stack((support[:-1], support[1:]), axis=1)
             vertical_faces(meshes, "foundation", edges, foundation.sole_m)
         for a, b in itertools.pairwise(corners):
+            if foundation and neighbours:
+                sole = foundation.sole_m
+                draw_facade(
+                    meshes,
+                    a,
+                    b,
+                    sole,
+                    bottom,
+                    view,
+                    grounded=False,
+                    bays=False,
+                    wall="foundation",
+                    exposed=exposed_wall(a, b, sole, bottom, neighbours),
+                )
             draw_facade(
-                meshes, a, b, bottom, top, view, grounded=grounded, bays=bays, wall=wall
+                meshes,
+                a,
+                b,
+                bottom,
+                top,
+                view,
+                grounded=grounded,
+                bays=bays,
+                wall=wall,
+                exposed=exposed_wall(a, b, bottom, top, neighbours),
             )
 
 
@@ -710,23 +796,27 @@ def assemble(
     )
     for viaduct in viaducts:
         draw_viaduct(meshes, viaduct, source.height, approaches)
+    forms = []
     for polygon, properties, wall in buildings:
-        foundation = (
-            by_footprint.get(polygon)
-            if properties.get("render_min_height", 0) == 0
-            else None
-        )
-        building(
-            meshes,
-            polygon,
-            properties,
-            source,
-            foundation,
-            passages.get(polygon, ()),
-            grade,
-            facade_view,
-            wall,
-        )
+        floor = properties.get("render_min_height", 0)
+        roof = properties.get("render_height", 0)
+        if roof > floor:
+            forms.append(
+                building_form(
+                    polygon,
+                    floor,
+                    roof,
+                    source,
+                    by_footprint.get(polygon) if floor == 0 else None,
+                    passages.get(polygon, ()),
+                    wall,
+                )
+            )
+    neighbours = building_neighbours(
+        [form.polygon for form in forms], [form.volumes() for form in forms]
+    )
+    for form, adjacent in zip(forms, neighbours, strict=True):
+        building(meshes, form, grade, facade_view, adjacent)
     for name, geom, prop in source.features:
         if name == "transportation" and prop.get("brunnel") != "tunnel":
             if at_grade_width(prop) is not None:
