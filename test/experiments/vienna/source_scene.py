@@ -48,10 +48,17 @@ class LocalScene:
         return self.dem.sample(lat, lon) - self.datum
 
     def add_features(self, receipt, radius):
+        centre = Point(0, 0)
+        for record in self.metric_features(
+            receipt, ("building", "transportation", "water", "landcover")
+        ):
+            if record[1].distance(centre) <= radius:
+                self.features.append(record)
+
+    def metric_features(self, receipt, names):
         tile = receipt["tile"]
         data = decode_vector(receipt)
-        centre = Point(0, 0)
-        for name in ("building", "transportation", "water", "landcover"):
+        for name in names:
             if name not in data:
                 continue
             layer = data[name]
@@ -62,5 +69,4 @@ class LocalScene:
 
             for feature in layer["features"]:
                 geom = shapely.transform(shape(feature["geometry"]), local)
-                if geom.distance(centre) <= radius:
-                    self.features.append((name, geom, feature["properties"]))
+                yield name, geom, feature["properties"]

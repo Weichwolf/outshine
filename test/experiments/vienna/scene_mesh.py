@@ -4,13 +4,20 @@ import itertools
 
 import numpy as np
 import shapely
-from bridges import build_water_bridges
+from bridge_approach import earthwork_meshes
+from bridge_contacts import bank_cuts
+from bridges import draw_water_crossings, plan_water_crossings
 from ground_surface import at_grade_routes, at_grade_width, partition_ground
 from outshine_ref.buildings.facades import FacadeRepeat
 from outshine_ref.buildings.recessed_facades import RecessPlan, recess_surface
 from outshine_ref.buildings.structures import suppressed
 from outshine_ref.water.geodetic import local_points
 from shapely.geometry import Point, box
+from stair_branches import local_stair_branches
+from stair_guards import draw_stair_guards
+from stair_landings import local_landings
+from stairs import local_stairways
+from viaducts import draw_viaduct
 
 
 class Meshes(dict):
@@ -90,6 +97,47 @@ def terrain_grid(source, radius):
     return np.column_stack((xy, source.height(xy))), quads
 
 
+def terrain_height(vertices, points):
+    size = int(np.sqrt(len(vertices)))
+    spacing = vertices[1, 0] - vertices[0, 0]
+    grid = (points - vertices[0, :2]) / spacing
+    cell = np.clip(grid.astype(int), 0, size - 2)
+    x, y = (grid - cell).T
+    first = cell[:, 0] + cell[:, 1] * size
+    a, b, c, d = vertices[first[:, None] + [0, 1, size + 1, size], 2].T
+    return a + np.where(x >= y, x * (b - a) + y * (c - b), y * (d - a) + x * (c - d))
+
+
+def boundary_edges(edges, boundary):
+    xy = edges[:, :, :2]
+    on_boundary = shapely.dwithin(
+        shapely.points(xy.reshape(-1, 2)), boundary, 1e-6
+    ).reshape(-1, 2).all(axis=1) & shapely.dwithin(
+        shapely.points(xy.mean(axis=1)), boundary, 1e-6
+    )
+    return edges[on_boundary]
+
+
+def vertical_faces(meshes, name, edges, heights):
+    if len(edges):
+        other = edges.copy()
+        other[:, :, 2] = heights
+        walls = np.concatenate((edges, other), axis=1).reshape(-1, 3)
+        faces = np.arange(len(edges))[:, None] * 4 + [0, 2, 1, 1, 2, 3]
+        meshes.add(name, walls, faces.reshape(-1, 3))
+
+
+def staircase_risers(meshes, stairs):
+    for stair in stairs:
+        changes = np.flatnonzero(np.diff(stair.heights))
+        edges = shapely.intersection(stair.treads[changes], stair.treads[changes + 1])
+        for i, edge in zip(changes, edges, strict=True):
+            xy = shapely.get_coordinates(edge)
+            if len(xy) == 2:
+                face = np.column_stack((xy, np.full(2, stair.heights[i])))
+                vertical_faces(meshes, "sidewalk", face[None], stair.heights[i + 1])
+
+
 def water_surfaces(meshes, source, bodies, vertices, banks):
     xy = vertices[:, :2]
     for body in polygons(bodies):
@@ -108,23 +156,89 @@ def water_surfaces(meshes, source, bodies, vertices, banks):
         cap(meshes, "water", body, water_height)
         if not len(banks):
             continue
-        xy_banks = banks[:, :, :2]
-        boundary = body.boundary
-        on_shore = shapely.dwithin(
-            shapely.points(xy_banks.reshape(-1, 2)), boundary, 1e-6
-        ).reshape(-1, 2).all(axis=1) & shapely.dwithin(
-            shapely.points(xy_banks.mean(axis=1)), boundary, 1e-6
-        )
-        top = banks[on_shore]
+        top = boundary_edges(banks, body.boundary)
         shore = top[:, :, :2].reshape(-1, 2)
-        bottom = np.column_stack((shore, water_height(shore) - 0.1)).reshape(-1, 2, 3)
-        walls = np.concatenate((top, bottom), axis=1).reshape(-1, 3)
-        faces = np.arange(len(top))[:, None] * 4 + [0, 2, 1, 1, 2, 3]
-        if len(walls):
-            meshes.add("ground", walls, faces.reshape(-1, 3))
+        vertical_faces(meshes, "ground", top, water_height(shore).reshape(-1, 2) - 0.1)
 
 
-def assemble(source, radius):
+def ground_surfaces(
+    meshes, source, extent, bodies, vertices, quads, approaches=(), crossings=()
+):
+    transport = [(g, p) for layer, g, p in source.features if layer == "transportation"]
+    roads = at_grade_routes(transport, extent)
+    height = lambda points: terrain_height(vertices, points)
+    stairs = local_stairways(source.features, extent, bodies, height)
+    branches, aprons, replaced_paths = local_stair_branches(
+        source.features, stairs, extent, bodies.union(roads["road"]), height
+    )
+    if replaced_paths:
+        roads = at_grade_routes(transport, extent, replaced_paths=replaced_paths)
+    stairs.extend(branches)
+    landings, joined_edges = local_landings(
+        source.features, stairs, extent, bodies, height
+    )
+    pieces = [
+        (foot, z, stair.material)
+        for stair in stairs
+        for foot, z in zip(stair.treads, stair.heights, strict=True)
+    ]
+    names = dict(enumerate(("ground", "water", "road", "sidewalk", "paving")))
+    first_stair = len(names)
+    stair_tops = {
+        i: (z, name) for i, (_, z, name) in enumerate(pieces, start=first_stair)
+    }
+    earthworks = (
+        [(landing, landing.material) for landing in [*landings, *aprons]]
+        + [(a, "road") for a in approaches if a.footprint.intersects(extent)]
+        + [(cut, "ground") for cut in bank_cuts(vertices, quads, crossings, extent)]
+    )
+    graded = {
+        i: item for i, item in enumerate(earthworks, start=first_stair + len(pieces))
+    }
+    stair_limit = shapely.union_all([stair.footprint for stair in stairs]).boundary
+    joined_edges = shapely.union_all([joined_edges, *(apron.edge for apron in aprons)])
+    if not joined_edges.is_empty:
+        stair_limit = stair_limit.difference(joined_edges, grid_size=1e-6)
+    names.update({i: i for i in stair_tops.keys() | graded.keys()})
+    footprints = {1: bodies}
+    footprints.update(
+        {i: foot for i, (foot, _, _) in enumerate(pieces, start=first_stair)}
+    )
+    footprints.update(
+        {i: work.footprint.intersection(extent) for i, (work, _) in graded.items()}
+    )
+    footprints.update({2: roads["road"], 3: roads["sidewalk"], 4: roads["paving"]})
+    banks = np.empty((0, 2, 3))
+    for name, points, faces in partition_ground(
+        vertices, quads, np.zeros(len(quads), dtype=int), names, footprints
+    ):
+        if name in graded:
+            earthwork, ground_material = graded[name]
+            for material, graded_vertices, indices in earthwork_meshes(
+                points, faces, earthwork, ground_material
+            ):
+                meshes.add(material, graded_vertices, indices)
+            continue
+        if name == "water" or name in stair_tops:
+            edges = points[faces][:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2, 3)
+            if name == "water":
+                banks = np.concatenate((banks, edges))
+                continue
+            height, name = stair_tops[name]
+            vertical_faces(
+                meshes, "sidewalk", boundary_edges(edges, stair_limit), height
+            )
+            points = points.copy()
+            points[:, 2] = height
+        if len(faces):
+            used, inverse = np.unique(faces, return_inverse=True)
+            meshes.add(name, points[used], inverse.reshape(-1, 3))
+    staircase_risers(meshes, stairs)
+    draw_stair_guards(meshes, stairs, [*landings, *aprons])
+    water_surfaces(meshes, source, bodies, vertices, banks)
+
+
+def assemble(source, radius, viaducts=(), approaches=(), *, crossings=None):
     meshes = Meshes()
     extent = box(-radius, -radius, radius, radius)
     vertices, quads = terrain_grid(source, radius)
@@ -135,27 +249,16 @@ def assemble(source, radius):
             if layer == "water"
         ]
     )
-    roads = at_grade_routes(
-        ((g, p) for layer, g, p in source.features if layer == "transportation"),
-        extent,
+    if crossings is None:
+        crossings = list(
+            plan_water_crossings(source.features, extent, bodies, source.height)
+        )
+    ground_surfaces(
+        meshes, source, extent, bodies, vertices, quads, approaches, crossings
     )
-    names = ("ground", "water", "road", "sidewalk")
-    footprints = {1: bodies, 2: roads["road"], 3: roads["sidewalk"]}
-    banks = np.empty((0, 2, 3))
-    for name, points, faces in partition_ground(
-        vertices, quads, np.zeros(len(quads), dtype=int), names, footprints
-    ):
-        if name == "water":
-            edges = points[faces][:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2, 3)
-            banks = np.concatenate((banks, edges))
-        elif len(faces):
-            used, inverse = np.unique(faces, return_inverse=True)
-            meshes.add(name, points[used], inverse.reshape(-1, 3))
-    water_surfaces(meshes, source, bodies, vertices, banks)
-
-    bridges = build_water_bridges(
-        meshes, source.features, extent, bodies, source.height
-    )
+    bridges = draw_water_crossings(meshes, crossings, bodies, source.height, approaches)
+    for viaduct in viaducts:
+        draw_viaduct(meshes, viaduct, source.height, approaches)
     for name, geom, prop in source.features:
         geometry = shapely.make_valid(geom) if not geom.is_valid else geom
         if name == "building":
@@ -174,6 +277,14 @@ def assemble(source, radius):
                 clipped = clipped.buffer(width / 2, cap_style="flat")
             if prop.get("brunnel") == "bridge" and prop.get("layer", 1) in bridges:
                 clipped = clipped.difference(bridges[prop.get("layer", 1)])
+            if prop.get("brunnel") == "bridge":
+                for viaduct in viaducts:
+                    is_outline = (
+                        prop.get("class") == "bridge"
+                        and prop.get("layer", 1) == viaduct.outline_layer
+                    )
+                    if is_outline or id(geom) in viaduct.carriageways:
+                        clipped = clipped.difference(viaduct.footprint)
             for poly in polygons(clipped):
                 cap(
                     meshes,

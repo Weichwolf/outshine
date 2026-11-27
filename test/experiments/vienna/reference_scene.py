@@ -3,15 +3,31 @@
 import json
 import math
 from datetime import datetime
+from functools import partial
 
 import numpy as np
+import shapely
 from astral import Observer
 from astral.sun import azimuth, elevation
+from bridge_approach import APPROACH_SEARCH, bridge_approaches
+from bridges import plan_water_crossings
 from catalog import HERE, ROOT
 from horizon import terrain_horizon
-from regional import beyond_region, regional_meshes, regional_sources
+from regional import (
+    beyond_region,
+    bridgehead_sources,
+    regional_meshes,
+    regional_sources,
+    tile_rect,
+)
 from scene_mesh import assemble
 from source_scene import LocalScene
+from viaducts import local_viaducts
+
+SUPPORT_MATERIALS = {
+    "sidewalk": ("sidewalk", "paving"),
+    "street": ("sidewalk", "paving", "road"),
+}
 
 
 def direction(bearing, altitude):
@@ -21,8 +37,10 @@ def direction(bearing, altitude):
     )
 
 
-def support_height(mesh):
+def support_height(mesh, xy=(0.0, 0.0)):
     vertices, faces = mesh
+    if not len(faces):
+        return np.empty(0)
     tri = np.asarray(vertices)[np.asarray(faces, dtype=int)]
     a, b, c = tri.transpose(1, 0, 2)
     edge = b - a
@@ -30,58 +48,128 @@ def support_height(mesh):
     cross = lambda p, q: p[:, 0] * q[:, 1] - p[:, 1] * q[:, 0]
     det = cross(edge, side)
     keep = abs(det) > 1e-12
-    w = cross(-a[keep], side[keep]) / det[keep]
-    v = cross(edge[keep], -a[keep]) / det[keep]
+    point = np.asarray(xy) - a[keep, :2]
+    w = cross(point, side[keep]) / det[keep]
+    v = cross(edge[keep], point) / det[keep]
     hits = (w >= -1e-7) & (v >= -1e-7) & (w + v <= 1 + 1e-7)
     return (a[keep, 2] + w * edge[keep, 2] + v * side[keep, 2])[hits]
+
+
+def local_bridge_approaches(source, spans, domain, region):
+    if not spans:
+        return []
+    features = []
+    for receipt in region:
+        if receipt["kind"] != "vector":
+            continue
+        nw, se = tile_rect(source, receipt["tile"])
+        tile = shapely.box(*np.minimum(nw, se), *np.maximum(nw, se))
+        if tile.intersects(domain):
+            features.extend(
+                (name, geom, tags)
+                for name, geom, tags in source.metric_features(
+                    receipt, ("transportation", "water")
+                )
+                if geom.intersects(domain)
+            )
+    water = shapely.union_all(
+        [shapely.make_valid(geom) for name, geom, _ in features if name == "water"]
+    )
+    return bridge_approaches(spans, features, source.height, water)
 
 
 class ReferenceScene:
     def __init__(self, place, config):
         cache = ROOT / "build/vienna-sources"
         self.source = LocalScene(place, config["source_snapshot"], cache, 250)
-        self.local = assemble(self.source, 250)
+        domain = shapely.box(-250, -250, 250, 250)
+        self.viaducts = local_viaducts(self.source.features, domain, self.source.height)
+        water = shapely.union_all(
+            [
+                shapely.make_valid(geom)
+                for name, geom, _ in self.source.features
+                if name == "water"
+            ]
+        )
+        crossings = list(
+            plan_water_crossings(
+                self.source.features, domain, water, self.source.height
+            )
+        )
+        spans = [
+            *((deck.footprint, deck) for deck in self.viaducts),
+            *((crossing.footprint, crossing.span) for crossing in crossings),
+        ]
         self.fov = place.get("vertical_fov_deg", config["vertical_fov_deg"])
         self.focal = 360 / math.tan(math.radians(self.fov) / 2)
+        pins = json.loads((HERE / "sources.json").read_text())
+        self.bridgeheads = partial(
+            bridgehead_sources,
+            self.source,
+            snapshot=config["source_snapshot"],
+            cache=cache,
+            pins=pins,
+        )
+        transport_domain = shapely.union_all(
+            [
+                shapely.Point(end).buffer(APPROACH_SEARCH)
+                for _, span in spans
+                for end in (span.origin, span.origin + span.length * span.direction)
+            ]
+        )
+        self.region = regional_sources(
+            self.source,
+            place,
+            config["source_snapshot"],
+            cache,
+            self.fov,
+            transport_domain=transport_domain,
+            pins=pins,
+        )
+        self.far, self.faces, receipts = terrain_horizon(self.source, cache, 250)
+        for row in self.source.receipts + receipts + self.region:
+            if pins.get(row["url"]) != row["sha256"]:
+                raise ValueError(f"Unpinned or changed Vienna source: {row['url']}")
+        self.approaches = local_bridge_approaches(
+            self.source, spans, transport_domain, self.region
+        )
+        self.local = assemble(
+            self.source, 250, self.viaducts, self.approaches, crossings=crossings
+        )
         self.look = direction(place["heading_deg"], place["pitch_deg"])
         observer = Observer(place["latitude"], place["longitude"])
         utc = datetime.fromisoformat(place.get("utc", config["utc"]))
         self.sun = direction(azimuth(observer, utc), elevation(observer, utc))
+        xy = place.get("offset_east_north_m", (0.0, 0.0))
         if "absolute_eye_m" in place:
             self.support = "absolute station"
             z = place["absolute_eye_m"] - self.source.datum
         else:
-            names = (
-                ("sidewalk", "road")
-                if place["support"] == "street"
-                else (place["support"],)
-            )
+            names = SUPPORT_MATERIALS.get(place["support"], (place["support"],))
             hits = [
                 (h, n)
                 for n in names
                 if n in self.local
-                for h in support_height(self.local[n])
+                for h in support_height(self.local[n], xy)
             ]
             if not hits:
                 raise ValueError(f"{place['id']}: no walkable surface under camera")
             z, self.support = max(hits)
             z += config["eye_height_m"]
-        self.eye = np.array([0.0, 0.0, z])
-        self.far, self.faces, receipts = terrain_horizon(self.source, cache, 250)
-        self.region = regional_sources(
-            self.source, place, config["source_snapshot"], cache, self.fov
-        )
-        pins = json.loads((HERE / "sources.json").read_text())
-        for row in self.source.receipts + receipts + self.region:
-            if pins.get(row["url"]) != row["sha256"]:
-                raise ValueError(f"Unpinned or changed Vienna source: {row['url']}")
+        self.eye = np.array([*xy, z])
 
     def surfaces(self):
         for name, (verts, faces) in self.local.items():
             yield name, verts, faces
         bounds = []
         for products, tile in regional_meshes(
-            self.source, self.region, self.focal, 250
+            self.source,
+            self.region,
+            self.focal,
+            250,
+            viaducts=self.viaducts,
+            local_approaches=self.approaches,
+            connect_bridgeheads=self.bridgeheads,
         ):
             yield from products
             bounds.append(tile)

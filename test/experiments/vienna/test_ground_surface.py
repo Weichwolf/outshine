@@ -24,6 +24,20 @@ class GroundSurfaceTest(unittest.TestCase):
         self.assertTrue(surfaces["road"].covers(Point(10, 0)))
         self.assertFalse(surfaces["road"].covers(Point(10, 8)))
 
+    def test_stone_surface_only_on_the_tagged_path(self):
+        paved = LineString([(0, 0), (20, 0)])
+        forest = LineString([(0, 3), (20, 3)])
+        products = at_grade_routes(
+            [
+                (paved, {"class": "path", "surface": "sett"}),
+                (forest, {"class": "path", "surface": "compacted"}),
+            ],
+            box(0, -5, 20, 8),
+        )
+        self.assertTrue(products["paving"].covers(Point(10, 0)))
+        self.assertFalse(products["paving"].covers(Point(10, 3)))
+        self.assertTrue(products["sidewalk"].covers(Point(10, 3)))
+
     def test_shoreline_and_road_partition_sloping_terrain_without_overlap(self):
         vertices = np.array(
             [[0, 0, 0], [10, 0, 1], [20, 0, 2], [0, 10, 2], [10, 10, 4], [20, 10, 6]]
