@@ -30,9 +30,10 @@ The first twelve-image review shows missing steps at Strudlhofstiege, a missing 
 Adlerhof and striping at Prater Hochstraße. The Schemerlbrücke camera looks from a mapped
 bank path across the channel: the first integrated bank-to-bank recipe spans the water with a closed slab and edge guards.
 Its steel truss, piers and graded approach tie-ins still need work.
-Hauptallee and Dechantlacke need trees and bank vegetation, Wienerblick needs its city
-skyline, and Franz-Karl-Fernsicht needs a recognizable Alpine silhouette. The shore levels,
-road profiles, material variety, sky and light still need comparison with real scenes.
+Hauptallee and Dechantlacke need fuller crowns and bank vegetation. Franz-Karl-Fernsicht
+looks southwest from an opening on the mapped footpath. The camera retains the 1.70 m
+walkable-surface offset. Wienerblick still needs a review with the current city geometry.
+Shore levels, road profiles, ground materials and light still need comparison with real scenes.
 
 Two dated photographs anchor the structural review. The November 2023 stair photograph shows
 paired flights, landings and retaining walls; compare geometry across seasons. The June 2017
