@@ -20,7 +20,7 @@ Reviewed 2026-11-19. Reference material; current decisions and implementation st
 5. Evict regenerable unused products using usage/cost-aware policy; protect active readers and last GPU use.
 6. Store accepted recipes and permanent world decisions separately from disposable products.
 
-Python prototypes check spatial lookup, packing/admission, miss coalescing, eviction and workload cost before C++ changes. SQLite and existing system libraries remain the storage implementation; no custom storage engine or certification framework is needed.
+Small prototypes can compare spatial lookup, packing, admission and eviction. SQLite and the current storage libraries are useful controls for correctness, latency and memory.
 
 Integration limits: SSD is not free RAM; IO, decode, decompression and UMA traffic remain measurable work. The existing Outshine file budget/reclaimer is a candidate to retain, not proof that every source/cache/residency path is already bounded.
 

@@ -58,12 +58,10 @@ Herkunft/Unsicherheit bleiben klar. Keine vorgeschaltete Sonderklassenbeschaffun
 
 ## Optische Abnahme
 
-Die zehn Pflicht-Places bleiben erhalten. Zusätzliche Szenarien entstehen an tatsächlich
-gelieferten Features: mindestens ein Nah-/Fernbeispiel je physischem Rezept, weitere Beispiele
-für runde/konkave Formen, Parts, Höhenintervalle und Übergänge. Gemeinsame Rezepte dürfen
-mehrere Klassen bedienen; jeder beobachtete Klassenwert braucht eine explizite Zuordnung.
-Verdeckte/fehlende Merkmale gelten nicht als optisch geprüft. Quelle und Ersatz unterscheiden.
-Bild, Vollständigkeit, p99, Laden und Speicher gemeinsam im AGENTS-Profil vergleichen.
+Wähle kleine Ausschnitte mit tatsächlich gelieferten Merkmalen. Prüfe die Bildwirkung
+runder und konkaver Formen, von Gebäudeteilen, Höhenintervallen und Übergängen.
+Dokumentiere Herkunft, sichtbare Abdeckung und plausible Ergänzungen. Größere Szenen
+zeigen Zusammenspiel, Bewegung und Ressourcenbedarf.
 Diese Inventur enthält keine neuen gerenderten Sonderbau-Abnahmen.
 
 Schema-Snapshots in diesem Ordner sind Forschungsreferenzen aus

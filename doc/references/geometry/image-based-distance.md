@@ -13,11 +13,11 @@ Reviewed 2026-11-19. Scope: presentation of already generated assets; not new wo
 ## Application
 
 - Near meshes, grouped impostors and far panoramas are established representation choices.
-- Use hierarchical image caching and depth reprojection for the far cache; a cubemap is its round-the-camera layout, not a separate research theory.
+- Hierarchical image caches, depth reprojection and cubemap layouts are candidates for the far view.
 - Keep material/depth and illumination conventions consistent. Static captures do not freeze all future lighting, wind or world changes.
 - A view cache can be pose-dependent and bounded; durable recipe/LOD assets remain reusable. Keep those lifetimes separate.
 - Test standing, rotation, translation, changing altitude, occlusion/reveal and refresh transitions. Include capture/update cost and all live buffers in comparisons.
-- Implement the algorithm first in Python, including shared GLSL where useful. Compare a simple baseline before native integration; preserve a single shader-kernel source.
+- A simple reference and paired images help compare alternatives. Python and shared GLSL can support those experiments.
 - Open engineering: layout, filtering, update scheduling, accepted softness and device tuning. New foundational rendering research is not a prerequisite.
 
 ## Inspection
