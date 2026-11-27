@@ -45,7 +45,7 @@ Lambert cosine kernel and evaluates unoccluded diffuse light from nine spherical
 For opaque materials, GLSL also filters the shared sky into the native renderer's
 bordered octahedral roughness atlas and integrates a GGX reflectance table.
 This profile controls the incident environment for diffuse and reflected light.
-The renderers retain their respective local transport and display transforms.
+The renderers retain their respective local transport.
 
 ```sh
 build/blender-python/bin/python test/experiments/vienna/glsl_render.py --export-sky \
@@ -56,6 +56,23 @@ build/blender-python/bin/python test/experiments/vienna/glsl_render.py \
 blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/render.py -- \
   --place Dechantlacke-Path-Near-Afternoon --sky-dir build/shots/1965/sky \
   --repeat --output build/shots/1965/sky-eevee
+```
+
+## Matched display
+
+Standalone GLSL can export the view as top-down scene-linear Rec. 709 RGB float32
+in an NPY file. It averages the four supersamples in linear light. Use Blender to
+apply its reference AgX transform at +1.5 EV to those pixels and write a 16-bit PNG.
+This makes the display transform identical to the EEVEE reference. Omit `--sky-dir`
+to use the GLSL renderer's own sky.
+
+```sh
+build/blender-python/bin/python test/experiments/vienna/glsl_render.py --linear \
+  --place Dechantlacke-Path-Near-Afternoon --sky-dir build/shots/1965/sky \
+  --output build/shots/1965/linear
+blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/render.py -- \
+  --display-linear build/shots/1965/linear/Dechantlacke-Path-Near-Afternoon.npy \
+  --output build/shots/1965/glsl-agx
 ```
 
 ## Near material comparisons

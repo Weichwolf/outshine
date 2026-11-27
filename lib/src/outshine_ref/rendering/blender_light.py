@@ -1,6 +1,14 @@
 """Explicit common research daylight; callers retain ownership of other lights and materials."""
 
 
+def configure_research_view(scene):
+    """Use the same view for rendered and imported scene-linear pixels."""
+    settings = {"view_transform": "AgX", "exposure": 1.5}
+    scene.view_settings.view_transform = settings["view_transform"]
+    scene.view_settings.exposure = settings["exposure"]
+    return settings
+
+
 def configure_daylight(scene):
     import bpy
 
@@ -13,11 +21,8 @@ def configure_daylight(scene):
         "sun_angle_radians": 0.04,
         "world_linear_rgb": [0.35, 0.45, 0.6],
         "world_strength": 0.35,
-        "view_transform": "AgX",
-        "exposure": 1.5,
+        **configure_research_view(scene),
     }
-    scene.view_settings.view_transform = settings["view_transform"]
-    scene.view_settings.exposure = settings["exposure"]
     light = bpy.data.lights.new("research sun", "SUN")
     light.energy, light.angle = settings["sun_energy"], settings["sun_angle_radians"]
     obj = bpy.data.objects.new("research sun", light)
