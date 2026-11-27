@@ -18,6 +18,8 @@ SURFACES = {
     "meadow blades": ((0.108, 0.194, 0.050), 0.86),
     "meadow stems": ((0.151, 0.216, 0.065), 0.88),
     "meadow seeds": ((0.337, 0.309, 0.126), 0.87),
+    "meadow cream flowers": ((0.68, 0.63, 0.40), 0.70),
+    "meadow purple flowers": ((0.34, 0.084, 0.31), 0.69),
     "woodland ferns": ((0.085, 0.195, 0.035), 0.84),
     "woodland grasses": ((0.127, 0.174, 0.043), 0.89),
     "shrub wood": ((0.10, 0.073, 0.047), 0.83),
