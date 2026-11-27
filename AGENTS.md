@@ -37,13 +37,17 @@ GPU-Zeit, Bandbreite und Speicher. Ich stecke Detail in die sichtbare Bildwirkun
 - Ich erweitere in sichtbaren vertikalen Schritten. Bei hohen Kosten prüfe ich zuerst den
   dominanten Pass und seine Arbeit. Nach zwei erfolglosen Ansätzen ändere ich das Verfahren.
 
-## Neubau
+## Referenz vor nativer Umsetzung
 
-Ich baue den neuen Darstellungs- und Ladepfad neben dem lauffähigen Produktstand. Der
-[Vergleichscommit](https://github.com/Weichwolf/outshine/tree/0932b78323ebf23016f723fdfb3fa31da2e28337) hält den
-bisherigen Vergleichsstand. Ich nutze seine funktionierenden Generatoren als Datenquelle
-für den Vergleich und übernehme Verfahren aus `lib/` mit ihren Tests und Eingabefällen.
-Ich ersetze Module, sobald Bewegung, Bild und Budget auf denselben Eingaben belegt sind.
+Ich rendere zuerst zwölf Wiener Fußgängerperspektiven mit den vorhandenen Python-Generatoren
+in Blender. Ich prüfe die Bilder auf Augenhöhe und verbessere Rezepte, Materialien und Licht
+an mehreren Standorten und benachbarten Blickpunkten. EEVEE und Cycles nutzen die GPU.
+Warme EEVEE-Arbeitsbilder bei 720p dürfen je Standort fünf Sekunden brauchen.
+Die [visuelle Abnahme](https://github.com/Weichwolf/outshine/issues/2084) bestimmt die Vorlage
+für C++. Erst danach entscheide ich über Übernahme, Ersatz oder vollständigen Neubau des
+nativen Pfads. Die Gerätebudgets oben gelten für die vollständige spielbare Welt.
+
+Die native Zielarchitektur umfasst folgende Schritte.
 
 1. Ein Renderer erzeugt einen nativen Metal-Frame aus einem externen Szenario.
 2. Für die Ferne ersetze ich Objektgeometrie durch eine gefilterte Tiefen-Cubemap oder
@@ -83,4 +87,4 @@ Umsetzungsreihenfolge, Abhängigkeiten und Abnahmen stehen in der
   laufen einschlägige Tests und Lint der betroffenen Dateien. Breite Läufe bündle ich.
 - Builds und Lint laufen mit `nice -n 10`, Messungen ohne Parallellast. Builds und Bilder
   liegen unter `build/`, Logs und Versuchsausgaben im System-Tempverzeichnis.
-  Eigene überholte Versuchsausgaben entfernen. Berichte kurz auf Deutsch.
+  Ich entferne überholte Versuchsausgaben und halte rund 30 % der SSD frei. Berichte kurz auf Deutsch.
