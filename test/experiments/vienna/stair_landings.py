@@ -34,7 +34,37 @@ def cross_section(point, port, side, height):
     return edge, np.array([[port.elevation, 0], [port.elevation, 0]])
 
 
-def fit_landing(points, ports, width, height, domain, water, stairs, material):
+def landing_pieces(footprint, sections, values, ports, material):
+    edge = shapely.union_all([shapely.LineString(port.edge) for port in ports])
+    retaining = footprint.boundary.difference(edge, grid_size=1e-6)
+    triangles = shapely.get_parts(shapely.constrained_delaunay_triangles(footprint))
+    coords = shapely.get_coordinates(triangles).reshape(-1, 4, 2)[:, :3]
+    points = shapely.points(coords.reshape(-1, 2))
+    distances = shapely.distance(sections[:, None], points[None, :])
+    mix = distances[0] / distances.sum(axis=0)
+    offsets = shapely.line_locate_point(
+        sections[:, None], points[None, :], normalized=True
+    )
+    endpoints = (
+        values[:, 0, None] + offsets[..., None] * (values[:, 1] - values[:, 0])[:, None]
+    )
+    interpolated = endpoints[0] + mix[:, None] * (endpoints[1] - endpoints[0])
+    for port in ports:
+        touches = shapely.dwithin(points, shapely.LineString(port.edge), 2e-6)
+        interpolated[touches] = [port.elevation, 0]
+    return [
+        LandingPiece(
+            triangle, retaining, xy[0], np.linalg.inv(xy[1:] - xy[0]), z, material
+        )
+        for triangle, xy, z in zip(
+            triangles, coords, interpolated.reshape(-1, 3, 2), strict=True
+        )
+    ], edge
+
+
+def fit_landing(
+    points, ports, width, height, domain, water, stairs, material, neighbors
+):
     delta = points[1] - points[0]
     run = np.linalg.norm(delta)
     if run < width / 2 or run > width * 10:
@@ -49,34 +79,29 @@ def fit_landing(points, ports, width, height, domain, water, stairs, material):
     if not outline.is_valid or not domain.covers(outline) or water.intersects(outline):
         return None
 
-    port_edges = shapely.union_all(
-        [shapely.LineString(port.edge) for port in ports if port is not None]
-    )
+    contacts = [port for port in ports if port is not None]
     footprint = outline.difference(stairs, grid_size=1e-6)
     if footprint.geom_type != "Polygon" or not footprint.covers(
         shapely.line_interpolate_point(shapely.LineString(points), 0.5, normalized=True)
     ):
         return None
-    if not footprint.buffer(2e-6).covers(port_edges):
+    port_boundary = footprint.boundary.buffer(2e-6)
+    if not all(
+        port_boundary.covers(shapely.LineString(port.edge)) for port in contacts
+    ):
         return None
-    retaining_edge = footprint.boundary.difference(port_edges, grid_size=1e-6)
-    corners = dict(zip(map(tuple, nodes), np.concatenate((za, zb[::-1])), strict=True))
-    pieces = []
-    for triangle in shapely.get_parts(shapely.constrained_delaunay_triangles(outline)):
-        xy = np.asarray(triangle.exterior.coords)[:3]
-        clipped = triangle.intersection(footprint, grid_size=1e-6)
-        if clipped.area <= 1e-9:
-            continue
-        pieces.append(
-            LandingPiece(
-                clipped,
-                retaining_edge,
-                xy[0],
-                np.linalg.inv(xy[1:] - xy[0]),
-                np.stack([corners[tuple(p)] for p in xy]),
-                material,
-            )
+    if len(contacts) == 2:
+        contacts.extend(
+            port
+            for port in neighbors
+            if port.point not in (ports[0].point, ports[1].point)
+            and abs(port.elevation - za[0, 0]) < 0.10
+            and abs(port.elevation - zb[0, 0]) < 0.10
+            and port_boundary.covers(shapely.LineString(port.edge))
         )
+    pieces, port_edges = landing_pieces(
+        footprint, shapely.linestrings([a, b]), np.stack([za, zb]), contacts, material
+    )
     return pieces, footprint, port_edges
 
 
@@ -88,6 +113,7 @@ def local_landings(features, stairs, domain, water, height):
         for port in stair.ports:
             ports[port.point].append(port)
     stair_area = shapely.union_all([stair.footprint for stair in stairs])
+    neighbors = [port for group in ports.values() for port in group if len(group) == 1]
     approaches, joined = [], []
     occupied = shapely.GeometryCollection()
     for name, geom, tags in features:
@@ -112,6 +138,7 @@ def local_landings(features, stairs, domain, water, height):
                 water,
                 stair_area,
                 path_material(tags),
+                neighbors,
             )
             if candidate is None:
                 continue

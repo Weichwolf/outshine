@@ -10,6 +10,36 @@ from stairs import fit_stairway
 
 
 class StairwayTest(unittest.TestCase):
+    def test_shared_landing_meets_a_third_flight_across_its_side(self):
+        source = SimpleNamespace(
+            height=lambda xy: (
+                0.18 * np.maximum(abs(xy[:, 1]) - 2, 0)
+                + 0.09 * np.maximum(-xy[:, 0], 0)
+            ),
+            features=[
+                (
+                    "transportation",
+                    LineString(points),
+                    {"class": "path", "subclass": role},
+                )
+                for points, role in (
+                    ([(0, -5), (0, -2)], "steps"),
+                    ([(0, 2), (0, 5)], "steps"),
+                    ([(-4, 0), (-0.9, 0)], "steps"),
+                    ([(0, -2), (0, 2)], "footway"),
+                )
+            ],
+        )
+        meshes = Meshes()
+        vertices, quads = terrain_grid(source, 6)
+        ground_surfaces(
+            meshes, source, box(-6, -6, 6, 6), shapely.Polygon(), vertices, quads
+        )
+        for y in np.linspace(-0.8, 0.8, 17):
+            tread = support_height(meshes["sidewalk"], (-0.902, y)).max()
+            landing = support_height(meshes["sidewalk"], (-0.898, y)).max()
+            self.assertLess(abs(tread - landing), 0.001)
+
     def test_oblique_footway_meets_the_full_stair_port(self):
         source = SimpleNamespace(
             height=lambda xy: 0.07 * xy[:, 0] + 0.08 * xy[:, 1],
