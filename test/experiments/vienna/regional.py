@@ -59,6 +59,19 @@ def tile_rect(source, tile):
     return (np.column_stack((lon, lat)) - [source.lon, source.lat]) * source.metres
 
 
+def regional_dem_sources(vector_tiles):
+    tiles = {
+        (12, (x + i) >> 2, (y + j) >> 2)
+        for _, x, y in vector_tiles
+        for i in (-1, 0, 1)
+        for j in (-1, 0, 1)
+    }
+    return [
+        ("elevation", (z, x, y), f"https://tiles.mapterhorn.com/{z}/{x}/{y}.webp")
+        for z, x, y in sorted(tiles)
+    ]
+
+
 def regional_sources(
     source, place, snapshot, cache, fov, *, transport_domain=None, pins=()
 ):
@@ -94,21 +107,7 @@ def regional_sources(
         )
         for t in tiles
     ]
-    for t in sorted(
-        {
-            (12, (x + i) >> 2, (y + j) >> 2)
-            for z, x, y in tiles
-            for i in (-1, 0, 1)
-            for j in (-1, 0, 1)
-        }
-    ):
-        sources.append(
-            (
-                "elevation",
-                t,
-                "https://tiles.mapterhorn.com/" + "/".join(map(str, t)) + ".webp",
-            )
-        )
+    sources.extend(regional_dem_sources(tiles))
     with ThreadPoolExecutor(max_workers=6) as workers:
         return list(workers.map(lambda s: acquire(s, cache, fetch=True), sources))
 
@@ -120,7 +119,7 @@ def bridgehead_sources(source, spans, receipts, snapshot, cache, pins):
         for position in (span.origin, span.origin + span.length * span.direction):
             lon, lat = position / source.metres + [source.lon, source.lat]
             needed.update(covering_tiles(lat, lon, APPROACH_SEARCH, 14))
-    nearby = []
+    vectors = []
     for tile in sorted(needed):
         _, x, y = tile
         key = "/".join(map(str, tile))
@@ -128,17 +127,16 @@ def bridgehead_sources(source, spans, receipts, snapshot, cache, pins):
         dem = f"https://tiles.mapterhorn.com/12/{x >> 2}/{y >> 2}.webp"
         if vector in known or vector not in pins or dem not in pins:
             continue
-        for kind, index, url in (
-            ("elevation", (12, x >> 2, y >> 2), dem),
-            ("vector", tile, vector),
-        ):
-            if url in known:
-                continue
-            receipt = acquire((kind, index, url), cache, fetch=True)
-            if receipt["sha256"] != pins[url]:
-                raise ValueError(f"Changed Vienna bridgehead source: {url}")
-            nearby.append(receipt)
-            known.add(url)
+        vectors.append(("vector", tile, vector))
+    elevations = regional_dem_sources(tile for _, tile, _ in vectors)
+    nearby = []
+    for kind, tile, url in [*elevations, *vectors]:
+        if url in known or url not in pins:
+            continue
+        receipt = acquire((kind, tile, url), cache, fetch=True)
+        if receipt["sha256"] != pins[url]:
+            raise ValueError(f"Changed Vienna bridgehead source: {url}")
+        nearby.append(receipt)
     return nearby
 
 
