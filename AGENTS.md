@@ -21,6 +21,9 @@ Ich entwickle die Bildwirkung mit den Python-Generatoren und prüfe sie in
 Blender. Der Schwerpunkt liegt auf plausibler Infrastruktur aus OSM und
 auf Vegetation in ihren unterschiedlichen Formen, Dichten und Lebensräumen.
 Die geprüften Ansichten geben die Richtung für die Anwendung vor.
+Ich wähle pro Änderung die kleinste aussagekräftige Szene. Einzelne
+Quellkacheln eignen sich für Generatorarbeit, größere Ausschnitte für
+Zusammenspiel, Bewegung und Fernwirkung.
 
 ## Ich entscheide am Bild
 
