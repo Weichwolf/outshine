@@ -4,36 +4,11 @@ import math
 
 import numpy as np
 import shapely
+from mesh_members import rectangular_member
 
 
 def steel_member(meshes, start, end, transverse, size):
-    axis = end - start
-    length = np.linalg.norm(axis)
-    if length < 1e-6:
-        return
-    axis /= length
-    right = transverse - (transverse @ axis) * axis
-    right /= np.linalg.norm(right)
-    up = np.cross(axis, right)
-    corners = (np.array([[-1, -1], [1, -1], [1, 1], [-1, 1]]) @ [right, up]) * (
-        size / 2
-    )
-    vertices = np.vstack((start + corners, end + corners))
-    faces = [
-        (0, 2, 1),
-        (0, 3, 2),
-        (4, 5, 6),
-        (4, 6, 7),
-        (0, 1, 5),
-        (0, 5, 4),
-        (1, 2, 6),
-        (1, 6, 5),
-        (2, 3, 7),
-        (2, 7, 6),
-        (3, 0, 4),
-        (3, 4, 7),
-    ]
-    meshes.add("bridge metal", vertices, faces)
+    rectangular_member(meshes, start, end, transverse, size, size, "bridge metal")
 
 
 def draw_open_truss(meshes, outline, span):

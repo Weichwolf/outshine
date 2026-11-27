@@ -14,6 +14,7 @@ from outshine_ref.buildings.structures import suppressed
 from outshine_ref.water.geodetic import local_points
 from shapely.geometry import Point, box
 from stair_branches import local_stair_branches
+from stair_guards import draw_stair_guards
 from stair_landings import local_landings
 from stairs import local_stairways
 from viaducts import draw_viaduct
@@ -233,6 +234,7 @@ def ground_surfaces(
             used, inverse = np.unique(faces, return_inverse=True)
             meshes.add(name, points[used], inverse.reshape(-1, 3))
     staircase_risers(meshes, stairs)
+    draw_stair_guards(meshes, stairs, [*landings, *aprons])
     water_surfaces(meshes, source, bodies, vertices, banks)
 
 

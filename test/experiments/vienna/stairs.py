@@ -22,6 +22,7 @@ class Stairway:
     footprint: shapely.Geometry
     material: str
     ports: tuple[StairPort, StairPort]
+    sections: np.ndarray
 
 
 def fit_riser_counts(heights, capacities, count):
@@ -118,7 +119,8 @@ def stairway_from_treads(points, corners, heights, material):
             strict=True,
         )
     )
-    return Stairway(treads, heights, outline, material, ports)
+    sections = np.vstack((corners[:1, :2], corners[:, [3, 2]]))
+    return Stairway(treads, heights, outline, material, ports, np.round(sections, 6))
 
 
 def local_stairways(features, domain, water, height):
