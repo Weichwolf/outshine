@@ -36,7 +36,21 @@ class GroundSurfaceTest(unittest.TestCase):
         )
         self.assertTrue(products["paving"].covers(Point(10, 0)))
         self.assertFalse(products["paving"].covers(Point(10, 3)))
-        self.assertTrue(products["sidewalk"].covers(Point(10, 3)))
+        self.assertTrue(products["unpaved path"].covers(Point(10, 3)))
+
+    def test_pedestrian_area_takes_precedence_over_an_unpaved_path(self):
+        trail = LineString([(0, 0), (20, 0)])
+        square = box(8, -2, 12, 2)
+        products = at_grade_routes(
+            [
+                (trail, {"class": "path", "subclass": "path"}),
+                (square, {"class": "path", "subclass": "pedestrian"}),
+            ],
+            box(0, -5, 20, 5),
+        )
+        self.assertTrue(products["unpaved path"].covers(Point(6, 0)))
+        self.assertFalse(products["unpaved path"].covers(Point(10, 0)))
+        self.assertTrue(products["paving"].covers(Point(10, 0)))
 
     def test_shoreline_and_road_partition_sloping_terrain_without_overlap(self):
         vertices = np.array(

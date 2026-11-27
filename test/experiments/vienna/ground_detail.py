@@ -15,8 +15,10 @@ SURFACE_DETAIL = {
     "road": "asphalt",
     "paving": "stone",
     "bridge deck": "concrete",
+    "sidewalk": "concrete",
     "stair limestone": "concrete",
     "ground": "soil",
+    "unpaved path": "compacted",
 }
 
 
@@ -43,7 +45,7 @@ def stone_setts(rng, grain):
 
 @cache
 def ground_detail(name):
-    seed = ("asphalt", "stone", "concrete", "soil").index(name)
+    seed = ("asphalt", "stone", "concrete", "soil", "compacted").index(name)
     rng = np.random.default_rng(seed)
     fine, grain, patches = (noise(rng, scale) for scale in (0.65, 1.6, 12))
     if name == "asphalt":
@@ -57,6 +59,11 @@ def ground_detail(name):
         tint = 1 - 0.10 * pits + 0.035 * grain
         roughness = 0.75 + 0.04 * pits + 0.035 * patches
         height = -0.0007 * pits + 0.00035 * grain
+    elif name == "compacted":
+        aggregate = np.maximum(grain - 0.75, 0)
+        tint = 1 + 0.075 * aggregate + 0.04 * fine + 0.05 * patches
+        roughness = 0.89 - 0.035 * aggregate + 0.018 * patches
+        height = 0.0014 * aggregate + 0.00035 * fine + 0.00045 * patches
     else:
         tint = 1 + 0.045 * fine + 0.065 * grain + 0.04 * patches
         roughness = 0.85 + 0.04 * grain + 0.025 * patches

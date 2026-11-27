@@ -16,6 +16,7 @@ ROAD_WIDTH = {
     "track": 2.5,
     "path": 1.8,
 }
+ROUTE_MATERIALS = ("road", "sidewalk", "paving", "unpaved path")
 
 
 def route_area(geom, width):
@@ -34,15 +35,28 @@ def at_grade_width(props):
 
 def path_material(props):
     surface = props.get("surface")
-    if surface in {"paving_stones", "sett", "cobblestone"} or (
-        surface == "paved" and props.get("subclass") in {"pedestrian", "steps"}
+    kind = props.get("subclass")
+    if (
+        surface in {"paving_stones", "sett", "cobblestone"}
+        or (surface == "paved" and kind in {"pedestrian", "steps"})
+        or (surface is None and kind == "pedestrian")
     ):
         return "paving"
+    if surface in {
+        "unpaved",
+        "compacted",
+        "fine_gravel",
+        "gravel",
+        "ground",
+        "dirt",
+        "earth",
+    } or (surface is None and kind == "path"):
+        return "unpaved path"
     return "sidewalk"
 
 
 def at_grade_routes(features, domain, *, focal=None, replaced_paths=()):
-    footprints = {"road": [], "sidewalk": [], "paving": []}
+    footprints = {name: [] for name in ROUTE_MATERIALS}
     for geom, props in features:
         kind = props.get("class")
         width = at_grade_width(props)
@@ -72,10 +86,13 @@ def at_grade_routes(features, domain, *, focal=None, replaced_paths=()):
     roads = shapely.union_all(footprints["road"]).intersection(domain)
     paths = shapely.union_all(footprints["sidewalk"]).intersection(domain)
     paving = shapely.union_all(footprints["paving"]).intersection(domain)
+    unpaved = shapely.union_all(footprints["unpaved path"]).intersection(domain)
+    hard_paths = paths.union(paving)
     return {
-        "road": roads.difference(paths.union(paving)),
+        "road": roads.difference(hard_paths.union(unpaved)),
         "sidewalk": paths.difference(paving),
         "paving": paving,
+        "unpaved path": unpaved.difference(hard_paths),
     }
 
 

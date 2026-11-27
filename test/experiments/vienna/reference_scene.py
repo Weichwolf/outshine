@@ -25,8 +25,8 @@ from source_scene import LocalScene
 from viaducts import local_viaducts
 
 SUPPORT_MATERIALS = {
-    "sidewalk": ("sidewalk", "paving"),
-    "street": ("sidewalk", "paving", "road"),
+    "sidewalk": ("sidewalk", "paving", "unpaved path"),
+    "street": ("sidewalk", "paving", "unpaved path", "road"),
 }
 
 
