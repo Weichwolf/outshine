@@ -1,5 +1,6 @@
 #version 410 core
 #include "medium.glsl"
+#include "clear_air.glsl"
 #include "skyViewLookup.glsl"
 #include "display.glsl"
 in vec2 ndc;
@@ -15,8 +16,7 @@ uniform sampler2D transmittance;
 uniform sampler2D multiScatter;
 uniform sampler2D skyView;
 void main() {
-  Medium air = Medium(6360.,6460.,8.,1.2,vec3(.005802,.013558,.033100),0.,
-      vec3(.000650,.001881,.000085),0.,25.,15.,.8,0.,vec3(.10,.13,.07),0.);
+  Medium air = clearAir();
   vec2 uv=gl_FragCoord.xy/extent;
   MediumUv coord=MediumUv(uv.x,uv.y);
   MediumLutSize size=MediumLutSize(extent.x,extent.y);

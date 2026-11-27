@@ -68,8 +68,12 @@ The outer height field still quantizes roofs and shorelines.
 The native Wien capture is the first reproduction target. Compare the same view in
 `build/shots/places/Wien.png` (Blender) and `build/shots/glsl/Wien.png` (standalone GPU).
 Both consume the same camera, source products, material values, sun direction and tree
-instances. GLSL uses Outshine's metal/rough BRDF and atmospheric transmittance, multiple
-scattering and sky-view lookup kernels. Blender provides its own BSDF and sky model.
+instances. GLSL uses Outshine's metal/rough BRDF and atmospheric lookup kernels. Aerial
+perspective uses the ratio of transmittance at the eye and surface along each ray,
+as in `src/render/shaders/aerialPerspective.frag`. Blender combines its own sky-only
+layer and Principled BSDF render in scene-linear light. It uses Beer–Lambert attenuation
+at the green-band Rayleigh coefficient and the camera-altitude density for clear-air
+depth, independently of the GLSL tables.
 
 ```sh
 build/blender-python/bin/python -m pip install moderngl

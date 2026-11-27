@@ -2,9 +2,11 @@
 const float kPi=3.14159265359;
 #include "metalRoughBrdf.glsl"
 #include "medium.glsl"
+#include "clear_air.glsl"
 #include "skyViewLookup.glsl"
 #include "display.glsl"
 uniform sampler2D skyView;
+uniform sampler2D veil;
 uniform float eyeKm;
 uniform bool waterSurface;
 uniform bool shadowPass;
@@ -39,6 +41,15 @@ void main(){
     vec3 reflected=texture(skyView,vec2(s.Uv.U,s.Uv.V)).rgb;
     light=mix(surface.rgb*.28,reflected*(2.5/1.2),brdfFresnel(vec3(.0204),1.,nv))*mix(.58,1.,visibility);
   }
+  Medium air = clearAir();
+  vec3 ray = -view;
+  vec3 transmission = segmentTransmission(veil, air, eyeKm, ray.z, length(point - eye) * .001);
+  ivec2 skySize = textureSize(skyView, 0);
+  MediumUv hazeUv = skyViewAtmosphereSample(air.BottomRadiusKm, eyeKm,
+      SkyViewLook(ray.z, skyLightViewCos(ray, vec3(0., 0., 1.), sun)),
+      MediumLutSize(float(skySize.x), float(skySize.y)));
+  vec3 airlight = texture(skyView, vec2(hazeUv.U, hazeUv.V)).rgb * (2.5 / 1.2);
+  light = mix(airlight, light, transmission);
   colour=vec4(pow(filmic(max(light,vec3(0.))),vec3(1./2.2)),1.);
   gl_FragDepth=log2(1.+1./gl_FragCoord.w)/log2(240001.);
 }

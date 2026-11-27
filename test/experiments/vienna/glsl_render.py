@@ -37,7 +37,11 @@ def shader(path):
         name = m[1]
         target = next(
             p
-            for p in (ROOT / "src/render/shaders" / name, ROOT / "src" / name)
+            for p in (
+                HERE / name,
+                ROOT / "src/render/shaders" / name,
+                ROOT / "src" / name,
+            )
             if p.is_file()
         )
         return shader(target)
@@ -90,9 +94,9 @@ def atmosphere(ctx, target, world, right, up):
     placeholder.release()
     quad.release()
     prog.release()
-    for t in textures[:-1]:
-        t.release()
-    return textures[-1]
+    veil, multi_scatter, sky_view = textures
+    multi_scatter.release()
+    return veil, sky_view
 
 
 def projection(world):
@@ -155,7 +159,7 @@ def render(ctx, place, config, out):
     target.clear(depth=1)
     ctx.disable(moderngl.DEPTH_TEST)
     m, right, up = projection(world)
-    sky = atmosphere(ctx, target, world, right, up)
+    veil, sky = atmosphere(ctx, target, world, right, up)
     prog = ctx.program(
         vertex_shader=shader(HERE / "reference.vert"),
         fragment_shader=shader(HERE / "reference.frag"),
@@ -165,6 +169,8 @@ def render(ctx, place, config, out):
     prog["sun"].value = tuple(world.sun)
     sky.use(0)
     prog["skyView"].value = 0
+    veil.use(1)
+    prog["veil"].value = 1
     prog["eyeKm"].value = 6360 + (world.eye[2] + world.source.datum) * 0.001
     ctx.enable(moderngl.DEPTH_TEST)
     draws = [
@@ -215,6 +221,7 @@ def render(ctx, place, config, out):
     im.save(out / (place["id"] + ".png"))
     target.release()
     prog.release()
+    veil.release()
     sky.release()
     print(
         json.dumps(

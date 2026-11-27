@@ -16,6 +16,7 @@ sys.path.extend(
     map(str, (ROOT / "build/blender-python/lib").glob("python*/site-packages"))
 )
 
+from blender_air import configure_aerial
 from catalog import load_catalog
 from materials import SURFACES
 from outshine_ref.rendering.blender_camera import configure_camera
@@ -25,7 +26,7 @@ from reference_scene import ReferenceScene
 from woodland import tree_batches
 
 
-def upload(name, vertices, faces, *, collection=None):
+def upload(name, vertices, faces, *, collection):
     mesh = bpy.data.meshes.new(name)
     if isinstance(vertices, np.ndarray) and isinstance(faces, np.ndarray):
         used, indices = np.unique(faces, return_inverse=True)
@@ -48,12 +49,11 @@ def upload(name, vertices, faces, *, collection=None):
     bsdf.inputs["Roughness"].default_value = roughness
     mesh.materials.append(material)
     obj = bpy.data.objects.new(name, mesh)
-    target = bpy.context.scene.collection if collection is None else collection
-    target.objects.link(obj)
+    collection.objects.link(obj)
     return obj
 
 
-def plant_woodland(world, seed):
+def plant_woodland(world, seed, geometry):
     count = 0
     for species, group, meshes, placements in tree_batches(
         world.source, 250, seed, world.focal
@@ -68,7 +68,7 @@ def plant_woodland(world, seed):
             instance.location = (x, y, z)
             instance.rotation_euler.z = angle
             instance.scale = (scale,) * 3
-            bpy.context.scene.collection.objects.link(instance)
+            geometry.objects.link(instance)
         count += len(placements)
     return count
 
@@ -90,8 +90,10 @@ def render(place, config, args):
     background.inputs["Strength"].default_value = 0.25
     scene.world.node_tree.links.new(sky.outputs["Color"], background.inputs["Color"])
     scene.cycles.seed = config["seed"]
+    geometry = bpy.data.collections.new("World geometry")
+    scene.collection.children.link(geometry)
     for name, verts, faces in world.surfaces():
-        upload(name, verts, faces)
+        upload(name, verts, faces, collection=geometry)
     eye, look = Vector(world.eye), Vector(world.look)
     scene.camera = configure_camera(
         {
@@ -105,8 +107,9 @@ def render(place, config, args):
     )
     scene.render.resolution_x, scene.render.resolution_y = 1280, 720
     scene.render.resolution_percentage = 100
-    trees = plant_woodland(world, config["seed"])
+    trees = plant_woodland(world, config["seed"], geometry)
     scene.eevee.taa_render_samples = 16
+    configure_aerial(scene, geometry, eye.z + world.source.datum)
     if args.engine == "cycles":
         device = configure_gpu(scene, "cycles")
     image = args.output / (place["id"] + ".png")
