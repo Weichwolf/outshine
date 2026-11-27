@@ -13,6 +13,9 @@ SURFACES = {
     "grass pale blades": ((0.147, 0.201, 0.058), 0.87),
     "woodland ferns": ((0.085, 0.195, 0.035), 0.84),
     "woodland grasses": ((0.127, 0.174, 0.043), 0.89),
+    "shrub wood": ((0.10, 0.073, 0.047), 0.83),
+    "shrub leaves": ((0.067, 0.177, 0.037), 0.62),
+    "sapling leaves": ((0.102, 0.199, 0.043), 0.58),
     "regional wood": ((0.054, 0.139, 0.041), 0.89),
     "regional water": ((0.028, 0.084, 0.095), 0.09),
     "regional deck": ((0.21, 0.20, 0.18), 0.82),
@@ -42,4 +45,6 @@ DIFFUSE_TRANSMISSION = {
     "grass pale blades": 0.34,
     "woodland ferns": 0.36,
     "woodland grasses": 0.34,
+    "shrub leaves": 0.29,
+    "sapling leaves": 0.35,
 }

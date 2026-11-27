@@ -26,6 +26,7 @@ from source_scene import LocalScene
 from understory import woodland_cover
 from viaducts import local_viaducts
 from woodland import habitat, tree_batches
+from woodland_shrubs import woodland_shrubs
 
 SUPPORT_MATERIALS = {
     "sidewalk": ("sidewalk", "paving", "unpaved path"),
@@ -190,7 +191,11 @@ class ReferenceScene:
                 self.local["ground"], self.source, self.woodland_floor, self.eye, seed
             )
 
-    def trees(self, seed):
+    def woody_plants(self, seed):
         yield from tree_batches(
             self.source, 250, seed, self.focal, self.woodland_floor, soil=self.local
         )
+        if "ground" in self.local:
+            yield from woodland_shrubs(
+                self.local["ground"], self.source, self.woodland_floor, self.eye, seed
+            )
