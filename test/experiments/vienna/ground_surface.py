@@ -19,6 +19,14 @@ ROAD_WIDTH = {
 ROUTE_MATERIALS = ("road", "sidewalk", "paving", "unpaved path")
 
 
+def polygons(geometry):
+    if geometry.geom_type == "Polygon" and not geometry.is_empty:
+        yield shapely.orient_polygons(geometry)
+    elif hasattr(geometry, "geoms"):
+        for part in geometry.geoms:
+            yield from polygons(part)
+
+
 def route_area(geom, width):
     if geom.is_empty:
         return geom

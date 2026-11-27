@@ -282,12 +282,15 @@ class PlaceSourceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="outshine-tests.places.") as root:
             path = Path(root) / "source.pbf"
             path.write_bytes(data)
-            result = decode_vector(
-                {
-                    "kind": "vector",
-                    "path": str(path),
-                    "sha256": hashlib.sha256(data).hexdigest(),
-                }
+            receipt = {
+                "kind": "vector",
+                "path": str(path),
+                "sha256": hashlib.sha256(data).hexdigest(),
+            }
+            result = decode_vector(receipt)
+            self.assertEqual(
+                decode_vector(receipt, layers=("water", "missing")),
+                {"water": result["water"]},
             )
         self.assertEqual(
             set(result), {"building", "landcover", "water", "transportation", "poi"}

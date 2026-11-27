@@ -1,6 +1,7 @@
 """Georeferenced medium-distance relief built from pinned vector tiles and DEM."""
 
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 
 import numpy as np
 import shapely
@@ -22,10 +23,22 @@ from outshine_ref.places.sources import (
     tile_geography,
 )
 from PIL import Image, ImageDraw
-from regional_detail import building_shells, metric_polygons
+from regional_detail import building_shells
 from scene_mesh import Meshes, terrain_grid, terrain_height
 from shapely.geometry import Polygon, box, shape
 from viaducts import elevated_outline
+from water_surface import clipped_water
+
+
+@dataclass
+class RegionalTransport:
+    receipts: list
+    dem: Elevation
+    nearby: dict
+    approaches: list
+    crossings: list
+    elevated: set
+    bridges: Meshes
 
 
 def tile_rect(source, tile):
@@ -134,8 +147,8 @@ def paint(image, feature, extent, value):
 
 def class_fields(data, size, elevated, detail):
     land, structures = Image.new("L", (size, size)), Image.new("F", (size, size))
-    for layer in ("landcover", "water", "transportation", "building"):
-        if layer not in data or (detail and layer in ("building", "water")):
+    for layer in ("landcover", "transportation", "building"):
+        if layer not in data or (detail and layer == "building"):
             continue
         group = data[layer]
         features = group["features"]
@@ -157,8 +170,6 @@ def class_fields(data, size, elevated, detail):
                     "wetland": 1,
                     "bridge": 4,
                 }.get(props.get("class"), 0)
-                if layer == "water":
-                    value = 3
                 if value == 4 and id(f) in elevated:
                     continue
                 if value:
@@ -177,6 +188,8 @@ def tile_surface(
     approaches,
     seam=None,
     crossings=(),
+    *,
+    water_plan,
 ):
     nw, se = tile_rect(source, receipt["tile"])
     tile = box(nw[0], se[1], se[0], nw[1])
@@ -187,9 +200,8 @@ def tile_surface(
     x = np.linspace(nw[0], se[0], size + 1)
     y = np.linspace(nw[1], se[1], size + 1)
     # Insert the four near-patch edges so the two source domains meet exactly.
-    use_seam = seam is not None and tile.intersects(
-        box(-radius, -radius, radius, radius).boundary
-    )
+    local = box(-radius, -radius, radius, radius)
+    use_seam = seam is not None and tile.intersects(local.boundary)
     inner_axis = np.unique(seam[:, 0]) if use_seam else np.array([-radius, radius])
     xx = np.unique(np.r_[x, inner_axis[(x[0] < inner_axis) & (inner_axis < x[-1])]])
     yy = np.unique(np.r_[y, inner_axis[(y[-1] < inner_axis) & (inner_axis < y[0])]])[
@@ -230,42 +242,48 @@ def tile_surface(
         "regional deck",
         *ROUTE_MATERIALS,
     )
+    tile_water = tuple(clipped_water(water_plan, tile.difference(local)))
+    water = shapely.union_all([footprint for _, footprint in tile_water])
+    footprints = {3: water}
+    graded = {}
     if detail:
-        polys, _ = metric_polygons(data.get("water", {}), nw, se, lambda p: 1)
-        parts = shapely.get_parts(shapely.make_valid(polys))
-        water = shapely.union_all(parts[shapely.get_type_id(parts) == 3]).intersection(
-            tile
-        )
         routes = route_footprints(data.get("transportation", {}), nw, se, tile, focal)
-        mask = outside
         adjoining = [a for a in approaches if tile.intersects(a.footprint)]
         earthworks = [(a, "road") for a in adjoining] + [
             (cut, "regional soil")
             for cut in bank_cuts(
-                ground, faces[mask], crossings, tile, approaches=adjoining
+                ground, faces[outside], crossings, tile, approaches=adjoining
             )
         ]
         graded = dict(enumerate(earthworks, start=len(names)))
+        footprints.update(
+            {i: work.footprint.intersection(tile) for i, (work, _) in graded.items()}
+        )
+        footprints.update(
+            {i: routes[name] for i, name in enumerate(ROUTE_MATERIALS, 5)}
+        )
+    if detail or tile_water:
         parts = partition_ground(
             ground,
-            faces[mask],
-            land[mask],
+            faces[outside],
+            land[outside],
             dict(enumerate(names)) | {i: i for i in graded},
-            {3: water}
-            | {i: work.footprint.intersection(tile) for i, (work, _) in graded.items()}
-            | {i: routes[name] for i, name in enumerate(ROUTE_MATERIALS, 5)},
+            footprints,
         )
         for name, vertices, triangles in parts:
             if name in graded:
                 work, material = graded[name]
                 products.extend(earthwork_meshes(vertices, triangles, work, material))
-            else:
+            elif name != "regional water":
                 products.append((name, vertices, triangles))
     else:
         for i, name in enumerate(names[:5]):
             mask = (land == i) & outside
             if mask.any():
                 products.append((name, ground, faces[mask]))
+    products.extend(
+        ("regional water", *body.mesh(source, part)) for body, part in tile_water
+    )
     mask = (height > 0) & outside
     if mask.any():
         q = ground[faces[mask]].copy()
@@ -296,7 +314,7 @@ def tile_surface(
     return products, tile
 
 
-def regional_meshes(
+def regional_transport(
     source,
     receipts,
     focal,
@@ -393,34 +411,41 @@ def regional_meshes(
         *bridge_approaches(spans, features, terrain, water),
     ]
     solved = draw_water_crossings(bridges, crossings, water, terrain, approaches)
-    boundary = box(-radius, -radius, radius, radius).boundary
-    seam = (
-        terrain_grid(source, radius)[0]
-        if any(a.footprint.intersects(boundary) for a in approaches)
-        else None
-    )
     elevated = {
         k
         for k, g, l in originals
         if (l in solved and solved[l].covers(g.representative_point()))
         or elevated_outline(g, l, viaducts)
     }
-    for receipt in receipts:
+    return RegionalTransport(
+        receipts, dem, nearby, approaches, crossings, elevated, bridges
+    )
+
+
+def regional_meshes(source, transport, focal, radius, water_plan):
+    boundary = box(-radius, -radius, radius, radius).boundary
+    seam = (
+        terrain_grid(source, radius)[0]
+        if any(a.footprint.intersects(boundary) for a in transport.approaches)
+        else None
+    )
+    for receipt in transport.receipts:
         if receipt["kind"] == "vector":
-            data = nearby.pop(receipt["url"], None)
+            data = transport.nearby.get(receipt["url"])
             yield tile_surface(
                 source,
                 receipt,
-                dem,
+                transport.dem,
                 focal,
                 radius,
                 data if data is not None else decode_vector(receipt),
-                elevated if data is not None else (),
-                approaches,
+                transport.elevated if data is not None else (),
+                transport.approaches,
                 seam,
-                crossings,
+                transport.crossings,
+                water_plan=water_plan,
             )
-    yield [(n, *mesh) for n, mesh in bridges.items()], shapely.Polygon()
+    yield [(n, *mesh) for n, mesh in transport.bridges.items()], shapely.Polygon()
 
 
 def beyond_region(vertices, faces, tiles):

@@ -78,13 +78,6 @@ class Passage:
         return z
 
 
-def water_level(body, xy, height):
-    samples = xy[shapely.contains_xy(body, *xy.T)]
-    if not len(samples):
-        samples = np.asarray(body.representative_point().coords)
-    return float(np.median(height(samples)))
-
-
 def transverse_contacts(line, crossings, water):
     for i, crossing in enumerate(crossings):
         span = crossing.span
@@ -371,16 +364,11 @@ def floor_mesh(route, z, pavement):
 
 
 def fit_bridge_levels(
-    source, crossings, domain, water, roads, vertices, quads, terrain, stairs
+    source, crossings, domain, water, roads, vertices, quads, terrain, stairs, floors
 ):
     eligible = connected_bridge_crossings(source.features, crossings)
     if not eligible or water.is_empty:
         return None
-    floors = [
-        (body, water_level(body, vertices[:, :2], source.height))
-        for body in shapely.get_parts(water)
-        if body.geom_type == "Polygon"
-    ]
     roads_and_rails = shapely.union_all(
         [
             route_area(geom, width)
@@ -441,11 +429,11 @@ def fit_bridge_levels(
 
 
 def bridge_terrain(
-    source, crossings, domain, water, roads, vertices, quads, terrain, stairs
+    source, crossings, domain, water, roads, vertices, quads, terrain, stairs, floors
 ):
     decks = deck_bank_contacts(source.features, crossings, water)
     plan = fit_bridge_levels(
-        source, decks, domain, water, roads, vertices, quads, terrain, stairs
+        source, decks, domain, water, roads, vertices, quads, terrain, stairs, floors
     )
     if plan is not None:
         return plan

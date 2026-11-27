@@ -191,11 +191,19 @@ def receipt_bytes(receipt, *, max_bytes=16 * 1024**2):
     return data
 
 
-def decode_vector(receipt):
+def decode_vector(receipt, *, layers=None):
     import mapbox_vector_tile
 
     if receipt["kind"] != "vector":
         raise ValueError("vector source receipt required")
-    return mapbox_vector_tile.decode(
-        receipt_bytes(receipt), default_options={"y_coord_down": True}
-    )
+    data = receipt_bytes(receipt)
+    options = {"y_coord_down": True}
+    if layers is None:
+        return mapbox_vector_tile.decode(data, default_options=options)
+    decoder = mapbox_vector_tile.decoder.TileData(data, default_options=options)
+    selected = decoder.tile.layers
+    names = set(layers)
+    for index in reversed(range(len(selected))):
+        if selected[index].name not in names:
+            del selected[index]
+    return decoder.get_message()

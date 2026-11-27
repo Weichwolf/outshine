@@ -63,8 +63,9 @@ the first branch attachment. The same tree retains its shape across the offset v
 ## Reference geometry
 
 The initial integration covers the local DEM, mapped building shells, near recessed facade cells
-and ground-level road surfaces. A separate level mesh fills mapped water polygons cut from the
-local terrain. Real DEM rings extend the terrain from the 250 m local square to 100 km along
+and ground-level road surfaces. Separate water meshes fill the mapped polygons cut from the
+terrain. Each mapped reach uses a shared DEM-inferred WGS84 level in the local and regional meshes.
+Real DEM rings extend the terrain from the 250 m local square to 100 km along
 each axis. The reference uses 240 rings with 128 intervals per side to retain Alpine
 ridgelines in both renderers. Subdivision of the inner edges matches the original local
 terrain. The far terrain currently has a uniform material.
@@ -100,14 +101,14 @@ Wienerblick remains an independent, eye-level site.
 
 The regional reference samples the mapped building heights, water, woods, grass and deck
 footprints around each camera. Its height field extends to the distance at which a 12 m
-building occupies one pixel (6–15 km range). Closer tiles retain mapped building outlines, facade openings and shoreline positions.
+building occupies one pixel (6–15 km range). Closer tiles retain mapped building outlines and facade openings.
 Mapped water crossings use a raised slab and piers where both banks can be resolved.
 Local and regional shorelines, roads and paths partition the same terrain triangles. The planar
 arrangement cuts triangles only at material boundaries. Terrain heights are interpolated
 within the original faces. Water takes precedence over ground routes. Mapped footpaths
 retain their footprint where an inferred road width overlaps them. Tunnels and elevated
 links are excluded from the ground network.
-The outer height field still quantizes roofs and shorelines.
+The outer height field still quantizes roofs.
 
 The native Wien capture is a historical diagnostic comparison. Visual acceptance uses the
 twelve pedestrian cameras. Compare the historical view in

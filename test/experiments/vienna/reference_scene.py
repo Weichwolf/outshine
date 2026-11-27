@@ -13,16 +13,19 @@ from bridge_approach import APPROACH_SEARCH, bridge_approaches
 from bridges import plan_water_crossings
 from catalog import HERE, ROOT
 from horizon import terrain_horizon
+from outshine_ref.places.height import Elevation
 from regional import (
     beyond_region,
     bridgehead_sources,
     regional_meshes,
     regional_sources,
+    regional_transport,
     tile_rect,
 )
-from scene_mesh import assemble
+from scene_mesh import assemble, terrain_grid
 from source_scene import LocalScene
 from viaducts import local_viaducts
+from water_surface import water_bodies
 
 SUPPORT_MATERIALS = {
     "sidewalk": ("sidewalk", "paving", "unpaved path"),
@@ -78,6 +81,34 @@ def local_bridge_approaches(source, spans, domain, region):
     return bridge_approaches(spans, features, source.height, water)
 
 
+def reference_water(source, transport, domain, radius):
+    receipts = {
+        row["url"]: row
+        for row in [*source.receipts, *transport.receipts]
+        if row["kind"] == "vector"
+    }
+
+    def features():
+        for url, row in receipts.items():
+            nw, se = tile_rect(source, row["tile"])
+            bounds = shapely.box(*np.minimum(nw, se), *np.maximum(nw, se))
+            for name, shape, tags in source.metric_features(
+                row, ("water",), transport.nearby.get(url)
+            ):
+                yield name, shapely.make_valid(shape).intersection(bounds), tags
+
+    dem = Elevation([*source.receipts, *transport.receipts])
+
+    def regional_height(points):
+        lon, lat = (points / source.metres + [source.lon, source.lat]).T
+        return dem.sample(lat, lon) - source.datum
+
+    samples = terrain_grid(source, radius)[0][:, :2]
+    return tuple(
+        water_bodies(features(), domain, samples, source.height, regional_height)
+    )
+
+
 class ReferenceScene:
     def __init__(self, place, config):
         cache = ROOT / "build/vienna-sources"
@@ -117,7 +148,7 @@ class ReferenceScene:
                 for end in (span.origin, span.origin + span.length * span.direction)
             ]
         )
-        self.region = regional_sources(
+        region = regional_sources(
             self.source,
             place,
             config["source_snapshot"],
@@ -127,14 +158,29 @@ class ReferenceScene:
             pins=pins,
         )
         self.far, self.faces, receipts = terrain_horizon(self.source, cache, 250)
-        for row in self.source.receipts + receipts + self.region:
+        for row in self.source.receipts + receipts + region:
             if pins.get(row["url"]) != row["sha256"]:
                 raise ValueError(f"Unpinned or changed Vienna source: {row['url']}")
-        self.approaches = local_bridge_approaches(
-            self.source, spans, transport_domain, self.region
+        approaches = local_bridge_approaches(
+            self.source, spans, transport_domain, region
         )
+        self.transport = regional_transport(
+            self.source,
+            region,
+            self.focal,
+            250,
+            viaducts=self.viaducts,
+            local_approaches=approaches,
+            connect_bridgeheads=self.bridgeheads,
+        )
+        self.water_plan = reference_water(self.source, self.transport, domain, 250)
         self.local = assemble(
-            self.source, 250, self.viaducts, self.approaches, crossings=crossings
+            self.source,
+            250,
+            self.viaducts,
+            approaches,
+            crossings=crossings,
+            water_plan=self.water_plan,
         )
         self.look = direction(place["heading_deg"], place["pitch_deg"])
         observer = Observer(place["latitude"], place["longitude"])
@@ -164,12 +210,10 @@ class ReferenceScene:
         bounds = []
         for products, tile in regional_meshes(
             self.source,
-            self.region,
+            self.transport,
             self.focal,
             250,
-            viaducts=self.viaducts,
-            local_approaches=self.approaches,
-            connect_bridgeheads=self.bridgeheads,
+            self.water_plan,
         ):
             yield from products
             bounds.append(tile)

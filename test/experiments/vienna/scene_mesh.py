@@ -10,7 +10,7 @@ from bridge_approach import earthwork_meshes
 from bridge_banks import BANK_REACH_M, TRANSPORT_MARGIN_M, bank_rim, bank_slopes
 from bridge_contacts import bank_cuts
 from bridge_junctions import junction_pavement
-from bridge_passages import bridge_terrain, water_level
+from bridge_passages import bridge_terrain
 from bridges import draw_water_crossings, plan_water_crossings
 from deck_walk_links import DeckWalkLink, deck_walk_links
 from ground_surface import (
@@ -19,12 +19,12 @@ from ground_surface import (
     at_grade_width,
     partition_ground,
     partition_triangles,
+    polygons,
     terrain_triangles,
 )
 from outshine_ref.buildings.facades import FacadeRepeat
 from outshine_ref.buildings.recessed_facades import RecessPlan, recess_surface
 from outshine_ref.buildings.structures import suppressed
-from outshine_ref.water.geodetic import local_points
 from shapely.geometry import Point, box
 from stair_branches import local_stair_branches
 from stair_guards import draw_stair_guards
@@ -32,6 +32,7 @@ from stair_landings import local_landings
 from stairs import local_stairways
 from tram_rails import draw_tram_rails, tram_routes
 from viaducts import draw_viaduct
+from water_surface import clipped_water, water_bodies
 
 
 class Meshes(dict):
@@ -39,14 +40,6 @@ class Meshes(dict):
         points, triangles = self.setdefault(name, ([], []))
         triangles.extend((np.asarray(faces) + len(points)).tolist())
         points.extend(np.asarray(vertices).tolist())
-
-
-def polygons(geometry):
-    if geometry.geom_type == "Polygon" and not geometry.is_empty:
-        yield shapely.orient_polygons(geometry)
-    elif hasattr(geometry, "geoms"):
-        for part in geometry.geoms:
-            yield from polygons(part)
 
 
 def cap(meshes, name, polygon, elevation):
@@ -152,24 +145,16 @@ def staircase_risers(meshes, stairs):
                 vertical_faces(meshes, "sidewalk", face[None], stair.heights[i + 1])
 
 
-def water_surfaces(meshes, source, bodies, vertices, banks):
-    xy = vertices[:, :2]
-    for body in polygons(bodies):
-        level = water_level(body, xy, source.height) + source.datum
-
-        def water_height(points, height=level):
-            lonlat = points / source.metres + [source.lon, source.lat]
-            return (
-                local_points((source.lon, source.lat), lonlat, height)[:, 2]
-                - source.datum
-            )
-
-        cap(meshes, "water", body, water_height)
+def water_surfaces(meshes, source, water, banks):
+    for body, footprint in water:
+        meshes.add("water", *body.mesh(source, footprint))
         if not len(banks):
             continue
-        top = boundary_edges(banks, body.boundary)
+        top = boundary_edges(banks, body.footprint.boundary)
         shore = top[:, :, :2].reshape(-1, 2)
-        vertical_faces(meshes, "ground", top, water_height(shore).reshape(-1, 2) - 0.1)
+        vertical_faces(
+            meshes, "ground", top, body.heights(source, shore).reshape(-1, 2) - 0.1
+        )
 
 
 def compound_ground(vertices, quads, junctions, footprint):
@@ -232,7 +217,16 @@ def bank_protection(source, extent, bodies, openings, roads, crossings, fixtures
 
 
 def ground_surfaces(
-    meshes, source, extent, bodies, vertices, quads, approaches=(), crossings=()
+    meshes,
+    source,
+    extent,
+    bodies,
+    vertices,
+    quads,
+    approaches=(),
+    crossings=(),
+    *,
+    water=(),
 ):
     transport = [(g, p) for layer, g, p in source.features if layer == "transportation"]
     roads = at_grade_routes(transport, extent)
@@ -253,6 +247,7 @@ def ground_surfaces(
         quads,
         height,
         stairs,
+        [(footprint, body.level) for body, footprint in water],
     )
     openings = shapely.union_all([passage.footprint for passage in passages])
     junction_area = shapely.union_all([j.footprint for j in junctions])
@@ -430,7 +425,7 @@ def ground_surfaces(
     draw_stair_guards(
         meshes, stairs, [*landings, *aprons], [*passage_ports, *deck_stair_edges]
     )
-    water_surfaces(meshes, source, bodies, vertices, banks)
+    water_surfaces(meshes, source, water, banks)
     draw_tram_rails(meshes, routes, junctions)
     walk_edges = {}
     for link in links:
@@ -438,24 +433,33 @@ def ground_surfaces(
     return approaches, carried, track_paving, crossings, openings, walk_edges
 
 
-def assemble(source, radius, viaducts=(), approaches=(), *, crossings=None):
+def assemble(
+    source, radius, viaducts=(), approaches=(), *, crossings=None, water_plan=None
+):
     meshes = Meshes()
     extent = box(-radius, -radius, radius, radius)
     vertices, quads = terrain_grid(source, radius)
-    bodies = shapely.union_all(
-        [
-            shapely.make_valid(g).intersection(extent)
-            for layer, g, _ in source.features
-            if layer == "water"
-        ]
-    )
+    if water_plan is None:
+        water_plan = water_bodies(
+            source.features, extent, vertices[:, :2], source.height, source.height
+        )
+    water = tuple(clipped_water(water_plan, extent))
+    bodies = shapely.union_all([footprint for _, footprint in water])
     if crossings is None:
         crossings = list(
             plan_water_crossings(source.features, extent, bodies, source.height)
         )
     approaches, carried, track_paving, crossings, openings, walk_edges = (
         ground_surfaces(
-            meshes, source, extent, bodies, vertices, quads, approaches, crossings
+            meshes,
+            source,
+            extent,
+            bodies,
+            vertices,
+            quads,
+            approaches,
+            crossings,
+            water=water,
         )
     )
     if not track_paving.is_empty:
