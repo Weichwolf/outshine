@@ -1,3 +1,5 @@
+from outshine_ref.buildings.modelling.material_schema import colour, srgb_to_linear
+
 GLASS_IOR = 1.52
 WATER_IOR = 1.333
 WATER_MATERIALS = ("water", "regional water")
@@ -67,3 +69,11 @@ DIFFUSE_TRANSMISSION = {
     "shrub leaves": 0.29,
     "sapling leaves": 0.35,
 }
+
+
+def surface_properties(name):
+    base, separator, encoded = name.partition(" #")
+    rgb, roughness = SURFACES[base]
+    if separator:
+        rgb = tuple(srgb_to_linear(colour(("#" + encoded,))))
+    return base, rgb, roughness

@@ -26,8 +26,8 @@ from materials import (
     DIFFUSE_TRANSMISSION,
     GLASS_IOR,
     METALLIC,
-    SURFACES,
     WATER_MATERIALS,
+    surface_properties,
 )
 from reference_scene import ReferenceScene
 from water_bed import BED_ALBEDO
@@ -210,13 +210,13 @@ def draw_surfaces(ctx, prog, draws, textures, *, capture=False):
         water = name in WATER_MATERIALS
         if capture and water:
             continue
-        rgb, rough = SURFACES[name]
+        base, rgb, rough = surface_properties(name)
         prog["surface"].value = (*rgb, rough)
         prog["metalness"].value = METALLIC.get(name, 0.0)
         prog["diffuseTransmission"].value = DIFFUSE_TRANSMISSION.get(name, 0.0)
         prog["waterSurface"].value = water
         prog["glassIor"].value = GLASS_IOR if name == "glass" else 1.0
-        detail = SURFACE_DETAIL.get(name)
+        detail = SURFACE_DETAIL.get(base)
         prog["hasDetail"].value = detail is not None
         if detail is not None:
             if detail not in textures:

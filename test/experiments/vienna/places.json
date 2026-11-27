@@ -7,6 +7,13 @@
   "weather": "clear",
   "comparison_views": [
     {
+      "id": "KarlMarxHof-Courtyard",
+      "origin": "KarlMarxHof",
+      "offset_east_north_m": [0, 0],
+      "heading_deg": 264,
+      "pitch_deg": 0
+    },
+    {
       "id": "Adlerhof-Courtyard",
       "origin": "Adlerhof",
       "offset_east_north_m": [15.6, 20.1],
@@ -117,8 +124,9 @@
       "id": "KarlMarxHof",
       "latitude": 48.24945049,
       "longitude": 16.36431711,
-      "heading_deg": 264,
-      "pitch_deg": 0,
+      "offset_east_north_m": [35.01, -3.5],
+      "heading_deg": 322,
+      "pitch_deg": 7,
       "support": "sidewalk"
     },
     {

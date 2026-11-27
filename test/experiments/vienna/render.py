@@ -34,6 +34,7 @@ from materials import (
     SURFACES,
     WATER_IOR,
     WATER_MATERIALS,
+    surface_properties,
 )
 from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_light import configure_daylight
@@ -105,7 +106,7 @@ def surface_material(name):
     material = bpy.data.materials.new(name)
     material.use_nodes = True
     bsdf = material.node_tree.nodes["Principled BSDF"]
-    colour, roughness = SURFACES[name]
+    base, colour, roughness = surface_properties(name)
     bsdf.inputs["Base Color"].default_value = (*colour, 1)
     bsdf.inputs["Roughness"].default_value = roughness
     bsdf.inputs["Metallic"].default_value = METALLIC.get(name, 0.0)
@@ -113,7 +114,7 @@ def surface_material(name):
         bsdf.inputs["IOR"].default_value = GLASS_IOR
     if name in WATER_MATERIALS:
         bsdf.inputs["IOR"].default_value = WATER_IOR
-    if detail := SURFACE_DETAIL.get(name):
+    if detail := SURFACE_DETAIL.get(base):
         apply_detail(material, bsdf, detail, colour)
     if transmission := DIFFUSE_TRANSMISSION.get(name):
         tree = material.node_tree

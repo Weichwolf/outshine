@@ -116,9 +116,9 @@ def detailed_bays(repeat):
         )
 
 
-def wall_panel(meshes, a, b, bottom, top):
+def wall_panel(meshes, a, b, bottom, top, material):
     meshes.add(
-        "wall",
+        material,
         np.column_stack(([a, b, b, a], [bottom, bottom, top, top])),
         ((0, 1, 2), (0, 2, 3)),
     )
@@ -139,14 +139,14 @@ def bay_detail(view, offset, axis, normal, pitch, columns, bottom, top):
     return np.where(visible, np.where(detailed, 2, 1), 0)
 
 
-def draw_facade(meshes, a, b, bottom, top, view, *, grounded, bays):
+def draw_facade(meshes, a, b, bottom, top, view, *, grounded, bays, wall="wall"):
     span = b - a
     width = np.linalg.norm(span)
     if width < 0.01:
         return
     height = top - bottom
     if not bays or width <= 2 or height <= 2:
-        wall_panel(meshes, a, b, bottom, top)
+        wall_panel(meshes, a, b, bottom, top, wall)
         return
     axis = span / width
     normal = np.array([axis[1], -axis[0]])
@@ -159,11 +159,15 @@ def draw_facade(meshes, a, b, bottom, top, view, *, grounded, bays):
         origin = a + start * pitch * axis
         span_m = (stop - start) * pitch
         if detail[start] == 0:
-            wall_panel(meshes, origin, a + stop * pitch * axis, bottom, top)
+            wall_panel(meshes, origin, a + stop * pitch * axis, bottom, top, wall)
             continue
         emit = detailed_bays if detail[start] == 2 else flat_bays
         for rise, repeat in facade_bands(span_m, height, int(stop - start), grounded):
             for material, vertices, faces in emit(repeat):
                 u, v, n = vertices.T
                 xy = origin + u[:, None] * axis + n[:, None] * normal
-                meshes.add(material, np.column_stack((xy, bottom + rise + v)), faces)
+                meshes.add(
+                    wall if material == "wall" else material,
+                    np.column_stack((xy, bottom + rise + v)),
+                    faces,
+                )
