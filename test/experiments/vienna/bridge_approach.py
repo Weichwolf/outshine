@@ -23,6 +23,10 @@ class BridgeApproach:
     span: object
     profile: object
 
+    @property
+    def retaining_edge(self):
+        return self.footprint.boundary
+
     def heights(self, ground):
         station = (ground[:, :2] - self.origin) @ self.direction
         length = self.profile.length_m
@@ -101,7 +105,7 @@ def earthwork_meshes(ground, faces, earthwork, material):
     yield material, top, faces
     edges = faces[:, [[0, 1], [1, 2], [2, 0]]].reshape(-1, 2)
     mid = top[edges, :2].mean(axis=1)
-    rim = shapely.dwithin(shapely.points(mid), earthwork.footprint.boundary, 2e-6)
+    rim = shapely.dwithin(shapely.points(mid), earthwork.retaining_edge, 2e-6)
     edges = edges[rim]
     changed = (np.abs(top[edges, 2] - ground[edges, 2]) > 0.005).any(axis=1)
     edges = edges[changed]

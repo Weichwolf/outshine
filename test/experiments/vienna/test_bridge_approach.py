@@ -2,15 +2,34 @@ import unittest
 
 import numpy as np
 import shapely
-from bridge_approach import bridge_approaches, fit_approach
+from bridge_approach import bridge_approaches, earthwork_meshes, fit_approach
 from bridge_contacts import bank_cuts
 from bridges import WaterCrossing
+from ground_surface import partition_ground
 from outshine_ref.transport.water_span import WaterSpan
 from shapely.affinity import affine_transform
 from shapely.geometry import LineString, box
 
 
 class BridgeApproachTest(unittest.TestCase):
+    def test_bank_cut_builds_wall_at_deck_edge_and_leaves_tile_seam_open(self):
+        extent = box(0, 0, 2, 2)
+        deck = box(0, 0.5, 4, 1.5)
+        span = WaterSpan(np.array([0, 1]), np.array([1, 0]), 4, 3, 0)
+        crossing = WaterCrossing(deck, span, deck, 1)
+        vertices = np.array([[0, 0, 4], [2, 0, 4], [2, 2, 4], [0, 2, 4]])
+        quads = np.array([[0, 1, 2, 3]])
+        [cut] = bank_cuts(vertices, quads, [crossing], extent)
+        products = partition_ground(
+            vertices, quads, np.array([0]), {0: "ground", 1: "cut"}, {1: cut.footprint}
+        )
+        _, points, faces = next(p for p in products if p[0] == "cut")
+        _, (_, wall, triangles) = earthwork_meshes(points, faces, cut, "ground")
+        self.assertGreater(len(triangles), 0)
+        self.assertFalse(np.any(np.all(wall[triangles, 0] == 2, axis=1)))
+        self.assertTrue(np.any(wall[:, 1] == 0.5))
+        self.assertTrue(np.any(wall[:, 1] == 1.5))
+
     def test_bank_cut_exposes_a_buried_deck_without_cutting_the_lower_route(self):
         extent = box(0, 0, 4, 2)
         span = WaterSpan(np.array([0, 1]), np.array([1, 0]), 4, 3, 0)

@@ -10,6 +10,7 @@ from outshine_ref.transport.water_span import WaterSpan
 @dataclass(frozen=True)
 class BankCut:
     footprint: shapely.Geometry
+    retaining_edge: shapely.Geometry
     deck: WaterSpan
     depth: float
 
@@ -54,4 +55,9 @@ def bank_cuts(vertices, quads, crossings, extent):
         high = (difference > 0).any(axis=1)
         floor = above_deck(triangles[high], difference[high]).intersection(region)
         if floor.area > 0:
-            yield BankCut(floor, crossing.span, crossing.thickness + 0.02)
+            yield BankCut(
+                floor,
+                crossing.footprint.boundary,
+                crossing.span,
+                crossing.thickness + 0.02,
+            )
