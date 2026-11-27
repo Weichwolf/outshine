@@ -38,6 +38,7 @@ from materials import (
 from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_light import configure_daylight
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
+from passage_light import bake_passage_lighting
 from reference_scene import ReferenceScene
 from water_bed import BED_ALBEDO
 from water_reflection import reflection_planes
@@ -254,6 +255,11 @@ def render(place, config, args):
     if world.water_bed is not None:
         apply_water_bed(world.water_bed)
     scene.eevee.taa_render_samples = 16
+    probes, bake_s = (
+        bake_passage_lighting(scene, world.local.covered_walks, world.eye[:2])
+        if args.engine == "eevee"
+        else (0, 0.0)
+    )
     planes = reflection_planes(world) if args.engine == "eevee" else ()
     capture_s = 0.0
     if planes:
@@ -280,6 +286,8 @@ def render(place, config, args):
                 "woodland_instances": woody_plants,
                 "eye_m": eye.z + world.source.datum,
                 **device,
+                "passage_irradiance_volumes": probes,
+                "passage_irradiance_bake_s": round(bake_s, 3),
                 "reflection_levels_m": [round(plane.height, 3) for plane in planes],
                 "reflection_capture_s": round(capture_s, 3),
                 "sky_capture_s": round(sky_s, 3),

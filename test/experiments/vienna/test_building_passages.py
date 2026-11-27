@@ -2,7 +2,8 @@ import unittest
 
 import numpy as np
 import shapely
-from building_passages import PORTAL_WIDTH_M, building_passages
+from building_passages import PORTAL_WIDTH_M, BuildingPassage, building_passages
+from passage_light import PORTAL_MARGIN_M, passage_probe_regions
 from reference_scene import support_height
 from scene_mesh import assemble
 
@@ -41,6 +42,8 @@ class BuildingPassageTest(unittest.TestCase):
             ]
         )
         meshes = assemble(source, 16)
+        (passage,) = meshes.covered_walks
+        self.assertLess(passage.floor_m, 0)
         for y in range(-8, 9):
             point = (0.0, y + 0.13)
             pavement = support_height(meshes["paving"], point)
@@ -61,6 +64,27 @@ class BuildingPassageTest(unittest.TestCase):
         mask = np.ptp(walls[:, :, 1], axis=1) < 1e-7
         blocked = (walls[:, :, 0].min(axis=1) < 0) & (walls[:, :, 0].max(axis=1) > 0)
         self.assertFalse((at_eye & mask & blocked).any())
+
+    def test_irradiance_region_covers_linked_sloping_walks(self):
+        walks = []
+        for x, floor, crown in ((0, -1, 3), (13, 1, 4.8), (100, 0, 3)):
+            route = line((x, 0), (x + 9, 4))
+            walks.append(
+                BuildingPassage(
+                    route, route.buffer(1.2, cap_style="flat"), {}, floor, crown
+                )
+            )
+        ((center, radii, angle),) = passage_probe_regions(walks, (0, 0))
+        self.assertAlmostEqual(center[2] - radii[2], -1.8)
+        self.assertAlmostEqual(center[2] + radii[2], 7.1)
+        planar_axes = np.array(
+            [[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]
+        )
+        for passage in walks[:2]:
+            ring = passage.corridor.buffer(PORTAL_MARGIN_M, join_style="mitre").exterior
+            projected = (np.array(ring.coords) - center[:2]) @ planar_axes
+            self.assertTrue((abs(projected) <= np.asarray(radii[:2]) + 1e-6).all())
+        self.assertEqual(list(passage_probe_regions(walks, (0, 100))), [])
 
     def test_tunnels_without_two_exposed_pedestrian_approaches_stay_buried(self):
         extent = shapely.box(-30, -30, 30, 30)
