@@ -4,9 +4,10 @@
 
 Ich baue eine weltweite, datengetriebene Open-World-Sandbox. Aus OpenFreeMap, Mapterhorn,
 Open-Meteo, Szenariozeit und prozeduralen Rezepten entsteht eine plausible, funktionale Erde.
-Sie reicht vom Orbit bis zu Details auf Augenhöhe. Die Darstellung nutzt PBR und eine eigene,
-regional geprägte 2050-Solarpunk-Gestaltung. GTA VI gibt Orientierung für Umgebungsqualität,
-Fallout 4 für Himmel und offene Erkundung. Datierte Webcam-Archive sind meine erste
+Sie reicht vom Orbit bis zu Details auf Augenhöhe. Ich rendere physikalisch basiert und
+orientiere Architektur, Vegetation, Materialien und Licht an der realen Region.
+GTA VI gibt Orientierung für Umgebungsqualität, Fallout 4 für Himmel und offene Erkundung.
+Datierte Webcam-Archive sind meine erste
 Bildreferenz für reale Orte, Jahreszeiten, Tageslicht und Wetter.
 Die [Konzeptbilder](doc/images/concept/) zeigen exemplarische Fähigkeiten. Die Abnahme nutzt
 wechselnde Orte, Tageszeiten und Spielsituationen.
