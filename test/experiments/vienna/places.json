@@ -79,6 +79,13 @@
       "pitch_deg": -3
     },
     {
+      "id": "Hauptallee-Entry",
+      "origin": "Hauptallee",
+      "offset_east_north_m": [43.38, 110.35],
+      "heading_deg": 72,
+      "pitch_deg": -3
+    },
+    {
       "id": "Schemerlbruecke-Bank",
       "origin": "Schemerlbruecke",
       "offset_east_north_m": [-13.94, 80.51],
