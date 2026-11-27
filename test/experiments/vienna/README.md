@@ -38,3 +38,9 @@ bridge photograph shows horizontal clearance, the supporting piers and a continu
 
 - [Strudlhofstiege, 23 November 2023](https://commons.wikimedia.org/wiki/File:Strudlhofstiege_2023-11-23_01.jpg)
 - [Schemerlbrücke, 1 June 2017](https://commons.wikimedia.org/wiki/File:2017-06-01_AT_Wien_19_D%C3%B6bling_%26_Wien_20_Brigittenau,_Donaukanal,_Nussdorfer_Wehr,_Schemerlbr%C3%BCcke_(50699212833).jpg)
+
+Mapped woodland uses the oak and beech stand recipes from the original biome study
+(`9492ed2f7^`, `biome_recipes.py`). Shared mesh instances are rooted in canonical tile
+coordinates. Road, water and building exclusion precedes placement. Stem density is an
+art parameter (120/ha). The first comparison at Dechantlacke shows sparse crowns and
+missing understory relative to the [August 2022 Lobau woodland](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg).

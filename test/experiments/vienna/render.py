@@ -25,11 +25,14 @@ from outshine_ref.rendering.blender_light import configure_daylight
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
 from scene_mesh import assemble
 from source_scene import LocalScene
+from woodland import plant_woodland
 
 # Linear reflectance, perceptual roughness.
 SURFACES = {
     "bridge deck": ((0.23, 0.22, 0.20), 0.82),
     "bridge metal": ((0.085, 0.13, 0.115), 0.46),
+    "bark": ((0.12, 0.075, 0.045), 0.92),
+    "foliage": ((0.095, 0.205, 0.044), 0.52),
     "water": ((0.028, 0.084, 0.095), 0.09),
     "distant terrain": ((0.11, 0.16, 0.10), 0.95),
     "ground": ((0.15, 0.13, 0.095), 0.9),
@@ -42,11 +45,11 @@ SURFACES = {
 }
 
 
-def upload(name, vertices, faces):
+def upload(name, vertices, faces, *, collection=None):
     mesh = bpy.data.meshes.new(name)
     mesh.from_pydata(vertices, [], faces)
     mesh.update()
-    material = bpy.data.materials.new(name)
+    material = bpy.data.materials.get(name) or bpy.data.materials.new(name)
     material.use_nodes = True
     bsdf = material.node_tree.nodes.get("Principled BSDF")
     colour, roughness = SURFACES[name]
@@ -54,7 +57,8 @@ def upload(name, vertices, faces):
     bsdf.inputs["Roughness"].default_value = roughness
     mesh.materials.append(material)
     obj = bpy.data.objects.new(name, mesh)
-    bpy.context.scene.collection.objects.link(obj)
+    target = bpy.context.scene.collection if collection is None else collection
+    target.objects.link(obj)
     return obj
 
 
@@ -123,6 +127,8 @@ def render(place, config, args):
     )
     scene.render.resolution_x, scene.render.resolution_y = 1280, 720
     scene.render.resolution_percentage = 100
+    focal_pixels = 360 / math.tan(math.radians(config["vertical_fov_deg"]) / 2)
+    trees = plant_woodland(source, 250, config["seed"], focal_pixels, upload)
     scene.eevee.taa_render_samples = 16
     if args.engine == "cycles":
         device = configure_gpu(scene, "cycles")
@@ -134,6 +140,7 @@ def render(place, config, args):
             {
                 "place": place["id"],
                 "surface": surface,
+                "woodland_trees": trees,
                 "eye_m": eye.z + source.datum,
                 **device,
                 "seconds_to_png": times,
