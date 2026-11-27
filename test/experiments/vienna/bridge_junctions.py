@@ -5,7 +5,13 @@ from dataclasses import dataclass
 import numpy as np
 import shapely
 from bridge_approach import APPROACH_REACH
-from ground_surface import ROAD_WIDTH, partition_ground, path_material, route_area
+from ground_surface import (
+    ROAD_WIDTH,
+    at_grade_width,
+    partition_ground,
+    path_material,
+    route_area,
+)
 from outshine_ref.contracts import Mesh
 from outshine_ref.transport.heights import HeightBudget, fit_surface_heights
 
@@ -44,21 +50,32 @@ def junction_pavement(features, crossings, junctions, joined_spans, roads):
     return carried
 
 
-def tram_bridge_crossings(features, crossings):
-    routes = {}
+def connected_bridge_crossings(features, crossings):
+    road_ends, routes = set(), {}
     for name, geom, tags in features:
-        if (
-            name == "transportation"
-            and tags.get("subclass") == "tram"
-            and tags.get("brunnel") == "bridge"
-        ):
-            routes.setdefault(tags.get("layer", 1), []).append(geom)
+        if name != "transportation" or not geom.geom_type.endswith("LineString"):
+            continue
+        kind = tags.get("class")
+        is_road = kind in ROAD_WIDTH and kind != "path"
+        is_tram = tags.get("subclass") == "tram"
+        if not (is_road or is_tram):
+            continue
+        for line in shapely.get_parts(geom):
+            if line.is_empty:
+                continue
+            if tags.get("brunnel") == "bridge":
+                routes.setdefault(tags.get("layer", 1), []).append((line, is_tram))
+            elif is_road and at_grade_width(tags) is not None:
+                road_ends.update((line.coords[0], line.coords[-1]))
     return [
         crossing
         for crossing in crossings
         if any(
             route.intersection(crossing.footprint).length > crossing.span.length / 2
-            for route in routes.get(crossing.layer, ())
+            and (
+                tram or (route.coords[0] in road_ends and route.coords[-1] in road_ends)
+            )
+            for route, tram in routes.get(crossing.layer, ())
         )
     ]
 
@@ -141,7 +158,7 @@ def graded_patch(mesh, footprint, exterior, core, crossings, road, track, should
 
 
 def bridge_junctions(features, crossings, domain, water, roads, vertices, terrain):
-    served = tram_bridge_crossings(features, crossings)
+    served = connected_bridge_crossings(features, crossings)
     if not served:
         return [], []
     track = shapely.union_all(
