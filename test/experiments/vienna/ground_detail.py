@@ -115,8 +115,9 @@ def ground_detail(name):
     elif name == "beech bark":
         mottling = noise(rng, (22, 15))
         scars = np.maximum(noise(rng, (1.8, 8)) - 1.55, 0)
-        tint = 1 + 0.07 * mottling + 0.040 * patches - 0.17 * scars
-        roughness = 0.84 + 0.030 * mottling + 0.022 * patches
+        lichen = np.maximum(noise(rng, (12, 9)) + 0.4 * fine - 0.30, 0)
+        tint = 1 + 0.12 * mottling + 0.15 * lichen + 0.040 * patches - 0.24 * scars
+        roughness = 0.84 + 0.030 * mottling + 0.015 * lichen + 0.022 * patches
         height = -0.0014 * scars + 0.00045 * patches + 0.00024 * grain
     elif name == "grass":
         clumps = noise(rng, (3.6, 1.8))

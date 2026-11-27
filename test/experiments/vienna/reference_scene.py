@@ -191,4 +191,6 @@ class ReferenceScene:
             )
 
     def trees(self, seed):
-        yield from tree_batches(self.source, 250, seed, self.focal, self.woodland_floor)
+        yield from tree_batches(
+            self.source, 250, seed, self.focal, self.woodland_floor, soil=self.local
+        )

@@ -202,9 +202,15 @@ def render(place, config, args):
     )
     scene.render.resolution_x, scene.render.resolution_y = 1280, 720
     scene.render.resolution_percentage = 100
+    scene.render.image_settings.compression = 0
     trees = plant_woodland(world, config["seed"], geometry)
     scene.eevee.taa_render_samples = 16
-    configure_aerial(scene, geometry, eye.z + world.source.datum)
+    sky_s = configure_aerial(
+        scene,
+        geometry,
+        eye.z + world.source.datum,
+        cache_sky=args.engine == "eevee" and args.repeat,
+    )
     if args.engine == "cycles":
         device = configure_gpu(scene, "cycles")
     image = args.output / (place["id"] + ".png")
@@ -218,6 +224,7 @@ def render(place, config, args):
                 "woodland_trees": trees,
                 "eye_m": eye.z + world.source.datum,
                 **device,
+                "sky_capture_s": round(sky_s, 3),
                 "seconds_to_png": times,
             }
         ),
