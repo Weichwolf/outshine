@@ -186,6 +186,7 @@ def tile_surface(
         "regional deck",
         "road",
         "sidewalk",
+        "paving",
     )
     if detail:
         polys, _ = metric_polygons(data.get("water", {}), nw, se, lambda p: 1)
@@ -210,7 +211,7 @@ def tile_surface(
                 i: corridor.footprint.intersection(tile)
                 for i, corridor in ramps.items()
             }
-            | {5: routes["road"], 6: routes["sidewalk"]},
+            | {5: routes["road"], 6: routes["sidewalk"], 7: routes["paving"]},
         )
         for name, vertices, triangles in parts:
             if name in ramps:

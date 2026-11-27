@@ -32,8 +32,17 @@ def at_grade_width(props):
     return None
 
 
+def path_material(props):
+    surface = props.get("surface")
+    if surface in {"paving_stones", "sett", "cobblestone"} or (
+        surface == "paved" and props.get("subclass") in {"pedestrian", "steps"}
+    ):
+        return "paving"
+    return "sidewalk"
+
+
 def at_grade_routes(features, domain, *, focal=None):
-    footprints = {"road": [], "sidewalk": []}
+    footprints = {"road": [], "sidewalk": [], "paving": []}
     for geom, props in features:
         kind = props.get("class")
         width = at_grade_width(props)
@@ -45,12 +54,16 @@ def at_grade_routes(features, domain, *, focal=None):
             and width * focal < 0.85 * geom.distance(shapely.Point(0, 0))
         ):
             continue
-        footprints["sidewalk" if kind == "path" else "road"].append(
-            route_area(geom, width)
-        )
+        material = path_material(props) if kind == "path" else "road"
+        footprints[material].append(route_area(geom, width))
     roads = shapely.union_all(footprints["road"]).intersection(domain)
     paths = shapely.union_all(footprints["sidewalk"]).intersection(domain)
-    return {"road": roads.difference(paths), "sidewalk": paths}
+    paving = shapely.union_all(footprints["paving"]).intersection(domain)
+    return {
+        "road": roads.difference(paths.union(paving)),
+        "sidewalk": paths.difference(paving),
+        "paving": paving,
+    }
 
 
 def route_footprints(group, nw, se, domain, focal):

@@ -166,21 +166,28 @@ def ground_surfaces(meshes, source, extent, bodies, vertices, quads, approaches=
         source.features, extent, bodies, lambda points: terrain_height(vertices, points)
     )
     pieces = [
-        (foot, z) for stair in stairs for foot, z in zip(stair.treads, stair.heights)
+        (foot, z, stair.material)
+        for stair in stairs
+        for foot, z in zip(stair.treads, stair.heights, strict=True)
     ]
-    heights = {i: z for i, (_, z) in enumerate(pieces, start=4)}
+    names = dict(enumerate(("ground", "water", "road", "sidewalk", "paving")))
+    first_stair = len(names)
+    stair_tops = {
+        i: (z, name) for i, (_, z, name) in enumerate(pieces, start=first_stair)
+    }
     ramps = {
         i: a
-        for i, a in enumerate(approaches, start=4 + len(pieces))
+        for i, a in enumerate(approaches, start=first_stair + len(pieces))
         if a.footprint.intersects(extent)
     }
     stair_limit = shapely.union_all([stair.footprint for stair in stairs]).boundary
-    names = dict(enumerate(("ground", "water", "road", "sidewalk")))
-    names.update({i: i for i in heights.keys() | ramps.keys()})
+    names.update({i: i for i in stair_tops.keys() | ramps.keys()})
     footprints = {1: bodies}
-    footprints.update({i: foot for i, (foot, _) in enumerate(pieces, start=4)})
+    footprints.update(
+        {i: foot for i, (foot, _, _) in enumerate(pieces, start=first_stair)}
+    )
     footprints.update({i: a.footprint.intersection(extent) for i, a in ramps.items()})
-    footprints.update({2: roads["road"], 3: roads["sidewalk"]})
+    footprints.update({2: roads["road"], 3: roads["sidewalk"], 4: roads["paving"]})
     banks = np.empty((0, 2, 3))
     for name, points, faces in partition_ground(
         vertices, quads, np.zeros(len(quads), dtype=int), names, footprints
@@ -191,18 +198,17 @@ def ground_surfaces(meshes, source, extent, bodies, vertices, quads, approaches=
             ):
                 meshes.add(material, ramp_vertices, indices)
             continue
-        if name == "water" or name in heights:
+        if name == "water" or name in stair_tops:
             edges = points[faces][:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2, 3)
             if name == "water":
                 banks = np.concatenate((banks, edges))
                 continue
-            height = heights[name]
+            height, name = stair_tops[name]
             vertical_faces(
                 meshes, "sidewalk", boundary_edges(edges, stair_limit), height
             )
             points = points.copy()
             points[:, 2] = height
-            name = "sidewalk"
         if len(faces):
             used, inverse = np.unique(faces, return_inverse=True)
             meshes.add(name, points[used], inverse.reshape(-1, 3))

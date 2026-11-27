@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import shapely
-from ground_surface import at_grade_width
+from ground_surface import at_grade_width, path_material
 
 
 @dataclass(frozen=True)
@@ -13,6 +13,7 @@ class Stairway:
     treads: np.ndarray
     heights: np.ndarray
     footprint: shapely.Geometry
+    material: str
 
 
 def fit_riser_counts(heights, capacities, count):
@@ -77,7 +78,7 @@ def flight_sections(points, lengths, width, heights):
     return np.asarray(corners), np.asarray(surfaces)
 
 
-def fit_stairway(line, width, height):
+def fit_stairway(line, width, height, material="sidewalk"):
     points = np.asarray(line.coords)
     lengths = np.linalg.norm(np.diff(points, axis=0), axis=1)
     if not len(lengths) or np.any(lengths <= 1e-6):
@@ -97,22 +98,22 @@ def fit_stairway(line, width, height):
         or outline.area < shapely.area(treads).sum() - 1e-6
     ):
         return None
-    return Stairway(treads, heights, outline)
+    return Stairway(treads, heights, outline, material)
 
 
 def local_stairways(features, domain, water, height):
     flights = [
-        (line, at_grade_width(tags))
+        (line, at_grade_width(tags), path_material(tags))
         for name, geom, tags in features
         if name == "transportation" and tags.get("subclass") == "steps"
         for line in shapely.get_parts(geom)
         if line.geom_type == "LineString" and domain.covers(line)
     ]
     accepted = []
-    for line, width in sorted(flights, key=lambda row: -row[0].length):
+    for line, width, material in sorted(flights, key=lambda row: -row[0].length):
         if width is None:
             continue
-        stair = fit_stairway(line, width, height)
+        stair = fit_stairway(line, width, height, material)
         if (
             stair is not None
             and domain.covers(stair.footprint)

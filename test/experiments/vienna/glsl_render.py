@@ -13,6 +13,13 @@ from catalog import HERE, ROOT, load_catalog, selected_views
 from PIL import Image
 
 sys.path.insert(0, str(ROOT / "lib/src"))
+from ground_detail import (
+    DETAIL_SPAN_M,
+    HEIGHT_SPAN_M,
+    MACRO_SPAN_M,
+    SURFACE_DETAIL,
+    ground_detail,
+)
 from materials import SURFACES
 from reference_scene import ReferenceScene
 from woodland import tree_batches
@@ -169,6 +176,9 @@ def render(ctx, place, config, out):
     prog["sun"].value = tuple(world.sun)
     sky.use(0)
     prog["skyView"].value = 0
+    sky.use(2)
+    prog["detailMap"].value = 2
+    prog["detailScale"].value = (DETAIL_SPAN_M, MACRO_SPAN_M, HEIGHT_SPAN_M)
     veil.use(1)
     prog["veil"].value = 1
     prog["eyeKm"].value = 6360 + (world.eye[2] + world.source.datum) * 0.001
@@ -202,14 +212,26 @@ def render(ctx, place, config, out):
     shadow.use(3)
     prog["shadowPass"].value = False
     prog["viewProjection"].write(m.T.astype("f4").tobytes())
+    textures = {}
     for name, count, vao, buffers in draws:
         rgb, rough = SURFACES[name]
         prog["surface"].value = (*rgb, rough)
         prog["waterSurface"].value = name in ("water", "regional water")
+        detail = SURFACE_DETAIL.get(name)
+        prog["hasDetail"].value = detail is not None
+        if detail is not None:
+            if detail not in textures:
+                pixels = ground_detail(detail)
+                texture = ctx.texture(pixels.shape[:2], 4, pixels.tobytes(), dtype="f4")
+                texture.build_mipmaps()
+                textures[detail] = texture
+            textures[detail].use(2)
         vao.render(instances=count)
         vao.release()
         for buffer in buffers:
             buffer.release()
+    for texture in textures.values():
+        texture.release()
     depth.release()
     placeholder.release()
     shadow.release()

@@ -18,12 +18,79 @@ sys.path.extend(
 
 from blender_air import configure_aerial
 from catalog import load_catalog, selected_views
+from ground_detail import (
+    DETAIL_SPAN_M,
+    HEIGHT_SPAN_M,
+    MACRO_SPAN_M,
+    SURFACE_DETAIL,
+    ground_detail,
+)
 from materials import SURFACES
 from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_light import configure_daylight
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
 from reference_scene import ReferenceScene
 from woodland import tree_batches
+
+
+def apply_detail(material, bsdf, name, colour):
+    pixels = ground_detail(name)
+    size = pixels.shape[0]
+    image = bpy.data.images.new(name, width=size, height=size, float_buffer=True)
+    image.colorspace_settings.name = "Non-Color"
+    image.alpha_mode = "CHANNEL_PACKED"
+    image.pixels.foreach_set(pixels.ravel())
+    nodes = material.node_tree.nodes
+    link = material.node_tree.links.new
+    position = nodes.new("ShaderNodeNewGeometry").outputs["Position"]
+    texels = []
+    for span in (DETAIL_SPAN_M, MACRO_SPAN_M):
+        coords = nodes.new("ShaderNodeVectorMath")
+        coords.operation = "SCALE"
+        coords.inputs["Scale"].default_value = 1 / span
+        link(position, coords.inputs[0])
+        sampler = nodes.new("ShaderNodeTexImage")
+        sampler.image = image
+        sampler.projection = "BOX"
+        link(coords.outputs["Vector"], sampler.inputs["Vector"])
+        texels.append(sampler)
+    detail, macro = texels
+    channels = nodes.new("ShaderNodeSeparateColor")
+    link(detail.outputs["Color"], channels.inputs["Color"])
+    link(channels.outputs["Green"], bsdf.inputs["Roughness"])
+    variance = nodes.new("ShaderNodeMath")
+    variance.operation = "MULTIPLY_ADD"
+    link(macro.outputs["Alpha"], variance.inputs[0])
+    variance.inputs[1].default_value = 0.64
+    variance.inputs[2].default_value = 1.68
+    tint = nodes.new("ShaderNodeMath")
+    tint.operation = "MULTIPLY"
+    link(channels.outputs["Red"], tint.inputs[0])
+    link(variance.outputs[0], tint.inputs[1])
+    base = nodes.new("ShaderNodeVectorMath")
+    base.operation = "SCALE"
+    base.inputs[0].default_value = colour
+    link(tint.outputs[0], base.inputs["Scale"])
+    link(base.outputs["Vector"], bsdf.inputs["Base Color"])
+    bump = nodes.new("ShaderNodeBump")
+    bump.inputs["Distance"].default_value = HEIGHT_SPAN_M
+    link(channels.outputs["Blue"], bump.inputs["Height"])
+    link(bump.outputs["Normal"], bsdf.inputs["Normal"])
+
+
+def surface_material(name):
+    material = bpy.data.materials.get(name)
+    if material:
+        return material
+    material = bpy.data.materials.new(name)
+    material.use_nodes = True
+    bsdf = material.node_tree.nodes["Principled BSDF"]
+    colour, roughness = SURFACES[name]
+    bsdf.inputs["Base Color"].default_value = (*colour, 1)
+    bsdf.inputs["Roughness"].default_value = roughness
+    if detail := SURFACE_DETAIL.get(name):
+        apply_detail(material, bsdf, detail, colour)
+    return material
 
 
 def upload(name, vertices, faces, *, collection):
@@ -41,13 +108,7 @@ def upload(name, vertices, faces, *, collection):
     else:
         mesh.from_pydata(vertices, [], faces)
     mesh.update()
-    material = bpy.data.materials.get(name) or bpy.data.materials.new(name)
-    material.use_nodes = True
-    bsdf = material.node_tree.nodes.get("Principled BSDF")
-    colour, roughness = SURFACES[name]
-    bsdf.inputs["Base Color"].default_value = (*colour, 1)
-    bsdf.inputs["Roughness"].default_value = roughness
-    mesh.materials.append(material)
+    mesh.materials.append(surface_material(name))
     obj = bpy.data.objects.new(name, mesh)
     collection.objects.link(obj)
     return obj

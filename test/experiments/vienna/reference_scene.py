@@ -16,6 +16,11 @@ from scene_mesh import assemble
 from source_scene import LocalScene
 from viaducts import local_viaducts
 
+SUPPORT_MATERIALS = {
+    "sidewalk": ("sidewalk", "paving"),
+    "street": ("sidewalk", "paving", "road"),
+}
+
 
 def direction(bearing, altitude):
     yaw, pitch = np.deg2rad([bearing, altitude])
@@ -110,11 +115,7 @@ class ReferenceScene:
             self.support = "absolute station"
             z = place["absolute_eye_m"] - self.source.datum
         else:
-            names = (
-                ("sidewalk", "road")
-                if place["support"] == "street"
-                else (place["support"],)
-            )
+            names = SUPPORT_MATERIALS.get(place["support"], (place["support"],))
             hits = [
                 (h, n)
                 for n in names
