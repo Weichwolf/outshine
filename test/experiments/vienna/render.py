@@ -19,6 +19,7 @@ sys.path.extend(
 from blender_air import configure_aerial
 from catalog import available_views, load_catalog, selected_views
 from ground_detail import (
+    BARK_BOX_BLEND,
     DETAIL_SPAN_M,
     HEIGHT_SPAN_M,
     MACRO_SPAN_M,
@@ -59,6 +60,8 @@ def apply_detail(material, bsdf, name, colour):
         sampler = nodes.new("ShaderNodeTexImage")
         sampler.image = image
         sampler.projection = "BOX"
+        if name.endswith(" bark"):
+            sampler.projection_blend = BARK_BOX_BLEND
         link(coords.outputs["Vector"], sampler.inputs["Vector"])
         texels.append(sampler)
     detail, macro = texels

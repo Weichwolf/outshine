@@ -8,6 +8,7 @@ from scipy.ndimage import gaussian_filter, map_coordinates
 DETAIL_SPAN_M = 2.56
 MACRO_SPAN_M = 23.0
 HEIGHT_SPAN_M = 0.024
+BARK_BOX_BLEND = 0.35
 SIZE = 512
 
 

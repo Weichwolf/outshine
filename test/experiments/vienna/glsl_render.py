@@ -14,6 +14,7 @@ from PIL import Image
 
 sys.path.insert(0, str(ROOT / "lib/src"))
 from ground_detail import (
+    BARK_BOX_BLEND,
     DETAIL_SPAN_M,
     HEIGHT_SPAN_M,
     MACRO_SPAN_M,
@@ -155,7 +156,7 @@ def upload(ctx, program, name, vertices, faces, placements):
         content.append((shaded, "3f", "vertexNormal"))
         buffers.append(shaded)
     vao = ctx.vertex_array(program, content, idx)
-    return name, len(placements), vao, buffers
+    return name, len(placements), vao, tuple(buffers)
 
 
 def shadow_projection(world):
@@ -192,6 +193,7 @@ def render(ctx, place, config, out):
     sky.use(2)
     prog["detailMap"].value = 2
     prog["detailScale"].value = (DETAIL_SPAN_M, MACRO_SPAN_M, HEIGHT_SPAN_M)
+    prog["barkBoxBlend"].value = BARK_BOX_BLEND
     veil.use(1)
     prog["veil"].value = 1
     prog["eyeKm"].value = 6360 + (world.eye[2] + world.source.datum) * 0.001
