@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import shapely
+from reference_scene import support_height
 from scene_mesh import Meshes, ground_surfaces, terrain_grid
 from shapely.geometry import LineString, box
 from stairs import fit_stairway
@@ -45,6 +46,7 @@ class StairwayTest(unittest.TestCase):
         )
         self.assertEqual(triangles[flat, :, 2].min(), -0.5)
         self.assertEqual(triangles[flat, :, 2].max(), 0.5)
+        self.assertAlmostEqual(support_height(meshes["sidewalk"], [1.8, 0]).max(), 0.5)
         ground, indices = meshes["ground"]
         area = shapely.area(shapely.polygons(np.asarray(ground)[indices, :2])).sum()
         self.assertAlmostEqual(area, 8 * 8 - 4 * 1.8, places=5)

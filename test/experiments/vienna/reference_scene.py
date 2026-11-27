@@ -21,8 +21,10 @@ def direction(bearing, altitude):
     )
 
 
-def support_height(mesh):
+def support_height(mesh, xy=(0.0, 0.0)):
     vertices, faces = mesh
+    if not len(faces):
+        return np.empty(0)
     tri = np.asarray(vertices)[np.asarray(faces, dtype=int)]
     a, b, c = tri.transpose(1, 0, 2)
     edge = b - a
@@ -30,8 +32,9 @@ def support_height(mesh):
     cross = lambda p, q: p[:, 0] * q[:, 1] - p[:, 1] * q[:, 0]
     det = cross(edge, side)
     keep = abs(det) > 1e-12
-    w = cross(-a[keep], side[keep]) / det[keep]
-    v = cross(edge[keep], -a[keep]) / det[keep]
+    point = np.asarray(xy) - a[keep, :2]
+    w = cross(point, side[keep]) / det[keep]
+    v = cross(edge[keep], point) / det[keep]
     hits = (w >= -1e-7) & (v >= -1e-7) & (w + v <= 1 + 1e-7)
     return (a[keep, 2] + w * edge[keep, 2] + v * side[keep, 2])[hits]
 
@@ -47,6 +50,7 @@ class ReferenceScene:
         observer = Observer(place["latitude"], place["longitude"])
         utc = datetime.fromisoformat(place.get("utc", config["utc"]))
         self.sun = direction(azimuth(observer, utc), elevation(observer, utc))
+        xy = place.get("offset_east_north_m", (0.0, 0.0))
         if "absolute_eye_m" in place:
             self.support = "absolute station"
             z = place["absolute_eye_m"] - self.source.datum
@@ -60,13 +64,13 @@ class ReferenceScene:
                 (h, n)
                 for n in names
                 if n in self.local
-                for h in support_height(self.local[n])
+                for h in support_height(self.local[n], xy)
             ]
             if not hits:
                 raise ValueError(f"{place['id']}: no walkable surface under camera")
             z, self.support = max(hits)
             z += config["eye_height_m"]
-        self.eye = np.array([0.0, 0.0, z])
+        self.eye = np.array([*xy, z])
         self.far, self.faces, receipts = terrain_horizon(self.source, cache, 250)
         self.region = regional_sources(
             self.source, place, config["source_snapshot"], cache, self.fov
