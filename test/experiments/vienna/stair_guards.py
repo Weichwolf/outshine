@@ -96,11 +96,13 @@ def draw_guard_run(meshes, knots, position, transverse, stations):
             )
 
 
-def draw_stair_guards(meshes, stairs, landings):
+def draw_stair_guards(meshes, stairs, landings, attached=()):
     if not stairs:
         return
     exterior = shapely.union_all([p.footprint for p in [*stairs, *landings]])
     exterior = exterior.boundary.buffer(2e-6, quad_segs=1)
+    if attached:
+        exterior = exterior.difference(shapely.union_all(attached).buffer(2e-6))
     for stair in stairs:
         if abs(stair.heights[-1] - stair.heights[0]) < 0.50:
             continue

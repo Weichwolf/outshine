@@ -38,9 +38,16 @@ def slab(meshes, material, polygon, height, thickness, *, paved=None):
         )
 
 
-def edge_guards(meshes, polygon, span):
+def edge_guards(meshes, polygon, span, access=()):
+    openings = shapely.union_all(access).buffer(2e-6)
     for ring in [polygon.exterior, *polygon.interiors]:
-        for a, b in pairwise(np.asarray(ring.coords)):
+        rails = shapely.linestrings(list(pairwise(ring.coords)))
+        if not openings.is_empty:
+            rails = shapely.get_parts(shapely.difference(rails, openings))
+        for rail in rails:
+            if rail.geom_type != "LineString" or rail.is_empty:
+                continue
+            a, b = np.asarray(rail.coords)[[0, -1]]
             delta = b - a
             length = np.linalg.norm(delta)
             if length < 0.16 or abs(delta @ span.direction) < 0.72 * length:
@@ -69,12 +76,25 @@ def edge_guards(meshes, polygon, span):
                 )
 
 
+def opens_deck_side(edges, span):
+    for edge in edges:
+        for line in shapely.get_parts(edge):
+            if line.geom_type != "LineString":
+                continue
+            sides = np.diff(np.asarray(line.coords), axis=0)
+            length = np.linalg.norm(sides, axis=1)
+            if np.any((length > 1e-6) & (abs(sides @ span.direction) >= 0.72 * length)):
+                return True
+    return False
+
+
 @dataclass(frozen=True)
 class WaterCrossing:
     footprint: shapely.Geometry
     span: WaterSpan
     pavement: shapely.Geometry
     layer: int
+    bank_contact: shapely.Geometry | None = None
 
     @property
     def thickness(self):
@@ -114,7 +134,9 @@ def plan_water_crossings(features, extent, water, height, *, exclude=None):
             yield WaterCrossing(footprint, span, paved, level)
 
 
-def draw_water_crossings(meshes, crossings, water, height, approaches=()):
+def draw_water_crossings(
+    meshes, crossings, water, height, approaches=(), *, walk_edges=None
+):
     covered = defaultdict(list)
     for crossing in crossings:
         footprint, span = crossing.footprint, crossing.span
@@ -123,8 +145,13 @@ def draw_water_crossings(meshes, crossings, water, height, approaches=()):
         )
         thickness = crossing.thickness
         slab(meshes, "bridge deck", footprint, span.height, thickness, paved=pavement)
-        if not draw_open_truss(meshes, footprint, span):
-            edge_guards(meshes, footprint, span)
+        access = () if walk_edges is None else walk_edges.get(id(span), ())
+        if crossing.bank_contact is not None:
+            access = (*access, crossing.bank_contact)
+        if opens_deck_side(access, span) or not draw_open_truss(
+            meshes, footprint, span
+        ):
+            edge_guards(meshes, footprint, span, access)
         width = footprint.area / span.length
         intervals = int(np.ceil(span.length / max(35.0, 3 * width)))
         lateral = np.array([-span.direction[1], span.direction[0]])

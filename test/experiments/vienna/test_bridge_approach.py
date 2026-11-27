@@ -40,6 +40,44 @@ class BridgeApproachTest(unittest.TestCase):
         self.assertTrue(cut.footprint.covers(shapely.Point(3.5, 1)))
         self.assertAlmostEqual(cut.heights(np.array([[3.5, 1, 3.5]]))[0], 2.88)
 
+    def test_retaining_faces_keep_the_joined_carriageway_open(self):
+        extent = box(-2, -8, 2, 8)
+        deck = box(-60, -8, 0, 8)
+        span = WaterSpan(np.array([-60, 0]), np.array([1, 0]), 60, 3, 0)
+        crossing = WaterCrossing(deck, span, box(-60, -3.5, 0, 3.5), 1)
+        route = LineString([(0, 0), (120, 0)])
+        terrain = lambda xy: np.full(len(xy), 6.0)
+        approach = fit_approach(route, deck, span, terrain, 7, 80)
+        self.assertIsNotNone(approach)
+        vertices = np.array([[-2, -8, 6], [2, -8, 6], [2, 8, 6], [-2, 8, 6]])
+        quads = np.array([[0, 1, 2, 3]])
+        [cut] = bank_cuts(vertices, quads, [crossing], extent, approaches=[approach])
+        work = {"cut": cut, "approach": approach}
+        products = partition_ground(
+            vertices,
+            quads,
+            np.array([0]),
+            {0: "ground", 1: "cut", 2: "approach"},
+            {1: cut.footprint, 2: approach.footprint},
+        )
+        flanks = 0
+        for name, points, faces in products:
+            if name not in work:
+                continue
+            for material, wall, indices in earthwork_meshes(
+                points, faces, work[name], "road"
+            ):
+                if material != "bridge deck":
+                    continue
+                triangles = wall[indices]
+                mouth = triangles[np.all(np.isclose(triangles[:, :, 0], 0), axis=1)]
+                bounds = mouth[:, :, 1]
+                self.assertFalse(
+                    np.any((bounds.min(axis=1) < 3.49) & (bounds.max(axis=1) > -3.49))
+                )
+                flanks += len(mouth)
+        self.assertGreater(flanks, 0)
+
     def test_oblique_deck_contact_uses_the_whole_carrying_edge(self):
         along = np.array([0.77772399, 0.62860591])
         along /= np.linalg.norm(along)

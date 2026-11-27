@@ -20,7 +20,7 @@ from ground_detail import (
     SURFACE_DETAIL,
     ground_detail,
 )
-from materials import GLASS_IOR, SURFACES
+from materials import GLASS_IOR, METALLIC, SURFACES
 from reference_scene import ReferenceScene
 from woodland import tree_batches
 
@@ -216,6 +216,7 @@ def render(ctx, place, config, out):
     for name, count, vao, buffers in draws:
         rgb, rough = SURFACES[name]
         prog["surface"].value = (*rgb, rough)
+        prog["metalness"].value = METALLIC.get(name, 0.0)
         prog["waterSurface"].value = name in ("water", "regional water")
         prog["glassIor"].value = GLASS_IOR if name == "glass" else 1.0
         detail = SURFACE_DETAIL.get(name)

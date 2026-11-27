@@ -20,6 +20,10 @@ Omit `--place Adlerhof` to render the twelve pedestrian views in catalog order. 
 second interval measures the warm image, including PNG encoding and writing. Allow up to five
 seconds at 1280×720 for this reference workflow.
 
+The Eevee directional shadow map uses a minimum 16 mm texel. The default 1 mm texel
+produced false shadows on sunlit roads with the full terrain horizon. The 16 mm limit
+keeps the terrain and directional shadows in the reference.
+
 ## Near material comparisons
 
 Adlerhof and Adlerhof-Near show the same facade and paving at eye height. Dechantlacke-Path

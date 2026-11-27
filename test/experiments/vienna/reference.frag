@@ -22,6 +22,7 @@ out vec4 colour;
 uniform vec3 eye;
 uniform vec3 sun;
 uniform vec4 surface;
+uniform float metalness;
 vec2 detailCoordinates(vec3 normal) {
   vec3 axis=abs(normal);
   // Use Blender BOX axes and mirroring for the shared texture.
@@ -67,8 +68,9 @@ void main(){
   vec3 h=normalize(view+sun);
   float nl=max(0.,dot(n,sun)),nv=max(.001,dot(n,view));
   float glassF0=(glassIor-1.)/(glassIor+1.);
-  vec3 f0=vec3(glassIor>1. ? glassF0*glassF0 : .04);
-  Brdf b=metalRoughBrdf(material.rgb,f0,1.,pow(material.a,4.),nl,nv,max(0.,dot(n,h)),max(0.,dot(view,h)));
+  vec3 dielectricF0=vec3(glassIor>1. ? glassF0*glassF0 : .04);
+  vec3 f0=mix(dielectricF0,material.rgb,metalness);
+  Brdf b=metalRoughBrdf(material.rgb*(1.-metalness),f0,1.,pow(material.a,4.),nl,nv,max(0.,dot(n,h)),max(0.,dot(view,h)));
   vec3 uvz=(shadowMatrix*vec4(point,1.)).xyz*.5+.5;
   float visibility=1.;
   if(all(greaterThan(uvz,vec3(0.))) && all(lessThan(uvz,vec3(1.)))){
