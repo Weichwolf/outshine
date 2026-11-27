@@ -1,20 +1,9 @@
-# Webcam-Places und Transport-/Dichtebenchmarks
+# Native Places und Szenariovergleiche
 
-Zwölf wechselnde Ansichten dienen der visuellen Beurteilung. Orte, Kameras und Inhalte
-folgen dem aktuellen Bedarf; sie sind keine feste Vorgabe oder weltweite Abnahme.
-Transport, Gebäude und Bodenmaterialien bilden zuerst die Qualitätsbasis.
-
-| Aktueller Schwerpunkt | Ansichten | Vegetation |
-|---|---|---|
-| Natur: Gebirge und Boden | Jura, Koerbersee | aus |
-| Gemischt: Stadt/Natur, Ufer, Parkrand | CentralPark, Feldkirch, Malcesine | aus |
-| Infrastruktur und Boden ohne Baumdeckung | Wien, Tokyo, Rosenheim, Flensburg, Husum, BaselBadischerBahnhof, ZuerichHauptbahnhof | aus |
-
-Dies ist die aktuelle Arbeitsauswahl, keine repräsentative Stichprobe der Erde.
-Geografisch andere Gegenbeispiele ergänzen und ersetzen sie bei neuen Verfahren.
-Alle zwölf Szenarien bleiben vorerst ohne Vegetation. So sind Transport, Gebäude,
-Bodenmaterialien und ihre Kontakte frei sichtbar. Das ist ein Diagnoseprofil;
-die vollständige Welt einschließlich Vegetation bleibt das Ausbau- und Budgetziel.
+Orte, Kameras und Inhalte richten sich nach der Bildfrage. Wald, Parkrand und
+Stadtgrün profitieren von Ansichten mit Vegetation. Diagnoseansichten machen
+Gelände-, Gebäude- und Verkehrskontakte sichtbar. Für Phase 1 stehen die
+[Python-/Blender-Ansichten](../../../experiments/vienna/) zur Verfügung.
 `references.json` erhält Webcam-Herkunft und Archivvergleiche, auch für archivierte Orte.
 Datierte Webcam-Aufnahmen sind die erste Bildreferenz. Vergleiche wiederholte Ansichten
 über Tageszeiten, Wetter und Jahreszeiten und gleiche die Kamera vor einem Geometrievergleich ab.
@@ -52,9 +41,7 @@ verwendet veröffentlichte Position/Bearing/Höhe und aus 57 Grad horizontalem S
 16:9 abgeleiteten vertikalen FOV; Pitch und Höhendatum sind noch offen. Wetter und Zeit
 müssen für quantitative Vergleiche zusammenpassen; Archivbilder sind keine Wetterquelle.
 
-Die übrigen erhaltenen Szenarien liegen unter test/outshine/data/diagnostic-places;
-der Treiber wählt sie mit `--catalog test/outshine/data/diagnostic-places`. Ihre bisherigen roten Befunde bleiben offen. Geräteabnahme:
-vollständige vorbereitete Welten, schnellstmöglicher Aufbau mit begründeten Ladezielen je Szene,
-genau Ziel-fps Frames/360 Grad in einer Sekunde, p99 <=1000/Ziel-fps ms. A18-Pro-Ziel:
-1280×720/30 einschließlich p99. Internet-Erwerb separat messen.
-Fehlende Cachebytes sind eine unerfüllte Voraussetzung, kein Beleg für zu langsamen Warmaufbau.
+Weitere Szenarien stehen über `--catalog test/outshine/data/diagnostic-places` zur
+Verfügung. Beurteile Bildqualität, Vollständigkeit, Aufbau und Framezeit auf dem
+A18 Pro im gewählten Vergleichsprofil. Quelldownload und Cacheaufbau separat
+erfassen.

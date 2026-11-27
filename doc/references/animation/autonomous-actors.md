@@ -16,5 +16,5 @@ Reviewed 2026-11-19. Scope: the [actor delivery packages under #1978](https://gi
 - Bipeds, quadrupeds, ground vehicles and aircraft share intent/state/persistence boundaries but use appropriate physical controllers.
 - The scenario's LLM game master directs NPC intent and story. Steering and locomotion turn validated intentions into world actions and report the outcome.
 - Genuine generation research concerns plausible reproducible body/rig/equipment recipes from sparse world/context inputs; controller integration is not automatically new research.
-- Every selected algorithm first runs as a Python reference; use shared GLSL in Python-driven GPU experiments where relevant. Require contact/stability checks and adequate total work before native implementation.
+- Small references can expose contact, stability and workload issues. Python and shared GLSL are available for experiments.
 - Inspection: Reynolds PDF pages 2-3 (hierarchy/limits) opened; other sections read for path-following/avoidance. This is source selection, not an accepted Outshine control implementation.

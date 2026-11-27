@@ -17,7 +17,7 @@ Vorbereitet, aber noch kein belastbarer Engine-Nachweis:
 | OpenDRIVE / A9 | Manifest und Erwerb von Straßenprofilen/Verkehrsnetzen; noch kein nativer Vergleich. Keine Rekonstruktion der echten Straße verlangen. |
 
 `make corpus-prepare MANIFEST=...` bereitet deklarierte Daten vor.
-Das Pflichtgate `make test` prüft Weltverträge und Offline-Places.
+`make test` prüft Weltverträge und Offline-Places.
 `make test-all` führt alle deklarierten Suiten aus; `make suite SUITE=...` wählt
 einen betroffenen Vertrag. HTML/CSS/JS-Korpora bleiben erhalten.
 

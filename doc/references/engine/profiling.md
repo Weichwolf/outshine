@@ -10,7 +10,7 @@ Primary sources checked 2026-11-19; implementation work: [#1956](https://github.
 
 - Report full frame cadence/latency, CPU work, explicit waits and GPU intervals separately. Subtracting a wait from CPU work cannot make a missed frame deadline pass.
 - Use the same declared scene, motion, cache state, resolution and sampling scope before/after; include startup and incomplete frames explicitly.
-- Fixed Python-driven input replays and paired/repeated comparisons establish the algorithm's scope and adequate cost before C++ integration.
+- Pinned input replays and paired comparisons help assess algorithm cost and scope across prototypes and application paths.
 - GPU algorithms may live in shared GLSL kernels dispatched by Python through a GPU runner. Measure dispatch/work, readback and resource use separately; CPU NumPy timing is not GPU timing.
 - Keep shaders once: the checked kernel is also the later runtime kernel where practical. Backend command encoding/lifetime is engineering and needs native verification.
 - No GPU-timing or benchmark algorithm requires new research. Missing device evidence is missing evidence, not a new performance threshold.

@@ -1,7 +1,8 @@
 # Outshine Python reference
 
-`outshine_ref` preserves the procedural research for the native rebuild. It is
-a reference and experiment library. The target application is implemented in C++.
+`outshine_ref` preserves Outshine’s generator research, recipes and counterexamples.
+Phase 1 uses these generators in Blender to develop plausible infrastructure and
+varied vegetation. The checked images and generator inputs guide application work.
 
 | Modules | Preserved methods |
 |---|---|
@@ -18,10 +19,12 @@ python -m pip install -e './lib[transport,water,roofs,solids,places,assets]'
 python -m unittest discover -s lib/tests
 ```
 
-Use the bundled tests and real-world fixtures as comparisons for native
-algorithms. Keep tractable counterexamples, compare picture and cost on holdouts,
+Use the bundled tests and real-world fixtures to compare generator behavior and
+application results. Keep tractable counterexamples, compare picture and cost on holdouts,
 and remeasure when assumptions change. Research and remaining gaps are indexed in
 [Outshine generation methods](../doc/references/procedural/outshine-generation.md).
+Choose the smallest source fixture that exposes the behavior. Expand to a larger
+scene for interactions, motion or effects that depend on the surrounding landscape.
 
 Render a prepared reference scene on the GPU. The second render measures warm time
 through the completed PNG write. Compare the Vienna working views at 1280×720.

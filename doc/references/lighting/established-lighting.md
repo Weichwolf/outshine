@@ -11,4 +11,4 @@ Primary online references checked 2026-11-19; implementation: [#1965](https://gi
 
 Use established PBR, cascaded/clipmapped shadow sampling, PCF/contact techniques and dirty-region reuse as appropriate. There is no need for new lighting theory to remove unnecessary redraws or obtain a coherent game look.
 
-Prototype selected sampling, selection and invalidation algorithms in Python first; shared GLSL can execute on the GPU under Python. Check moving cameras/casters, newly exposed areas and changing light against a simpler full-update baseline. Measure total setup/update/draw cost and memory before C++ integration; native lifetime/backend verification follows.
+Python and shared GLSL can prototype sampling, selection and invalidation against a full-update baseline. Useful comparisons include moving cameras and casters, newly visible areas, changing light, total render cost and memory. Use the visual and device results to choose an application approach.

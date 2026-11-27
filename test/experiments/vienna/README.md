@@ -17,8 +17,8 @@ intersection with the rendered support mesh.
 
 Omit `--place Adlerhof` to render the twelve pedestrian views in catalog order. Use
 `--place Wien` for the historical reference. With `--repeat`, the
-second interval measures the warm image, including PNG encoding and writing. Allow up to five
-seconds at 1280×720 for this reference workflow.
+second interval measures the warm image, including PNG encoding and writing. Report timing
+with the image and profile so workstation cost can be compared across reference runs.
 
 The Eevee directional shadow map uses a minimum 16 mm texel. The default 1 mm texel
 produced false shadows on sunlit roads with the full terrain horizon. The 16 mm limit
