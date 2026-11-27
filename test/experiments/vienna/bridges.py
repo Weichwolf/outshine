@@ -6,6 +6,7 @@ from itertools import pairwise
 
 import numpy as np
 import shapely
+from bridge_truss import draw_open_truss
 from ground_surface import ROAD_WIDTH
 from outshine_ref.transport.water_span import WaterSpan, solve_water_span
 
@@ -122,7 +123,8 @@ def draw_water_crossings(meshes, crossings, water, height, approaches=()):
         )
         thickness = crossing.thickness
         slab(meshes, "bridge deck", footprint, span.height, thickness, paved=pavement)
-        edge_guards(meshes, footprint, span)
+        if not draw_open_truss(meshes, footprint, span):
+            edge_guards(meshes, footprint, span)
         width = footprint.area / span.length
         intervals = int(np.ceil(span.length / max(35.0, 3 * width)))
         lateral = np.array([-span.direction[1], span.direction[0]])
