@@ -238,6 +238,8 @@ def render(place, config, args):
     )
     scene.render.resolution_x, scene.render.resolution_y = 1280, 720
     scene.render.resolution_percentage = 100
+    # Keep the reference PNG lossless while minimizing the timed write.
+    scene.render.image_settings.compression = 0
     trees = plant_woodland(world, config["seed"], geometry)
     if world.water_bed is not None:
         apply_water_bed(world.water_bed)
