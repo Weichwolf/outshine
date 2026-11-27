@@ -20,7 +20,11 @@ class BuildingFootprintTest(unittest.TestCase):
 
     def test_distant_members_of_a_tile_feature_set_their_own_base_elevation(self):
         footprint = shapely.MultiPolygon(
-            [shapely.box(10, 20, 20, 30), shapely.box(70, 20, 80, 30)]
+            [
+                shapely.box(10, 20, 20, 30),
+                shapely.box(70, 20, 80, 30),
+                shapely.box(170, 20, 180, 30),
+            ]
         )
         data = {
             "building": {
@@ -34,7 +38,12 @@ class BuildingFootprintTest(unittest.TestCase):
             }
         }
         source = SimpleNamespace(lon=0, lat=0, datum=0, metres=np.ones(2))
-        dem = SimpleNamespace(sample=lambda lat, lon: lon * 0.2)
+
+        def sample(lat, lon):
+            self.assertTrue((lon < 100).all())
+            return lon * 0.2
+
+        dem = SimpleNamespace(sample=sample)
         roofs, walls, *_ = building_shells(
             data, np.array([0, 100]), np.array([100, 0]), source, dem, 1, 600
         )

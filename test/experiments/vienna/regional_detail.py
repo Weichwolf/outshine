@@ -37,26 +37,28 @@ def building_shells(data, nw, se, source, dem, radius, focal):
     if not len(geoms):
         return []
     heights = heights[owners]
-    anchors = shapely.point_on_surface(geoms)
-    xy = shapely.get_coordinates(anchors)
-    lon, lat = (xy / source.metres + [source.lon, source.lat]).T
-    base = (
-        dem.sample(lat, lon) - source.datum - np.sum(xy * xy, axis=1) / (2 * 6371000.0)
-    )
     # Tile buffers contain duplicate source footprints. Each tile owns its interior.
     domain = box(nw[0], se[1], se[0], nw[1]).difference(
         box(-radius, -radius, radius, radius)
     )
     partial = ~shapely.covered_by(geoms, domain)
-    geoms[partial] = shapely.intersection(geoms[partial], domain)
-    polys, index = shapely.get_parts(geoms, return_index=True)
+    clipped = geoms.copy()
+    clipped[partial] = shapely.intersection(geoms[partial], domain)
+    polys, index = shapely.get_parts(clipped, return_index=True)
     valid = (shapely.get_type_id(polys) == 3) & ~shapely.is_empty(polys)
     polys = shapely.orient_polygons(polys[valid])
     index = index[valid]
     if not len(polys):
         return []
-    low = base[index] + heights[index, 0]
-    high = base[index] + heights[index, 1]
+    visible, remap = np.unique(index, return_inverse=True)
+    anchors = shapely.point_on_surface(geoms[visible])
+    xy = shapely.get_coordinates(anchors)
+    lon, lat = (xy / source.metres + [source.lon, source.lat]).T
+    base = (
+        dem.sample(lat, lon) - source.datum - np.sum(xy * xy, axis=1) / (2 * 6371000.0)
+    )
+    low = base[remap] + heights[index, 0]
+    high = base[remap] + heights[index, 1]
     # Batches preserve courtyards, recessed corners and actual roof silhouettes.
     tris, parent = shapely.get_parts(
         shapely.constrained_delaunay_triangles(polys), return_index=True
