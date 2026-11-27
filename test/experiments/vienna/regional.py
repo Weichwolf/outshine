@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import shapely
+from bridges import build_water_bridges
 from outshine_ref.buildings.structures import suppressed
 from outshine_ref.places.height import Elevation
 from outshine_ref.places.sources import (
@@ -13,7 +14,8 @@ from outshine_ref.places.sources import (
     tile_geography,
 )
 from PIL import Image, ImageDraw
-from shapely.geometry import Polygon, box
+from scene_mesh import Meshes
+from shapely.geometry import Polygon, box, shape
 
 
 def tile_rect(source, tile):
@@ -82,8 +84,7 @@ def paint(image, feature, extent, value):
                 draw.polygon([tuple(p) for p in xy], fill=value if i == 0 else 0)
 
 
-def class_fields(receipt, size):
-    data = decode_vector(receipt)
+def class_fields(data, size, elevated):
     land, structures = Image.new("L", (size, size)), Image.new("F", (size, size))
     for layer in ("landcover", "water", "transportation", "building"):
         if layer not in data:
@@ -110,16 +111,18 @@ def class_fields(receipt, size):
                 }.get(props.get("class"), 0)
                 if layer == "water":
                     value = 3
+                if value == 4 and id(f) in elevated:
+                    continue
                 if value:
                     paint(land, f, group["extent"], value)
     return np.asarray(land), np.asarray(structures)
 
 
-def tile_surface(source, receipt, dem, focal, radius):
+def tile_surface(source, receipt, dem, focal, radius, data, elevated):
     nw, se = tile_rect(source, receipt["tile"])
     d = box(nw[0], se[1], se[0], nw[1]).distance(shapely.Point(0, 0))
     size = int(np.clip((se[0] - nw[0]) * focal / (max(d, 500) * 2), 72, 256))
-    land, height = class_fields(receipt, size)
+    land, height = class_fields(data, size, elevated)
     x = np.linspace(nw[0], se[0], size + 1)
     y = np.linspace(nw[1], se[1], size + 1)
     # Insert the four near-patch edges so the two source domains meet exactly.
@@ -190,9 +193,75 @@ def tile_surface(source, receipt, dem, focal, radius):
 
 def regional_meshes(source, receipts, focal, radius):
     dem = Elevation(receipts)
+    features, water, originals = [], [], []
+    nearby = {}
+    reach = 2.5 * focal
+    for row in receipts:
+        if row["kind"] != "vector":
+            continue
+        nw, se = tile_rect(source, row["tile"])
+        if (
+            box(*np.minimum(nw, se), *np.maximum(nw, se)).distance(shapely.Point(0, 0))
+            > reach
+        ):
+            continue
+        data = nearby[row["url"]] = decode_vector(row)
+        for name in ("water", "transportation"):
+            group = data.get(name)
+            if not group:
+                continue
+            for f in group["features"]:
+                props = f["properties"]
+                if name == "transportation" and props.get("brunnel") != "bridge":
+                    continue
+                geom = shapely.transform(
+                    shape(f["geometry"]),
+                    lambda xy, scale=group["extent"], origin=nw, delta=se - nw: (
+                        origin + xy / scale * delta
+                    ),
+                )
+                if name == "water":
+                    water.append(shapely.make_valid(geom))
+                else:
+                    features.append((name, geom, props))
+                    if props.get("class") == "bridge":
+                        originals.append((id(f), geom, props.get("layer", 1)))
+    bridges = Meshes()
+
+    def terrain(xy):
+        lon, lat = (xy / source.metres + [source.lon, source.lat]).T
+        return (
+            dem.sample(lat, lon)
+            - source.datum
+            - np.sum(xy * xy, axis=1) / (2 * 6371000.0)
+        )
+
+    solved = build_water_bridges(
+        bridges,
+        features,
+        box(-reach, -reach, reach, reach),
+        shapely.union_all(water),
+        terrain,
+        exclude=box(-radius, -radius, radius, radius),
+    )
+    elevated = {
+        k
+        for k, g, l in originals
+        if l in solved and solved[l].covers(g.representative_point())
+    }
     for receipt in receipts:
         if receipt["kind"] == "vector":
-            yield tile_surface(source, receipt, dem, focal, radius)
+            data = nearby.pop(receipt["url"], None)
+            yield tile_surface(
+                source,
+                receipt,
+                dem,
+                focal,
+                radius,
+                data if data is not None else decode_vector(receipt),
+                elevated if data is not None else (),
+            )
+    yield [(n, *mesh) for n, mesh in bridges.items()], shapely.Polygon()
 
 
 def beyond_region(vertices, faces, tiles):

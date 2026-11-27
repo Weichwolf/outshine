@@ -133,7 +133,9 @@ def assemble(source, radius):
                 )
             )
             meshes.add("ground", np.vstack((top, bottom)), faces.reshape(-1, 3))
-    bridges = build_water_bridges(meshes, source, extent, bodies)
+    bridges = build_water_bridges(
+        meshes, source.features, extent, bodies, source.height
+    )
     for name, geom, prop in source.features:
         geometry = shapely.make_valid(geom) if not geom.is_valid else geom
         if name == "building":

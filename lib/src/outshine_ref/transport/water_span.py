@@ -51,10 +51,9 @@ def solve_water_span(footprint, routes, water, terrain):
         return None
     line = chords[0]
     wet = line.intersection(water)
-    if (
-        wet.geom_type != "LineString"
-        or wet.length == 0
-        or not water.covers(line.interpolate(0.5, normalized=True))
+    if wet.length == 0 or (
+        not water.covers(line.interpolate(0.5, normalized=True))
+        and wet.length < line.length / 2
     ):
         return None
     ends = np.asarray(line.coords)[[0, -1]]

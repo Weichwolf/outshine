@@ -59,9 +59,9 @@ def edge_guards(meshes, polygon, span):
                 )
 
 
-def build_water_bridges(meshes, source, extent, water):
+def build_water_bridges(meshes, features, extent, water, height, *, exclude=None):
     outlines, routes = defaultdict(list), defaultdict(list)
-    for name, geom, prop in source.features:
+    for name, geom, prop in features:
         if name != "transportation" or prop.get("brunnel") != "bridge":
             continue
         level = prop.get("layer", 1)
@@ -75,7 +75,9 @@ def build_water_bridges(meshes, source, extent, water):
         for footprint in shapely.get_parts(shapely.union_all(pieces)):
             if footprint.geom_type != "Polygon" or not extent.covers(footprint):
                 continue
-            span = solve_water_span(footprint, routes[level], water, source.height)
+            if exclude is not None and exclude.covers(footprint):
+                continue
+            span = solve_water_span(footprint, routes[level], water, height)
             if span is None:
                 continue
             footprint = shapely.orient_polygons(footprint)
@@ -84,9 +86,23 @@ def build_water_bridges(meshes, source, extent, water):
                 "bridge deck",
                 footprint,
                 span.height,
-                min(1.4, span.length / 40),
+                min(3.2, span.length / 40),
             )
             edge_guards(meshes, footprint, span)
+            width = footprint.area / span.length
+            intervals = int(np.ceil(span.length / max(35.0, 3 * width)))
+            lateral = np.array([-span.direction[1], span.direction[0]])
+            for t in np.linspace(0, span.length, intervals + 1)[1:-1]:
+                xy = span.origin + t * span.direction
+                if not footprint.contains(shapely.Point(xy)) or not water.contains(
+                    shapely.Point(xy)
+                ):
+                    continue
+                pier = shapely.LineString(
+                    [xy - 0.22 * width * lateral, xy + 0.22 * width * lateral]
+                ).buffer(min(2.0, 0.065 * width))
+                deep = max(1.0, float(span.height(xy) - height(xy[None])[0]) + 3.0)
+                slab(meshes, "bridge deck", pier, span.height, deep)
             drawn.append(footprint)
         if drawn:
             solved[level] = shapely.union_all(drawn)
