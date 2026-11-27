@@ -26,10 +26,10 @@ keeps the terrain and directional shadows in the reference.
 
 ## Near material comparisons
 
-Adlerhof and Adlerhof-Near show the same facade and paving at eye height. Dechantlacke-Path
-and Dechantlacke-Path-Near look down the mapped path past the same exposed roots. They use
-the anchor coordinates, the offsets and bearings in places.json, and the same clock and
-seed. The additional views are selected explicitly so the twelve-view run keeps its order.
+Adlerhof faces the passage from the street. Adlerhof-Courtyard and Adlerhof-Reverse
+show the adjoining arches in both directions. Adlerhof-Near keeps the oblique
+paving and facade view. The Dechantlacke path views look past the same exposed
+roots. Select these extra views explicitly to keep the twelve-view run in order.
 
 ```sh
 blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/render.py -- \
@@ -72,7 +72,7 @@ The first review used 1280×720 EEVEE on Iris Xe Vulkan at `f65afb793`.
 
 | View | Target from the site photograph | Gap in the generated view |
 |---|---|---|
-| Adlerhof | Close-set stone blocks lead through a deep sequence of plaster arches. A short stair links the courtyard levels. The bright exit and shaded recess remain legible together. [Hans Strunz, 21 August 2008](https://presse.wien.gv.at/bilder/2008/08/21/adlerhof-innenhof) | The stone joints and shallow window recesses read at walking distance. The exterior shell has a repeated flat rhythm. The passage, stairs and layered entrance are missing from this view. [#2055](https://github.com/Weichwolf/outshine/issues/2055) |
+| Adlerhof | Close-set stone blocks lead through a deep sequence of plaster arches. A short stair links the courtyard levels. The bright exit and shaded recess remain legible together. [Hans Strunz, 21 August 2008](https://presse.wien.gv.at/bilder/2008/08/21/adlerhof-innenhof) | Mapped footways connect through vaulted openings in the building. Courtyard steps, entrance trim and the daylight gradient through the vaults remain open. [#2055](https://github.com/Weichwolf/outshine/issues/2055) |
 | Schemerlbruecke-Downstream | Retaining faces and the bridge enclose the channel. The drop interrupts the reflectivity of the upper reach and aerated water brightens the lower pool. [C. Stadler/Bwag, 29 May 2018](https://commons.wikimedia.org/wiki/File:Wien_-_Nu%C3%9Fdorfer_Wehr_(1).JPG) | The mapped crest, lower pool and reflected structure read from the east bank. Angular earthworks and the smooth lower pool leave less separation between spill and calm water than in the photograph. [#1966](https://github.com/Weichwolf/outshine/issues/1966) |
 | Dechantlacke-Bank | Leaves at several heights interrupt the gaps between oak-sized trunks. Small sunlit patches break up trunks and woodland floor. [Leonhard Lenz, 9 August 2022](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg) | The shore shows rooted shrubs, distinct stems and a reflected second layer of crowns. The opposite bank and canopy gaps remain more open than the photographed interior stand. [#1961](https://github.com/Weichwolf/outshine/issues/1961) · [#2063](https://github.com/Weichwolf/outshine/issues/2063) |
 
