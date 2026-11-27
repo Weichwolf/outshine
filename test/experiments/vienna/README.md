@@ -62,6 +62,53 @@ the same silhouette and attachments beyond 32 m. Nearby root buttresses follow t
 and contract at path and water boundaries. The offset views share the same tile-seeded trees.
 [Weber and Penn, Creation and Rendering of Realistic Trees](https://doi.org/10.1145/218380.218427)
 
+## Photographic targets at eye level
+
+The street, water and woodland references use the pinned Vienna catalog at 1.70 m.
+The photo dates and locations identify the construction, surface scale and light
+relationships to compare. The photographs and generated views use different camera poses.
+The first review used 1280×720 EEVEE on Iris Xe Vulkan at `f65afb793`.
+
+| View | Target from the site photograph | Gap in the generated view |
+|---|---|---|
+| Adlerhof | Close-set stone blocks lead through a deep sequence of plaster arches. A short stair links the courtyard levels. The bright exit and shaded recess remain legible together. [Hans Strunz, 21 August 2008](https://presse.wien.gv.at/bilder/2008/08/21/adlerhof-innenhof) | The stone joints and shallow window recesses read at walking distance. The exterior shell has a repeated flat rhythm. The passage, stairs and layered entrance are missing from this view. [#2055](https://github.com/Weichwolf/outshine/issues/2055) |
+| Schemerlbruecke-Downstream | Retaining faces and the bridge enclose the channel. The drop interrupts the reflectivity of the upper reach and aerated water brightens the lower pool. [C. Stadler/Bwag, 29 May 2018](https://commons.wikimedia.org/wiki/File:Wien_-_Nu%C3%9Fdorfer_Wehr_(1).JPG) | The mapped crest, lower pool and reflected structure read from the east bank. Angular earthworks and the smooth lower pool leave less separation between spill and calm water than in the photograph. [#1966](https://github.com/Weichwolf/outshine/issues/1966) |
+| Dechantlacke-Bank | Leaves at several heights interrupt the gaps between oak-sized trunks. Small sunlit patches break up trunks and woodland floor. [Leonhard Lenz, 9 August 2022](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg) | The shore shows rooted shrubs, distinct stems and a reflected second layer of crowns. The opposite bank and canopy gaps remain more open than the photographed interior stand. [#1961](https://github.com/Weichwolf/outshine/issues/1961) · [#2063](https://github.com/Weichwolf/outshine/issues/2063) |
+
+The site data supplies Adlerhof's building and route footprints, the canal and mapped
+weir crest, and the Lobau water, paths and woodland boundary. Building openings and
+setts use repeat recipes. The weir head and sediment at the bank are model estimates.
+The woodland recipe chooses species, age variation and undergrowth within the mapped
+habitat. The photographs guide those choices at pedestrian scale.
+
+The clear-day pairs use the same pin set, pose, geometry, material recipes and AgX
+exposure. Their clocks are 10:00 and 16:30 UTC on 21 June 2026. Adlerhof turns from
+sunlit plaster and setts to façade shade. Dechantlacke turns from backlit stems and
+dappled path shade toward more directly lit bark and path. In shade, look for
+readable surface texture, local contrast and recognizable material colours.
+
+```sh
+blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/render.py -- \
+  --place Adlerhof-Near --place Adlerhof-Near-Afternoon --place Dechantlacke-Path-Near \
+  --place Dechantlacke-Path-Near-Afternoon --output build/shots/2044/light/eevee
+```
+
+The 1280×720 Iris Xe Vulkan captures show the same joints, window recesses, root
+collars and path edges at both times. A ray probe selected fixed pixels that cross
+the geometric sun/shade boundary between frames. Median PNG luma on a 0–255 scale
+changes from 163 to 43 on Adlerhof plaster and from 171 to 22 on the setts. At
+Dechantlacke it changes from 23 to 104 on oak bark, 31 to 136 on beech bark and
+17 to 86 on the unpaved path. The afternoon sun makes the bark contrast and stem
+curvature clearer. In shade the paving and path lose much of their fine relief.
+The diffuse-light comparison belongs to [#1965](https://github.com/Weichwolf/outshine/issues/1965).
+
+The twelve-view review covers the catalog anchors. At Wienerblick, the dated
+panorama shows a wooded middle distance, a distinct city band and scattered clouds.
+The generated view resolves the foreground slope and urban massing. The tree belts,
+distance contrast and sky need further comparison under the photographed conditions.
+[Doris Antony, 29 August 2010](https://commons.wikimedia.org/wiki/File:Wiener_Blick_Panorama.jpg) ·
+[Review and remaining differences](https://github.com/Weichwolf/outshine/issues/2083)
+
 ## Reference geometry
 
 The initial integration covers the local DEM, mapped building shells, near recessed facade cells
@@ -83,9 +130,10 @@ Use the [Sophienalpe summer photograph, 15 August 2006](https://commons.wikimedi
 to assess the ground cover and plant height. Wienerblick still needs a review with the current city geometry.
 Shore levels, road profiles, ground materials and light still need comparison with real scenes.
 
-Two dated photographs anchor the structural review. The November 2023 stair photograph shows
-paired flights, landings and retaining walls; compare geometry across seasons. The June 2017
-bridge photograph shows horizontal clearance, the supporting piers and a continuous truss.
+The November 2023 night photograph anchors the stair geometry. The paired flights,
+landings and retaining walls remain legible around the fountain. The June 2017 bridge
+photograph shows clearance below the painted truss, piers in the channel and the scale
+of the stone pylons at the banks.
 
 - [Strudlhofstiege, 23 November 2023](https://commons.wikimedia.org/wiki/File:Strudlhofstiege_2023-11-23_01.jpg)
 - [Schemerlbrücke, 1 June 2017](https://commons.wikimedia.org/wiki/File:2017-06-01_AT_Wien_19_D%C3%B6bling_%26_Wien_20_Brigittenau,_Donaukanal,_Nussdorfer_Wehr,_Schemerlbr%C3%BCcke_(50699212833).jpg)
