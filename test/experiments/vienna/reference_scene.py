@@ -24,6 +24,8 @@ from regional import (
     regional_meshes,
     regional_sources,
     regional_transport,
+    skyline_meshes,
+    skyline_sources,
     tile_rect,
 )
 from river_control import RiverControl, control_surfaces
@@ -182,7 +184,16 @@ class ReferenceScene:
             pins=pins,
         )
         self.far, self.faces, receipts = terrain_horizon(self.source, cache, 250)
-        for row in self.source.receipts + receipts + region:
+        self.skyline = skyline_sources(
+            self.source,
+            place,
+            config["source_snapshot"],
+            cache,
+            self.focal,
+            region,
+            pins,
+        )
+        for row in self.source.receipts + receipts + region + self.skyline:
             if pins.get(row["url"]) != row["sha256"]:
                 raise ValueError(f"Unpinned or changed Vienna source: {row['url']}")
         approaches = local_bridge_approaches(
@@ -252,6 +263,7 @@ class ReferenceScene:
             yield from products
             bounds.append(tile)
         yield "distant terrain", *beyond_region(self.far, self.faces, bounds)
+        yield from skyline_meshes(self.source, self.skyline, self.focal, 250)
 
     @cached_property
     def woodland_floor(self):

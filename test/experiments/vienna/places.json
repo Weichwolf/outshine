@@ -203,6 +203,7 @@
       "id": "Wienerblick",
       "latitude": 48.18136804,
       "longitude": 16.2465477,
+      "skyline_range_m": 16000,
       "heading_deg": 73,
       "pitch_deg": 0,
       "support": "sidewalk"

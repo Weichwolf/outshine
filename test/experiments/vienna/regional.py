@@ -72,19 +72,23 @@ def regional_dem_sources(vector_tiles):
     ]
 
 
-def regional_sources(
-    source, place, snapshot, cache, fov, *, transport_domain=None, pins=()
-):
+def view_sector(place, focal, reach):
     yaw = np.deg2rad(place["heading_deg"])
-    focal = 360 / np.tan(np.deg2rad(fov) / 2)
-    reach = np.clip(12 * focal, 6000, 15000)
     half = np.arctan(640 / focal) + np.deg2rad(5)
     angles = np.linspace(yaw - half, yaw + half, 17)
-    sector = Polygon(
+    return Polygon(
         np.vstack(
             ([0, 0], np.column_stack((np.sin(angles), np.cos(angles))) * reach, [0, 0])
         )
     )
+
+
+def regional_sources(
+    source, place, snapshot, cache, fov, *, transport_domain=None, pins=()
+):
+    focal = 360 / np.tan(np.deg2rad(fov) / 2)
+    reach = np.clip(12 * focal, 6000, 15000)
+    sector = view_sector(place, focal, reach)
     tiles = []
     for t in covering_tiles(source.lat, source.lon, reach, 14):
         bounds = tile_rect(source, t)
@@ -110,6 +114,45 @@ def regional_sources(
     sources.extend(regional_dem_sources(tiles))
     with ThreadPoolExecutor(max_workers=6) as workers:
         return list(workers.map(lambda s: acquire(s, cache, fetch=True), sources))
+
+
+def skyline_source_specs(source, place, snapshot, focal, region):
+    reach = place.get("skyline_range_m", 0)
+    if not reach:
+        return []
+    owned = {tuple(row["tile"]) for row in region if row["kind"] == "vector"}
+    sector = view_sector(place, focal, reach)
+    tiles = []
+    for tile in covering_tiles(source.lat, source.lon, reach, 14):
+        if tile in owned:
+            continue
+        bounds = tile_rect(source, tile)
+        if sector.intersects(box(*bounds.min(axis=0), *bounds.max(axis=0))):
+            tiles.append(tile)
+    return [
+        (
+            "vector",
+            tile,
+            f"https://tiles.openfreemap.org/planet/{snapshot}/"
+            + "/".join(map(str, tile))
+            + ".pbf",
+        )
+        for tile in tiles
+    ] + regional_dem_sources(tiles)
+
+
+def skyline_sources(source, place, snapshot, cache, focal, region, pins):
+    specs = skyline_source_specs(source, place, snapshot, focal, region)
+    known = {row["url"]: row for row in region}
+    missing = [url for _, _, url in specs if url not in pins]
+    if missing:
+        raise ValueError(f"Unpinned Vienna skyline source: {missing[0]}")
+
+    def load(spec):
+        return known.get(spec[2]) or acquire(spec, cache, fetch=True)
+
+    with ThreadPoolExecutor(max_workers=6) as workers:
+        return list(workers.map(load, specs))
 
 
 def bridgehead_sources(source, spans, receipts, snapshot, cache, pins):
@@ -515,6 +558,19 @@ def regional_meshes(source, transport, focal, radius, water_plan, *, local_shore
                 local_shore=local_shore,
             )
     yield [(n, *mesh) for n, mesh in transport.bridges.items()], shapely.Polygon()
+
+
+def skyline_meshes(source, receipts, focal, radius):
+    if not receipts:
+        return
+    dem = Elevation(receipts)
+    for receipt in receipts:
+        if receipt["kind"] == "vector":
+            nw, se = tile_rect(source, receipt["tile"])
+            data = decode_vector(receipt, layers=("building",))
+            yield from building_shells(
+                data, nw, se, source, dem, radius, focal, distant=True
+            )
 
 
 def beyond_region(vertices, faces, tiles):

@@ -199,7 +199,7 @@ Compare the patchy shoreline with the [Lobau photograph, 16 May 2015](https://co
 Franz-Karl-Fernsicht looks southwest from the mapped footpath over taller grass,
 seed heads and wildflowers on the OSM meadow. The camera retains its 1.70 m eye height.
 Use the [Sophienalpe summer photograph, 15 August 2006](https://commons.wikimedia.org/wiki/File:Wien_Sophienalpe.jpg)
-to assess the ground cover and plant height. Wienerblick still needs a review with the current city geometry.
+to assess the ground cover and plant height.
 Shore levels, road profiles, ground materials and light still need comparison with real scenes.
 
 The November 2023 night photograph anchors the stair geometry. The paired flights,
@@ -232,6 +232,10 @@ Wienerblick remains an independent, eye-level site.
 The regional reference samples the mapped building heights, water, woods, grass and deck
 footprints around each camera. Its height field extends to the distance at which a 12 m
 building occupies one pixel (6–15 km range). Closer tiles retain mapped building outlines and facade openings.
+Wienerblick also selects a pinned skyline sector out to 16 km. Its additional tiles
+contribute height-bearing building shells above a two-pixel angular estimate. The
+shells use the same geodetic ENU frame as the horizon terrain. The regional tiles
+retain ownership of the buildings they already cover.
 Mapped water crossings use a raised slab and piers where both banks can be resolved.
 Local and regional shorelines, roads and paths partition the same terrain triangles. The planar
 arrangement cuts triangles at material boundaries and grade contours. Terrain heights are interpolated
