@@ -22,7 +22,7 @@ from regional import (
     regional_transport,
     tile_rect,
 )
-from river_control import RiverControl, gate_faces
+from river_control import RiverControl, control_surfaces
 from scene_mesh import assemble, terrain_grid
 from source_scene import LocalScene
 from viaducts import local_viaducts
@@ -226,8 +226,7 @@ class ReferenceScene:
     def surfaces(self):
         for name, (verts, faces) in self.local.items():
             yield name, verts, faces
-        for verts, faces in gate_faces(self.source, self.water_plan):
-            yield "bridge deck", verts, faces
+        yield from control_surfaces(self.source, self.water_plan)
         bounds = []
         for products, tile in regional_meshes(
             self.source,

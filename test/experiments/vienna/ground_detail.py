@@ -24,6 +24,7 @@ SURFACE_DETAIL = {
     "oak bark": "oak bark",
     "beech bark": "beech bark",
     "foliage": "leaf",
+    "weir overflow": "weir overflow",
 }
 
 
@@ -66,6 +67,7 @@ def ground_detail(name):
         "oak bark",
         "leaf",
         "beech bark",
+        "weir overflow",
     ).index(name)
     rng = np.random.default_rng(seed)
     fine, grain, patches = (noise(rng, scale) for scale in (0.65, 1.6, 12))
@@ -115,6 +117,12 @@ def ground_detail(name):
         tint = 1 + 0.07 * mottling + 0.040 * patches - 0.17 * scars
         roughness = 0.84 + 0.030 * mottling + 0.022 * patches
         height = -0.0014 * scars + 0.00045 * patches + 0.00024 * grain
+    elif name == "weir overflow":
+        threads = noise(rng, (15, 1.5))
+        air = np.clip(0.5 + 0.24 * threads + 0.12 * grain, 0, 1)
+        tint = 0.62 + 1.0 * air
+        roughness = 0.23 + 0.29 * air
+        height = 0.0012 * threads + 0.00055 * fine
     else:  # Leaf tissue variation in the shared foliage batch.
         tint = 1 + 0.065 * grain + 0.15 * patches
         roughness = 0.57 + 0.04 * grain + 0.035 * patches

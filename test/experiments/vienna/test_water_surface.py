@@ -4,7 +4,7 @@ from unittest import TestCase
 import numpy as np
 from bridge_passages import FLOOR_ABOVE_WATER_M, water_clearance
 from reference_scene import support_height
-from river_control import RiverControl, gate_faces
+from river_control import RiverControl, control_surfaces
 from shapely.geometry import GeometryCollection, LineString, Point, Polygon, box
 from shore_grade import SHORE_REACH_M, shore_grade
 from water_bed import nearshore_bed
@@ -21,6 +21,7 @@ class WaterSurfaceTests(TestCase):
                 "water_class": "river",
                 "water_id": 4,
                 "plateaus_model_m": [161.0, 158.0],
+                "overflow_run_m": 1.0,
                 "section_lon_lat": [[16.3998, 48.2], [16.4002, 48.2]],
                 "downstream_centerline_lon_lat": [[16.4, 48.2], [16.4, 48.19]],
                 "station_km_and_adria_m": [[0.58, 157.9], [1.58, 157.5]],
@@ -60,10 +61,22 @@ class WaterSurfaceTests(TestCase):
         b = support_height(low.mesh(source, south_patch), (0, -400.03)).max()
         self.assertLess(abs(a - b), 0.001)
 
-        ((wall, faces),) = gate_faces(source, bodies)
+        ((wall_material, wall, faces), (flow_material, spill, spill_faces)) = tuple(
+            control_surfaces(source, bodies)
+        )
+        self.assertEqual(wall_material, "bridge deck")
+        self.assertEqual(flow_material, "weir overflow")
         self.assertGreater(len(faces), 0)
         crest, toe = np.split(wall[:, 2], 2)
         np.testing.assert_allclose(crest - toe, 3.25, atol=1e-6)
+        cascade = spill.reshape(-1, len(crest), 3)
+        np.testing.assert_allclose(cascade[0], wall[: len(crest)], atol=1e-9)
+        self.assertTrue((np.diff(cascade[:, :, 2], axis=0) < 0).all())
+        self.assertTrue((np.diff(cascade[:, :, 1], axis=0) < 0).all())
+        self.assertEqual(len(spill_faces), (len(cascade) - 1) * len(faces))
+        np.testing.assert_allclose(
+            cascade[-1, :, 2], low.heights(source, cascade[-1, :, :2]) - 0.08
+        )
         floors = [(body.footprint, body) for body in bodies]
         lower = water_clearance(source, floors, np.array([[12, 5], [12, -100]]))
         self.assertAlmostEqual(lower[0], 1 + FLOOR_ABOVE_WATER_M)

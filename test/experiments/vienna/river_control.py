@@ -63,6 +63,7 @@ class RiverControl:
     upstream_m: float
     downstream_m: float
     profile: RiverProfile
+    overflow_run_m: float = 0.0
 
     @classmethod
     def from_recipe(cls, recipe):
@@ -76,15 +77,19 @@ class RiverControl:
             raise ValueError("Gate section requires two distinct finite endpoints")
         if not np.isfinite([upstream, downstream]).all() or not upstream > downstream:
             raise ValueError("Expected a positive gate head")
+        overflow = float(recipe.get("overflow_run_m", 0.0))
+        if not np.isfinite(overflow) or not 0 <= overflow <= upstream - downstream:
+            raise ValueError("Expected a bounded horizontal overflow run")
         return cls(
             (recipe["water_class"], str(recipe["water_id"])),
             section,
             upstream,
             downstream,
             RiverProfile.from_recipe(recipe),
+            overflow,
         )
 
-    def reaches(self, source, footprint):
+    def section_frame(self, source):
         origin = [source.lon, source.lat]
         a, b = (self.section - origin) * source.metres
         along = (b - a) / np.linalg.norm(b - a)
@@ -94,13 +99,17 @@ class RiverControl:
             downstream / self.profile.metres + self.profile.origin - origin
         ) * source.metres
         normal *= np.sign((downstream - a) @ normal)
+        return a, b, along, normal
+
+    def reaches(self, source, footprint):
+        a, b, along, normal = self.section_frame(source)
         cut = shapely.LineString([a - 20 * along, b + 20 * along])
         for part in split(footprint, cut).geoms:
             witness = np.asarray(part.representative_point().coords[0])
             yield part, (witness - a) @ normal > 0
 
 
-def gate_faces(source, bodies):
+def control_surfaces(source, bodies):
     controls = {
         id(body.control): body.control for body in bodies if body.control is not None
     }
@@ -127,5 +136,29 @@ def gate_faces(source, bodies):
                     points = np.concatenate((top, bottom))
                     a = np.arange(len(xy) - 1)
                     b = a + len(xy)
-                    tris = np.column_stack((a, a + 1, b, b, a + 1, b + 1))
-                    yield points, tris.reshape(-1, 3)
+                    faces = np.column_stack((a, a + 1, b, b, a + 1, b + 1)).reshape(
+                        -1, 3
+                    )
+                    yield "bridge deck", points, faces
+                    if control.overflow_run_m:
+                        yield (
+                            "weir overflow",
+                            *overflow_surface(source, lower, control, top, faces),
+                        )
+
+
+def overflow_surface(source, lower, control, top, faces):
+    _, _, _, direction = control.section_frame(source)
+    # A thin sheet follows a constant downstream speed and a gravity fall.
+    time = np.linspace(0, 1, 8)
+    offset = (time * control.overflow_run_m)[:, None] * direction
+    xy = top[None, :, :2] + offset[:, None, :]
+    bed = lower.heights(source, xy[-1]) - 0.08
+    z = top[:, 2] + time[:, None] ** 2 * (bed - top[:, 2])
+    vertices = np.dstack((xy, z)).reshape(-1, 3)
+    starts = len(top) * np.arange(len(time) - 1)
+    triangles = (faces[None, :, :] + starts[:, None, None]).reshape(-1, 3)
+    a, b, c = vertices[triangles[0]]
+    if np.cross(b - a, c - a)[:2] @ direction < 0:
+        triangles = triangles[:, ::-1]
+    return vertices, triangles
