@@ -186,7 +186,7 @@ The first twelve-image review shows missing steps at Strudlhofstiege, a missing 
 Adlerhof and striping at Prater Hochstraße. The Schemerlbrücke camera looks from a mapped
 bank path across the channel: the first integrated bank-to-bank recipe spans the water with a closed slab and edge guards.
 Its steel truss, piers and graded approach tie-ins still need work.
-Hauptallee and Dechantlacke show layered woodland. Hauptallee-Avenue walks the
+Hauptallee and Dechantlacke show layered woodland. Hauptallee-Avenue looks along the
 mapped bridleway and shows managed trees rooted in the grass verges of the shared
 parallel route. Dechantlacke adds sedges and reed
 groups on the low natural bank, while the Asperner See park and access edges stay open.
