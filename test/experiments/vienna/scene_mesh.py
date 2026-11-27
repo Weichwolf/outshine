@@ -13,6 +13,7 @@ from bridge_junctions import junction_pavement
 from bridge_passages import bridge_terrain
 from bridges import draw_water_crossings, plan_water_crossings
 from building_foundations import BuildingStamps, building_foundations
+from building_passages import building_passages, vault_panels
 from deck_walk_links import DeckWalkLink, deck_walk_links
 from ground_surface import (
     ROUTE_MATERIALS,
@@ -47,7 +48,7 @@ class Meshes(dict):
         points.extend(np.asarray(vertices).tolist())
 
 
-def cap(meshes, name, polygon, elevation):
+def cap(meshes, name, polygon, elevation, *, underside=False):
     triangles = shapely.orient_polygons(
         shapely.get_parts(shapely.constrained_delaunay_triangles(polygon))
     )
@@ -55,10 +56,11 @@ def cap(meshes, name, polygon, elevation):
         return
     xy = np.array([t.exterior.coords[:3] for t in triangles]).reshape(-1, 2)
     z = np.broadcast_to(elevation(xy), len(xy))
-    meshes.add(name, np.column_stack((xy, z)), np.arange(len(xy)).reshape(-1, 3))
+    faces = np.arange(len(xy)).reshape(-1, 3)
+    meshes.add(name, np.column_stack((xy, z)), faces[:, ::-1] if underside else faces)
 
 
-def building(meshes, polygon, properties, source, foundation=None):
+def building(meshes, polygon, properties, source, foundation=None, passages=()):
     floor = properties.get("render_min_height", 0)
     roof = properties.get("render_height", 0)
     if roof <= floor or suppressed(properties):
@@ -69,19 +71,66 @@ def building(meshes, polygon, properties, source, foundation=None):
         else float(source.height(np.asarray(polygon.representative_point().coords))[0])
     )
     cap(meshes, "roof", polygon, lambda xy: roof + base)
+    if passages:
+        soffit = max(item.crown_m for item in passages)
+        corridor = shapely.union_all([item.corridor for item in passages])
+        passage_ceilings(meshes, polygon, passages, corridor, soffit)
+        for pier in polygons(polygon.difference(corridor)):
+            building_walls(meshes, pier, base + floor, soffit, foundation, bays=False)
+        building_walls(meshes, polygon, soffit, base + roof)
+    else:
+        building_walls(meshes, polygon, base + floor, base + roof, foundation)
+
+
+def passage_ceilings(meshes, polygon, passages, corridor, storey_top):
+    if sum(item.corridor.area for item in passages) - corridor.area > 1e-6:
+        for cut in polygons(polygon.intersection(corridor)):
+            cap(meshes, "wall", cut, lambda xy: storey_top, underside=True)
+        return
+    for item in passages:
+        cut = polygon.intersection(item.corridor)
+        panels = list(vault_panels(item, cut, item.crown_m))
+        if not panels:
+            for patch in polygons(cut):
+                passage_ceiling(
+                    meshes,
+                    patch,
+                    polygon.boundary,
+                    storey_top,
+                    lambda xy, z=item.crown_m: np.full(xy.shape[:-1], z),
+                )
+        for piece, normal, low, offset, slope in panels:
+
+            def elevation(xy, low=low, normal=normal, offset=offset, slope=slope):
+                return low + (xy @ normal - offset) * slope
+
+            for panel in polygons(piece):
+                passage_ceiling(meshes, panel, polygon.boundary, storey_top, elevation)
+
+
+def passage_ceiling(meshes, panel, boundary, storey_top, elevation):
+    cap(meshes, "wall", panel, elevation, underside=True)
+    for ring in [panel.exterior, *panel.interiors]:
+        xy = np.asarray(ring.coords)
+        top = np.column_stack((xy, np.full(len(xy), storey_top)))
+        edges = boundary_edges(np.stack((top[:-1], top[1:]), axis=1), boundary)
+        vertical_faces(meshes, "wall", edges, elevation(edges[:, :, :2]))
+
+
+def building_walls(meshes, polygon, bottom, top, foundation=None, *, bays=True):
     for ring in [polygon.exterior, *polygon.interiors]:
         corners = np.asarray(ring.coords)
         if foundation:
-            top = np.column_stack((corners, np.full(len(corners), base)))
-            edges = np.stack((top[:-1], top[1:]), axis=1)
+            support = np.column_stack((corners, np.full(len(corners), bottom)))
+            edges = np.stack((support[:-1], support[1:]), axis=1)
             vertical_faces(meshes, "foundation", edges, foundation.sole_m)
         for a, b in itertools.pairwise(corners):
             span = b - a
             length = np.linalg.norm(span)
             if length < 0.01:
                 continue
-            height = roof - floor
-            if np.linalg.norm((a + b) / 2) < 85 and length > 2 and height > 2:
+            height = top - bottom
+            if bays and np.linalg.norm((a + b) / 2) < 85 and length > 2 and height > 2:
                 repeat = FacadeRepeat(
                     length,
                     height,
@@ -94,7 +143,7 @@ def building(meshes, polygon, properties, source, foundation=None):
                 u, v, n = surface["vertices"].T
                 axis = span / length
                 xy = a + u[:, None] * axis + n[:, None] * [axis[1], -axis[0]]
-                vertices = np.column_stack((xy, base + floor + v))
+                vertices = np.column_stack((xy, bottom + v))
                 for role, name in enumerate(("wall", "glass", "frame")):
                     faces = surface["faces"][surface["roles"] == role]
                     used, inverse = np.unique(faces, return_inverse=True)
@@ -103,7 +152,7 @@ def building(meshes, polygon, properties, source, foundation=None):
                 xy = np.array([a, b, b, a])
                 meshes.add(
                     "wall",
-                    np.column_stack((xy, base + np.array([floor, floor, roof, roof]))),
+                    np.column_stack((xy, [bottom, bottom, top, top])),
                     [(0, 1, 2), (0, 2, 3)],
                 )
 
@@ -276,9 +325,11 @@ def ground_surfaces(
     water=(),
     water_plan=(),
     foundations=(),
+    covered_walks=(),
 ):
     transport = [(g, p) for layer, g, p in source.features if layer == "transportation"]
-    roads = at_grade_routes(transport, extent)
+    paved = [*transport, *((p.corridor, p.properties) for p in covered_walks)]
+    roads = at_grade_routes(paved, extent)
     height = lambda points: terrain_height(vertices, points)
     stairs = local_stairways(source.features, extent, bodies, height)
     branches, aprons, replaced_paths = local_stair_branches(
@@ -309,7 +360,7 @@ def ground_surfaces(
         )
     ]
     if replaced_paths:
-        roads = at_grade_routes(transport, extent, replaced_paths=replaced_paths)
+        roads = at_grade_routes(paved, extent, replaced_paths=replaced_paths)
     routes = tram_routes(
         source.features,
         [c for c in crossings if any(c.span is span for span in joined_spans)],
@@ -343,7 +394,7 @@ def ground_surfaces(
     )
     if links:
         replaced_paths.update(link.source for link in links)
-        roads = at_grade_routes(transport, extent, replaced_paths=replaced_paths)
+        roads = at_grade_routes(paved, extent, replaced_paths=replaced_paths)
     landings, joined_edges = local_landings(
         source.features,
         stairs,
@@ -588,6 +639,22 @@ def assemble(
         source.height,
     )
     by_footprint = {foundation.footprint: foundation for foundation in foundations}
+    passages = building_passages(
+        [(g, p) for name, g, p in source.features if name == "transportation"],
+        [
+            polygon
+            for polygon, properties in buildings
+            if polygon in by_footprint and properties.get("render_height", 0) > 3.4
+        ],
+        extent,
+        partial(terrain_height, vertices),
+    )
+    for polygon, properties in buildings:
+        if polygon in passages:
+            ridge = by_footprint[polygon].seat_m + properties["render_height"]
+            passages[polygon] = [
+                item for item in passages[polygon] if item.crown_m + 0.4 < ridge
+            ]
     approaches, carried, track_paving, crossings, openings, walk_edges = (
         ground_surfaces(
             meshes,
@@ -601,6 +668,7 @@ def assemble(
             water=water,
             water_plan=water_plan,
             foundations=foundations,
+            covered_walks=[item for group in passages.values() for item in group],
         )
     )
     if not track_paving.is_empty:
@@ -621,7 +689,9 @@ def assemble(
             if properties.get("render_min_height", 0) == 0
             else None
         )
-        building(meshes, polygon, properties, source, foundation)
+        building(
+            meshes, polygon, properties, source, foundation, passages.get(polygon, ())
+        )
     for name, geom, prop in source.features:
         if name == "transportation" and prop.get("brunnel") != "tunnel":
             if at_grade_width(prop) is not None:
