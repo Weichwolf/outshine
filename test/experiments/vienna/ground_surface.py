@@ -17,6 +17,7 @@ ROAD_WIDTH = {
     "path": 1.8,
 }
 ROUTE_MATERIALS = ("road", "sidewalk", "paving", "unpaved path")
+SOIL_MATERIALS = ("ground", "forest floor", "grass", "meadow")
 
 
 def polygons(geometry):

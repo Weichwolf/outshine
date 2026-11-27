@@ -9,9 +9,38 @@ from regional import REGIONAL_LAND, class_fields
 from scene_mesh import assemble
 from shapely.geometry import LineString, Point, Polygon, box
 from water_surface import WaterBody
+from woodland import woodland_surface
 
 
 class GroundSurfaceTest(unittest.TestCase):
+    def test_forest_floor_keeps_the_walk_clear_and_supports_plants(self):
+        source = SimpleNamespace(
+            height=lambda xy: 0.15 * xy[:, 0] + 0.2 * xy[:, 1],
+            features=[
+                ("landcover", box(-6, -6, 6, 6), {"class": "wood"}),
+                (
+                    "landcover",
+                    box(2, 2, 5, 5),
+                    {"class": "grass", "subclass": "meadow"},
+                ),
+                (
+                    "transportation",
+                    LineString([(-8, 0), (8, 0)]),
+                    {"class": "path", "subclass": "path"},
+                ),
+            ],
+        )
+        meshes = assemble(source, 10)
+        forest = meshes["forest floor"]
+        self.assertAlmostEqual(support_height(forest, (-3, 4)).max(), 0.35)
+        self.assertEqual(len(support_height(forest, (-3, 0))), 0)
+        self.assertEqual(len(support_height(forest, (3, 3))), 0)
+        self.assertAlmostEqual(
+            support_height(meshes["unpaved path"], (-3, 0)).max(), -0.45
+        )
+        height = woodland_surface(meshes).sample([[-3, 4], [8, 4]]).points_enu_m[:, 2]
+        np.testing.assert_allclose(height, [0.35, 2.0])
+
     def test_grass_and_soil_follow_the_same_grade_at_the_waterline(self):
         water = WaterBody(box(-40, -40, 0, 40), 0.0)
         source = SimpleNamespace(

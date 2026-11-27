@@ -211,6 +211,8 @@ crop. The distant templates group leaves by branch and retain their represented 
 area. Dechantlacke-Woodland looks into the stand from a mapped path. Compare crown
 gaps and woodland layers with the
 [August 2022 Lobau woodland](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg).
+Mapped woodland soil carries baked leaves, exposed humus and moss. Ground-level leaf
+patches use the solved soil and reserve their full width along paths and water.
 
 
 The thirteenth reference, Wien, reads the elevated camera and clock directly from
