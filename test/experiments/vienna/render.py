@@ -112,37 +112,38 @@ def surface_material(name):
 
 
 def apply_water_bed(bed):
+    # The raster fades to zero at the boundary of the local water mesh.
+    material = bpy.data.materials.get("water")
+    if material is None:
+        return
     height, width = bed.transmission.shape[:2]
     image = bpy.data.images.new(
-        "Water bed transmission", width, height, float_buffer=True
+        "Water bed transmission", width, height, float_buffer=False
     )
     image.colorspace_settings.name = "Non-Color"
     pixels = np.ones((height, width, 4), dtype="f4")
     pixels[..., :3] = bed.transmission
     image.pixels.foreach_set(pixels.ravel())
     east, north, inv_width, inv_height = bed.transform
-    for name in WATER_MATERIALS:
-        if (material := bpy.data.materials.get(name)) is None:
-            continue
-        tree = material.node_tree
-        nodes, link = tree.nodes, tree.links.new
-        position = nodes.new("ShaderNodeNewGeometry").outputs["Position"]
-        coords = nodes.new("ShaderNodeVectorMath")
-        coords.operation = "MULTIPLY_ADD"
-        coords.inputs[1].default_value = (inv_width, inv_height, 0)
-        coords.inputs[2].default_value = (-east * inv_width, -north * inv_height, 0)
-        link(position, coords.inputs[0])
-        texture = nodes.new("ShaderNodeTexImage")
-        texture.image = image
-        texture.extension = "CLIP"
-        link(coords.outputs["Vector"], texture.inputs["Vector"])
-        colour = nodes.new("ShaderNodeVectorMath")
-        colour.operation = "MULTIPLY_ADD"
-        water = np.asarray(SURFACES[name][0])
-        colour.inputs[1].default_value = np.asarray(BED_ALBEDO) - water
-        colour.inputs[2].default_value = water
-        link(texture.outputs["Color"], colour.inputs[0])
-        link(colour.outputs["Vector"], nodes["Principled BSDF"].inputs["Base Color"])
+    tree = material.node_tree
+    nodes, link = tree.nodes, tree.links.new
+    position = nodes.new("ShaderNodeNewGeometry").outputs["Position"]
+    coords = nodes.new("ShaderNodeVectorMath")
+    coords.operation = "MULTIPLY_ADD"
+    coords.inputs[1].default_value = (inv_width, inv_height, 0)
+    coords.inputs[2].default_value = (-east * inv_width, -north * inv_height, 0)
+    link(position, coords.inputs[0])
+    texture = nodes.new("ShaderNodeTexImage")
+    texture.image = image
+    texture.extension = "CLIP"
+    link(coords.outputs["Vector"], texture.inputs["Vector"])
+    colour = nodes.new("ShaderNodeVectorMath")
+    colour.operation = "MULTIPLY_ADD"
+    water = np.asarray(SURFACES["water"][0])
+    colour.inputs[1].default_value = np.asarray(BED_ALBEDO) - water
+    colour.inputs[2].default_value = water
+    link(texture.outputs["Color"], colour.inputs[0])
+    link(colour.outputs["Vector"], nodes["Principled BSDF"].inputs["Base Color"])
 
 
 def upload(name, vertices, faces, *, collection, smooth=False):
