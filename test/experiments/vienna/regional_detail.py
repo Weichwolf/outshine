@@ -2,6 +2,7 @@
 
 import numpy as np
 import shapely
+from building_footprints import building_footprints
 from outshine_ref.buildings.structures import suppressed
 from shapely.geometry import box, shape
 
@@ -32,8 +33,10 @@ def building_shells(data, nw, se, source, dem, radius, focal):
         return (low, high) if high > low and not suppressed(p) else None
 
     geoms, heights = metric_polygons(group, nw, se, interval)
+    geoms, owners = building_footprints(geoms)
     if not len(geoms):
         return []
+    heights = heights[owners]
     anchors = shapely.point_on_surface(geoms)
     xy = shapely.get_coordinates(anchors)
     lon, lat = (xy / source.metres + [source.lon, source.lat]).T
@@ -44,7 +47,6 @@ def building_shells(data, nw, se, source, dem, radius, focal):
     domain = box(nw[0], se[1], se[0], nw[1]).difference(
         box(-radius, -radius, radius, radius)
     )
-    geoms = shapely.make_valid(geoms)
     partial = ~shapely.covered_by(geoms, domain)
     geoms[partial] = shapely.intersection(geoms[partial], domain)
     polys, index = shapely.get_parts(geoms, return_index=True)
