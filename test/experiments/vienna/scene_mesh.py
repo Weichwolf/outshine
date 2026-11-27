@@ -1,6 +1,7 @@
 """Assemble source geometry in local east/north/up metres for Blender."""
 
 import itertools
+from dataclasses import replace
 
 import numpy as np
 import shapely
@@ -23,6 +24,7 @@ from stair_branches import local_stair_branches
 from stair_guards import draw_stair_guards
 from stair_landings import local_landings
 from stairs import local_stairways
+from tram_rails import draw_tram_rails, tram_routes
 from viaducts import draw_viaduct
 
 
@@ -212,6 +214,16 @@ def ground_surfaces(
     if replaced_paths:
         roads = at_grade_routes(transport, extent, replaced_paths=replaced_paths)
     carried = junction_pavement(transport, crossings, junctions, joined_spans, roads)
+    routes = tram_routes(
+        source.features,
+        [c for c in crossings if any(c.span is span for span in joined_spans)],
+    )
+    track_paving = shapely.union_all(
+        [line.buffer(1.05, cap_style="flat") for _, line in routes]
+    )
+    if routes:
+        pavement = track_paving.intersection(junction_area, grid_size=1e-6)
+        roads["road"] = roads["road"].union(pavement, grid_size=1e-6)
     stairs.extend(branches)
     landings, joined_edges = local_landings(
         source.features, stairs, extent, bodies, height
@@ -285,7 +297,8 @@ def ground_surfaces(
     staircase_risers(meshes, stairs)
     draw_stair_guards(meshes, stairs, [*landings, *aprons])
     water_surfaces(meshes, source, bodies, vertices, banks)
-    return approaches, carried
+    draw_tram_rails(meshes, routes, junctions)
+    return approaches, carried, track_paving
 
 
 def assemble(source, radius, viaducts=(), approaches=(), *, crossings=None):
@@ -303,9 +316,16 @@ def assemble(source, radius, viaducts=(), approaches=(), *, crossings=None):
         crossings = list(
             plan_water_crossings(source.features, extent, bodies, source.height)
         )
-    approaches, carried = ground_surfaces(
+    approaches, carried, track_paving = ground_surfaces(
         meshes, source, extent, bodies, vertices, quads, approaches, crossings
     )
+    if not track_paving.is_empty:
+        crossings = [
+            replace(
+                c, pavement=c.pavement.union(track_paving.intersection(c.footprint))
+            )
+            for c in crossings
+        ]
     bridges = draw_water_crossings(meshes, crossings, bodies, source.height, approaches)
     for viaduct in viaducts:
         draw_viaduct(meshes, viaduct, source.height, approaches)
