@@ -65,7 +65,8 @@ within the original faces. Water takes precedence over ground routes and roads t
 precedence over paths. Tunnels and elevated links are excluded from the ground network.
 The outer height field still quantizes roofs and shorelines.
 
-The native Wien capture is the first reproduction target. Compare the same view in
+The native Wien capture is a historical diagnostic comparison. Visual acceptance uses the
+twelve pedestrian cameras. Compare the historical view in
 `build/shots/places/Wien.png` (Blender) and `build/shots/glsl/Wien.png` (standalone GPU).
 Both consume the same camera, source products, material values, sun direction and tree
 instances. GLSL uses Outshine's metal/rough BRDF and atmospheric lookup kernels. Aerial

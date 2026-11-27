@@ -4,10 +4,12 @@
 
 Ich baue eine weltweite, datengetriebene Open-World-Sandbox. Aus OpenFreeMap, Mapterhorn,
 Open-Meteo, Szenariozeit und prozeduralen Rezepten entsteht eine plausible, funktionale Erde.
-Sie reicht vom Orbit bis zu Details auf Augenhöhe. Die Darstellung nutzt PBR und eine eigene,
-regional geprägte 2050-Solarpunk-Gestaltung. GTA VI gibt Orientierung für Umgebungsqualität,
-Fallout 4 für Himmel und offene Erkundung. Datierte Webcam-Archive sind meine erste
-Bildreferenz für reale Orte, Jahreszeiten, Tageslicht und Wetter.
+Ich entwickle und prüfe die erste Welt aus Fußgänger- und Autoperspektiven. Maßgeblich
+ist die begeh- oder befahrbare Fläche, auch auf einem Turmdeck oder Berg.
+Ich rendere physikalisch basiert und orientiere Architektur, Vegetation, Materialien
+und Licht an der realen Region.
+GTA VI gibt Orientierung für Umgebungsqualität, Fallout 4 für Himmel und offene Erkundung.
+Datierte Aufnahmen sind meine Bildreferenz für reale Orte, Jahreszeiten, Tageslicht und Wetter.
 Die [Konzeptbilder](doc/images/concept/) zeigen exemplarische Fähigkeiten. Die Abnahme nutzt
 wechselnde Orte, Tageszeiten und Spielsituationen.
 
@@ -29,8 +31,8 @@ Abnahme. Alle Profile zeigen vollständige Inhalte und bis zu 240 km Sichtweite,
 und Aussicht sie zulassen. Dichte Stadt und dichter Wald teilen sich das gleiche Gesamtbudget für
 GPU-Zeit, Bandbreite und Speicher. Ich stecke Detail in die sichtbare Bildwirkung.
 
-- Ich halte wechselnde Places als Vergleich, auch unabhängige Gegenbeispiele. Kopfbewegung,
-  Drehung und Flug prüfen. Ich öffne aktuelle PNGs und Zwischenbilder. Pro Place bleibt unter
+- Ich halte wechselnde Places als Vergleich, auch unabhängige Gegenbeispiele. Ich prüfe
+  Gehen, Blickdrehungen und Fahrten aus Autoperspektive. Ich öffne aktuelle PNGs und Zwischenbilder. Pro Place bleibt unter
   `build/shots/places/` das neueste PNG. Bilder publiziere ich nur auf ausdrücklichen Auftrag.
 - Ich messe CPU-/GPU-p50 und -p99, Passzeiten, IO, Uploads sowie physischen Speicher. Vorher/Nachher
   gelten bei drei gepaarten Läufen auf demselben Gerät und Profil. [Benchmark #1956](https://github.com/Weichwolf/outshine/issues/1956)
@@ -39,13 +41,10 @@ GPU-Zeit, Bandbreite und Speicher. Ich stecke Detail in die sichtbare Bildwirkun
 
 ## Referenz vor nativer Umsetzung
 
-Meine Referenzserie umfasst zwölf Wiener Fußgängerperspektiven und die erhöhte Kamera aus
-Wien.scenario. Vegetation ist in allen dreizehn Ansichten aktiv. Ich iteriere mit Python und
-den gemeinsamen GLSL-Shadern. Zuerst reproduzieren Python/GLSL und Python/Blender den
-bekannten nativen Wien-Shot bei identischer Kamera und Zeit. Blender GPU liefert den
-unabhängigen Bild- und Lichtvergleich. Ich prüfe die Bilder auf Augenhöhe und verbessere
-Rezepte, Materialien und Licht
-an mehreren Standorten und benachbarten Blickpunkten. EEVEE und Cycles nutzen die GPU.
+Meine Referenzserie umfasst zwölf Wiener Fußgängerperspektiven mit aktiver Vegetation.
+Ich prüfe die Motive auf Augenhöhe und aus benachbarten Blickpunkten. Die erhöhte Kamera
+aus Wien.scenario dient als historischer Vergleich. Blender und die gemeinsamen GLSL-Shader
+liefern reproduzierbare GPU-Referenzen. EEVEE und Cycles nutzen die GPU.
 Warme EEVEE-Arbeitsbilder bei 720p dürfen je Standort fünf Sekunden brauchen.
 Die [visuelle Abnahme](https://github.com/Weichwolf/outshine/issues/2084) bestimmt die Vorlage
 für C++. Erst danach entscheide ich über Übernahme, Ersatz oder vollständigen Neubau des
