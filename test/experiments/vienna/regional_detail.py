@@ -2,6 +2,7 @@
 
 import numpy as np
 import shapely
+from building_colours import facade_colours, wall_material
 from building_footprints import building_footprints
 from outshine_ref.buildings.structures import suppressed
 from shapely.geometry import box, shape
@@ -32,11 +33,23 @@ def building_shells(data, nw, se, source, dem, radius, focal):
         low = p.get("render_min_height", 0)
         return (low, high) if high > low and not suppressed(p) else None
 
-    geoms, heights = metric_polygons(group, nw, se, interval)
+    geoms, properties = metric_polygons(
+        group, nw, se, lambda p: p if interval(p) or p.get("colour") else None
+    )
     geoms, owners = building_footprints(geoms)
     if not len(geoms):
         return []
-    heights = heights[owners]
+    properties = properties[owners]
+    colours = np.asarray(facade_colours(geoms, properties), dtype=object)
+    heights = np.asarray([interval(p) or (0.0, 0.0) for p in properties])
+    renderable = heights[:, 1] > heights[:, 0]
+    geoms, heights, colours = (
+        geoms[renderable],
+        heights[renderable],
+        colours[renderable],
+    )
+    if not len(geoms):
+        return []
     # Tile buffers contain duplicate source footprints. Each tile owns its interior.
     domain = box(nw[0], se[1], se[0], nw[1]).difference(
         box(-radius, -radius, radius, radius)
@@ -90,11 +103,13 @@ def building_shells(data, nw, se, source, dem, radius, focal):
             np.c_[a, high[parent]],
         ),
         axis=1,
-    ).reshape(-1, 3)
-    products = [
-        ("regional roofs", roofs, np.arange(len(roofs)).reshape(-1, 3)),
-        ("regional walls", walls, np.arange(len(walls)).reshape(-1, 4)),
-    ]
+    )
+    products = [("regional roofs", roofs, np.arange(len(roofs)).reshape(-1, 3))]
+    names = np.asarray([wall_material("regional walls", c) for c in colours])
+    edge_material = names[index[parent]]
+    for name in np.unique(edge_material):
+        vertices = walls[edge_material == name].reshape(-1, 3)
+        products.append((name, vertices, np.arange(len(vertices)).reshape(-1, 4)))
     windows = visible_windows(
         a,
         b,

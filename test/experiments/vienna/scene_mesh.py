@@ -12,6 +12,7 @@ from bridge_contacts import bank_cuts
 from bridge_junctions import junction_pavement
 from bridge_passages import bridge_terrain
 from bridges import draw_water_crossings, plan_water_crossings
+from building_colours import facade_colours, wall_material
 from building_foundations import BuildingStamps, building_foundations
 from building_passages import building_passages, vault_panels
 from deck_walk_links import DeckWalkLink, deck_walk_links
@@ -62,7 +63,7 @@ def cap(meshes, name, polygon, elevation, *, underside=False):
 
 
 def building(
-    meshes, polygon, properties, source, foundation, passages, grade, facade_view
+    meshes, polygon, properties, source, foundation, passages, grade, facade_view, wall
 ):
     floor = properties.get("render_min_height", 0)
     roof = properties.get("render_height", 0)
@@ -77,12 +78,19 @@ def building(
     if passages:
         soffit = max(item.crown_m for item in passages)
         corridor = shapely.union_all([item.corridor for item in passages])
-        passage_ceilings(meshes, polygon, passages, corridor, soffit, grade)
+        passage_ceilings(meshes, polygon, passages, corridor, soffit, grade, wall)
         for pier in polygons(polygon.difference(corridor)):
             building_walls(
-                meshes, pier, base + floor, soffit, facade_view, foundation, bays=False
+                meshes,
+                pier,
+                base + floor,
+                soffit,
+                facade_view,
+                foundation,
+                bays=False,
+                wall=wall,
             )
-        building_walls(meshes, polygon, soffit, base + roof, facade_view)
+        building_walls(meshes, polygon, soffit, base + roof, facade_view, wall=wall)
     else:
         building_walls(
             meshes,
@@ -92,10 +100,11 @@ def building(
             facade_view,
             foundation,
             grounded=floor == 0,
+            wall=wall,
         )
 
 
-def passage_ceilings(meshes, polygon, passages, corridor, storey_top, grade):
+def passage_ceilings(meshes, polygon, passages, corridor, storey_top, grade, wall):
     if sum(item.corridor.area for item in passages) - corridor.area > 1e-6:
         for cut in polygons(polygon.intersection(corridor)):
             cap(meshes, "wall", cut, lambda xy: storey_top, underside=True)
@@ -113,6 +122,7 @@ def passage_ceilings(meshes, polygon, passages, corridor, storey_top, grade):
                     polygon.boundary,
                     storey_top,
                     lambda xy, z=item.crown_m: np.full(xy.shape[:-1], z),
+                    wall,
                 )
         for piece, normal, low, offset, slope in panels:
 
@@ -120,20 +130,31 @@ def passage_ceilings(meshes, polygon, passages, corridor, storey_top, grade):
                 return low + (xy @ normal - offset) * slope
 
             for panel in polygons(piece):
-                passage_ceiling(meshes, panel, polygon.boundary, storey_top, elevation)
+                passage_ceiling(
+                    meshes, panel, polygon.boundary, storey_top, elevation, wall
+                )
 
 
-def passage_ceiling(meshes, panel, boundary, storey_top, elevation):
+def passage_ceiling(meshes, panel, boundary, storey_top, elevation, wall):
     cap(meshes, "wall", panel, elevation, underside=True)
     for ring in [panel.exterior, *panel.interiors]:
         xy = np.asarray(ring.coords)
         top = np.column_stack((xy, np.full(len(xy), storey_top)))
         edges = boundary_edges(np.stack((top[:-1], top[1:]), axis=1), boundary)
-        vertical_faces(meshes, "wall", edges, elevation(edges[:, :, :2]))
+        vertical_faces(meshes, wall, edges, elevation(edges[:, :, :2]))
 
 
 def building_walls(
-    meshes, polygon, bottom, top, view, foundation=None, *, grounded=False, bays=True
+    meshes,
+    polygon,
+    bottom,
+    top,
+    view,
+    foundation=None,
+    *,
+    grounded=False,
+    bays=True,
+    wall,
 ):
     for ring in [polygon.exterior, *polygon.interiors]:
         corners = np.asarray(ring.coords)
@@ -142,7 +163,9 @@ def building_walls(
             edges = np.stack((support[:-1], support[1:]), axis=1)
             vertical_faces(meshes, "foundation", edges, foundation.sole_m)
         for a, b in itertools.pairwise(corners):
-            draw_facade(meshes, a, b, bottom, top, view, grounded=grounded, bays=bays)
+            draw_facade(
+                meshes, a, b, bottom, top, view, grounded=grounded, bays=bays, wall=wall
+            )
 
 
 def terrain_grid(source, radius):
@@ -615,19 +638,25 @@ def assemble(
             plan_water_crossings(source.features, extent, bodies, source.height)
         )
     centre = Point(0, 0)
-    buildings = [
+    footprints = [
         (polygon, properties)
         for name, geometry, properties in source.features
-        if name == "building" and not suppressed(properties)
+        if name == "building"
         for polygon in polygons(
             geometry if geometry.is_valid else shapely.make_valid(geometry)
         )
         if polygon.distance(centre) <= radius
     ]
+    colours = facade_colours([g for g, _ in footprints], [p for _, p in footprints])
+    buildings = [
+        (polygon, properties, wall_material("wall", colour))
+        for (polygon, properties), colour in zip(footprints, colours, strict=True)
+        if not suppressed(properties)
+    ]
     foundations = building_foundations(
         [
             polygon
-            for polygon, properties in buildings
+            for polygon, properties, _ in buildings
             if properties.get("render_min_height", 0) == 0
             and properties.get("render_height", 0) > 0
             and extent.covers(polygon)
@@ -640,13 +669,13 @@ def assemble(
         [(g, p) for name, g, p in source.features if name == "transportation"],
         [
             polygon
-            for polygon, properties in buildings
+            for polygon, properties, _ in buildings
             if polygon in by_footprint and properties.get("render_height", 0) > 3.4
         ],
         extent,
         grade,
     )
-    for polygon, properties in buildings:
+    for polygon, properties, _ in buildings:
         if polygon in passages:
             ridge = by_footprint[polygon].seat_m + properties["render_height"]
             passages[polygon] = [
@@ -681,7 +710,7 @@ def assemble(
     )
     for viaduct in viaducts:
         draw_viaduct(meshes, viaduct, source.height, approaches)
-    for polygon, properties in buildings:
+    for polygon, properties, wall in buildings:
         foundation = (
             by_footprint.get(polygon)
             if properties.get("render_min_height", 0) == 0
@@ -696,6 +725,7 @@ def assemble(
             passages.get(polygon, ()),
             grade,
             facade_view,
+            wall,
         )
     for name, geom, prop in source.features:
         if name == "transportation" and prop.get("brunnel") != "tunnel":

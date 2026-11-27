@@ -42,7 +42,9 @@ show the adjoining arches in both directions. Adlerhof-Near keeps the oblique
 paving and facade view. The Dechantlacke path views look past the same exposed
 roots. Select these extra views explicitly to keep the twelve-view run in order.
 
-KarlMarxHof checks that window rows read across the courtyard. Nevillebruecke
+KarlMarxHof faces the east façade from a mapped sidewalk. The source's light
+and rose finishes stay distinct on separately modelled building parts.
+KarlMarxHof-Courtyard retains the longer view for window rows. Nevillebruecke
 checks the same window grid as the streetscape recedes. Near openings have
 recesses, frames and projecting sills. Smaller visible openings keep the same
 spacing in a flat wall mesh.
