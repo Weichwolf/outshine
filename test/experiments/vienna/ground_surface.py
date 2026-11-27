@@ -63,6 +63,15 @@ def path_material(props):
     return "sidewalk"
 
 
+def clip_route_areas(areas, domain):
+    clipped = shapely.union_all(areas).intersection(domain)
+    if clipped.geom_type in ("Polygon", "MultiPolygon"):
+        return clipped
+    parts = shapely.get_parts(clipped)
+    areal = parts[shapely.get_dimensions(parts) == 2]
+    return shapely.union_all(areal) if len(areal) else shapely.Polygon()
+
+
 def at_grade_routes(features, domain, *, focal=None, replaced_paths=()):
     footprints = {name: [] for name in ROUTE_MATERIALS}
     for geom, props in features:
@@ -91,10 +100,9 @@ def at_grade_routes(features, domain, *, focal=None, replaced_paths=()):
             continue
         material = path_material(props) if kind == "path" else "road"
         footprints[material].append(route_area(geom, width))
-    roads = shapely.union_all(footprints["road"]).intersection(domain)
-    paths = shapely.union_all(footprints["sidewalk"]).intersection(domain)
-    paving = shapely.union_all(footprints["paving"]).intersection(domain)
-    unpaved = shapely.union_all(footprints["unpaved path"]).intersection(domain)
+    roads, paths, paving, unpaved = (
+        clip_route_areas(footprints[name], domain) for name in ROUTE_MATERIALS
+    )
     hard_paths = paths.union(paving)
     return {
         "road": roads.difference(hard_paths.union(unpaved)),

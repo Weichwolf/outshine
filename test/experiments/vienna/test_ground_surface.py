@@ -52,6 +52,18 @@ class GroundSurfaceTest(unittest.TestCase):
         self.assertFalse(products["unpaved path"].covers(Point(10, 0)))
         self.assertTrue(products["paving"].covers(Point(10, 0)))
 
+    def test_path_touching_tile_boundary_contributes_no_surface(self):
+        sidewalk = box(2, 2, 8, 3)
+        touching = box(10, 5, 12, 6)
+        tagged_sidewalk = {"class": "path", "subclass": "footway"}
+        products = at_grade_routes(
+            [(sidewalk, tagged_sidewalk), (touching, tagged_sidewalk)],
+            box(0, 0, 10, 10),
+        )
+        self.assertTrue(products["sidewalk"].equals(sidewalk))
+        self.assertTrue(products["unpaved path"].is_empty)
+        self.assertTrue(products["road"].is_empty)
+
     def test_shoreline_and_road_partition_sloping_terrain_without_overlap(self):
         vertices = np.array(
             [[0, 0, 0], [10, 0, 1], [20, 0, 2], [0, 10, 2], [10, 10, 4], [20, 10, 6]]
