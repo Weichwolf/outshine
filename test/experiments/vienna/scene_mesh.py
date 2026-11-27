@@ -5,6 +5,7 @@ import itertools
 import numpy as np
 import shapely
 from bridges import build_water_bridges
+from ground_surface import at_grade_routes, at_grade_width, partition_ground
 from outshine_ref.buildings.facades import FacadeRepeat
 from outshine_ref.buildings.recessed_facades import RecessPlan, recess_surface
 from outshine_ref.buildings.structures import suppressed
@@ -80,27 +81,17 @@ def building(meshes, polygon, properties, source):
                 )
 
 
-def assemble(source, radius):
-    meshes = Meshes()
+def terrain_grid(source, radius):
     axis = np.linspace(-radius, radius, 65)
     x, y = np.meshgrid(axis, axis)
     xy = np.column_stack((x.ravel(), y.ravel()))
     cell = np.arange(len(xy)).reshape(x.shape)[:-1, :-1].ravel()
     quads = cell[:, None] + [0, 1, len(axis) + 1, len(axis)]
-    terrain = quads[:, [0, 1, 2, 0, 2, 3]].reshape(-1, 3)
-    extent = box(-radius, -radius, radius, radius)
-    bodies = shapely.union_all(
-        [
-            shapely.make_valid(g).intersection(extent)
-            for layer, g, props in source.features
-            if layer == "water"
-        ]
-    )
-    cut = shapely.intersects(shapely.polygons(xy[terrain]), bodies)
-    meshes.add("ground", np.column_stack((xy, source.height(xy))), terrain[~cut])
-    for face in terrain[cut]:
-        for piece in polygons(shapely.Polygon(xy[face]).difference(bodies)):
-            cap(meshes, "ground", piece, source.height)
+    return np.column_stack((xy, source.height(xy))), quads
+
+
+def water_surfaces(meshes, source, bodies, vertices, banks):
+    xy = vertices[:, :2]
     for body in polygons(bodies):
         samples = xy[shapely.contains_xy(body, xy[:, 0], xy[:, 1])]
         if not len(samples):
@@ -115,24 +106,53 @@ def assemble(source, radius):
             )
 
         cap(meshes, "water", body, water_height)
-        for ring in [body.exterior, *body.interiors]:
-            shore = np.asarray(ring.coords)
-            wet = water_height(shore)
-            count = len(shore)
-            top = np.column_stack((shore, source.height(shore)))
-            bottom = np.column_stack((shore, wet - 0.1))
-            start = np.arange(count - 1)
-            faces = np.column_stack(
-                (
-                    start,
-                    start + count,
-                    start + 1,
-                    start + 1,
-                    start + count,
-                    start + count + 1,
-                )
-            )
-            meshes.add("ground", np.vstack((top, bottom)), faces.reshape(-1, 3))
+        if not len(banks):
+            continue
+        xy_banks = banks[:, :, :2]
+        boundary = body.boundary
+        on_shore = shapely.dwithin(
+            shapely.points(xy_banks.reshape(-1, 2)), boundary, 1e-6
+        ).reshape(-1, 2).all(axis=1) & shapely.dwithin(
+            shapely.points(xy_banks.mean(axis=1)), boundary, 1e-6
+        )
+        top = banks[on_shore]
+        shore = top[:, :, :2].reshape(-1, 2)
+        bottom = np.column_stack((shore, water_height(shore) - 0.1)).reshape(-1, 2, 3)
+        walls = np.concatenate((top, bottom), axis=1).reshape(-1, 3)
+        faces = np.arange(len(top))[:, None] * 4 + [0, 2, 1, 1, 2, 3]
+        if len(walls):
+            meshes.add("ground", walls, faces.reshape(-1, 3))
+
+
+def assemble(source, radius):
+    meshes = Meshes()
+    extent = box(-radius, -radius, radius, radius)
+    vertices, quads = terrain_grid(source, radius)
+    bodies = shapely.union_all(
+        [
+            shapely.make_valid(g).intersection(extent)
+            for layer, g, _ in source.features
+            if layer == "water"
+        ]
+    )
+    roads = at_grade_routes(
+        ((g, p) for layer, g, p in source.features if layer == "transportation"),
+        extent,
+    )
+    names = ("ground", "water", "road", "sidewalk")
+    footprints = {1: bodies, 2: roads["road"], 3: roads["sidewalk"]}
+    banks = np.empty((0, 2, 3))
+    for name, points, faces in partition_ground(
+        vertices, quads, np.zeros(len(quads), dtype=int), names, footprints
+    ):
+        if name == "water":
+            edges = points[faces][:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2, 3)
+            banks = np.concatenate((banks, edges))
+        elif len(faces):
+            used, inverse = np.unique(faces, return_inverse=True)
+            meshes.add(name, points[used], inverse.reshape(-1, 3))
+    water_surfaces(meshes, source, bodies, vertices, banks)
+
     bridges = build_water_bridges(
         meshes, source.features, extent, bodies, source.height
     )
@@ -143,6 +163,8 @@ def assemble(source, radius):
                 if poly.distance(Point(0, 0)) <= radius:
                     building(meshes, poly, prop, source)
         elif name == "transportation" and prop.get("brunnel") != "tunnel":
+            if at_grade_width(prop) is not None:
+                continue
             material = "sidewalk" if prop.get("class") == "path" else "road"
             clipped = geometry.intersection(extent)
             if "LineString" in clipped.geom_type:

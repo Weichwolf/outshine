@@ -2,11 +2,28 @@ import unittest
 
 import numpy as np
 import shapely
-from ground_surface import partition_ground
-from shapely.geometry import Polygon, box
+from ground_surface import at_grade_routes, partition_ground
+from shapely.geometry import LineString, Point, Polygon, box
 
 
 class GroundSurfaceTest(unittest.TestCase):
+    def test_mapped_footway_survives_inferred_road_width(self):
+        road = LineString([(0, 0), (20, 0)])
+        footway = LineString([(0, 2), (20, 2)])
+        deck = LineString([(0, 8), (20, 8)])
+        surfaces = at_grade_routes(
+            [
+                (road, {"class": "minor"}),
+                (footway, {"class": "path"}),
+                (deck, {"class": "primary", "brunnel": "bridge", "layer": 1}),
+            ],
+            box(0, -5, 20, 15),
+        )
+        self.assertTrue(surfaces["sidewalk"].covers(Point(10, 2)))
+        self.assertFalse(surfaces["road"].covers(Point(10, 2)))
+        self.assertTrue(surfaces["road"].covers(Point(10, 0)))
+        self.assertFalse(surfaces["road"].covers(Point(10, 8)))
+
     def test_shoreline_and_road_partition_sloping_terrain_without_overlap(self):
         vertices = np.array(
             [[0, 0, 0], [10, 0, 1], [20, 0, 2], [0, 10, 2], [10, 10, 4], [20, 10, 6]]

@@ -60,10 +60,11 @@ The regional reference samples the mapped building heights, water, woods, grass 
 footprints around each camera. Its height field extends to the distance at which a 12 m
 building occupies one pixel (6–15 km range). Closer tiles retain mapped building outlines, facade openings and shoreline positions.
 Mapped water crossings use a raised slab and piers where both banks can be resolved.
-Regional shorelines, roads and paths partition the same terrain triangles. The planar
+Local and regional shorelines, roads and paths partition the same terrain triangles. The planar
 arrangement cuts triangles only at material boundaries. Terrain heights are interpolated
-within the original faces. Water takes precedence over ground routes and roads take
-precedence over paths. Tunnels and elevated links are excluded from the ground network.
+within the original faces. Water takes precedence over ground routes. Mapped footpaths
+retain their footprint where an inferred road width overlaps them. Tunnels and elevated
+links are excluded from the ground network.
 The outer height field still quantizes roofs and shorelines.
 
 The native Wien capture is a historical diagnostic comparison. Visual acceptance uses the
