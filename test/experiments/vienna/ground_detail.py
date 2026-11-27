@@ -18,6 +18,7 @@ SURFACE_DETAIL = {
     "bridge deck": "concrete",
     "sidewalk": "concrete",
     "stair limestone": "concrete",
+    "foundation": "concrete",
     "ground": "soil",
     "unpaved path": "compacted",
     "wall": "plaster",
