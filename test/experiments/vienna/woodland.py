@@ -171,7 +171,7 @@ def woodland_surface(surfaces):
     parts = [
         np.asarray(vertices)[np.asarray(faces, dtype=int)]
         for name, (vertices, faces) in surfaces.items()
-        if name in {"ground", "grass"} and len(faces)
+        if name in {"ground", "grass", "meadow"} and len(faces)
     ]
     if not parts:
         return None

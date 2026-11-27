@@ -5,6 +5,7 @@ import numpy as np
 import shapely
 from ground_surface import at_grade_routes, partition_ground
 from reference_scene import support_height
+from regional import REGIONAL_LAND, class_fields
 from scene_mesh import assemble
 from shapely.geometry import LineString, Point, Polygon, box
 from water_surface import WaterBody
@@ -33,6 +34,58 @@ class GroundSurfaceTest(unittest.TestCase):
             a = support_height(meshes["grass"], (east, 0)).max()
             b = support_height(meshes["ground"], (east, 0)).max()
             self.assertAlmostEqual(a, b, places=6)
+
+    def test_regional_meadow_remains_distinct_under_wood_priority(self):
+        def feature(geometry, **properties):
+            return {
+                "geometry": shapely.geometry.mapping(geometry),
+                "properties": properties,
+            }
+
+        fields = {
+            "landcover": {
+                "extent": 16,
+                "features": [
+                    feature(
+                        box(2, 0, 16, 16), **{"class": "grass", "subclass": "meadow"}
+                    ),
+                    feature(box(4, 0, 6, 16), **{"class": "wood"}),
+                    feature(box(0, 0, 16, 16), **{"class": "grass"}),
+                ],
+            },
+        }
+        land, _ = class_fields(fields, 16, set(), False)
+        self.assertEqual(
+            [REGIONAL_LAND[land[8, x]] for x in (1, 3, 5)],
+            ["grass", "meadow", "regional wood"],
+        )
+
+    def test_tagged_meadow_overrides_generic_grass_and_keeps_the_path(self):
+        area = box(-8, -8, 8, 8)
+        source = SimpleNamespace(
+            height=lambda xy: 0.1 * xy[:, 0],
+            features=[
+                ("landcover", area, {"class": "grass"}),
+                (
+                    "landcover",
+                    box(0, -8, 8, 8),
+                    {"class": "grass", "subclass": "meadow"},
+                ),
+                (
+                    "transportation",
+                    LineString([(-8, 0), (8, 0)]),
+                    {"class": "path", "subclass": "path"},
+                ),
+            ],
+        )
+        meshes = assemble(source, 12)
+        self.assertAlmostEqual(support_height(meshes["meadow"], (5, 4)).max(), 0.5)
+        self.assertEqual(len(support_height(meshes["grass"], (5, 4))), 0)
+        self.assertAlmostEqual(support_height(meshes["grass"], (-5, 4)).max(), -0.5)
+        self.assertEqual(len(support_height(meshes["meadow"], (5, 0))), 0)
+        self.assertAlmostEqual(
+            support_height(meshes["unpaved path"], (5, 0)).max(), 0.5
+        )
 
     def test_mapped_grass_shares_the_slope_and_leaves_the_road_clear(self):
         source = SimpleNamespace(

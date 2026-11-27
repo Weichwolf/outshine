@@ -18,6 +18,7 @@ from ground_surface import (
     ROUTE_MATERIALS,
     at_grade_routes,
     at_grade_width,
+    grassland_material,
     partition_ground,
     partition_triangles,
     polygons,
@@ -471,18 +472,16 @@ def ground_surfaces(
         )
         building_stamps = BuildingStamps(foundations, reserved)
         breaks.extend(building_stamps.breaks())
-    grass = shapely.union_all(
-        [
-            part
-            for layer, geometry, properties in source.features
-            if layer == "landcover" and properties.get("class") == "grass"
-            for part in polygons(shapely.make_valid(geometry))
-        ]
-    ).intersection(extent)
-    if not grass.is_empty:
-        ground_cover = first_stair + len(pieces) + len(earthworks)
-        names[ground_cover] = "grass"
-        footprints[ground_cover] = grass
+    grassland = {"meadow": [], "grass": []}
+    for layer, geometry, properties in source.features:
+        if layer == "landcover" and (material := grassland_material(properties)):
+            grassland[material].extend(polygons(shapely.make_valid(geometry)))
+    cover_start = first_stair + len(pieces) + len(earthworks)
+    for label, (material, areas) in enumerate(grassland.items(), cover_start):
+        cover = shapely.union_all(areas).intersection(extent)
+        if not cover.is_empty:
+            names[label] = material
+            footprints[label] = cover
     for name, points, faces in partition_triangles(
         surface,
         indices,
@@ -518,7 +517,7 @@ def ground_surfaces(
         if len(faces):
             used, inverse = np.unique(faces, return_inverse=True)
             terrain = points[used]
-            if name in {"ground", "grass"}:
+            if name in {"ground", "grass", "meadow"}:
                 if building_stamps is not None:
                     terrain[:, 2] = building_stamps.heights(terrain)
                 terrain = shore.deform(source, terrain)
