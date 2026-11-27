@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import shapely
 from bridges import build_water_bridges
+from ground_routes import cut_ground_routes, route_footprints
 from outshine_ref.buildings.structures import suppressed
 from outshine_ref.places.height import Elevation
 from outshine_ref.places.sources import (
@@ -121,7 +122,8 @@ def class_fields(data, size, elevated, detail):
 
 def tile_surface(source, receipt, dem, focal, radius, data, elevated):
     nw, se = tile_rect(source, receipt["tile"])
-    d = box(nw[0], se[1], se[0], nw[1]).distance(shapely.Point(0, 0))
+    tile = box(nw[0], se[1], se[0], nw[1])
+    d = tile.distance(shapely.Point(0, 0))
     size = int(np.clip((se[0] - nw[0]) * focal / (max(d, 500) * 2), 72, 256))
     detail = d < 2.5 * focal
     land, height = class_fields(data, size, elevated, detail)
@@ -155,6 +157,11 @@ def tile_surface(source, receipt, dem, focal, radius, data, elevated):
     products = (
         building_shells(data, nw, se, source, dem, radius, focal) if detail else []
     )
+    routes = (
+        route_footprints(data.get("transportation", {}), nw, se, tile, focal)
+        if detail
+        else {}
+    )
     for i, name in enumerate(
         (
             "regional soil",
@@ -165,7 +172,9 @@ def tile_surface(source, receipt, dem, focal, radius, data, elevated):
         )
     ):
         mask = (land == i) & outside
-        if mask.any():
+        if routes and i < 3:
+            products.extend(cut_ground_routes(ground, faces[mask], name, routes))
+        elif mask.any():
             products.append((name, ground, faces[mask]))
     mask = (height > 0) & outside
     if mask.any():
@@ -194,7 +203,7 @@ def tile_surface(source, receipt, dem, focal, radius, data, elevated):
                 -1, 3
             )
             products.append(("regional walls", v, np.arange(len(v)).reshape(-1, 4)))
-    return products, box(nw[0], se[1], se[0], nw[1])
+    return products, tile
 
 
 def regional_meshes(source, receipts, focal, radius):
