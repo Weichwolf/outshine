@@ -12,9 +12,11 @@ from outshine_ref.contracts import Mesh
 from outshine_ref.geometry.sampling import SurfaceSampler
 from outshine_ref.vegetation import PlantPlan
 from outshine_ref.vegetation.axis_surface import axis_mesh
-from plant_sites import tile_sites
 from scene_mesh import Meshes, terrain_grid, terrain_height
+from woodland_sites import woodland_sites
 from woodland_stem import lean_tree, rooted_stem, template_stem
+
+DISTANT_LEAF_STEP = 32
 
 
 def stand_plan(species, form):
@@ -91,13 +93,33 @@ def habitat(source, *, stems=True):
     return shapely.union_all(woods).difference(shapely.union_all(excluded))
 
 
-def roots(source, domain, radius, seed):
-    for xy, marks in tile_sites(
-        source, np.zeros(2), radius, seed, density=0.012, cell_size=16
-    ):
-        keep = shapely.contains_xy(domain, *xy.T)
-        if keep.any():
-            yield xy[keep], marks[keep]
+def represented_leaves(rows, areas, step):
+    axes = rows["leaf_axis_ids"]
+    order = np.arange(len(axes))
+    if not len(order):
+        return order, np.empty(0), rows["leaf_origins"]
+    if step >= DISTANT_LEAF_STEP:
+        parents = rows["axis_parent_ids"][axes]
+        axes = np.where(parents >= 0, parents, axes)
+        order = np.argsort(axes, kind="stable")
+    _, starts, counts = np.unique(axes[order], return_index=True, return_counts=True)
+    first = np.concatenate(
+        [np.arange(i, i + n, step) for i, n in zip(starts, counts, strict=True)]
+    )
+    ends = starts + counts
+    stop = np.minimum(
+        first + step, ends[np.searchsorted(starts, first, side="right") - 1]
+    )
+    selected = order[(first + stop - 1) // 2]
+    variants = rows["leaf_variants"]
+    prefix = np.r_[0, np.cumsum(areas[variants[order]])]
+    size = np.sqrt((prefix[stop] - prefix[first]) / areas[variants[selected]])
+    origins = rows["leaf_origins"][selected]
+    if step >= DISTANT_LEAF_STEP:
+        ordered = rows["leaf_origins"][order]
+        sums = np.vstack((np.zeros(3), np.cumsum(ordered, axis=0)))
+        origins = (sums[stop] - sums[first]) / (stop - first)[:, None]
+    return selected, size, origins
 
 
 def geometry(plan, step, *, has_stem, oak):
@@ -111,6 +133,8 @@ def geometry(plan, step, *, has_stem, oak):
         if step > 1 and rows["axis_paths"][i, 2] >= 0:
             continue
         main_limb = rows["axis_parent_ids"][i] == 0
+        if step >= 16 and not main_limb:
+            continue
         rings, sides = (5, 8) if main_limb else (4, 6)
         if step > 1 and not main_limb:
             # These twigs have a radius below one sixth of the subpixel leaf width.
@@ -125,21 +149,9 @@ def geometry(plan, step, *, has_stem, oak):
         vertices = part["vertices"] @ rows["axis_frames"][i].T + rows["axis_origins"][i]
         meshes.add(bark, lean_tree(plan, vertices, oak=oak), part["faces"])
     # One representative spans the one-sided leaf area of its contiguous twig group.
-    owners, starts, counts = np.unique(
-        rows["leaf_axis_ids"], return_index=True, return_counts=True
-    )
-    first = np.concatenate(
-        [np.arange(i, i + n, step) for i, n in zip(starts, counts, strict=True)]
-    )
-    stop = np.minimum(
-        first + step,
-        (starts + counts)[np.searchsorted(owners, rows["leaf_axis_ids"][first])],
-    )
-    selected = (first + stop - 1) // 2
     variants = rows["leaf_variants"]
     areas = np.array([blade.area() for blade in plan.blades])
-    prefix = np.r_[0, np.cumsum(areas[variants])]
-    size = np.sqrt((prefix[stop] - prefix[first]) / areas[variants[selected]])
+    selected, size, origins = represented_leaves(rows, areas, step)
     for variant, blade in enumerate(plan.blades):
         where = variants[selected] == variant
         if not where.any():
@@ -154,7 +166,7 @@ def geometry(plan, step, *, has_stem, oak):
         verts = (
             np.einsum("mj,nij->nmi", part["vertices"], rows["leaf_frames"][idx])
             * leaf_scale[:, None, None]
-            + rows["leaf_origins"][idx, None, :]
+            + origins[where, None, :]
         )
         faces = (
             part["faces"] + (len(part["vertices"]) * np.arange(len(idx)))[:, None, None]
@@ -189,9 +201,14 @@ def woodland_surface(surfaces):
     )
 
 
-def tree_batches(source, radius, seed, focal_pixels, root_domain, *, soil=None):
+def tree_batches(
+    source, radius, seed, focal_pixels, root_domain, *, eye_xy=(0, 0), soil=None
+):
     domain = habitat(source)
     if domain is None or domain.is_empty:
+        return
+    positions, marks = woodland_sites(source, domain, np.zeros(2), radius, seed)
+    if not len(positions):
         return
     templates = {}
     plans = {}
@@ -210,37 +227,43 @@ def tree_batches(source, radius, seed, focal_pixels, root_domain, *, soil=None):
 
     root_height = partial(height, fallback=partial(terrain_height, terrain))
 
-    for positions, marks in roots(source, domain, radius, seed):
-        heights = height(positions, source.height)
-        for xy, z, (family, rotation, scale) in zip(
-            positions, heights, marks, strict=True
-        ):
-            species = "oak" if family < 0.5 else "beech"
-            form = int(family * 4) % 2
-            key = species, form
-            if key not in plans:
-                plans[key] = stand_plan(species, form)
-            plan = plans[key]
-            scale = 0.95 + scale * 0.95
-            distance = np.linalg.norm(xy)
-            width_px = plan.blades[0].width * scale * focal_pixels / max(1, distance)
-            group = 1 if width_px >= 1 else (4 if width_px >= 0.5 else 16)
-            angle = rotation * 2 * np.pi
-            near_stem = distance < 32
-            if near_stem:
-                z = root_height(xy[None])[0]
-                stem = rooted_stem(
-                    plan,
-                    root_domain,
-                    root_height,
-                    np.array([*xy, z - 0.08]),
-                    angle,
-                    scale,
-                    oak=species == "oak",
-                )
-                stems.add(f"{species} bark", stem["vertices"], stem["faces"])
-            key = species, form, group, near_stem
-            templates.setdefault(key, []).append((*xy, z - 0.08, angle, scale))
+    heights = height(positions, source.height)
+    distances = np.linalg.norm(positions - eye_xy, axis=1)
+    for xy, z, (family, rotation, scale), distance in zip(
+        positions, heights, marks, distances, strict=True
+    ):
+        species = "oak" if family < 0.5 else "beech"
+        form = int(family * 4) % 2
+        key = species, form
+        if key not in plans:
+            plans[key] = stand_plan(species, form)
+        plan = plans[key]
+        width_px = plan.blades[0].width * scale * focal_pixels / max(1, distance)
+        group = (
+            1
+            if width_px >= 1
+            else (
+                4
+                if width_px >= 0.5
+                else (16 if width_px >= 0.30 else DISTANT_LEAF_STEP)
+            )
+        )
+        angle = rotation * 2 * np.pi
+        near_stem = distance < 32
+        if near_stem:
+            z = root_height(xy[None])[0]
+            stem = rooted_stem(
+                plan,
+                root_domain,
+                root_height,
+                np.array([*xy, z - 0.08]),
+                angle,
+                scale,
+                oak=species == "oak",
+            )
+            stems.add(f"{species} bark", stem["vertices"], stem["faces"])
+        key = species, form, group, near_stem
+        templates.setdefault(key, []).append((*xy, z - 0.08, angle, scale))
     for (species, form, group, near_stem), placements in templates.items():
         meshes = geometry(
             plans[species, form], group, has_stem=not near_stem, oak=species == "oak"

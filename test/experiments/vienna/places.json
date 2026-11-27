@@ -65,6 +65,13 @@
       "utc": "2026-06-21T16:30:00Z"
     },
     {
+      "id": "Dechantlacke-Woodland",
+      "origin": "Dechantlacke",
+      "offset_east_north_m": [96.23, 66.73],
+      "heading_deg": 108,
+      "pitch_deg": 1
+    },
+    {
       "id": "Schemerlbruecke-Bank",
       "origin": "Schemerlbruecke",
       "offset_east_north_m": [-13.94, 80.51],

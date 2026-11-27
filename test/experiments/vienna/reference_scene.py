@@ -272,7 +272,13 @@ class ReferenceScene:
 
     def woody_plants(self, seed):
         yield from tree_batches(
-            self.source, 250, seed, self.focal, self.woodland_floor, soil=self.local
+            self.source,
+            250,
+            seed,
+            self.focal,
+            self.woodland_floor,
+            eye_xy=self.eye[:2],
+            soil=self.local,
         )
         if "ground" in self.local:
             yield from woodland_shrubs(
