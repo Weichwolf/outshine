@@ -2,10 +2,12 @@
 
 import itertools
 from dataclasses import replace
+from functools import partial
 
 import numpy as np
 import shapely
 from bridge_approach import earthwork_meshes
+from bridge_banks import BANK_REACH_M, TRANSPORT_MARGIN_M, bank_rim, bank_slopes
 from bridge_contacts import bank_cuts
 from bridge_junctions import junction_pavement
 from bridge_passages import bridge_terrain, water_level
@@ -192,6 +194,38 @@ def compound_ground(vertices, quads, junctions, footprint):
     return np.concatenate(points), np.concatenate(faces)
 
 
+def bank_protection(source, extent, bodies, openings, roads, crossings, fixtures):
+    interest = openings.buffer(BANK_REACH_M + TRANSPORT_MARGIN_M).intersection(extent)
+    shapely.prepare(interest)
+    buildings = [
+        shapely.make_valid(geom).intersection(interest)
+        for layer, geom, _ in source.features
+        if layer == "building" and interest.intersects(geom)
+    ]
+    decks = shapely.union_all([crossing.footprint for crossing in crossings])
+    tracks = [
+        geom.intersection(interest).buffer(1.2, cap_style="flat").difference(decks)
+        for layer, geom, tags in source.features
+        if layer == "transportation"
+        and tags.get("class") in {"rail", "transit"}
+        and not tags.get("brunnel")
+        and tags.get("layer", 0) == 0
+        and interest.intersects(geom)
+    ]
+    land_routes = roads["road"].difference(decks)
+    paths = roads["sidewalk"].union(roads["paving"]).difference(openings.buffer(0.4))
+    occupied = shapely.union_all(
+        [
+            land_routes.intersection(interest),
+            paths.intersection(interest),
+            *buildings,
+            *tracks,
+            *(fixture.footprint.intersection(interest) for fixture in fixtures),
+        ]
+    )
+    return occupied.buffer(TRANSPORT_MARGIN_M).union(bodies)
+
+
 def ground_surfaces(
     meshes, source, extent, bodies, vertices, quads, approaches=(), crossings=()
 ):
@@ -233,6 +267,22 @@ def ground_surfaces(
     landings, joined_edges = local_landings(
         source.features, stairs, extent, bodies, height
     )
+    bank_grades = []
+    if passages:
+        bank_grades = bank_slopes(
+            passages,
+            bodies,
+            bank_protection(
+                source,
+                extent,
+                bodies,
+                openings,
+                roads,
+                crossings,
+                [*stairs, *landings, *aprons, *approaches],
+            ),
+            extent,
+        )
     pieces = [
         (foot, z, stair.material)
         for stair in stairs
@@ -247,6 +297,7 @@ def ground_surfaces(
         [(passage, passage.route.material) for passage in passages]
         + [(landing, landing.material) for landing in [*landings, *aprons]]
         + [(a, "road") for a in approaches if a.footprint.intersects(extent)]
+        + [(slope, "ground") for slope in bank_grades]
         + [
             (cut, "ground")
             for cut in bank_cuts(
@@ -292,12 +343,14 @@ def ground_surfaces(
         np.zeros(len(indices), dtype=int),
         names,
         footprints,
-        breaks=[edge for passage in passages for edge in passage.breaks],
+        breaks=[edge for shape in [*passages, *bank_grades] for edge in shape.breaks],
     ):
         if name in graded:
             earthwork, ground_material = graded[name]
+            slopes = [slope for slope in bank_grades if slope.passage is earthwork]
+            rim = partial(bank_rim, slopes=slopes) if slopes else None
             for material, graded_vertices, indices in earthwork_meshes(
-                points, faces, earthwork, ground_material
+                points, faces, earthwork, ground_material, rim
             ):
                 meshes.add(material, graded_vertices, indices)
             continue

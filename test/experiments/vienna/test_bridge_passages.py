@@ -63,6 +63,11 @@ class BridgePassageTest(unittest.TestCase):
             underside = support_height(mesh["bridge deck"], xy).min()
             self.assertGreaterEqual(underside - foot, CLEARANCE_M)
             self.assertGreaterEqual(foot, -2 + FLOOR_ABOVE_WATER_M - 1e-6)
+        for y in (-2.5, 0, 2.5):
+            contact = (17.1, y)
+            bank = support_height(mesh["ground"], contact).max()
+            path = support_height(mesh["sidewalk"], contact).max()
+            self.assertAlmostEqual(bank, path, places=5)
         sidewalk = support_height(mesh["sidewalk"], (18, -8))
         self.assertGreater(len(sidewalk), 0)
         self.assertLessEqual(np.ptp(sidewalk), 1e-6)
