@@ -11,6 +11,7 @@ from bridges import draw_water_crossings, plan_water_crossings
 from ground_surface import (
     ROAD_WIDTH,
     ROUTE_MATERIALS,
+    clip_route_areas,
     partition_ground,
     route_footprints,
 )
@@ -267,7 +268,7 @@ def tile_surface(
         )
         footprints.update(
             {
-                i: routes[name].intersection(tile)
+                i: clip_route_areas((routes[name],), tile)
                 for i, name in enumerate(ROUTE_MATERIALS, 5)
             }
         )
