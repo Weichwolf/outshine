@@ -11,6 +11,8 @@ PAD_APRON_M = 6.0
 MAX_EARTHWORK_M = 30.0
 BATTER_RUN = 1.5
 TRANSPORT_BLEND_M = 1.5
+SMOOTHSTEP_PEAK_GRADE = 1.875
+SOIL_APRON_MAX_GRADE = 1 / 3
 
 
 @dataclass(frozen=True)
@@ -53,8 +55,17 @@ def building_foundations(footprints, height):
     relief = high - low
     sole = low - np.where(relief > SINK_M, 2 * relief, SINK_M)
     apron = np.hypot(
-        PAD_APRON_M, 1.875 * BATTER_RUN * np.minimum(relief, MAX_EARTHWORK_M)
+        PAD_APRON_M,
+        SMOOTHSTEP_PEAK_GRADE * BATTER_RUN * np.minimum(relief, MAX_EARTHWORK_M),
     )
+    # A shallow apron can grade a building pad. A steeper lot needs a retained plinth.
+    retained = relief * SMOOTHSTEP_PEAK_GRADE > PAD_APRON_M * SOIL_APRON_MAX_GRADE
+    if retained.any():
+        anchors = shapely.get_coordinates(
+            shapely.point_on_surface(footprints[retained])
+        )
+        high[retained] = height(anchors) - PLINTH_M
+        apron[retained] = 0.0
     return [
         BuildingFoundation(footprint, float(top), float(bottom), float(reach))
         for footprint, top, bottom, reach in zip(
@@ -70,16 +81,19 @@ def smoothstep(fraction):
 
 class BuildingStamps:
     def __init__(self, foundations, protected):
-        self.footprints = np.asarray([f.footprint for f in foundations], dtype=object)
-        self.platforms = np.asarray([f.platform_m for f in foundations])
-        self.aprons = np.asarray([f.apron_m for f in foundations])
+        graded = [foundation for foundation in foundations if foundation.apron_m > 0]
+        self.footprints = np.asarray([f.footprint for f in graded], dtype=object)
+        self.platforms = np.asarray([f.platform_m for f in graded])
+        self.aprons = np.asarray([f.apron_m for f in graded])
         self.protected = protected
         limits = shapely.bounds(self.footprints)
         extents = shapely.box(*(limits + self.aprons[:, None] * [-1, -1, 1, 1]).T)
         self.index = shapely.STRtree(extents)
 
     def breaks(self):
-        active = self.aprons > np.hypot(PAD_APRON_M, 1.875 * BATTER_RUN * SINK_M)
+        active = self.aprons > np.hypot(
+            PAD_APRON_M, SMOOTHSTEP_PEAK_GRADE * BATTER_RUN * SINK_M
+        )
         footprints = self.footprints[active]
         return np.concatenate(
             (

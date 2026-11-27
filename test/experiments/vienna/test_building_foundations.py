@@ -43,3 +43,12 @@ class BuildingFoundationTest(unittest.TestCase):
         self.assertAlmostEqual(support_height(meshes["ground"]).max(), 0.4)
         self.assertAlmostEqual(np.max(np.array(meshes["foundation"][0])[:, 2]), 0.9)
         self.assertAlmostEqual(np.min(np.array(meshes["roof"][0])[:, 2]), 5.9)
+
+    def test_steep_lot_reaches_grade_with_a_retained_plinth(self):
+        footprint = shapely.box(-4, -3, 4, 3)
+        (foundation,) = building_foundations([footprint], lambda xy: 0.6 * xy[:, 0])
+        ground = np.array([[-4, 0, -2.4], [0, 0, 0], [4, 0, 2.4]])
+        stamps = BuildingStamps([foundation], shapely.Polygon())
+        np.testing.assert_array_equal(stamps.heights(ground), ground[:, 2])
+        self.assertAlmostEqual(foundation.seat_m, 0)
+        self.assertLess(foundation.sole_m, ground[:, 2].min())
