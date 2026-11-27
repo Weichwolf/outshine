@@ -118,13 +118,26 @@ def surface_labels(points, base, footprints):
     return labels
 
 
-def partition_ground(vertices, quads, base, names, footprints):
-    triangles = quads[:, [0, 1, 2, 0, 2, 3]].reshape(-1, 3)
-    base = np.repeat(base, 2)
+def terrain_triangles(quads):
+    return quads[:, [0, 1, 2, 0, 2, 3]].reshape(-1, 3)
+
+
+def partition_ground(vertices, quads, base, names, footprints, *, breaks=()):
+    yield from partition_triangles(
+        vertices,
+        terrain_triangles(quads),
+        np.repeat(base, 2),
+        names,
+        footprints,
+        breaks=breaks,
+    )
+
+
+def partition_triangles(vertices, triangles, base, names, footprints, *, breaks=()):
     xyz = vertices[triangles]
     areas = shapely.polygons(xyz[:, :, :2])
     boundary = shapely.boundary(list(footprints.values()))
-    edges = shapely.union_all(boundary)
+    edges = shapely.union_all([*boundary, *breaks])
     coords, owner = shapely.get_coordinates(shapely.get_parts(edges), return_index=True)
     start = np.flatnonzero(owner[:-1] == owner[1:])
     segments = shapely.linestrings(coords[start[:, None] + [0, 1]])

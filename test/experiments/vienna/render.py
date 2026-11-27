@@ -25,12 +25,14 @@ from ground_detail import (
     SURFACE_DETAIL,
     ground_detail,
 )
-from materials import SURFACES
+from materials import METALLIC, SURFACES
 from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_light import configure_daylight
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
 from reference_scene import ReferenceScene
 from woodland import tree_batches
+
+SUN_SHADOW_MIN_TEXEL_M = 0.016
 
 
 def apply_detail(material, bsdf, name, colour):
@@ -88,6 +90,7 @@ def surface_material(name):
     colour, roughness = SURFACES[name]
     bsdf.inputs["Base Color"].default_value = (*colour, 1)
     bsdf.inputs["Roughness"].default_value = roughness
+    bsdf.inputs["Metallic"].default_value = METALLIC.get(name, 0.0)
     if detail := SURFACE_DETAIL.get(name):
         apply_detail(material, bsdf, detail, colour)
     return material
@@ -143,6 +146,7 @@ def render(place, config, args):
     sunlight = Vector(world.sun)
     sun = next(o for o in scene.objects if o.type == "LIGHT" and o.data.type == "SUN")
     sun.rotation_euler = (-sunlight).to_track_quat("-Z", "Y").to_euler()
+    sun.data.shadow_maximum_resolution = SUN_SHADOW_MIN_TEXEL_M
     sky = scene.world.node_tree.nodes.new("ShaderNodeTexSky")
     sky.sky_type = "HOSEK_WILKIE"
     sky.sun_direction = sunlight

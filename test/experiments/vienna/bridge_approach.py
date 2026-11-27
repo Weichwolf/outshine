@@ -25,7 +25,7 @@ class BridgeApproach:
 
     @property
     def retaining_edge(self):
-        return self.footprint.boundary
+        return self.footprint.boundary.difference(self.mouth_edge.buffer(2e-6))
 
     def heights(self, ground):
         station = (ground[:, :2] - self.origin) @ self.direction
@@ -96,7 +96,7 @@ def fit_approach(line, deck, span, terrain, width, length):
     )
 
 
-def earthwork_meshes(ground, faces, earthwork, material):
+def earthwork_meshes(ground, faces, earthwork, material, rim_height=None):
     used, remap = np.unique(faces, return_inverse=True)
     ground = ground[used]
     faces = remap.reshape(faces.shape)
@@ -107,6 +107,8 @@ def earthwork_meshes(ground, faces, earthwork, material):
     mid = top[edges, :2].mean(axis=1)
     rim = shapely.dwithin(shapely.points(mid), earthwork.retaining_edge, 2e-6)
     edges = edges[rim]
+    if rim_height is not None and len(edges):
+        ground[:, 2] = rim_height(ground)
     changed = (np.abs(top[edges, 2] - ground[edges, 2]) > 0.005).any(axis=1)
     edges = edges[changed]
     if len(edges):
