@@ -20,6 +20,38 @@ Omit `--place Adlerhof` to render the twelve pedestrian views in catalog order. 
 second interval measures the warm image, including PNG encoding and writing. Allow up to five
 seconds at 1280×720 for this reference workflow.
 
+## Near material comparisons
+
+Adlerhof and Adlerhof-Near show the same facade and paving at eye height. Dechantlacke-Path
+and Dechantlacke-Path-Near look down the mapped path past the same exposed roots. They use
+the anchor coordinates, the offsets and bearings in places.json, and the same clock and
+seed. The additional views are selected explicitly so the twelve-view run keeps its order.
+
+```sh
+blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/render.py -- \
+  --place Adlerhof --place Adlerhof-Near --place Dechantlacke-Path --place Dechantlacke-Path-Near \
+  --repeat --output build/shots/1962/eevee
+blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/render.py -- \
+  --place Adlerhof --place Adlerhof-Near --place Dechantlacke-Path --place Dechantlacke-Path-Near \
+  --engine cycles --output build/shots/1962/cycles
+build/blender-python/bin/python test/experiments/vienna/glsl_render.py \
+  --place Adlerhof --place Adlerhof-Near --place Dechantlacke-Path --place Dechantlacke-Path-Near \
+  --output build/shots/1962/glsl
+```
+
+Both paths take scene-linear colours from materials.py and call ground_detail.py to bake
+the same seeded RGBA table. Red stores half the reflectance multiplier, green stores
+perceptual roughness, and blue stores relief as `0.5 + height_m / 0.024`. Alpha carries the
+macro variation. The detail covers 2.56 m at 5 mm per texel, and macro tint uses a 23 m
+period. The nominal stone face spacing is 213 × 128 mm. Glazing uses a 1.52 IOR over a dark
+opaque backing to stand in for unmodelled interiors.
+
+The Adlerhof photo guides the plaster and rectangular paving. The Dechantlacke photo
+guides the soil, bark and leaf palette. The renderer infers material for paths without
+surface tags and generates the exposed root geometry. [Adlerhof, 21 August 2008](https://presse.wien.gv.at/bilder/2008/08/21/adlerhof-innenhof) · [Lobau near Dechantlacke, 9 August 2022](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg)
+
+## Reference geometry
+
 The initial integration covers the local DEM, mapped building shells, near recessed facade cells
 and ground-level road surfaces. A separate level mesh fills mapped water polygons cut from the
 local terrain. Real DEM rings extend the terrain from the 250 m local square to 100 km along

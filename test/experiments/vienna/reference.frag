@@ -11,6 +11,7 @@ uniform sampler2D detailMap;
 uniform vec3 detailScale;
 uniform bool hasDetail;
 uniform float eyeKm;
+uniform float glassIor;
 uniform bool waterSurface;
 uniform bool shadowPass;
 uniform mat4 shadowMatrix;
@@ -33,6 +34,12 @@ vec3 bumpNormal(vec3 normal, vec3 dx, vec3 dy, float height) {
   return abs(det)>1.e-15 ? normalize(abs(det)*normal-gradient) : normal;
 }
 
+vec3 reflectedSky(vec3 ray) {
+  ivec2 res=textureSize(skyView,0);
+  SkyViewSample s=skyViewSample(6360.,eyeKm,SkyViewLook(ray.z,skyLightViewCos(ray,vec3(0.,0.,1.),sun)), MediumLutSize(float(res.x),float(res.y)));
+  return texture(skyView,vec2(s.Uv.U,s.Uv.V)).rgb*(2.5/1.2);
+}
+
 void main(){
   if (shadowPass) { gl_FragDepth=gl_FragCoord.z; return; }
   vec3 view=normalize(eye-point);
@@ -51,7 +58,9 @@ void main(){
   }
   vec3 h=normalize(view+sun);
   float nl=max(0.,dot(n,sun)),nv=max(.001,dot(n,view));
-  Brdf b=metalRoughBrdf(material.rgb,vec3(.04),1.,pow(material.a,4.),nl,nv,max(0.,dot(n,h)),max(0.,dot(view,h)));
+  float glassF0=(glassIor-1.)/(glassIor+1.);
+  vec3 f0=vec3(glassIor>1. ? glassF0*glassF0 : .04);
+  Brdf b=metalRoughBrdf(material.rgb,f0,1.,pow(material.a,4.),nl,nv,max(0.,dot(n,h)),max(0.,dot(view,h)));
   vec3 uvz=(shadowMatrix*vec4(point,1.)).xyz*.5+.5;
   float visibility=1.;
   if(all(greaterThan(uvz,vec3(0.))) && all(lessThan(uvz,vec3(1.)))){
@@ -64,10 +73,12 @@ void main(){
   vec3 light=(b.diffuse+b.specular)*nl*2.5*visibility+material.rgb*mix(vec3(.065,.085,.115),vec3(.31,.40,.53),clamp(.5+.5*n.z,0.,1.));
   if (waterSurface) {
     vec3 ray=reflect(-view,n);
-    ivec2 res=textureSize(skyView,0);
-    SkyViewSample s=skyViewSample(6360.,eyeKm,SkyViewLook(ray.z,skyLightViewCos(ray,vec3(0.,0.,1.),sun)), MediumLutSize(float(res.x),float(res.y)));
-    vec3 reflected=texture(skyView,vec2(s.Uv.U,s.Uv.V)).rgb;
-    light=mix(surface.rgb*.28,reflected*(2.5/1.2),brdfFresnel(vec3(.0204),1.,nv))*mix(.58,1.,visibility);
+    light=mix(surface.rgb*.28,reflectedSky(ray),brdfFresnel(vec3(.0204),1.,nv))*mix(.58,1.,visibility);
+  } else if (glassIor>1.) {
+    vec3 ray=reflect(-view,n);
+    vec3 sky=reflectedSky(normalize(vec3(ray.xy,max(ray.z,.001))));
+    vec3 environment=mix(vec3(.07,.065,.057),sky,smoothstep(-.23,.07,ray.z));
+    light+=environment*brdfFresnel(f0,1.,nv);
   }
   Medium air = clearAir();
   vec3 ray = -view;

@@ -33,5 +33,13 @@ def load_catalog():
 
 def selected_views(config, names):
     if names:
-        return [place for place in config["places"] if place["id"] in names]
+        return [place for place in available_views(config) if place["id"] in names]
     return [place for place in config["places"] if "absolute_eye_m" not in place]
+
+
+def available_views(config):
+    places = {place["id"]: place for place in config["places"]}
+    return [
+        *places.values(),
+        *(places[view["origin"]] | view for view in config.get("comparison_views", [])),
+    ]
