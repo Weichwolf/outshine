@@ -14,6 +14,7 @@ from outshine_ref.places.sources import (
     tile_geography,
 )
 from PIL import Image, ImageDraw
+from regional_detail import building_shells, true_shore
 from scene_mesh import Meshes
 from shapely.geometry import Polygon, box, shape
 
@@ -84,10 +85,10 @@ def paint(image, feature, extent, value):
                 draw.polygon([tuple(p) for p in xy], fill=value if i == 0 else 0)
 
 
-def class_fields(data, size, elevated):
+def class_fields(data, size, elevated, detail):
     land, structures = Image.new("L", (size, size)), Image.new("F", (size, size))
     for layer in ("landcover", "water", "transportation", "building"):
-        if layer not in data:
+        if layer not in data or (detail and layer == "building"):
             continue
         group = data[layer]
         features = group["features"]
@@ -122,7 +123,8 @@ def tile_surface(source, receipt, dem, focal, radius, data, elevated):
     nw, se = tile_rect(source, receipt["tile"])
     d = box(nw[0], se[1], se[0], nw[1]).distance(shapely.Point(0, 0))
     size = int(np.clip((se[0] - nw[0]) * focal / (max(d, 500) * 2), 72, 256))
-    land, height = class_fields(data, size, elevated)
+    detail = d < 2.5 * focal
+    land, height = class_fields(data, size, elevated, detail)
     x = np.linspace(nw[0], se[0], size + 1)
     y = np.linspace(nw[1], se[1], size + 1)
     # Insert the four near-patch edges so the two source domains meet exactly.
@@ -136,6 +138,8 @@ def tile_surface(source, receipt, dem, focal, radius, data, elevated):
     height = height[np.ix_(iy, ix)]
     gx, gy = np.meshgrid(xx, yy)
     xy = np.stack((gx, gy), axis=-1)
+    if detail:
+        true_shore(xy, land, data, nw, se, radius)
     lon, lat = (xy / source.metres + [source.lon, source.lat]).T
     # Shared DEM vertices preserve tile-edge elevations and account for Earth curvature.
     z = (
@@ -148,7 +152,9 @@ def tile_surface(source, receipt, dem, focal, radius, data, elevated):
     a = np.arange(len(ground)).reshape(gx.shape)[:-1, :-1]
     faces = np.stack((a, a + side, a + side + 1, a + 1), axis=-1)
     outside = (abs(xc)[None, :] >= radius) | (abs(yc)[:, None] >= radius)
-    products = []
+    products = (
+        building_shells(data, nw, se, source, dem, radius, focal) if detail else []
+    )
     for i, name in enumerate(
         (
             "regional soil",

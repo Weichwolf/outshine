@@ -54,8 +54,9 @@ Wienerblick remains an independent, eye-level site.
 
 The regional reference samples the mapped building heights, water, woods, grass and deck
 footprints around each camera. Its height field extends to the distance at which a 12 m
-building occupies one pixel (6–15 km range). This first regional representation resolves the
-urban silhouette but aliases oblique shorelines, and bridge cells still lack an elevated span.
+building occupies one pixel (6–15 km range). Closer tiles retain mapped building outlines, facade openings and shoreline positions.
+Mapped water crossings use a raised slab and piers where both banks can be resolved.
+The outer height field still quantizes roofs and shorelines.
 
 The native Wien capture is the first reproduction target. Compare the same view in
 `build/shots/places/Wien.png` (Blender) and `build/shots/glsl/Wien.png` (standalone GPU).
