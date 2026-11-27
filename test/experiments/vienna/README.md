@@ -102,6 +102,13 @@ Dechantlacke it changes from 23 to 104 on oak bark, 31 to 136 on beech bark and
 curvature clearer. In shade the paving and path lose much of their fine relief.
 The diffuse-light comparison belongs to [#1965](https://github.com/Weichwolf/outshine/issues/1965).
 
+The twelve-view review covers the catalog anchors. At Wienerblick, the dated
+panorama shows a wooded middle distance, a distinct city band and scattered clouds.
+The generated view resolves the foreground slope and urban massing. The tree belts,
+distance contrast and sky need further comparison under the photographed conditions.
+[Doris Antony, 29 August 2010](https://commons.wikimedia.org/wiki/File:Wiener_Blick_Panorama.jpg) ·
+[Review and remaining differences](https://github.com/Weichwolf/outshine/issues/2083)
+
 ## Reference geometry
 
 The initial integration covers the local DEM, mapped building shells, near recessed facade cells
@@ -121,9 +128,10 @@ looks southwest from an opening on the mapped footpath. The camera retains the 1
 walkable-surface offset. Wienerblick still needs a review with the current city geometry.
 Shore levels, road profiles, ground materials and light still need comparison with real scenes.
 
-Two dated photographs anchor the structural review. The November 2023 stair photograph shows
-paired flights, landings and retaining walls; compare geometry across seasons. The June 2017
-bridge photograph shows horizontal clearance, the supporting piers and a continuous truss.
+The November 2023 night photograph anchors the stair geometry. The paired flights,
+landings and retaining walls remain legible around the fountain. The June 2017 bridge
+photograph shows clearance below the painted truss, piers in the channel and the scale
+of the stone pylons at the banks.
 
 - [Strudlhofstiege, 23 November 2023](https://commons.wikimedia.org/wiki/File:Strudlhofstiege_2023-11-23_01.jpg)
 - [Schemerlbrücke, 1 June 2017](https://commons.wikimedia.org/wiki/File:2017-06-01_AT_Wien_19_D%C3%B6bling_%26_Wien_20_Brigittenau,_Donaukanal,_Nussdorfer_Wehr,_Schemerlbr%C3%BCcke_(50699212833).jpg)
