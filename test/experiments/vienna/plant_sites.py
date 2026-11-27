@@ -6,9 +6,9 @@ from outshine_ref.places.sources import tile_geography
 from outshine_ref.vegetation.ground_cover import GroundCoverPlan
 
 
-def patch_density(source, xy, seed):
+def patch_density(source, xy, seed, *, scale=1.0):
     longitude_latitude = np.array([source.lon, source.lat]) + xy / source.metres
-    uv = longitude_latitude * [11600.0, 20000.0]
+    uv = longitude_latitude * (np.array([11600.0, 20000.0]) / scale)
     cells = np.floor(uv).astype(np.int64)
     weight = uv - cells
     weight = weight**2 * (3 - 2 * weight)
