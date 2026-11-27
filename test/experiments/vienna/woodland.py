@@ -237,6 +237,7 @@ def tree_batches(source, radius, seed, focal_pixels, root_domain, *, soil=None):
                     angle,
                     scale,
                     oak=species == "oak",
+                    seed=int(rotation * 2**32),
                 )
                 stems.add(f"{species} bark", stem["vertices"], stem["faces"])
             key = species, form, group, near_stem

@@ -9,6 +9,7 @@ DETAIL_SPAN_M = 2.56
 MACRO_SPAN_M = 23.0
 HEIGHT_SPAN_M = 0.024
 BARK_BOX_BLEND = 0.35
+BEECH_LICHEN_TINT = (0.74, 1.0, 0.64)
 SIZE = 512
 
 
@@ -79,6 +80,7 @@ def ground_detail(name):
     ).index(name)
     rng = np.random.default_rng(seed)
     fine, grain, patches = (noise(rng, scale) for scale in (0.65, 1.6, 12))
+    macro = 0.5 + 0.15 * patches
     if name == "asphalt":
         aggregate = np.maximum(fine - 0.40, 0)
         tint = 0.97 + 0.18 * aggregate + 0.045 * grain
@@ -110,23 +112,26 @@ def ground_detail(name):
         height = -0.00060 * pits + 0.00035 * grain + 0.00060 * trowel
     elif name == "oak bark":
         y, x = np.indices((SIZE, SIZE), dtype=np.float32)
-        shift = 7 * noise(rng, (20, 8)) + 1.8 * noise(rng, (5, 3))
+        shift = 4.5 * noise(rng, (32, 14)) + 1.7 * noise(rng, (9, 3))
         grain_flow = map_coordinates(
-            noise(rng, (16, 2.5)), [y, x + shift], order=1, mode="grid-wrap"
+            noise(rng, (25, 2.0)), [y, x + shift], order=1, mode="grid-wrap"
         )
-        plates = noise(rng, (7, 4))
-        breaks = np.maximum(-noise(rng, (1.6, 5)) + 0.35 * plates - 1.12, 0)
-        fissures = np.maximum(-grain_flow + 0.56 * plates - 0.25, 0)
-        tint = 1 - 0.26 * fissures - 0.15 * breaks + 0.15 * patches + 0.080 * plates
+        plates = noise(rng, (13, 4.5))
+        breaks = np.maximum(-noise(rng, (2.1, 6)) + 0.45 * plates - 1.35, 0)
+        fissures = np.clip((-grain_flow + 0.41 * plates - 0.12) * 1.35, 0, 1)
+        tint = 0.99 - 0.39 * fissures - 0.18 * breaks + 0.09 * patches + 0.055 * plates
         roughness = 0.90 + 0.032 * fissures + 0.019 * grain
-        height = -0.0044 * fissures - 0.0028 * breaks + 0.0015 * plates + 0.00046 * fine
+        height = -0.0061 * fissures - 0.0022 * breaks + 0.0013 * plates + 0.00050 * fine
     elif name == "beech bark":
-        mottling = noise(rng, (28, 21))
-        scars = np.maximum(noise(rng, (2.2, 8)) - 1.29, 0)
-        lichen = np.clip(noise(rng, (16, 10)) + 0.35 * grain - 0.10, 0, 1)
-        tint = 0.90 + 0.24 * mottling + 0.25 * lichen + 0.055 * patches - 0.28 * scars
-        roughness = 0.84 + 0.030 * mottling + 0.015 * lichen + 0.022 * patches
-        height = -0.0017 * scars + 0.00051 * patches + 0.00028 * grain
+        mottling = noise(rng, (20, 13))
+        scars = np.maximum(noise(rng, (2.2, 9)) + 0.25 * mottling - 1.45, 0)
+        lichen = np.clip(
+            noise(rng, (10, 7)) + 0.38 * patches + 0.31 * grain - 0.25, 0, 1
+        )
+        tint = 0.82 + 0.16 * mottling + 0.29 * lichen + 0.052 * grain - 0.39 * scars
+        roughness = 0.86 + 0.027 * mottling + 0.015 * lichen + 0.021 * patches
+        height = -0.0024 * scars + 0.00064 * lichen + 0.00034 * grain
+        macro = lichen
     elif name == "weir overflow":
         threads = noise(rng, (15, 1.5))
         air = np.clip(0.5 + 0.24 * threads + 0.12 * grain, 0, 1)
@@ -154,7 +159,7 @@ def ground_detail(name):
             np.clip(tint * 0.5, 0, 1),
             np.clip(roughness, 0.05, 1),
             np.clip(0.5 + height / HEIGHT_SPAN_M, 0, 1),
-            np.clip(0.5 + 0.15 * patches, 0, 1),
+            np.clip(macro, 0, 1),
         ),
         axis=-1,
     ).astype("f4")

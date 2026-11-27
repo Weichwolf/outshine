@@ -21,6 +21,7 @@ from blender_reflection import apply_reflection, capture_images
 from catalog import available_views, load_catalog, selected_views
 from ground_detail import (
     BARK_BOX_BLEND,
+    BEECH_LICHEN_TINT,
     DETAIL_SPAN_M,
     HEIGHT_SPAN_M,
     MACRO_SPAN_M,
@@ -93,7 +94,15 @@ def apply_detail(material, bsdf, name, colour):
     base.operation = "SCALE"
     base.inputs[0].default_value = colour
     link(tint.outputs[0], base.inputs["Scale"])
-    link(base.outputs["Vector"], bsdf.inputs["Base Color"])
+    reflectance = base.outputs["Vector"]
+    if name == "beech bark":
+        pigment = nodes.new("ShaderNodeMixRGB")
+        pigment.blend_type = "MULTIPLY"
+        pigment.inputs[2].default_value = (*BEECH_LICHEN_TINT, 1)
+        link(detail.outputs["Alpha"], pigment.inputs[0])
+        link(reflectance, pigment.inputs[1])
+        reflectance = pigment.outputs["Color"]
+    link(reflectance, bsdf.inputs["Base Color"])
     bump = nodes.new("ShaderNodeBump")
     bump.inputs["Distance"].default_value = HEIGHT_SPAN_M
     link(channels.outputs["Blue"], bump.inputs["Height"])
