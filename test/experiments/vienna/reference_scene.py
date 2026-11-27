@@ -214,6 +214,7 @@ class ReferenceScene:
             self.focal,
             250,
             self.water_plan,
+            local_shore=self.local.shore.protection,
         ):
             yield from products
             bounds.append(tile)

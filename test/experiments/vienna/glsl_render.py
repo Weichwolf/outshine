@@ -187,7 +187,11 @@ def render(ctx, place, config, out):
         upload(ctx, prog, n, v, f, [(0, 0, 0, 0, 1)]) for n, v, f in world.surfaces()
     ]
     for _, _, meshes, plants in tree_batches(
-        world.source, 250, config["seed"], world.focal
+        world.source,
+        250,
+        config["seed"],
+        world.focal,
+        soil=world.local.get("ground") if world.local.shore.contacts else None,
     ):
         draws.extend(upload(ctx, prog, n, v, f, plants) for n, (v, f) in meshes.items())
     draws = [batch for batch in draws if batch is not None]

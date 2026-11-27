@@ -6,6 +6,8 @@ from importlib.resources import files
 import numpy as np
 import shapely
 from ground_surface import at_grade_width, route_area
+from outshine_ref.contracts import Mesh
+from outshine_ref.geometry.sampling import SurfaceSampler
 from outshine_ref.places.sources import tile_geography
 from outshine_ref.vegetation import PlantPlan
 from outshine_ref.vegetation.axis_surface import axis_mesh
@@ -104,7 +106,25 @@ def geometry(plan, step, *, has_stem):
     return meshes
 
 
-def tree_batches(source, radius, seed, focal_pixels):
+def woodland_surface(mesh):
+    vertices, faces = map(np.asarray, mesh)
+    if not len(faces):
+        return None
+    triangles = vertices[faces]
+    area = np.linalg.det(triangles[:, 1:, :2] - triangles[:, :1, :2])
+    faces = faces[abs(area) > 1e-12]
+    if not len(faces):
+        return None
+    unique, inverse = np.unique(vertices, axis=0, return_inverse=True)
+    return SurfaceSampler(
+        Mesh(unique, inverse[faces]),
+        xy_tolerance_m=2e-6,
+        height_tolerance_m=3e-6,
+        max_faces=len(faces),
+    )
+
+
+def tree_batches(source, radius, seed, focal_pixels, *, soil=None):
     domain = habitat(source)
     if domain is None or domain.is_empty:
         return
@@ -113,9 +133,22 @@ def tree_batches(source, radius, seed, focal_pixels):
     stems = Meshes()
     root_domain = habitat(source, stems=False)
     terrain, _ = terrain_grid(source, radius)
+    sampler = woodland_surface(soil) if soil is not None else None
+
+    def support(xy, fallback):
+        if sampler is None:
+            return fallback(xy)
+        z = sampler.sample(xy).points_enu_m[:, 2].copy()
+        unresolved = ~np.isfinite(z)
+        if unresolved.any():
+            z[unresolved] = fallback(xy[unresolved])
+        return z
+
+    def root_height(xy):
+        return support(xy, lambda points: terrain_height(terrain, points))
 
     for positions, marks in roots(source, domain, radius, seed):
-        heights = source.height(positions)
+        heights = support(positions, source.height)
         for xy, z, (family, rotation, scale) in zip(
             positions, heights, marks, strict=True
         ):
@@ -135,11 +168,11 @@ def tree_batches(source, radius, seed, focal_pixels):
             angle = rotation * 2 * np.pi
             near_stem = distance < 32
             if near_stem:
-                z = terrain_height(terrain, xy[None])[0]
+                z = root_height(xy[None])[0]
                 stem = rooted_stem(
                     plan,
                     root_domain,
-                    terrain,
+                    root_height,
                     np.array([*xy, z - 0.08]),
                     angle,
                     scale,

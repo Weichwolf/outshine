@@ -4,7 +4,6 @@ import numpy as np
 import shapely
 from outshine_ref.vegetation.curve_frame import arc_frame
 from outshine_ref.vegetation.tube_topology import close_rings
-from scene_mesh import terrain_height
 
 
 def root_flare(azimuth, phase, radius, oak):
@@ -15,7 +14,7 @@ def root_flare(azimuth, phase, radius, oak):
     return radius * (0.24 + lobes @ reaches)
 
 
-def rooted_stem(plan, domain, terrain, position, rotation, scale, *, oak):
+def rooted_stem(plan, domain, height, position, rotation, scale, *, oak):
     axis = plan.axis(())
     radius, tip = np.asarray(plan.radii(())) * scale
     length = axis.length * scale
@@ -47,19 +46,18 @@ def rooted_stem(plan, domain, terrain, position, rotation, scale, *, oak):
         + 0.065 * np.sin(3 * azimuth - phase + 13 * t[:, None])
     )
     flare = root_flare(azimuth, phase, radius, oak)
-    height = t * length
-    skirt = np.clip(1 - height / (3.5 * radius), 0, 1)
+    above_root = t * length
+    skirt = np.clip(1 - above_root / (3.5 * radius), 0, 1)
     for extent in (1.0, 0.7, 0.45, 0.2, 0.0):
         collar = centre[0] + radial[0] * (sections[0] + extent * flare)[:, None]
         if domain.covers(shapely.Polygon(collar[:, :2])):
             break
     sections += extent * skirt[:, None] ** 3 * flare
     surface = centre[:, None, :] + radial * sections[..., None]
-    ground = terrain_height(terrain, surface[..., :2].reshape(-1, 2)).reshape(
-        surface.shape[:2]
-    )
-    ground_at_stem = terrain_height(terrain, position[None, :2])[0]
-    surface[..., 2] += skirt[:, None] * (ground - ground_at_stem)
+    collar = skirt > 0
+    ground = height(surface[collar, :, :2].reshape(-1, 2)).reshape(-1, len(azimuth))
+    ground_at_stem = height(position[None, :2])[0]
+    surface[collar, :, 2] += skirt[collar, None] * (ground - ground_at_stem)
     along = np.gradient(surface, t, axis=0)
     around = np.roll(surface, -1, axis=1) - np.roll(surface, 1, axis=1)
     normals = np.cross(along, around)

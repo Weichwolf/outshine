@@ -104,8 +104,11 @@ footprints around each camera. Its height field extends to the distance at which
 building occupies one pixel (6–15 km range). Closer tiles retain mapped building outlines and facade openings.
 Mapped water crossings use a raised slab and piers where both banks can be resolved.
 Local and regional shorelines, roads and paths partition the same terrain triangles. The planar
-arrangement cuts triangles only at material boundaries. Terrain heights are interpolated
-within the original faces. Water takes precedence over ground routes. Mapped footpaths
+arrangement cuts triangles at material boundaries and grade contours. Terrain heights are interpolated
+within the original faces before grading. At a natural shore, the terrain blends to the
+water level within a 14 m band. Roads, footpaths, buildings and solved bridge approaches
+constrain the grade. Trees take their root heights from the finished bank surface.
+Water takes precedence over ground routes. Mapped footpaths
 retain their footprint where an inferred road width overlaps them. Tunnels and elevated
 links are excluded from the ground network.
 The outer height field still quantizes roofs.

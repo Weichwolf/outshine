@@ -129,7 +129,11 @@ def upload(name, vertices, faces, *, collection, smooth=False):
 def plant_woodland(world, seed, geometry):
     count = 0
     for species, group, meshes, placements in tree_batches(
-        world.source, 250, seed, world.focal
+        world.source,
+        250,
+        seed,
+        world.focal,
+        soil=world.local.get("ground") if world.local.shore.contacts else None,
     ):
         if group is None:
             for name, (vertices, faces) in meshes.items():

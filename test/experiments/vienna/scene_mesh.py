@@ -26,6 +26,7 @@ from outshine_ref.buildings.facades import FacadeRepeat
 from outshine_ref.buildings.recessed_facades import RecessPlan, recess_surface
 from outshine_ref.buildings.structures import suppressed
 from shapely.geometry import Point, box
+from shore_grade import SHORE_REACH_M, shore_grade
 from stair_branches import local_stair_branches
 from stair_guards import draw_stair_guards
 from stair_landings import local_landings
@@ -36,6 +37,8 @@ from water_surface import clipped_water, water_bodies
 
 
 class Meshes(dict):
+    shore = None
+
     def add(self, name, vertices, faces):
         points, triangles = self.setdefault(name, ([], []))
         triangles.extend((np.asarray(faces) + len(points)).tolist())
@@ -117,12 +120,12 @@ def terrain_height(vertices, points):
 
 def boundary_edges(edges, boundary):
     xy = edges[:, :, :2]
-    on_boundary = shapely.dwithin(
-        shapely.points(xy.reshape(-1, 2)), boundary, 1e-6
-    ).reshape(-1, 2).all(axis=1) & shapely.dwithin(
-        shapely.points(xy.mean(axis=1)), boundary, 1e-6
-    )
-    return edges[on_boundary]
+    shapely.prepare(boundary)
+    midpoint = shapely.dwithin(boundary, shapely.points(xy.mean(axis=1)), 1e-6)
+    endpoints = shapely.dwithin(
+        boundary, shapely.points(xy[midpoint].reshape(-1, 2)), 1e-6
+    ).reshape(-1, 2)
+    return edges[midpoint][endpoints.all(axis=1)]
 
 
 def vertical_faces(meshes, name, edges, heights):
@@ -145,16 +148,19 @@ def staircase_risers(meshes, stairs):
                 vertical_faces(meshes, "sidewalk", face[None], stair.heights[i + 1])
 
 
-def water_surfaces(meshes, source, water, banks):
-    for body, footprint in water:
-        meshes.add("water", *body.mesh(source, footprint))
-        if not len(banks):
+def shore_walls(meshes, material, source, shore, banks):
+    banks = shore.shoreline_edges(banks)
+    if not len(banks):
+        return
+    for body, contact in zip(shore.bodies, shore.contacts, strict=True):
+        edge = boundary_edges(banks, contact)
+        if not len(edge):
             continue
-        top = boundary_edges(banks, body.footprint.boundary)
-        shore = top[:, :, :2].reshape(-1, 2)
-        vertical_faces(
-            meshes, "ground", top, body.heights(source, shore).reshape(-1, 2) - 0.1
-        )
+        points = shore.deform(source, edge.reshape(-1, 3))
+        level = body.heights(source, points[:, :2]).reshape(-1, 2)
+        top = points.reshape(-1, 2, 3)
+        wall = (abs(top[:, :, 2] - level) > 0.005).any(axis=1)
+        vertical_faces(meshes, material, top[wall], level[wall] - 0.005)
 
 
 def compound_ground(vertices, quads, junctions, footprint):
@@ -227,6 +233,7 @@ def ground_surfaces(
     crossings=(),
     *,
     water=(),
+    water_plan=(),
 ):
     transport = [(g, p) for layer, g, p in source.features if layer == "transportation"]
     roads = at_grade_routes(transport, extent)
@@ -382,6 +389,29 @@ def ground_surfaces(
         {i: work.footprint.intersection(extent) for i, (work, _) in graded.items()}
     )
     footprints.update({i: roads[name] for i, name in enumerate(ROUTE_MATERIALS, 2)})
+    protected = shapely.Polygon()
+    if water_plan:
+        margin = bodies.buffer(SHORE_REACH_M, quad_segs=2)
+        shapely.prepare(margin)
+        protected = shapely.union_all(
+            [
+                track_paving,
+                *(c.footprint for c in crossings),
+                *(
+                    geom
+                    for key, geom in footprints.items()
+                    if key != 1 and margin.intersects(geom)
+                ),
+                *(
+                    shapely.make_valid(geom)
+                    for name, geom, _ in source.features
+                    if name == "building" and margin.intersects(geom)
+                ),
+            ],
+            grid_size=1e-6,
+        )
+    shore = shore_grade(water_plan, extent, protected)
+    meshes.shore = shore
     banks = np.empty((0, 2, 3))
     surface, indices = compound_ground(vertices, quads, junctions, junction_area)
     for name, points, faces in partition_triangles(
@@ -390,7 +420,10 @@ def ground_surfaces(
         np.zeros(len(indices), dtype=int),
         names,
         footprints,
-        breaks=[edge for shape in [*passages, *bank_grades] for edge in shape.breaks],
+        breaks=[
+            *shore.breaks(bodies, extent),
+            *(edge for shape in [*passages, *bank_grades] for edge in shape.breaks),
+        ],
     ):
         if name in graded:
             earthwork, ground_material = graded[name]
@@ -416,7 +449,10 @@ def ground_surfaces(
             points[:, 2] = height
         if len(faces):
             used, inverse = np.unique(faces, return_inverse=True)
-            meshes.add(name, points[used], inverse.reshape(-1, 3))
+            terrain = points[used]
+            if name == "ground":
+                terrain = shore.deform(source, terrain)
+            meshes.add(name, terrain, inverse.reshape(-1, 3))
     for link in links:
         meshes.add(link.material, link.mesh.vertices, link.mesh.triangles)
         edges, ground_z = link.retaining_sections()
@@ -425,7 +461,9 @@ def ground_surfaces(
     draw_stair_guards(
         meshes, stairs, [*landings, *aprons], [*passage_ports, *deck_stair_edges]
     )
-    water_surfaces(meshes, source, water, banks)
+    for body, footprint in water:
+        meshes.add("water", *body.mesh(source, footprint))
+    shore_walls(meshes, "ground", source, shore, banks)
     draw_tram_rails(meshes, routes, junctions)
     walk_edges = {}
     for link in links:
@@ -443,6 +481,7 @@ def assemble(
         water_plan = water_bodies(
             source.features, extent, vertices[:, :2], source.height, source.height
         )
+    water_plan = tuple(water_plan)
     water = tuple(clipped_water(water_plan, extent))
     bodies = shapely.union_all([footprint for _, footprint in water])
     if crossings is None:
@@ -460,6 +499,7 @@ def assemble(
             approaches,
             crossings,
             water=water,
+            water_plan=water_plan,
         )
     )
     if not track_paving.is_empty:
