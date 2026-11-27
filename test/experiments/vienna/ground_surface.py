@@ -125,11 +125,11 @@ def partition_ground(vertices, quads, base, names, footprints):
     )
 
 
-def partition_triangles(vertices, triangles, base, names, footprints):
+def partition_triangles(vertices, triangles, base, names, footprints, *, breaks=()):
     xyz = vertices[triangles]
     areas = shapely.polygons(xyz[:, :, :2])
     boundary = shapely.boundary(list(footprints.values()))
-    edges = shapely.union_all(boundary)
+    edges = shapely.union_all([*boundary, *breaks])
     coords, owner = shapely.get_coordinates(shapely.get_parts(edges), return_index=True)
     start = np.flatnonzero(owner[:-1] == owner[1:])
     segments = shapely.linestrings(coords[start[:, None] + [0, 1]])

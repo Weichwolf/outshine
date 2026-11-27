@@ -7,7 +7,8 @@ import numpy as np
 import shapely
 from bridge_approach import earthwork_meshes
 from bridge_contacts import bank_cuts
-from bridge_junctions import bridge_junctions, junction_pavement
+from bridge_junctions import junction_pavement
+from bridge_passages import bridge_terrain, water_level
 from bridges import draw_water_crossings, plan_water_crossings
 from ground_surface import (
     at_grade_routes,
@@ -149,10 +150,7 @@ def staircase_risers(meshes, stairs):
 def water_surfaces(meshes, source, bodies, vertices, banks):
     xy = vertices[:, :2]
     for body in polygons(bodies):
-        samples = xy[shapely.contains_xy(body, xy[:, 0], xy[:, 1])]
-        if not len(samples):
-            samples = np.asarray(body.representative_point().coords)
-        level = float(np.median(source.height(samples))) + source.datum
+        level = water_level(body, xy, source.height) + source.datum
 
         def water_height(points, height=level):
             lonlat = points / source.metres + [source.lon, source.lat]
@@ -200,17 +198,25 @@ def ground_surfaces(
     transport = [(g, p) for layer, g, p in source.features if layer == "transportation"]
     roads = at_grade_routes(transport, extent)
     height = lambda points: terrain_height(vertices, points)
-    junctions, joined_spans = bridge_junctions(
-        source.features, crossings, extent, bodies, roads["road"], vertices, height
-    )
-    junction_area = shapely.union_all([j.footprint for j in junctions])
-    approaches = [
-        a for a in approaches if not any(a.span is span for span in joined_spans)
-    ]
     stairs = local_stairways(source.features, extent, bodies, height)
     branches, aprons, replaced_paths = local_stair_branches(
         source.features, stairs, extent, bodies.union(roads["road"]), height
     )
+    stairs.extend(branches)
+    original = crossings
+    crossings, junctions, joined_spans, passages = bridge_terrain(
+        source, crossings, extent, bodies, roads["road"], vertices, height, stairs
+    )
+    openings = shapely.union_all([passage.footprint for passage in passages])
+    junction_area = shapely.union_all([j.footprint for j in junctions])
+    approaches = [
+        a
+        for a in approaches
+        if not any(
+            a.span is old.span and any(new.span is span for span in joined_spans)
+            for old, new in zip(original, crossings, strict=True)
+        )
+    ]
     if replaced_paths:
         roads = at_grade_routes(transport, extent, replaced_paths=replaced_paths)
     carried = junction_pavement(transport, crossings, junctions, joined_spans, roads)
@@ -224,7 +230,6 @@ def ground_surfaces(
     if routes:
         pavement = track_paving.intersection(junction_area, grid_size=1e-6)
         roads["road"] = roads["road"].union(pavement, grid_size=1e-6)
-    stairs.extend(branches)
     landings, joined_edges = local_landings(
         source.features, stairs, extent, bodies, height
     )
@@ -239,7 +244,8 @@ def ground_surfaces(
         i: (z, name) for i, (_, z, name) in enumerate(pieces, start=first_stair)
     }
     earthworks = (
-        [(landing, landing.material) for landing in [*landings, *aprons]]
+        [(passage, passage.route.material) for passage in passages]
+        + [(landing, landing.material) for landing in [*landings, *aprons]]
         + [(a, "road") for a in approaches if a.footprint.intersects(extent)]
         + [
             (cut, "ground")
@@ -255,10 +261,20 @@ def ground_surfaces(
     graded = {
         i: item for i, item in enumerate(earthworks, start=first_stair + len(pieces))
     }
-    stair_limit = shapely.union_all([stair.footprint for stair in stairs]).boundary
-    joined_edges = shapely.union_all([joined_edges, *(apron.edge for apron in aprons)])
-    if not joined_edges.is_empty:
-        stair_limit = stair_limit.difference(joined_edges, grid_size=1e-6)
+    passage_ports = [
+        contact.opening
+        for passage in passages
+        for contact in passage.route.stair_contacts
+    ]
+    stair_limit = shapely.LineString()
+    if stairs:
+        perimeter = shapely.union_all([stair.footprint for stair in stairs]).boundary
+        contacts = shapely.union_all([joined_edges, *(apron.edge for apron in aprons)])
+        stair_limit = perimeter.difference(contacts, grid_size=1e-6)
+        if passage_ports:
+            stair_limit = stair_limit.difference(
+                shapely.union_all(passage_ports), grid_size=1e-6
+            )
     names.update({i: i for i in stair_tops.keys() | graded.keys()})
     footprints = {1: bodies}
     footprints.update(
@@ -271,7 +287,12 @@ def ground_surfaces(
     banks = np.empty((0, 2, 3))
     surface, indices = compound_ground(vertices, quads, junctions, junction_area)
     for name, points, faces in partition_triangles(
-        surface, indices, np.zeros(len(indices), dtype=int), names, footprints
+        surface,
+        indices,
+        np.zeros(len(indices), dtype=int),
+        names,
+        footprints,
+        breaks=[edge for passage in passages for edge in passage.breaks],
     ):
         if name in graded:
             earthwork, ground_material = graded[name]
@@ -295,10 +316,10 @@ def ground_surfaces(
             used, inverse = np.unique(faces, return_inverse=True)
             meshes.add(name, points[used], inverse.reshape(-1, 3))
     staircase_risers(meshes, stairs)
-    draw_stair_guards(meshes, stairs, [*landings, *aprons])
+    draw_stair_guards(meshes, stairs, [*landings, *aprons], passage_ports)
     water_surfaces(meshes, source, bodies, vertices, banks)
     draw_tram_rails(meshes, routes, junctions)
-    return approaches, carried, track_paving
+    return approaches, carried, track_paving, crossings, openings
 
 
 def assemble(source, radius, viaducts=(), approaches=(), *, crossings=None):
@@ -316,7 +337,7 @@ def assemble(source, radius, viaducts=(), approaches=(), *, crossings=None):
         crossings = list(
             plan_water_crossings(source.features, extent, bodies, source.height)
         )
-    approaches, carried, track_paving = ground_surfaces(
+    approaches, carried, track_paving, crossings, openings = ground_surfaces(
         meshes, source, extent, bodies, vertices, quads, approaches, crossings
     )
     if not track_paving.is_empty:
@@ -355,6 +376,8 @@ def assemble(source, radius, viaducts=(), approaches=(), *, crossings=None):
                     )
                     if is_outline or id(geom) in viaduct.carriageways:
                         clipped = clipped.difference(viaduct.footprint)
+            if not openings.is_empty:
+                clipped = clipped.difference(openings)
             for poly in polygons(clipped):
                 cap(
                     meshes,

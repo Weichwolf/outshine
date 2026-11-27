@@ -1,0 +1,66 @@
+import unittest
+from types import SimpleNamespace
+
+import numpy as np
+from bridge_passages import CLEARANCE_M, FLOOR_ABOVE_WATER_M
+from bridges import WaterCrossing
+from outshine_ref.transport.water_span import WaterSpan
+from reference_scene import support_height
+from scene_mesh import assemble
+from shapely.geometry import LineString, box
+
+
+class BridgePassageTest(unittest.TestCase):
+    def test_dry_footway_and_raised_road_have_separate_usable_heights(self):
+        footprint = box(-20, -5, 20, 5)
+        span = WaterSpan(np.array([-20, 0]), np.array([1, 0]), 40, 1.25, 0)
+        crossing = WaterCrossing(footprint, span, box(-20, -3, 20, 3), 1)
+        source = SimpleNamespace(
+            height=lambda xy: np.where(abs(xy[:, 0]) < 16, -2, 0.002 * xy[:, 1]),
+            datum=0,
+            lat=0,
+            lon=0,
+            metres=np.array([111000.0, 111000.0]),
+            features=[
+                ("water", box(-16, -150, 16, 150), {}),
+                (
+                    "transportation",
+                    LineString([(-20, 0), (20, 0)]),
+                    {"class": "secondary", "brunnel": "bridge", "layer": 1},
+                ),
+                (
+                    "transportation",
+                    LineString([(-120, 0), (-20, 0)]),
+                    {"class": "secondary"},
+                ),
+                (
+                    "transportation",
+                    LineString([(20, 0), (120, 0)]),
+                    {"class": "secondary"},
+                ),
+                (
+                    "transportation",
+                    LineString([(18, -100), (18, 100)]),
+                    {"class": "path", "subclass": "footway"},
+                ),
+                (
+                    "transportation",
+                    LineString([(17, -8), (19, -8)]),
+                    {"class": "path", "brunnel": "bridge", "layer": 1},
+                ),
+            ],
+        )
+        mesh = assemble(source, 150, crossings=[crossing])
+        for y in np.linspace(-4.99, 4.99, 21):
+            xy = (18, y)
+            foot = support_height(mesh["sidewalk"], xy).max()
+            underside = support_height(mesh["bridge deck"], xy).min()
+            self.assertGreaterEqual(underside - foot, CLEARANCE_M)
+            self.assertGreaterEqual(foot, -2 + FLOOR_ABOVE_WATER_M - 1e-6)
+        sidewalk = support_height(mesh["sidewalk"], (18, -8))
+        self.assertGreater(len(sidewalk), 0)
+        self.assertLessEqual(np.ptp(sidewalk), 1e-6)
+        for x in (-20, 20):
+            left = support_height(mesh["road"], (x - 0.02, 0)).max()
+            right = support_height(mesh["road"], (x + 0.02, 0)).max()
+            self.assertLess(abs(left - right), 0.005)
