@@ -235,11 +235,12 @@ def tile_surface(
         )
         routes = route_footprints(data.get("transportation", {}), nw, se, tile, focal)
         mask = outside
-        earthworks = [
-            (a, "road") for a in approaches if tile.intersects(a.footprint)
-        ] + [
+        adjoining = [a for a in approaches if tile.intersects(a.footprint)]
+        earthworks = [(a, "road") for a in adjoining] + [
             (cut, "regional soil")
-            for cut in bank_cuts(ground, faces[mask], crossings, tile)
+            for cut in bank_cuts(
+                ground, faces[mask], crossings, tile, approaches=adjoining
+            )
         ]
         graded = dict(enumerate(earthworks, start=len(names)))
         parts = partition_ground(

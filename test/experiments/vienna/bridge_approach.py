@@ -25,7 +25,7 @@ class BridgeApproach:
 
     @property
     def retaining_edge(self):
-        return self.footprint.boundary
+        return self.footprint.boundary.difference(self.mouth_edge.buffer(2e-6))
 
     def heights(self, ground):
         station = (ground[:, :2] - self.origin) @ self.direction

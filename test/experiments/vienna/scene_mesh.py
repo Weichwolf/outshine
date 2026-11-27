@@ -351,6 +351,7 @@ def ground_surfaces(
                 crossings,
                 extent,
                 joined_ground=junction_area.buffer(2e-6) if junctions else None,
+                approaches=approaches,
             )
         ]
     )
