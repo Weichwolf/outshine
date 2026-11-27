@@ -5,6 +5,7 @@ from itertools import pairwise
 
 import numpy as np
 import shapely
+from ground_surface import ROAD_WIDTH
 from outshine_ref.transport.water_span import solve_water_span
 
 
@@ -66,8 +67,10 @@ def edge_guards(meshes, polygon, span):
                 )
 
 
-def build_water_bridges(meshes, features, extent, water, height, *, exclude=None):
-    outlines, routes = defaultdict(list), defaultdict(list)
+def build_water_bridges(
+    meshes, features, extent, water, height, *, exclude=None, spans=None
+):
+    outlines, routes, lanes = defaultdict(list), defaultdict(list), defaultdict(list)
     for name, geom, prop in features:
         if name != "transportation" or prop.get("brunnel") != "bridge":
             continue
@@ -76,6 +79,9 @@ def build_water_bridges(meshes, features, extent, water, height, *, exclude=None
             outlines[level].append(shapely.make_valid(geom))
         elif geom.geom_type.endswith("LineString"):
             routes[level].append(geom)
+            kind = prop.get("class")
+            if kind in ROAD_WIDTH and kind != "path":
+                lanes[level].append((geom, ROAD_WIDTH[kind]))
     solved = {}
     for level, pieces in outlines.items():
         drawn = []
@@ -88,12 +94,22 @@ def build_water_bridges(meshes, features, extent, water, height, *, exclude=None
             if span is None:
                 continue
             footprint = shapely.orient_polygons(footprint)
+            if spans is not None:
+                spans.append((footprint, span))
+            paved = shapely.union_all(
+                [
+                    g.intersection(footprint).buffer(width / 2, cap_style="flat")
+                    for g, width in lanes[level]
+                    if g.intersects(footprint)
+                ]
+            ).intersection(footprint)
             slab(
                 meshes,
                 "bridge deck",
                 footprint,
                 span.height,
                 min(3.2, span.length / 40),
+                paved=paved,
             )
             edge_guards(meshes, footprint, span)
             width = footprint.area / span.length

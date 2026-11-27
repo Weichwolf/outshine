@@ -4,6 +4,7 @@ import itertools
 
 import numpy as np
 import shapely
+from bridge_approach import approach_meshes
 from bridges import build_water_bridges
 from ground_surface import at_grade_routes, at_grade_width, partition_ground
 from outshine_ref.buildings.facades import FacadeRepeat
@@ -156,7 +157,7 @@ def water_surfaces(meshes, source, bodies, vertices, banks):
         vertical_faces(meshes, "ground", top, water_height(shore).reshape(-1, 2) - 0.1)
 
 
-def ground_surfaces(meshes, source, extent, bodies, vertices, quads):
+def ground_surfaces(meshes, source, extent, bodies, vertices, quads, approaches=()):
     roads = at_grade_routes(
         ((g, p) for layer, g, p in source.features if layer == "transportation"),
         extent,
@@ -168,16 +169,28 @@ def ground_surfaces(meshes, source, extent, bodies, vertices, quads):
         (foot, z) for stair in stairs for foot, z in zip(stair.treads, stair.heights)
     ]
     heights = {i: z for i, (_, z) in enumerate(pieces, start=4)}
+    ramps = {
+        i: a
+        for i, a in enumerate(approaches, start=4 + len(pieces))
+        if a.footprint.intersects(extent)
+    }
     stair_limit = shapely.union_all([stair.footprint for stair in stairs]).boundary
     names = dict(enumerate(("ground", "water", "road", "sidewalk")))
-    names.update({i: i for i in heights})
+    names.update({i: i for i in heights.keys() | ramps.keys()})
     footprints = {1: bodies}
     footprints.update({i: foot for i, (foot, _) in enumerate(pieces, start=4)})
+    footprints.update({i: a.footprint.intersection(extent) for i, a in ramps.items()})
     footprints.update({2: roads["road"], 3: roads["sidewalk"]})
     banks = np.empty((0, 2, 3))
     for name, points, faces in partition_ground(
         vertices, quads, np.zeros(len(quads), dtype=int), names, footprints
     ):
+        if name in ramps:
+            for material, ramp_vertices, indices in approach_meshes(
+                points, faces, ramps[name]
+            ):
+                meshes.add(material, ramp_vertices, indices)
+            continue
         if name == "water" or name in heights:
             edges = points[faces][:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2, 3)
             if name == "water":
@@ -197,7 +210,7 @@ def ground_surfaces(meshes, source, extent, bodies, vertices, quads):
     water_surfaces(meshes, source, bodies, vertices, banks)
 
 
-def assemble(source, radius, viaducts=()):
+def assemble(source, radius, viaducts=(), approaches=()):
     meshes = Meshes()
     extent = box(-radius, -radius, radius, radius)
     vertices, quads = terrain_grid(source, radius)
@@ -208,12 +221,12 @@ def assemble(source, radius, viaducts=()):
             if layer == "water"
         ]
     )
-    ground_surfaces(meshes, source, extent, bodies, vertices, quads)
+    ground_surfaces(meshes, source, extent, bodies, vertices, quads, approaches)
     bridges = build_water_bridges(
         meshes, source.features, extent, bodies, source.height
     )
     for viaduct in viaducts:
-        draw_viaduct(meshes, viaduct, source.height)
+        draw_viaduct(meshes, viaduct, source.height, approaches)
     for name, geom, prop in source.features:
         geometry = shapely.make_valid(geom) if not geom.is_valid else geom
         if name == "building":

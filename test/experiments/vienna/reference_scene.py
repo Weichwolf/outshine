@@ -8,9 +8,10 @@ import numpy as np
 import shapely
 from astral import Observer
 from astral.sun import azimuth, elevation
+from bridge_approach import APPROACH_SEARCH, bridge_approaches
 from catalog import HERE, ROOT
 from horizon import terrain_horizon
-from regional import beyond_region, regional_meshes, regional_sources
+from regional import beyond_region, regional_meshes, regional_sources, tile_rect
 from scene_mesh import assemble
 from source_scene import LocalScene
 from viaducts import local_viaducts
@@ -41,6 +42,31 @@ def support_height(mesh, xy=(0.0, 0.0)):
     return (a[keep, 2] + w * edge[keep, 2] + v * side[keep, 2])[hits]
 
 
+def viaduct_approaches(source, viaducts, domain, region):
+    if not viaducts:
+        return []
+    features = []
+    for receipt in region:
+        if receipt["kind"] != "vector":
+            continue
+        nw, se = tile_rect(source, receipt["tile"])
+        tile = shapely.box(*np.minimum(nw, se), *np.maximum(nw, se))
+        if tile.intersects(domain):
+            features.extend(
+                (name, geom, tags)
+                for name, geom, tags in source.metric_features(
+                    receipt, ("transportation", "water")
+                )
+                if geom.intersects(domain)
+            )
+    water = shapely.union_all(
+        [shapely.make_valid(geom) for name, geom, _ in features if name == "water"]
+    )
+    return bridge_approaches(
+        [(deck.footprint, deck) for deck in viaducts], features, source.height, water
+    )
+
+
 class ReferenceScene:
     def __init__(self, place, config):
         cache = ROOT / "build/vienna-sources"
@@ -48,9 +74,33 @@ class ReferenceScene:
         self.viaducts = local_viaducts(
             self.source.features, shapely.box(-250, -250, 250, 250), self.source.height
         )
-        self.local = assemble(self.source, 250, self.viaducts)
         self.fov = place.get("vertical_fov_deg", config["vertical_fov_deg"])
         self.focal = 360 / math.tan(math.radians(self.fov) / 2)
+        pins = json.loads((HERE / "sources.json").read_text())
+        transport_domain = shapely.union_all(
+            [
+                shapely.Point(end).buffer(APPROACH_SEARCH)
+                for deck in self.viaducts
+                for end in (deck.origin, deck.origin + deck.length * deck.direction)
+            ]
+        )
+        self.region = regional_sources(
+            self.source,
+            place,
+            config["source_snapshot"],
+            cache,
+            self.fov,
+            transport_domain=transport_domain,
+            pins=pins,
+        )
+        self.far, self.faces, receipts = terrain_horizon(self.source, cache, 250)
+        for row in self.source.receipts + receipts + self.region:
+            if pins.get(row["url"]) != row["sha256"]:
+                raise ValueError(f"Unpinned or changed Vienna source: {row['url']}")
+        self.approaches = viaduct_approaches(
+            self.source, self.viaducts, transport_domain, self.region
+        )
+        self.local = assemble(self.source, 250, self.viaducts, self.approaches)
         self.look = direction(place["heading_deg"], place["pitch_deg"])
         observer = Observer(place["latitude"], place["longitude"])
         utc = datetime.fromisoformat(place.get("utc", config["utc"]))
@@ -76,21 +126,18 @@ class ReferenceScene:
             z, self.support = max(hits)
             z += config["eye_height_m"]
         self.eye = np.array([*xy, z])
-        self.far, self.faces, receipts = terrain_horizon(self.source, cache, 250)
-        self.region = regional_sources(
-            self.source, place, config["source_snapshot"], cache, self.fov
-        )
-        pins = json.loads((HERE / "sources.json").read_text())
-        for row in self.source.receipts + receipts + self.region:
-            if pins.get(row["url"]) != row["sha256"]:
-                raise ValueError(f"Unpinned or changed Vienna source: {row['url']}")
 
     def surfaces(self):
         for name, (verts, faces) in self.local.items():
             yield name, verts, faces
         bounds = []
         for products, tile in regional_meshes(
-            self.source, self.region, self.focal, 250, viaducts=self.viaducts
+            self.source,
+            self.region,
+            self.focal,
+            250,
+            viaducts=self.viaducts,
+            local_approaches=self.approaches,
         ):
             yield from products
             bounds.append(tile)

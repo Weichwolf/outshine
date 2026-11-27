@@ -166,9 +166,12 @@ def elevated_outline(geometry, layer, viaducts):
     )
 
 
-def draw_viaduct(meshes, deck, height):
+def draw_viaduct(meshes, deck, height, approaches=()):
     outline = shapely.orient_polygons(deck.footprint)
-    slab(meshes, "bridge deck", outline, deck.height, SLAB_DEPTH, paved=deck.pavement)
+    pavement = shapely.union_all(
+        [deck.pavement, *(a.deck_contact for a in approaches if a.span is deck)]
+    )
+    slab(meshes, "bridge deck", outline, deck.height, SLAB_DEPTH, paved=pavement)
     edge_guards(meshes, outline, deck)
     width = outline.area / deck.length
     divisions = int(np.ceil(deck.length / max(24.0, 0.75 * width)))
