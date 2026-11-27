@@ -13,7 +13,7 @@ VAULT_RISE_M = 0.85
 VAULT_HEIGHT_M = 3.0
 
 
-def vault_panels(passage, cut, crown):
+def passage_axis(passage):
     xy = shapely.get_coordinates(passage.route)
     origin, end = xy[[0, -1]]
     baseline = end - origin
@@ -24,11 +24,23 @@ def vault_panels(passage, cut, crown):
     normal = np.array([-along[1], along[0]])
     if np.max(np.abs((xy - origin) @ normal)) > 1e-6:
         return
+    return origin, end, along, normal
+
+
+def vault_profile(crown):
     radius = PORTAL_WIDTH_M / 2
-    lateral = radius * np.sin(np.linspace(-np.pi / 2, np.pi / 2, 13))
-    elevation = crown - VAULT_RISE_M * (
-        1 - np.sqrt(np.maximum(0, 1 - (lateral / radius) ** 2))
-    )
+    angle = np.linspace(-np.pi / 2, np.pi / 2, 25)
+    radial = np.column_stack((np.sin(angle), np.cos(angle)))
+    inner = radial * [radius, VAULT_RISE_M] + [0, crown - VAULT_RISE_M]
+    return inner, radial
+
+
+def vault_panels(passage, cut, crown):
+    frame = passage_axis(passage)
+    if frame is None:
+        return
+    origin, end, along, normal = frame
+    lateral, elevation = vault_profile(crown)[0].T
     start = origin - PORTAL_OVERLAP_M * along
     stop = end + PORTAL_OVERLAP_M * along
     for lo, hi, lo_z, hi_z in zip(

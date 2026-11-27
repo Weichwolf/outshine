@@ -20,6 +20,7 @@ SURFACE_DETAIL = {
     "sidewalk": "concrete",
     "stair limestone": "concrete",
     "foundation": "concrete",
+    "portal stone": "concrete",
     "ground": "soil",
     "grass": "grass",
     "meadow": "meadow",

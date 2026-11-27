@@ -28,6 +28,7 @@ from ground_surface import (
 from outshine_ref.buildings.facades import FacadeRepeat
 from outshine_ref.buildings.recessed_facades import RecessPlan, recess_surface
 from outshine_ref.buildings.structures import suppressed
+from passage_trim import draw_passage_trim
 from shapely.geometry import Point, box
 from shore_grade import SHORE_REACH_M, shore_grade
 from stair_branches import local_stair_branches
@@ -60,7 +61,7 @@ def cap(meshes, name, polygon, elevation, *, underside=False):
     meshes.add(name, np.column_stack((xy, z)), faces[:, ::-1] if underside else faces)
 
 
-def building(meshes, polygon, properties, source, foundation=None, passages=()):
+def building(meshes, polygon, properties, source, foundation, passages, grade):
     floor = properties.get("render_min_height", 0)
     roof = properties.get("render_height", 0)
     if roof <= floor or suppressed(properties):
@@ -74,7 +75,7 @@ def building(meshes, polygon, properties, source, foundation=None, passages=()):
     if passages:
         soffit = max(item.crown_m for item in passages)
         corridor = shapely.union_all([item.corridor for item in passages])
-        passage_ceilings(meshes, polygon, passages, corridor, soffit)
+        passage_ceilings(meshes, polygon, passages, corridor, soffit, grade)
         for pier in polygons(polygon.difference(corridor)):
             building_walls(meshes, pier, base + floor, soffit, foundation, bays=False)
         building_walls(meshes, polygon, soffit, base + roof)
@@ -82,7 +83,7 @@ def building(meshes, polygon, properties, source, foundation=None, passages=()):
         building_walls(meshes, polygon, base + floor, base + roof, foundation)
 
 
-def passage_ceilings(meshes, polygon, passages, corridor, storey_top):
+def passage_ceilings(meshes, polygon, passages, corridor, storey_top, grade):
     if sum(item.corridor.area for item in passages) - corridor.area > 1e-6:
         for cut in polygons(polygon.intersection(corridor)):
             cap(meshes, "wall", cut, lambda xy: storey_top, underside=True)
@@ -90,6 +91,8 @@ def passage_ceilings(meshes, polygon, passages, corridor, storey_top):
     for item in passages:
         cut = polygon.intersection(item.corridor)
         panels = list(vault_panels(item, cut, item.crown_m))
+        if panels:
+            draw_passage_trim(meshes, polygon, item, grade)
         if not panels:
             for patch in polygons(cut):
                 passage_ceiling(
@@ -639,6 +642,7 @@ def assemble(
         source.height,
     )
     by_footprint = {foundation.footprint: foundation for foundation in foundations}
+    grade = partial(terrain_height, vertices)
     passages = building_passages(
         [(g, p) for name, g, p in source.features if name == "transportation"],
         [
@@ -647,7 +651,7 @@ def assemble(
             if polygon in by_footprint and properties.get("render_height", 0) > 3.4
         ],
         extent,
-        partial(terrain_height, vertices),
+        grade,
     )
     for polygon, properties in buildings:
         if polygon in passages:
@@ -690,7 +694,13 @@ def assemble(
             else None
         )
         building(
-            meshes, polygon, properties, source, foundation, passages.get(polygon, ())
+            meshes,
+            polygon,
+            properties,
+            source,
+            foundation,
+            passages.get(polygon, ()),
+            grade,
         )
     for name, geom, prop in source.features:
         if name == "transportation" and prop.get("brunnel") != "tunnel":
