@@ -22,7 +22,9 @@ seconds at 1280×720 for this reference workflow.
 The initial integration covers the local DEM, mapped building shells, near recessed facade cells
 and ground-level road surfaces. A separate level mesh fills mapped water polygons cut from the
 local terrain. Real DEM rings extend the terrain from the 250 m local square to 100 km along
-each axis. The far terrain currently has a uniform material.
+each axis. The reference uses 240 rings with 128 intervals per side to retain Alpine
+ridgelines in both renderers. Subdivision of the inner edges matches the original local
+terrain. The far terrain currently has a uniform material.
 
 The first twelve-image review shows missing steps at Strudlhofstiege, a missing passage at
 Adlerhof and striping at Prater Hochstraße. The Schemerlbrücke camera looks from a mapped

@@ -9,17 +9,17 @@ from outshine_ref.places.sources import acquire
 
 
 def terrain_horizon(source, cache, radius):
-    # The first ring shares the local terrain grid's perimeter in traversal order.
-    edge = np.linspace(-1, 1, 65)[:-1]
+    edge = np.linspace(-1, 1, 129)[:-1]
+    side = np.ones_like(edge)
     perimeter = np.concatenate(
         [
-            np.c_[edge, -np.ones(64)],
-            np.c_[np.ones(64), edge],
-            np.c_[-edge, np.ones(64)],
-            np.c_[-np.ones(64), -edge],
+            np.c_[edge, -side],
+            np.c_[side, edge],
+            np.c_[-edge, side],
+            np.c_[-side, -edge],
         ]
     )
-    radii = np.geomspace(radius, 100000, 112)
+    radii = np.geomspace(radius, 100000, 240)
     xy = radii[:, None, None] * perimeter
     lon, lat = (xy.reshape(-1, 2) / source.metres + [source.lon, source.lat]).T
     world = np.column_stack(
@@ -53,8 +53,11 @@ def terrain_horizon(source, cache, radius):
     anchor = ecef(source.lat, source.lon, source.datum)
     vertices = (ecef(lat, lon, heights) - anchor) @ axes(source.lat, source.lon).T
     count = len(perimeter)
+    # Even vertices match the inner grid. Odd vertices subdivide its existing edges.
+    anchor_z = source.height(xy[0, ::2])
     vertices[:count, :2] = xy[0]
-    vertices[:count, 2] = source.height(xy[0])
+    vertices[:count:2, 2] = anchor_z
+    vertices[1:count:2, 2] = (anchor_z + np.roll(anchor_z, -1)) * 0.5
     a = np.arange((len(radii) - 1) * count)
     b = a - a % count + (a + 1) % count
     triangles = np.column_stack((a, b + count, b, a, a + count, b + count)).reshape(
