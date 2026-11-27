@@ -128,6 +128,34 @@ def route_footprints(group, nw, se, domain, focal):
     return at_grade_routes(features, domain, focal=focal)
 
 
+def surface_elevations(mesh, xy):
+    vertices, faces = mesh
+    if not len(faces):
+        return np.full(len(xy), -np.inf)
+    xy = np.asarray(xy)
+    triangles = np.asarray(vertices)[np.asarray(faces)]
+    footprints = shapely.polygons(triangles[..., :2])
+    valid = shapely.area(footprints) > 1e-10
+    triangles = triangles[valid]
+    site, triangle = shapely.STRtree(footprints[valid]).query(
+        shapely.points(xy), predicate="covered_by"
+    )
+    origin, east, north = triangles[triangle].transpose(1, 0, 2)
+    east = east - origin
+    north = north - origin
+    delta = xy[site] - origin[:, :2]
+    det = east[:, 0] * north[:, 1] - east[:, 1] * north[:, 0]
+    weight_east = (delta[:, 0] * north[:, 1] - delta[:, 1] * north[:, 0]) / det
+    weight_north = (east[:, 0] * delta[:, 1] - east[:, 1] * delta[:, 0]) / det
+    heights = np.full(len(xy), -np.inf)
+    np.maximum.at(
+        heights,
+        site,
+        origin[:, 2] + east[:, 2] * weight_east + north[:, 2] * weight_north,
+    )
+    return heights
+
+
 def project_triangles(cells, ground):
     triangles, owner = shapely.get_parts(
         shapely.constrained_delaunay_triangles(cells), return_index=True

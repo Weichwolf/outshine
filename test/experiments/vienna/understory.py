@@ -4,10 +4,11 @@ from functools import cache
 
 import numpy as np
 import shapely
+from ground_surface import surface_elevations
 from outshine_ref.vegetation import Blade, FrondGuide, PinnatePattern
 from outshine_ref.vegetation.axis_surface import axis_mesh
 from outshine_ref.vegetation.graminoid import graminoid_tuft_mesh
-from plant_sites import patch_density, root_elevations, scatter_mesh, tile_sites
+from plant_sites import patch_density, scatter_mesh, tile_sites
 from scipy.spatial.transform import Rotation
 
 UNDERSTORY_REACH_M = 35.0
@@ -101,7 +102,7 @@ def woodland_low_cover(mesh, source, domain, eye, seed):
     if not planted.any():
         return
     xy, marks = xy[planted], marks[planted]
-    heights = root_elevations(mesh, xy)
+    heights = surface_elevations(mesh, xy)
     grounded = np.isfinite(heights)
     if grounded.any():
         anchors = np.column_stack((xy[grounded], heights[grounded] - 0.009))
@@ -133,7 +134,7 @@ def woodland_cover(mesh, source, domain, eye, seed):
     marks = np.concatenate([b[1] for b in sites])
     inside = shapely.contains_xy(planting, *xy.T)
     xy, marks = xy[inside], marks[inside]
-    heights = root_elevations(mesh, xy)
+    heights = surface_elevations(mesh, xy)
     grounded = np.isfinite(heights)
     xy, marks = xy[grounded], marks[grounded]
     anchors = np.column_stack((xy, heights[grounded] - 0.018))

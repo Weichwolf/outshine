@@ -3,7 +3,7 @@
 import unittest
 
 import numpy as np
-from plant_sites import root_elevations
+from ground_surface import surface_elevations
 
 
 class GrassCoverTest(unittest.TestCase):
@@ -20,5 +20,5 @@ class GrassCoverTest(unittest.TestCase):
         mesh = vertices, [(0, 1, 2), (1, 3, 2), (4, 5, 6)]
         sites = np.array([(0.25, 0.5), (1, 1), (2.5, 1), (3.5, 1)])
         np.testing.assert_allclose(
-            root_elevations(mesh, sites), [0.75, 2, -np.inf, 4.5]
+            surface_elevations(mesh, sites), [0.75, 2, -np.inf, 4.5]
         )
