@@ -66,7 +66,13 @@ class Passage:
         return self.footprint.boundary
 
     def heights(self, ground):
-        z = self.surface.sample(ground[:, :2]).points_enu_m[:, 2]
+        xy = ground[:, :2]
+        z = self.surface.sample(xy).points_enu_m[:, 2]
+        unresolved = ~np.isfinite(z)
+        if unresolved.any():
+            exact = replace(self.surface, xy_tolerance_m=0.0)
+            z = z.copy()
+            z[unresolved] = exact.sample(xy[unresolved]).points_enu_m[:, 2]
         if not np.isfinite(z).all():
             raise ValueError("Lower crossing must have a complete floor")
         return z

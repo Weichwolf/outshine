@@ -2,8 +2,10 @@ import unittest
 from types import SimpleNamespace
 
 import numpy as np
-from bridge_passages import CLEARANCE_M, FLOOR_ABOVE_WATER_M, MAXIMUM_GRADE
+from bridge_passages import CLEARANCE_M, FLOOR_ABOVE_WATER_M, MAXIMUM_GRADE, Passage
 from bridges import WaterCrossing
+from outshine_ref.contracts import Mesh
+from outshine_ref.geometry.sampling import SurfaceSampler
 from outshine_ref.transport.water_span import WaterSpan
 from reference_scene import support_height
 from scene_mesh import assemble
@@ -11,6 +13,22 @@ from shapely.geometry import LineString, box
 
 
 class BridgePassageTest(unittest.TestCase):
+    def test_path_floor_prefers_the_containing_face_between_close_cut_edges(self):
+        xs = np.array([0.0, 1.0, 1.0000015, 2.0])
+        xy = np.stack(np.meshgrid(xs, [0.0, 1.0]), axis=-1).reshape(-1, 2)
+        triangles = (np.arange(3)[:, None] + [0, 1, 5, 0, 5, 4]).reshape(-1, 3)
+        mesh = Mesh(np.c_[xy, 0.02 * xy[:, 0]], triangles)
+        sampler = SurfaceSampler(mesh, xy_tolerance_m=2e-6, height_tolerance_m=3e-6)
+        passage = Passage(SimpleNamespace(footprint=box(0, 0, 2, 1)), sampler, ())
+        ground = np.array([[1.00000075, 0.4, 0.0]])
+
+        self.assertEqual(
+            sampler.sample(ground[:, :2]).reasons, ("ambiguous_projected_contact",)
+        )
+        np.testing.assert_allclose(passage.heights(ground), 0.02 * ground[:, 0])
+        with self.assertRaisesRegex(ValueError, "complete floor"):
+            passage.heights(np.array([[1.5, -0.2, 0.0]]))
+
     def test_dry_footway_and_raised_road_have_separate_usable_heights(self):
         footprint = box(-20, -5, 20, 5)
         span = WaterSpan(np.array([-20, 0]), np.array([1, 0]), 40, 1.25, 0)
