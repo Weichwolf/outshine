@@ -38,26 +38,36 @@ def stand_plan(species, form):
     )
     limbs = replace(
         limbs,
-        branches=8 if form == 0 else 9,
-        length=reach[form],
+        branches=10 if form == 0 else 11,
+        length=1.19 * reach[form],
         base_radius=0.175 if species == "oak" else 0.135,
         radius_parent_ratio=0.79 if species == "oak" and form == 0 else 0.73,
         first=first[form],
         attachment_jitter=0.46,
-        angle=inclination[form],
-        angle_tip=0.58,
+        angle=inclination[form] + 0.12,
+        angle_tip=0.94,
         angle_variation=0.34,
-        azimuth_variation=0.78,
+        azimuth_variation=0.52,
         bend=0.43,
         bend_variation=0.23,
         tip_scale=0.62,
     )
-    twigs = replace(twigs, branches=10 if form == 0 else 9, radius_parent_ratio=0.36)
+    twigs = replace(
+        twigs,
+        branches=10 if form == 0 else 9,
+        radius_parent_ratio=0.36,
+        attachment_jitter=0.40,
+        angle_variation=0.38,
+        azimuth_variation=1.15,
+        bend_variation=0.23,
+        upward_bias=0.16,
+        leaf_internode=0.018,
+    )
     shoots = replace(
         twigs,
-        branches=5,
-        length=0.77 if species == "oak" else 0.65,
-        first=0.24,
+        branches=7,
+        length=0.63 if species == "oak" else 0.57,
+        first=0.16,
         last=0.92,
         base_radius=0.0022,
         tip_radius=0.00045,
@@ -65,9 +75,11 @@ def stand_plan(species, form):
         tip_scale=0.50,
         angle=1.1,
         angle_tip=0.62,
-        upward_bias=0.27,
-        azimuth_variation=0.85,
-        leaf_internode=0.018,
+        attachment_jitter=0.42,
+        angle_variation=0.36,
+        upward_bias=0.20,
+        azimuth_variation=1.23,
+        leaf_internode=0.019,
         leaf_sky_alignment=0.49,
     )
     return PlantPlan(base.seed + 19 * form, (stem, limbs, twigs, shoots), base.blades)
@@ -96,8 +108,8 @@ def habitat(source, *, stems=True):
 def represented_leaves(rows, areas, step):
     axes = rows["leaf_axis_ids"]
     order = np.arange(len(axes))
-    if not len(order):
-        return order, np.empty(0), rows["leaf_origins"]
+    if step == 1 or not len(order):
+        return order, np.ones(len(order)), rows["leaf_origins"]
     if step >= DISTANT_LEAF_STEP:
         parents = rows["axis_parent_ids"][axes]
         axes = np.where(parents >= 0, parents, axes)
@@ -110,7 +122,8 @@ def represented_leaves(rows, areas, step):
     stop = np.minimum(
         first + step, ends[np.searchsorted(starts, first, side="right") - 1]
     )
-    selected = order[(first + stop - 1) // 2]
+    # A fixed midpoint at even strides repeatedly selects the same side of a shoot.
+    selected = order[first + np.random.default_rng(0).integers(stop - first)]
     variants = rows["leaf_variants"]
     prefix = np.r_[0, np.cumsum(areas[variants[order]])]
     size = np.sqrt((prefix[stop] - prefix[first]) / areas[variants[selected]])
