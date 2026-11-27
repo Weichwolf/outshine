@@ -15,7 +15,7 @@ an independent lighting comparison. Inputs are genuine ZXY tiles pinned in sourc
 The seed, camera, clear sky and UTC are in places.json. The final eye position follows a vertical
 intersection with the rendered support mesh.
 
-Omit `--place Adlerhof` to render the twelve views in catalog order. With `--repeat`, the
+Omit `--place Adlerhof` to render the thirteen views in catalog order. With `--repeat`, the
 second interval measures the warm image, including PNG encoding and writing. Allow up to five
 seconds at 1280×720 for this reference workflow.
 
@@ -44,3 +44,10 @@ Mapped woodland uses the oak and beech stand recipes from the original biome stu
 coordinates. Road, water and building exclusion precedes placement. Stem density is an
 art parameter (120/ha). The first comparison at Dechantlacke shows sparse crowns and
 missing understory relative to the [August 2022 Lobau woodland](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg).
+
+
+The thirteenth reference, Wien, reads the elevated camera and clock directly from
+`test/outshine/data/places/Wien.scenario`. The native comparison image is
+[`doc/images/wien.png`](../../../doc/images/wien.png) (commit `ab335a928`).
+The current reference series enables vegetation for every camera, including Wien.
+Wienerblick remains an independent, eye-level site.

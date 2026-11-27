@@ -29,7 +29,7 @@ Abnahme. Alle Profile zeigen vollständige Inhalte und bis zu 240 km Sichtweite,
 und Aussicht sie zulassen. Dichte Stadt und dichter Wald teilen sich das gleiche Gesamtbudget für
 GPU-Zeit, Bandbreite und Speicher. Ich stecke Detail in die sichtbare Bildwirkung.
 
-- Ich halte zwölf wechselnde Places als Vergleich, auch unabhängige Gegenbeispiele. Kopfbewegung,
+- Ich halte wechselnde Places als Vergleich, auch unabhängige Gegenbeispiele. Kopfbewegung,
   Drehung und Flug prüfen. Ich öffne aktuelle PNGs und Zwischenbilder. Pro Place bleibt unter
   `build/shots/places/` das neueste PNG. Bilder publiziere ich nur auf ausdrücklichen Auftrag.
 - Ich messe CPU-/GPU-p50 und -p99, Passzeiten, IO, Uploads sowie physischen Speicher. Vorher/Nachher
@@ -39,8 +39,9 @@ GPU-Zeit, Bandbreite und Speicher. Ich stecke Detail in die sichtbare Bildwirkun
 
 ## Referenz vor nativer Umsetzung
 
-Ich rendere zuerst zwölf Wiener Fußgängerperspektiven mit den vorhandenen Python-Generatoren
-in Blender. Ich prüfe die Bilder auf Augenhöhe und verbessere Rezepte, Materialien und Licht
+Meine Referenzserie umfasst zwölf Wiener Fußgängerperspektiven und die erhöhte Kamera aus
+Wien.scenario. Vegetation ist in allen dreizehn Ansichten aktiv. Ich iteriere mit Python und
+den gemeinsamen GLSL-Shadern. Blender GPU liefert den unabhängigen Bild- und Lichtvergleich. Ich prüfe die Bilder auf Augenhöhe und verbessere Rezepte, Materialien und Licht
 an mehreren Standorten und benachbarten Blickpunkten. EEVEE und Cycles nutzen die GPU.
 Warme EEVEE-Arbeitsbilder bei 720p dürfen je Standort fünf Sekunden brauchen.
 Die [visuelle Abnahme](https://github.com/Weichwolf/outshine/issues/2084) bestimmt die Vorlage

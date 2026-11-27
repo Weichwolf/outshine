@@ -19,6 +19,7 @@ sys.path.extend(
 
 from astral import Observer
 from astral.sun import azimuth, elevation
+from catalog import load_catalog
 from horizon import terrain_horizon
 from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_light import configure_daylight
@@ -68,7 +69,8 @@ def render(place, config, args):
     device = configure_gpu(scene, "eevee")
     configure_daylight(scene)
     observer = Observer(place["latitude"], place["longitude"])
-    utc = datetime.fromisoformat(config["utc"])
+    utc = datetime.fromisoformat(place.get("utc", config["utc"]))
+    fov = place.get("vertical_fov_deg", config["vertical_fov_deg"])
     bearing = math.radians(azimuth(observer, utc))
     altitude = math.radians(elevation(observer, utc))
     sunlight = Vector(
@@ -92,21 +94,27 @@ def render(place, config, args):
     objects = {n: upload(n, *mesh) for n, mesh in assemble(source, 250).items()}
     upload("distant terrain", far, faces)
     bpy.context.view_layer.update()
-    candidates = (
-        ("sidewalk", "road") if place["support"] == "street" else (place["support"],)
-    )
-    hits = []
-    for name in candidates:
-        if name in objects:
-            hit, pos, _, _ = objects[name].ray_cast(
-                Vector((0, 0, 300)), Vector((0, 0, -1))
-            )
-            if hit:
-                hits.append((pos.z, name))
-    if not hits:
-        raise ValueError(f"{place['id']}: no walkable {candidates} at camera")
-    support, surface = max(hits)
-    eye = Vector((0, 0, support + config["eye_height_m"]))
+    if "absolute_eye_m" in place:
+        surface = "absolute station"
+        eye = Vector((0, 0, place["absolute_eye_m"] - source.datum))
+    else:
+        candidates = (
+            ("sidewalk", "road")
+            if place["support"] == "street"
+            else (place["support"],)
+        )
+        hits = []
+        for name in candidates:
+            if name in objects:
+                hit, pos, _, _ = objects[name].ray_cast(
+                    Vector((0, 0, 300)), Vector((0, 0, -1))
+                )
+                if hit:
+                    hits.append((pos.z, name))
+        if not hits:
+            raise ValueError(f"{place['id']}: no walkable {candidates} at camera")
+        support, surface = max(hits)
+        eye = Vector((0, 0, support + config["eye_height_m"]))
     yaw, pitch = map(math.radians, (place["heading_deg"], place["pitch_deg"]))
     look = Vector(
         (
@@ -120,14 +128,14 @@ def render(place, config, args):
             "eye": eye,
             "target": eye + look,
             "projection": "perspective",
-            "vertical_fov_deg": config["vertical_fov_deg"],
+            "vertical_fov_deg": fov,
             "clip_near_m": 0.05,
             "clip_far_m": 240000,
         }
     )
     scene.render.resolution_x, scene.render.resolution_y = 1280, 720
     scene.render.resolution_percentage = 100
-    focal_pixels = 360 / math.tan(math.radians(config["vertical_fov_deg"]) / 2)
+    focal_pixels = 360 / math.tan(math.radians(fov) / 2)
     trees = plant_woodland(source, 250, config["seed"], focal_pixels, upload)
     scene.eevee.taa_render_samples = 16
     if args.engine == "cycles":
@@ -157,7 +165,7 @@ if __name__ == "__main__":
     p.add_argument("--engine", choices=["eevee", "cycles"], default="eevee")
     p.add_argument("--repeat", action="store_true")
     args = p.parse_args(sys.argv[sys.argv.index("--") + 1 :])
-    config = json.loads((HERE / "places.json").read_text())
+    config = load_catalog()
     for place in config["places"]:
         if not args.place or place["id"] in args.place:
             render(place, config, args)

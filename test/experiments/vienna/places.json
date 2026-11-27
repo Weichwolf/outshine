@@ -101,6 +101,10 @@
       "heading_deg": 211,
       "pitch_deg": 0,
       "support": "sidewalk"
+    },
+    {
+      "id": "Wien",
+      "scenario": "test/outshine/data/places/Wien.scenario"
     }
   ]
 }
