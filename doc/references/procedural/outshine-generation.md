@@ -4,10 +4,10 @@ Generate a plausible, connected world from sparse map, elevation and weather
 data. Research determines geometry, recipes and context. Established methods
 handle presentation, spatial storage, navigation and simulation.
 
-The new native implementation uses the [Python reference package](../../../lib/),
-its fixtures and independent holdouts. Compare topology, contacts, visual
-coverage, work and memory before porting. Reuse portable research data and
-algorithms. [Legacy native code and experiments](https://github.com/Weichwolf/outshine/tree/0932b78323ebf23016f723fdfb3fa31da2e28337)
+The [Python reference package](../../../lib/) is the generator research and
+Phase 1 image reference. Its fixtures and independent holdouts support visual
+comparison and choices about topology, contacts, work and memory. Portable
+recipes and tested alternatives can inform application work. [Previous native code and experiments](https://github.com/Weichwolf/outshine/tree/0932b78323ebf23016f723fdfb3fa31da2e28337)
 provide historical comparisons.
 
 | Area | Reference | Next research |

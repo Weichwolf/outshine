@@ -27,14 +27,20 @@ from ground_detail import (
     SURFACE_DETAIL,
     ground_detail,
 )
-from materials import GLASS_IOR, METALLIC, SURFACES, WATER_IOR, WATER_MATERIALS
+from materials import (
+    DIFFUSE_TRANSMISSION,
+    GLASS_IOR,
+    METALLIC,
+    SURFACES,
+    WATER_IOR,
+    WATER_MATERIALS,
+)
 from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_light import configure_daylight
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
 from reference_scene import ReferenceScene
 from water_bed import BED_ALBEDO
 from water_reflection import reflection_planes
-from woodland import tree_batches
 
 SUN_SHADOW_MIN_TEXEL_M = 0.016
 
@@ -108,6 +114,15 @@ def surface_material(name):
         bsdf.inputs["IOR"].default_value = WATER_IOR
     if detail := SURFACE_DETAIL.get(name):
         apply_detail(material, bsdf, detail, colour)
+    if transmission := DIFFUSE_TRANSMISSION.get(name):
+        tree = material.node_tree
+        backlight = tree.nodes.new("ShaderNodeBsdfTranslucent")
+        backlight.inputs["Color"].default_value = (*colour, 1)
+        mix = tree.nodes.new("ShaderNodeMixShader")
+        mix.inputs[0].default_value = transmission
+        tree.links.new(bsdf.outputs[0], mix.inputs[1])
+        tree.links.new(backlight.outputs[0], mix.inputs[2])
+        tree.links.new(mix.outputs[0], tree.nodes["Material Output"].inputs["Surface"])
     return material
 
 
@@ -171,13 +186,7 @@ def upload(name, vertices, faces, *, collection, smooth=False):
 
 def plant_woodland(world, seed, geometry):
     count = 0
-    for species, group, meshes, placements in tree_batches(
-        world.source,
-        250,
-        seed,
-        world.focal,
-        soil=world.local.get("ground") if world.local.shore.contacts else None,
-    ):
+    for species, group, meshes, placements in world.trees(seed):
         if group is None:
             for name, (vertices, faces) in meshes.items():
                 upload(name, vertices, faces, collection=geometry, smooth=True)
@@ -225,6 +234,8 @@ def render(place, config, args):
     scene.collection.children.link(geometry)
     for name, verts, faces in world.surfaces():
         upload(name, verts, faces, collection=geometry)
+    for name, verts, faces in world.grass_and_understory(config["seed"]):
+        upload(name, verts, faces, collection=geometry)
     eye, look = Vector(world.eye), Vector(world.look)
     scene.camera = configure_camera(
         {
@@ -238,7 +249,6 @@ def render(place, config, args):
     )
     scene.render.resolution_x, scene.render.resolution_y = 1280, 720
     scene.render.resolution_percentage = 100
-    # Keep the reference PNG lossless while minimizing the timed write.
     scene.render.image_settings.compression = 0
     trees = plant_woodland(world, config["seed"], geometry)
     if world.water_bed is not None:

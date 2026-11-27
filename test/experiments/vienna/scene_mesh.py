@@ -12,6 +12,7 @@ from bridge_contacts import bank_cuts
 from bridge_junctions import junction_pavement
 from bridge_passages import bridge_terrain
 from bridges import draw_water_crossings, plan_water_crossings
+from building_foundations import BuildingStamps, building_foundations
 from deck_walk_links import DeckWalkLink, deck_walk_links
 from ground_surface import (
     ROUTE_MATERIALS,
@@ -56,15 +57,23 @@ def cap(meshes, name, polygon, elevation):
     meshes.add(name, np.column_stack((xy, z)), np.arange(len(xy)).reshape(-1, 3))
 
 
-def building(meshes, polygon, properties, source):
+def building(meshes, polygon, properties, source, foundation=None):
     floor = properties.get("render_min_height", 0)
     roof = properties.get("render_height", 0)
     if roof <= floor or suppressed(properties):
         return
-    base = float(source.height(np.asarray(polygon.representative_point().coords))[0])
+    base = (
+        foundation.seat_m
+        if foundation
+        else float(source.height(np.asarray(polygon.representative_point().coords))[0])
+    )
     cap(meshes, "roof", polygon, lambda xy: roof + base)
     for ring in [polygon.exterior, *polygon.interiors]:
         corners = np.asarray(ring.coords)
+        if foundation:
+            top = np.column_stack((corners, np.full(len(corners), base)))
+            edges = np.stack((top[:-1], top[1:]), axis=1)
+            vertical_faces(meshes, "foundation", edges, foundation.sole_m)
         for a, b in itertools.pairwise(corners):
             span = b - a
             length = np.linalg.norm(span)
@@ -265,6 +274,7 @@ def ground_surfaces(
     *,
     water=(),
     water_plan=(),
+    foundations=(),
 ):
     transport = [(g, p) for layer, g, p in source.features if layer == "transportation"]
     roads = at_grade_routes(transport, extent)
@@ -450,16 +460,36 @@ def ground_surfaces(
         for body in shore.bodies
     )
     surface, indices = compound_ground(vertices, quads, junctions, junction_area)
+    building_stamps = None
+    breaks = [
+        *shore.breaks(bodies, extent),
+        *(edge for shape in [*passages, *bank_grades] for edge in shape.breaks),
+    ]
+    if foundations:
+        reserved = shapely.union_all(
+            [*footprints.values(), junction_area, extent.boundary]
+        )
+        building_stamps = BuildingStamps(foundations, reserved)
+        breaks.extend(building_stamps.breaks())
+    grass = shapely.union_all(
+        [
+            part
+            for layer, geometry, properties in source.features
+            if layer == "landcover" and properties.get("class") == "grass"
+            for part in polygons(shapely.make_valid(geometry))
+        ]
+    ).intersection(extent)
+    if not grass.is_empty:
+        ground_cover = first_stair + len(pieces) + len(earthworks)
+        names[ground_cover] = "grass"
+        footprints[ground_cover] = grass
     for name, points, faces in partition_triangles(
         surface,
         indices,
         np.zeros(len(indices), dtype=int),
         names,
         footprints,
-        breaks=[
-            *shore.breaks(bodies, extent),
-            *(edge for shape in [*passages, *bank_grades] for edge in shape.breaks),
-        ],
+        breaks=breaks,
     ):
         if name in graded:
             earthwork, ground_material = graded[name]
@@ -488,7 +518,9 @@ def ground_surfaces(
         if len(faces):
             used, inverse = np.unique(faces, return_inverse=True)
             terrain = points[used]
-            if name == "ground":
+            if name in {"ground", "grass"}:
+                if building_stamps is not None:
+                    terrain[:, 2] = building_stamps.heights(terrain)
                 terrain = shore.deform(source, terrain)
             triangles = inverse.reshape(-1, 3)
             meshes.add(name, terrain, triangles)
@@ -536,6 +568,27 @@ def assemble(
         crossings = list(
             plan_water_crossings(source.features, extent, bodies, source.height)
         )
+    centre = Point(0, 0)
+    buildings = [
+        (polygon, properties)
+        for name, geometry, properties in source.features
+        if name == "building" and not suppressed(properties)
+        for polygon in polygons(
+            geometry if geometry.is_valid else shapely.make_valid(geometry)
+        )
+        if polygon.distance(centre) <= radius
+    ]
+    foundations = building_foundations(
+        [
+            polygon
+            for polygon, properties in buildings
+            if properties.get("render_min_height", 0) == 0
+            and properties.get("render_height", 0) > 0
+            and extent.covers(polygon)
+        ],
+        source.height,
+    )
+    by_footprint = {foundation.footprint: foundation for foundation in foundations}
     approaches, carried, track_paving, crossings, openings, walk_edges = (
         ground_surfaces(
             meshes,
@@ -548,6 +601,7 @@ def assemble(
             crossings,
             water=water,
             water_plan=water_plan,
+            foundations=foundations,
         )
     )
     if not track_paving.is_empty:
@@ -562,15 +616,18 @@ def assemble(
     )
     for viaduct in viaducts:
         draw_viaduct(meshes, viaduct, source.height, approaches)
+    for polygon, properties in buildings:
+        foundation = (
+            by_footprint.get(polygon)
+            if properties.get("render_min_height", 0) == 0
+            else None
+        )
+        building(meshes, polygon, properties, source, foundation)
     for name, geom, prop in source.features:
-        geometry = shapely.make_valid(geom) if not geom.is_valid else geom
-        if name == "building":
-            for poly in polygons(geometry):
-                if poly.distance(Point(0, 0)) <= radius:
-                    building(meshes, poly, prop, source)
-        elif name == "transportation" and prop.get("brunnel") != "tunnel":
+        if name == "transportation" and prop.get("brunnel") != "tunnel":
             if at_grade_width(prop) is not None:
                 continue
+            geometry = shapely.make_valid(geom) if not geom.is_valid else geom
             if owned := carried.get(id(geom)):
                 geometry = geometry.difference(owned)
             material = "sidewalk" if prop.get("class") == "path" else "road"

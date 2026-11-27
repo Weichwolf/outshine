@@ -1,0 +1,70 @@
+"""Sample tile-stable plant sites and root their geometry in the solved ground."""
+
+import numpy as np
+import shapely
+from outshine_ref.places.sources import tile_geography
+from outshine_ref.vegetation.ground_cover import GroundCoverPlan
+
+
+def root_elevations(mesh, xy):
+    vertices, faces = mesh
+    if not len(faces):
+        return np.full(len(xy), -np.inf)
+    triangles = np.asarray(vertices)[np.asarray(faces)]
+    footprints = shapely.polygons(triangles[..., :2])
+    valid = shapely.area(footprints) > 1e-10
+    triangles = triangles[valid]
+    site, triangle = shapely.STRtree(footprints[valid]).query(
+        shapely.points(xy), predicate="covered_by"
+    )
+    origin, east, north = triangles[triangle].transpose(1, 0, 2)
+    east = east - origin
+    north = north - origin
+    delta = xy[site] - origin[:, :2]
+    det = east[:, 0] * north[:, 1] - east[:, 1] * north[:, 0]
+    weight_east = (delta[:, 0] * north[:, 1] - delta[:, 1] * north[:, 0]) / det
+    weight_north = (east[:, 0] * delta[:, 1] - east[:, 1] * delta[:, 0]) / det
+    heights = np.full(len(xy), -np.inf)
+    np.maximum.at(
+        heights,
+        site,
+        origin[:, 2] + east[:, 2] * weight_east + north[:, 2] * weight_north,
+    )
+    return heights
+
+
+def scatter_mesh(mesh, anchors, angles, scales):
+    vertices, faces = mesh
+    x, y, z = vertices.T
+    c, s = np.cos(angles[:, None]), np.sin(angles[:, None])
+    rotated = np.stack(
+        (c * x - s * y, s * x + c * y, np.broadcast_to(z, (len(anchors), len(z)))),
+        axis=-1,
+    )
+    points = rotated * scales[:, None, None] + anchors[:, None, :]
+    offsets = np.arange(len(anchors), dtype=np.int32) * len(vertices)
+    return points.reshape(-1, 3), (faces + offsets[:, None, None]).reshape(-1, 3)
+
+
+def tile_sites(source, centre, radius, seed, *, density, cell_size):
+    anchor = np.array([source.lon, source.lat])
+    lower = anchor + (centre - radius) / source.metres
+    upper = anchor + (centre + radius) / source.metres
+    for receipt in source.receipts:
+        if receipt["kind"] != "vector":
+            continue
+        tile = receipt["tile"]
+        lat, lon = tile_geography([[0, 1], [1, 0]], 1, tile)
+        sw, ne = np.column_stack((lon, lat))
+        metres = np.array([111319.49 * np.cos(np.deg2rad(lat.mean())), 111132.0])
+        lo, hi = np.maximum(sw, lower), np.minimum(ne, upper)
+        if np.any(hi <= lo):
+            continue
+        plan = GroundCoverPlan(
+            seed ^ (tile[1] << 24) ^ tile[2], density_m2=density, cell_m=cell_size
+        )
+        sites = plan.sites((lo - sw) * metres, (hi - sw) * metres)
+        xy = (sw - anchor + sites["xy"] / metres) * source.metres
+        keep = np.sum((xy - centre) ** 2, axis=1) < radius**2
+        if keep.any():
+            yield xy[keep], sites["marks"][keep]

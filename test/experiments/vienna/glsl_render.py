@@ -4,6 +4,7 @@ import argparse
 import json
 import re
 import sys
+from itertools import chain
 from pathlib import Path
 from time import perf_counter
 
@@ -21,7 +22,13 @@ from ground_detail import (
     SURFACE_DETAIL,
     ground_detail,
 )
-from materials import GLASS_IOR, METALLIC, SURFACES, WATER_MATERIALS
+from materials import (
+    DIFFUSE_TRANSMISSION,
+    GLASS_IOR,
+    METALLIC,
+    SURFACES,
+    WATER_MATERIALS,
+)
 from reference_scene import ReferenceScene
 from water_bed import BED_ALBEDO
 from water_reflection import (
@@ -30,7 +37,6 @@ from water_reflection import (
     camera_axes,
     reflection_planes,
 )
-from woodland import tree_batches
 
 REFLECTION_SIZE = (640, 360)
 
@@ -187,6 +193,7 @@ def draw_surfaces(ctx, prog, draws, textures, *, capture=False):
         rgb, rough = SURFACES[name]
         prog["surface"].value = (*rgb, rough)
         prog["metalness"].value = METALLIC.get(name, 0.0)
+        prog["diffuseTransmission"].value = DIFFUSE_TRANSMISSION.get(name, 0.0)
         prog["waterSurface"].value = water
         prog["glassIor"].value = GLASS_IOR if name == "glass" else 1.0
         detail = SURFACE_DETAIL.get(name)
@@ -283,15 +290,12 @@ def render(ctx, place, config, out):
     prog["eyeKm"].value = 6360 + (world.eye[2] + world.source.datum) * 0.001
     ctx.enable(moderngl.DEPTH_TEST)
     draws = [
-        upload(ctx, prog, n, v, f, [(0, 0, 0, 0, 1)]) for n, v, f in world.surfaces()
+        upload(ctx, prog, n, v, f, [(0, 0, 0, 0, 1)])
+        for n, v, f in chain(
+            world.surfaces(), world.grass_and_understory(config["seed"])
+        )
     ]
-    for _, _, meshes, plants in tree_batches(
-        world.source,
-        250,
-        config["seed"],
-        world.focal,
-        soil=world.local.get("ground") if world.local.shore.contacts else None,
-    ):
+    for _, _, meshes, plants in world.trees(config["seed"]):
         draws.extend(upload(ctx, prog, n, v, f, plants) for n, (v, f) in meshes.items())
     draws = [batch for batch in draws if batch is not None]
     shadow = ctx.depth_texture((4096, 4096))

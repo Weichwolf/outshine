@@ -74,8 +74,8 @@ deren Ziel-fps-Sekunde bezeichnet exakt diese Zahl Simulationsschritte.
 Fertige gemeinsame Overrides unter `data/profiles/` bieten720p/1080p/1440p/2160p,
 jeweils30oder60fps, z.B. `720p30.json` oder `2160p60.json`. Derselbe Inhalt gilt für
 `run` und `benchmark`; im laufenden Szenario gilt die Zielrate, im Benchmark maximaler
-Durchsatz. Verbindliches Auslegungsprofil bleibt720p60; die anderen Dateien sind
-Vergleichsprofile. Ein Profil setzt nur Bildgröße/Zielrate und reduziert keine Inhalte:
+Durchsatz. Die Dateien sind Vergleichsprofile für Bildgröße und Zielrate. Der passende
+Kompromiss zwischen Bildqualität, Speicher und Bildrate wird auf dem Zielgerät beurteilt.
 
 ```sh
 build/outshine run --scenario-overrides "$(cat data/profiles/1080p60.json)" /path/to/world.json

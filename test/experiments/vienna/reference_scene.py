@@ -3,7 +3,7 @@
 import json
 import math
 from datetime import datetime
-from functools import partial
+from functools import cached_property, partial
 
 import numpy as np
 import shapely
@@ -12,6 +12,7 @@ from astral.sun import azimuth, elevation
 from bridge_approach import APPROACH_SEARCH, bridge_approaches
 from bridges import plan_water_crossings
 from catalog import HERE, ROOT
+from grass_cover import blades
 from horizon import terrain_horizon
 from outshine_ref.places.height import Elevation
 from regional import (
@@ -25,11 +26,14 @@ from regional import (
 from river_control import RiverControl, control_surfaces
 from scene_mesh import assemble, terrain_grid
 from source_scene import LocalScene
+from understory import woodland_cover
 from viaducts import local_viaducts
 from water_bed import nearshore_bed
 from water_surface import water_bodies
+from woodland import habitat, tree_batches
 
 SUPPORT_MATERIALS = {
+    "ground": ("ground", "grass"),
     "sidewalk": ("sidewalk", "paving", "unpaved path"),
     "street": ("sidewalk", "paving", "unpaved path", "road"),
 }
@@ -239,3 +243,20 @@ class ReferenceScene:
             yield from products
             bounds.append(tile)
         yield "distant terrain", *beyond_region(self.far, self.faces, bounds)
+
+    @cached_property
+    def woodland_floor(self):
+        return habitat(self.source, stems=False)
+
+    def grass_and_understory(self, seed):
+        if "grass" in self.local:
+            yield from blades(self.local["grass"], self.source, self.eye, seed)
+        if "ground" in self.local:
+            yield from woodland_cover(
+                self.local["ground"], self.source, self.woodland_floor, self.eye, seed
+            )
+
+    def trees(self, seed):
+        yield from tree_batches(
+            self.source, 250, seed, self.focal, self.woodland_floor, soil=self.local
+        )

@@ -19,7 +19,9 @@ SURFACE_DETAIL = {
     "retaining wall": "concrete",
     "sidewalk": "concrete",
     "stair limestone": "concrete",
+    "foundation": "concrete",
     "ground": "soil",
+    "grass": "grass",
     "unpaved path": "compacted",
     "wall": "plaster",
     "oak bark": "oak bark",
@@ -67,6 +69,7 @@ def ground_detail(name):
         "plaster",
         "oak bark",
         "leaf",
+        "grass",
         "beech bark",
         "weir overflow",
     ).index(name)
@@ -115,8 +118,9 @@ def ground_detail(name):
     elif name == "beech bark":
         mottling = noise(rng, (22, 15))
         scars = np.maximum(noise(rng, (1.8, 8)) - 1.55, 0)
-        tint = 1 + 0.07 * mottling + 0.040 * patches - 0.17 * scars
-        roughness = 0.84 + 0.030 * mottling + 0.022 * patches
+        lichen = np.maximum(noise(rng, (12, 9)) + 0.4 * fine - 0.30, 0)
+        tint = 1 + 0.12 * mottling + 0.15 * lichen + 0.040 * patches - 0.24 * scars
+        roughness = 0.84 + 0.030 * mottling + 0.015 * lichen + 0.022 * patches
         height = -0.0014 * scars + 0.00045 * patches + 0.00024 * grain
     elif name == "weir overflow":
         threads = noise(rng, (15, 1.5))
@@ -124,6 +128,12 @@ def ground_detail(name):
         tint = 0.62 + 1.0 * air
         roughness = 0.23 + 0.29 * air
         height = 0.0012 * threads + 0.00055 * fine
+    elif name == "grass":
+        clumps = noise(rng, (3.6, 1.8))
+        tips = np.maximum(fine - 0.45, 0)
+        tint = 1 + 0.12 * clumps + 0.07 * grain - 0.10 * tips
+        roughness = 0.90 + 0.030 * clumps - 0.020 * tips
+        height = 0.0022 * clumps + 0.0008 * tips
     else:  # Leaf tissue variation in the shared foliage batch.
         tint = 1 + 0.065 * grain + 0.15 * patches
         roughness = 0.57 + 0.04 * grain + 0.035 * patches
