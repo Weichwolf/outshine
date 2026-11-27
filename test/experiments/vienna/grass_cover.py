@@ -3,39 +3,11 @@
 from functools import cache
 
 import numpy as np
-import shapely
 from outshine_ref.vegetation.blade_surface import Blade
-from plant_sites import tile_sites
+from plant_sites import root_elevations, scatter_mesh, tile_sites
 
 GRASS_REACH_M = 20.0
 FULL_COVER_M = 6.0
-
-
-def root_elevations(mesh, xy):
-    vertices, faces = mesh
-    if not len(faces):
-        return np.full(len(xy), -np.inf)
-    triangles = np.asarray(vertices)[np.asarray(faces)]
-    footprints = shapely.polygons(triangles[..., :2])
-    valid = shapely.area(footprints) > 1e-10
-    triangles = triangles[valid]
-    site, triangle = shapely.STRtree(footprints[valid]).query(
-        shapely.points(xy), predicate="covered_by"
-    )
-    origin, east, north = triangles[triangle].transpose(1, 0, 2)
-    east = east - origin
-    north = north - origin
-    delta = xy[site] - origin[:, :2]
-    det = east[:, 0] * north[:, 1] - east[:, 1] * north[:, 0]
-    weight_east = (delta[:, 0] * north[:, 1] - delta[:, 1] * north[:, 0]) / det
-    weight_north = (east[:, 0] * delta[:, 1] - east[:, 1] * delta[:, 0]) / det
-    heights = np.full(len(xy), -np.inf)
-    np.maximum.at(
-        heights,
-        site,
-        origin[:, 2] + east[:, 2] * weight_east + north[:, 2] * weight_north,
-    )
-    return heights
 
 
 @cache
@@ -89,22 +61,12 @@ def blades(mesh, source, eye, seed):
     lon, lat = (np.array([source.lon, source.lat]) + anchor[:, :2] / source.metres).T
     patch = np.sin(91400 * lon + 22800 * lat) * np.sin(27100 * lon - 83200 * lat)
     scale = 0.62 + 0.69 * marks[:, 1] ** 1.4 + 0.15 * patch
-    vertices, faces = tuft()
-    x, y, z = vertices.T
-    c, s = np.cos(azimuth[:, None]), np.sin(azimuth[:, None])
-    rotated = np.stack(
-        (c * x - s * y, s * x + c * y, np.broadcast_to(z, (len(anchor), len(z)))),
-        axis=-1,
-    )
-    positions = rotated * scale[:, None, None] + anchor[:, None, :]
     for name, group in (
         ("grass blades", marks[:, 1] < 0.83),
         ("grass pale blades", marks[:, 1] >= 0.83),
     ):
         if group.any():
-            offsets = np.arange(np.count_nonzero(group), dtype=np.int32) * len(vertices)
             yield (
                 name,
-                positions[group].reshape(-1, 3),
-                (faces + offsets[:, None, None]).reshape(-1, 3),
+                *scatter_mesh(tuft(), anchor[group], azimuth[group], scale[group]),
             )

@@ -1,8 +1,49 @@
-"""Sample stable plant sites within a window of the source vector tiles."""
+"""Sample tile-stable plant sites and root their geometry in the solved ground."""
 
 import numpy as np
+import shapely
 from outshine_ref.places.sources import tile_geography
 from outshine_ref.vegetation.ground_cover import GroundCoverPlan
+
+
+def root_elevations(mesh, xy):
+    vertices, faces = mesh
+    if not len(faces):
+        return np.full(len(xy), -np.inf)
+    triangles = np.asarray(vertices)[np.asarray(faces)]
+    footprints = shapely.polygons(triangles[..., :2])
+    valid = shapely.area(footprints) > 1e-10
+    triangles = triangles[valid]
+    site, triangle = shapely.STRtree(footprints[valid]).query(
+        shapely.points(xy), predicate="covered_by"
+    )
+    origin, east, north = triangles[triangle].transpose(1, 0, 2)
+    east = east - origin
+    north = north - origin
+    delta = xy[site] - origin[:, :2]
+    det = east[:, 0] * north[:, 1] - east[:, 1] * north[:, 0]
+    weight_east = (delta[:, 0] * north[:, 1] - delta[:, 1] * north[:, 0]) / det
+    weight_north = (east[:, 0] * delta[:, 1] - east[:, 1] * delta[:, 0]) / det
+    heights = np.full(len(xy), -np.inf)
+    np.maximum.at(
+        heights,
+        site,
+        origin[:, 2] + east[:, 2] * weight_east + north[:, 2] * weight_north,
+    )
+    return heights
+
+
+def scatter_mesh(mesh, anchors, angles, scales):
+    vertices, faces = mesh
+    x, y, z = vertices.T
+    c, s = np.cos(angles[:, None]), np.sin(angles[:, None])
+    rotated = np.stack(
+        (c * x - s * y, s * x + c * y, np.broadcast_to(z, (len(anchors), len(z)))),
+        axis=-1,
+    )
+    points = rotated * scales[:, None, None] + anchors[:, None, :]
+    offsets = np.arange(len(anchors), dtype=np.int32) * len(vertices)
+    return points.reshape(-1, 3), (faces + offsets[:, None, None]).reshape(-1, 3)
 
 
 def tile_sites(source, centre, radius, seed, *, density, cell_size):

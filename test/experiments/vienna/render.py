@@ -31,7 +31,6 @@ from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_light import configure_daylight
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
 from reference_scene import ReferenceScene
-from woodland import tree_batches
 
 SUN_SHADOW_MIN_TEXEL_M = 0.016
 
@@ -140,9 +139,7 @@ def upload(name, vertices, faces, *, collection, smooth=False):
 
 def plant_woodland(world, seed, geometry):
     count = 0
-    for species, group, meshes, placements in tree_batches(
-        world.source, 250, seed, world.focal
-    ):
+    for species, group, meshes, placements in world.trees(seed):
         if group is None:
             for name, (vertices, faces) in meshes.items():
                 upload(name, vertices, faces, collection=geometry, smooth=True)
@@ -190,7 +187,7 @@ def render(place, config, args):
     scene.collection.children.link(geometry)
     for name, verts, faces in world.surfaces():
         upload(name, verts, faces, collection=geometry)
-    for name, verts, faces in world.near_grass(config["seed"]):
+    for name, verts, faces in world.grass_and_understory(config["seed"]):
         upload(name, verts, faces, collection=geometry)
     eye, look = Vector(world.eye), Vector(world.look)
     scene.camera = configure_camera(

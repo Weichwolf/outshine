@@ -136,14 +136,13 @@ def geometry(plan, step, *, has_stem, oak):
     return meshes
 
 
-def tree_batches(source, radius, seed, focal_pixels):
+def tree_batches(source, radius, seed, focal_pixels, root_domain):
     domain = habitat(source)
     if domain is None or domain.is_empty:
         return
     templates = {}
     plans = {}
     stems = Meshes()
-    root_domain = habitat(source, stems=False)
     terrain, _ = terrain_grid(source, radius)
     root_height = partial(terrain_height, terrain)
 
