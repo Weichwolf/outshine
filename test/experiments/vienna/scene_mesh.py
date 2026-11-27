@@ -4,6 +4,7 @@ import itertools
 
 import numpy as np
 import shapely
+from bridges import build_water_bridges
 from outshine_ref.buildings.facades import FacadeRepeat
 from outshine_ref.buildings.recessed_facades import RecessPlan, recess_surface
 from outshine_ref.buildings.structures import suppressed
@@ -132,6 +133,7 @@ def assemble(source, radius):
                 )
             )
             meshes.add("ground", np.vstack((top, bottom)), faces.reshape(-1, 3))
+    bridges = build_water_bridges(meshes, source, extent, bodies)
     for name, geom, prop in source.features:
         geometry = shapely.make_valid(geom) if not geom.is_valid else geom
         if name == "building":
@@ -146,6 +148,8 @@ def assemble(source, radius):
                 if prop.get("class") in ("transit", "rail"):
                     continue
                 clipped = clipped.buffer(width / 2, cap_style="flat")
+            if prop.get("brunnel") == "bridge" and prop.get("layer", 1) in bridges:
+                clipped = clipped.difference(bridges[prop.get("layer", 1)])
             for poly in polygons(clipped):
                 cap(
                     meshes,

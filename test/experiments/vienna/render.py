@@ -28,6 +28,8 @@ from source_scene import LocalScene
 
 # Linear reflectance, perceptual roughness.
 SURFACES = {
+    "bridge deck": ((0.23, 0.22, 0.20), 0.82),
+    "bridge metal": ((0.085, 0.13, 0.115), 0.46),
     "water": ((0.028, 0.084, 0.095), 0.09),
     "distant terrain": ((0.11, 0.16, 0.10), 0.95),
     "ground": ((0.15, 0.13, 0.095), 0.9),

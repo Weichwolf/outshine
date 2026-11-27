@@ -26,7 +26,8 @@ each axis. The far terrain currently has a uniform material.
 
 The first twelve-image review shows missing steps at Strudlhofstiege, a missing passage at
 Adlerhof and striping at Prater Hochstraße. The Schemerlbrücke camera looks from a mapped
-bank path across the channel: the deck currently warps toward the water and lacks its truss.
+bank path across the channel: the first integrated bank-to-bank recipe spans the water with a closed slab and edge guards.
+Its steel truss, piers and graded approach tie-ins still need work.
 Hauptallee and Dechantlacke need trees and bank vegetation, Wienerblick needs its city
 skyline, and Franz-Karl-Fernsicht needs a recognizable Alpine silhouette. The shore levels,
 road profiles, material variety, sky and light still need comparison with real scenes.
