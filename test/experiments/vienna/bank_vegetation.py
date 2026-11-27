@@ -4,6 +4,7 @@ from functools import cache
 
 import numpy as np
 import shapely
+from ground_surface import SOIL_MATERIALS
 from outshine_ref.vegetation import Blade, Shoot
 from outshine_ref.vegetation.axis_surface import axis_mesh
 from outshine_ref.vegetation.curve_frame import arc_frame
@@ -137,7 +138,7 @@ def bank_plants(surfaces, source, shore, eye, seed):
         level[use] = body.heights(source, xy[use])
         lake[use] = body.water_class == "lake" and body.control is None
     height = np.full(len(xy), -np.inf)
-    for name in ("ground", "grass", "meadow"):
+    for name in SOIL_MATERIALS:
         if name in surfaces:
             np.maximum(height, root_elevations(surfaces[name], xy), out=height)
     above_water = height - level

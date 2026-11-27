@@ -3,13 +3,14 @@
 from functools import cache
 
 import numpy as np
+from leaf_litter import bake_litter
 from scipy.ndimage import gaussian_filter, map_coordinates
 
 DETAIL_SPAN_M = 2.56
 MACRO_SPAN_M = 23.0
 HEIGHT_SPAN_M = 0.024
 BARK_BOX_BLEND = 0.35
-BEECH_LICHEN_TINT = (0.74, 1.0, 0.64)
+DETAIL_TINTS = {"beech bark": (0.74, 1.0, 0.64), "leaf litter": (0.53, 1.26, 0.66)}
 SIZE = 512
 
 
@@ -24,6 +25,7 @@ SURFACE_DETAIL = {
     "portal stone": "concrete",
     "window sill": "concrete",
     "ground": "soil",
+    "forest floor": "leaf litter",
     "grass": "grass",
     "meadow": "meadow",
     "unpaved path": "compacted",
@@ -31,6 +33,7 @@ SURFACE_DETAIL = {
     "oak bark": "oak bark",
     "beech bark": "beech bark",
     "foliage": "leaf",
+    "woodland low leaves": "leaf",
     "weir overflow": "weir overflow",
 }
 
@@ -77,6 +80,7 @@ def ground_detail(name):
         "beech bark",
         "weir overflow",
         "meadow",
+        "leaf litter",
     ).index(name)
     rng = np.random.default_rng(seed)
     fine, grain, patches = (noise(rng, scale) for scale in (0.65, 1.6, 12))
@@ -104,6 +108,10 @@ def ground_detail(name):
         tint = 0.97 + 0.14 * litter + 0.055 * grain + 0.075 * humus
         roughness = 0.92 - 0.065 * litter + 0.025 * patches
         height = 0.0025 * litter + 0.00070 * fine + 0.0021 * humus
+    elif name == "leaf litter":
+        tint, roughness, height, macro = bake_litter(
+            rng, fine, grain, noise(rng, 30), noise(rng, 15), patches, DETAIL_SPAN_M
+        )
     elif name == "plaster":
         pits = np.maximum(-fine - 0.9, 0)
         trowel = noise(rng, (9, 19))

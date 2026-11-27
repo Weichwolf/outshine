@@ -29,6 +29,7 @@ from deck_walk_links import DeckWalkLink, deck_walk_links
 from facade import FacadeView, draw_facade
 from ground_surface import (
     ROUTE_MATERIALS,
+    SOIL_MATERIALS,
     at_grade_routes,
     at_grade_width,
     grassland_material,
@@ -620,12 +621,19 @@ def ground_surfaces(
         )
         building_stamps = BuildingStamps(foundations, reserved)
         breaks.extend(building_stamps.breaks())
-    grassland = {"meadow": [], "grass": []}
+    vegetation = {"meadow": [], "grass": [], "forest floor": []}
     for layer, geometry, properties in source.features:
-        if layer == "landcover" and (material := grassland_material(properties)):
-            grassland[material].extend(polygons(shapely.make_valid(geometry)))
+        if layer != "landcover":
+            continue
+        material = (
+            "forest floor"
+            if properties.get("class") == "wood"
+            else grassland_material(properties)
+        )
+        if material:
+            vegetation[material].extend(polygons(shapely.make_valid(geometry)))
     cover_start = first_stair + len(pieces) + len(earthworks)
-    for label, (material, areas) in enumerate(grassland.items(), cover_start):
+    for label, (material, areas) in enumerate(vegetation.items(), cover_start):
         cover = shapely.union_all(areas).intersection(extent)
         if not cover.is_empty:
             names[label] = material
@@ -665,7 +673,7 @@ def ground_surfaces(
         if len(faces):
             used, inverse = np.unique(faces, return_inverse=True)
             terrain = points[used]
-            if name in {"ground", "grass", "meadow"}:
+            if name in SOIL_MATERIALS:
                 if building_stamps is not None:
                     terrain[:, 2] = building_stamps.heights(terrain)
                 terrain = shore.deform(source, terrain)

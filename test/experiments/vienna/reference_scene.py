@@ -37,7 +37,7 @@ from woodland import habitat, tree_batches
 from woodland_shrubs import woodland_shrubs
 
 SUPPORT_MATERIALS = {
-    "ground": ("ground", "grass"),
+    "ground": ("ground", "forest floor", "grass"),
     "sidewalk": ("sidewalk", "paving", "unpaved path"),
     "street": ("sidewalk", "paving", "unpaved path", "road"),
 }
@@ -262,9 +262,13 @@ class ReferenceScene:
             yield from blades(self.local["grass"], self.source, self.eye, seed)
         if "meadow" in self.local:
             yield from meadow_cover(self.local["meadow"], self.source, self.eye, seed)
-        if "ground" in self.local:
+        if "forest floor" in self.local:
             yield from woodland_cover(
-                self.local["ground"], self.source, self.woodland_floor, self.eye, seed
+                self.local["forest floor"],
+                self.source,
+                self.woodland_floor,
+                self.eye,
+                seed,
             )
         yield from bank_plants(
             self.local, self.source, self.local.shore, self.eye, seed
@@ -280,7 +284,11 @@ class ReferenceScene:
             eye_xy=self.eye[:2],
             soil=self.local,
         )
-        if "ground" in self.local:
+        if "forest floor" in self.local:
             yield from woodland_shrubs(
-                self.local["ground"], self.source, self.woodland_floor, self.eye, seed
+                self.local["forest floor"],
+                self.source,
+                self.woodland_floor,
+                self.eye,
+                seed,
             )
