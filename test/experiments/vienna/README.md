@@ -42,9 +42,10 @@ build/blender-python/bin/python test/experiments/vienna/glsl_render.py \
 Both paths take scene-linear colours from materials.py and call ground_detail.py to bake
 the same seeded RGBA table. Red stores half the reflectance multiplier, green stores
 perceptual roughness, and blue stores relief as `0.5 + height_m / 0.024`. Alpha carries the
-macro variation. The detail covers 2.56 m at 5 mm per texel, and macro tint uses a 23 m
-period. The nominal stone face spacing is 213 × 128 mm. Glazing uses a 1.52 IOR over a dark
-opaque backing to stand in for unmodelled interiors.
+macro variation. The detail covers 2.56 m at 5 mm per texel. The leaf map is filtered to
+10 mm per texel over the same span. Macro tint uses a 23 m period. The nominal stone face
+spacing is 213 × 128 mm. Glazing uses a 1.52 IOR over a dark opaque backing to stand in
+for unmodelled interiors.
 
 The Adlerhof photo guides the plaster and rectangular paving. The Dechantlacke photo
 guides the soil, bark and leaf palette. The renderer infers material for paths without

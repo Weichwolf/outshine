@@ -105,7 +105,7 @@ def ground_detail(name):
         tint = 1 + 0.065 * grain + 0.15 * patches
         roughness = 0.57 + 0.04 * grain + 0.035 * patches
         height = 0.00016 * grain
-    return np.stack(
+    pixels = np.stack(
         (
             np.clip(tint * 0.5, 0, 1),
             np.clip(roughness, 0.05, 1),
@@ -114,3 +114,7 @@ def ground_detail(name):
         ),
         axis=-1,
     ).astype("f4")
+    if name == "leaf":
+        half = SIZE // 2
+        return pixels.reshape(half, 2, half, 2, 4).mean(axis=(1, 3))
+    return pixels
