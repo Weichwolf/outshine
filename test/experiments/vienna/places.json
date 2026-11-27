@@ -37,9 +37,9 @@
     {
       "id": "Schemerlbruecke-Downstream",
       "origin": "Schemerlbruecke",
-      "offset_east_north_m": [32.612, -109.872],
-      "heading_deg": 10,
-      "pitch_deg": -4,
+      "offset_east_north_m": [73.153, -112.709],
+      "heading_deg": 316.6,
+      "pitch_deg": -0.8,
       "support": "ground"
     },
     {
