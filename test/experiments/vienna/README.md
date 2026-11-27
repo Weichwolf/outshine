@@ -185,9 +185,13 @@ of the stone pylons at the banks.
 
 Mapped woodland uses the oak and beech stand recipes from the original biome study
 (`9492ed2f7^`, `biome_recipes.py`). Shared mesh instances are rooted in canonical tile
-coordinates. Road, water and building exclusion precedes placement. Stem density is an
-art parameter (120/ha). The first comparison at Dechantlacke shows sparse crowns and
-missing understory relative to the [August 2022 Lobau woodland](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg).
+coordinates. Road, water and building exclusion precedes placement. Established trees
+take priority over smaller recruitment in the same stand. Recruitment varies in patches
+and thins at paths, banks and clearings. Nearby stems compete regardless of the render
+crop. The distant templates group leaves by branch and retain their represented leaf
+area. Dechantlacke-Woodland looks into the stand from a mapped path. Compare crown
+gaps and woodland layers with the
+[August 2022 Lobau woodland](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg).
 
 
 The thirteenth reference, Wien, reads the elevated camera and clock directly from
