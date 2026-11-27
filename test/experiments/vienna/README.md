@@ -86,7 +86,8 @@ build/blender-python/bin/python test/experiments/vienna/glsl_render.py \
 Both paths take scene-linear colours from materials.py and call ground_detail.py to bake
 the same seeded RGBA table. Red stores half the reflectance multiplier, green stores
 perceptual roughness, and blue stores relief as `0.5 + height_m / 0.024`. Alpha carries the
-macro variation. The detail covers 2.56 m at 5 mm per texel. The leaf map is filtered to
+macro variation and tints the beech bark with its lichen coverage at detail scale.
+The detail covers 2.56 m at 5 mm per texel. The leaf map is filtered to
 10 mm per texel over the same span. Macro tint uses a 23 m period. The nominal stone face
 spacing is 213 × 128 mm. Glazing uses a 1.52 IOR over a dark opaque backing to stand in
 for unmodelled interiors.
@@ -96,11 +97,12 @@ guides the soil, bark and leaf palette. The renderer infers material for paths w
 surface tags. [Adlerhof, 21 August 2008](https://presse.wien.gv.at/bilder/2008/08/21/adlerhof-innenhof) · [Lobau near Dechantlacke, 9 August 2022](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg)
 
 The Vienna stand derives two deterministic trunk and limb forms each for oak and beech.
-The stem changes direction below the crown. Its cross-section tapers, twists and swells
-at old knots and live limb attachments. Oak has broken, ridged bark. Beech has smoother
-bark with patches and shallow scars. A lower-resolution mesh retains the stem profile and
-attachments beyond 32 m. Nearby uneven root buttresses follow the terrain and contract at
-path and water boundaries. The offset views share the same tile-seeded trees.
+The stem grows upright at its base and changes direction below the crown. The taper swells
+around old branch stubs and live limb attachments. Close trees vary the stubs, section width
+and root buttresses using their tile-seeded placements. Oak has narrow, broken fissures.
+Beech has finer grain, shallow scars and patches of lichen. A lower-resolution mesh retains
+the stem profile and attachments beyond 32 m. The root buttresses follow the terrain and
+contract at path and water boundaries. The offset views share the same tile-seeded trees.
 [Weber and Penn, Creation and Rendering of Realistic Trees](https://doi.org/10.1145/218380.218427)
 
 ## Photographic targets at eye level
