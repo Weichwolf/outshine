@@ -28,7 +28,11 @@ uniform mat4 viewProjection;
 uniform float reflectionRange;
 uniform float reflectionTolerance;
 uniform mat4 shadowMatrix;
+uniform mat4 localShadowMatrix;
 uniform sampler2DShadow shadowMap;
+uniform sampler2DShadow localShadowMap;
+uniform vec2 regionalShadowSpan;
+uniform vec2 localShadowSpan;
 in vec3 point;
 in vec3 smoothNormal;
 flat in vec2 rotation;
@@ -64,6 +68,38 @@ vec3 bumpNormal(vec3 normal, vec3 dx, vec3 dy, float height) {
   float det=dot(dx,reciprocalX);
   vec3 gradient=sign(det)*(dFdx(height)*reciprocalX+dFdy(height)*reciprocalY);
   return abs(det)>1.e-15 ? normalize(abs(det)*normal-gradient) : normal;
+}
+
+float sunVisibility(vec3 position, vec3 normal) {
+  vec4 worldPoint = vec4(position, 1.);
+  vec3 localUV = (localShadowMatrix * worldPoint).xyz * .5 + .5;
+  float edge = 2. * max(abs(localUV.x - .5), abs(localUV.y - .5));
+  float localWeight = 0.;
+  if (localUV.z > 0. && localUV.z < 1.)
+    localWeight = 1. - smoothstep(.84, 1., edge);
+  float lightAngle = max(0., dot(normal, sun));
+  float slope = sqrt(max(0., 1. - lightAngle * lightAngle)) / max(lightAngle, .10);
+  vec3 regionalUV = (shadowMatrix * worldPoint).xyz * .5 + .5;
+  float regionalVisibility = 1.;
+  float outsideVisibility = 1.;
+  if (all(greaterThan(regionalUV, vec3(0.))) && all(lessThan(regionalUV, vec3(1.)))) {
+    if (localWeight < 1.) {
+      float texel = regionalShadowSpan.x / float(textureSize(shadowMap, 0).x);
+      float bias = (.30 + 1.45 * texel * slope) / regionalShadowSpan.y;
+      regionalVisibility = texture(shadowMap, vec3(regionalUV.xy, regionalUV.z - bias));
+    }
+    if (localWeight > 0.) {
+      // Keep regional occluders on the sunward side of the local map's near plane.
+      float localNear = regionalUV.z - localUV.z * localShadowSpan.y / regionalShadowSpan.y;
+      outsideVisibility = texture(shadowMap, vec3(regionalUV.xy, localNear));
+    }
+  }
+  if (localWeight == 0.)
+    return regionalVisibility;
+  float texel = localShadowSpan.x / float(textureSize(localShadowMap, 0).x);
+  float bias = texel * (.5 + .8 * slope) / localShadowSpan.y;
+  float localVisibility = texture(localShadowMap, vec3(localUV.xy, localUV.z - bias));
+  return mix(regionalVisibility, localVisibility * outsideVisibility, localWeight);
 }
 
 vec3 reflectedSky(vec3 ray) {
@@ -138,15 +174,7 @@ void main(){
   vec3 dielectricF0=vec3(glassIor>1. ? glassF0*glassF0 : .04);
   vec3 f0=mix(dielectricF0,material.rgb,metalness);
   Brdf b=metalRoughBrdf(material.rgb*(1.-metalness),f0,1.,pow(material.a,4.),nl,nv,max(0.,dot(n,h)),max(0.,dot(view,h)));
-  vec3 uvz=(shadowMatrix*vec4(point,1.)).xyz*.5+.5;
-  float visibility=1.;
-  if(all(greaterThan(uvz,vec3(0.))) && all(lessThan(uvz,vec3(1.)))){
-    float texel=4800./float(textureSize(shadowMap, 0).x);
-    float lightAngle=max(0.,dot(geometricNormal,sun));
-    float slope=sqrt(max(0.,1.-lightAngle*lightAngle))/max(lightAngle,.10);
-    float bias=(.30+1.45*texel*slope)/18000.;
-    visibility=texture(shadowMap,vec3(uvz.xy,uvz.z-bias));
-  }
+  float visibility = sunVisibility(point, geometricNormal);
   vec3 reflected=(b.diffuse+b.specular)*nl;
   vec3 transmitted=material.rgb*(max(0.,dot(n,-sun))/kPi);
   vec3 light=mix(reflected,transmitted,diffuseTransmission)*2.5*visibility+material.rgb*mix(vec3(.065,.085,.115),vec3(.31,.40,.53),clamp(.5+.5*n.z,0.,1.));
