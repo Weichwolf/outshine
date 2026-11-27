@@ -8,11 +8,13 @@ from importlib.resources import files
 import numpy as np
 import shapely
 from ground_surface import at_grade_width, route_area
+from outshine_ref.contracts import Mesh
+from outshine_ref.geometry.sampling import SurfaceSampler
 from outshine_ref.vegetation import PlantPlan
 from outshine_ref.vegetation.axis_surface import axis_mesh
 from plant_sites import tile_sites
 from scene_mesh import Meshes, terrain_grid, terrain_height
-from woodland_stem import rooted_stem, template_stem
+from woodland_stem import lean_tree, rooted_stem, template_stem
 
 
 def stand_plan(species, form):
@@ -20,11 +22,11 @@ def stand_plan(species, form):
     base = PlantPlan.from_recipe(json.loads(data.read_text()))
     stem, limbs, twigs = base.levels
     if species == "oak":
-        heights, radii, bends = (6.3, 7.4), (0.23, 0.17), (0.43, 0.30)
-        first, inclination, reach = (0.20, 0.35), (0.71, 0.96), (3.0, 2.65)
+        heights, radii, bends = (6.3, 7.4), (0.285, 0.18), (0.43, 0.30)
+        first, inclination, reach = (0.19, 0.28), (0.57, 0.96), (3.0, 2.65)
     else:
-        heights, radii, bends = (7.2, 8.1), (0.15, 0.19), (0.25, 0.19)
-        first, inclination, reach = (0.30, 0.49), (0.81, 0.67), (2.55, 2.35)
+        heights, radii, bends = (7.2, 8.1), (0.145, 0.23), (0.25, 0.19)
+        first, inclination, reach = (0.30, 0.34), (0.81, 0.54), (2.55, 2.35)
     stem = replace(
         stem,
         length=heights[form],
@@ -36,8 +38,8 @@ def stand_plan(species, form):
         limbs,
         branches=8 if form == 0 else 9,
         length=reach[form],
-        base_radius=0.105 if species == "oak" else 0.080,
-        radius_parent_ratio=0.62,
+        base_radius=0.175 if species == "oak" else 0.135,
+        radius_parent_ratio=0.79 if species == "oak" and form == 0 else 0.73,
         first=first[form],
         attachment_jitter=0.46,
         angle=inclination[form],
@@ -101,7 +103,7 @@ def geometry(plan, step, *, has_stem, oak):
             sides,
         )
         vertices = part["vertices"] @ rows["axis_frames"][i].T + rows["axis_origins"][i]
-        meshes.add(bark, vertices, part["faces"])
+        meshes.add(bark, lean_tree(plan, vertices, oak=oak), part["faces"])
     # One representative spans the one-sided leaf area of its contiguous twig group.
     owners, starts, counts = np.unique(
         rows["leaf_axis_ids"], return_index=True, return_counts=True
@@ -132,11 +134,37 @@ def geometry(plan, step, *, has_stem, oak):
         faces = (
             part["faces"] + (len(part["vertices"]) * np.arange(len(idx)))[:, None, None]
         )
-        meshes.add("foliage", verts.reshape(-1, 3), faces.reshape(-1, 3))
+        meshes.add(
+            "foliage",
+            lean_tree(plan, verts.reshape(-1, 3), oak=oak),
+            faces.reshape(-1, 3),
+        )
     return meshes
 
 
-def tree_batches(source, radius, seed, focal_pixels):
+def woodland_surface(surfaces):
+    parts = [
+        np.asarray(vertices)[np.asarray(faces, dtype=int)]
+        for name, (vertices, faces) in surfaces.items()
+        if name in {"ground", "grass"} and len(faces)
+    ]
+    if not parts:
+        return None
+    triangles = np.concatenate(parts)
+    area = np.linalg.det(triangles[:, 1:, :2] - triangles[:, :1, :2])
+    triangles = triangles[abs(area) > 1e-12]
+    if not len(triangles):
+        return None
+    vertices, indices = np.unique(triangles.reshape(-1, 3), axis=0, return_inverse=True)
+    return SurfaceSampler(
+        Mesh(vertices, indices.reshape(-1, 3)),
+        xy_tolerance_m=2e-6,
+        height_tolerance_m=3e-6,
+        max_faces=len(triangles),
+    )
+
+
+def tree_batches(source, radius, seed, focal_pixels, *, soil=None):
     domain = habitat(source)
     if domain is None or domain.is_empty:
         return
@@ -145,10 +173,21 @@ def tree_batches(source, radius, seed, focal_pixels):
     stems = Meshes()
     root_domain = habitat(source, stems=False)
     terrain, _ = terrain_grid(source, radius)
-    root_height = partial(terrain_height, terrain)
+    sampler = woodland_surface(soil) if soil is not None else None
+
+    def height(xy, fallback):
+        if sampler is None:
+            return fallback(xy)
+        z = sampler.sample(xy).points_enu_m[:, 2].copy()
+        missing = ~np.isfinite(z)
+        if missing.any():
+            z[missing] = fallback(xy[missing])
+        return z
+
+    root_height = partial(height, fallback=partial(terrain_height, terrain))
 
     for positions, marks in roots(source, domain, radius, seed):
-        heights = source.height(positions)
+        heights = height(positions, source.height)
         for xy, z, (family, rotation, scale) in zip(
             positions, heights, marks, strict=True
         ):

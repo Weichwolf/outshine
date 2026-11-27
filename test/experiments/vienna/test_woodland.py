@@ -9,11 +9,23 @@ import shapely
 from outshine_ref.vegetation import PlantPlan
 from outshine_ref.vegetation.curve_frame import arc_frame
 from scene_mesh import terrain_grid, terrain_height
-from woodland import stand_plan
-from woodland_stem import rooted_stem, template_stem
+from woodland import stand_plan, woodland_surface
+from woodland_stem import lean_tree, rooted_stem, template_stem
 
 
 class WoodlandTest(unittest.TestCase):
+    def test_roots_follow_the_rendered_soil_across_a_grass_boundary(self):
+        vertices = [[0, 0, 0], [2, 0, 1], [2, 2, 2], [0, 2, 1], [0, 0, -2]]
+        surface = woodland_surface(
+            {
+                "ground": (vertices, [[0, 1, 2], [0, 4, 1]]),
+                "grass": (vertices, [[0, 2, 3]]),
+                "water": ([[0, 0, 3], [2, 0, 3], [2, 2, 3]], [[0, 1, 2]]),
+            }
+        )
+        z = surface.sample([[1.5, 0.5], [1, 1], [0.5, 1.5]]).points_enu_m[:, 2]
+        np.testing.assert_allclose(z, 1.0)
+
     def test_revised_stands_keep_the_authored_leaf_area(self):
         for species in ("oak", "beech"):
             data = files("outshine_ref.vegetation").joinpath(
@@ -73,8 +85,11 @@ class WoodlandTest(unittest.TestCase):
                     tangent = stem.frame @ direction
                     radius, _ = plan.radii((0,))
                     for vertices in (near, template):
-                        from_union = vertices - branch.origin
+                        drift = lean_tree(plan, vertices, oak=oak) - vertices
+                        from_union = vertices - drift - branch.origin
                         union = from_union[abs(from_union @ tangent) < 1e-8]
                         self.assertGreaterEqual(len(union), 8)
                         self.assertGreater(np.linalg.norm(union, axis=1).min(), radius)
+                    shifted = lean_tree(plan, branch.origin, oak=oak) - branch.origin
+                    self.assertGreater(np.linalg.norm(shifted), radius)
                     np.testing.assert_allclose(near[-1], template[-1], atol=1e-12)
