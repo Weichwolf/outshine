@@ -19,6 +19,7 @@ MAXIMUM_GRADE = 0.08
 GRADE_CHANGE_PER_M = 0.006
 PROFILE_REACH_M = 55
 PROFILE_SPACING_M = 1.75
+MINIMUM_END_CROSSFALL_REACH_M = 6.0
 
 
 @dataclass(frozen=True)
@@ -56,17 +57,80 @@ class Passage:
         return self.footprint.boundary
 
     def heights(self, ground):
-        xy = ground[:, :2]
-        results = self.surface.sample(xy)
-        if not np.isfinite(results.points_enu_m[:, 2]).all():
+        z = self.surface.sample(ground[:, :2]).points_enu_m[:, 2]
+        if not np.isfinite(z).all():
             raise ValueError("Lower crossing must have a complete floor")
-        s = shapely.line_locate_point(self.route.line, shapely.points(xy))
-        distance = [s, self.route.station[-1] - s]
-        for contact in self.route.stair_contacts:
-            distance[contact.end] = np.full(len(s), 3.0)
-        weight = np.clip(np.minimum(*distance) / 3, 0, 1)
-        weight *= weight * (3 - 2 * weight)
-        return ground[:, 2] + weight * (results.points_enu_m[:, 2] - ground[:, 2])
+        return z
+
+
+def profile_vertices(sections):
+    left, right = sections.transpose(1, 0, 2)
+    return np.stack((left, (left + right) / 2, right), axis=1)
+
+
+def profile_triangles(count):
+    cells = np.arange(count - 1)[:, None] * 3
+    return (cells + [0, 1, 4, 0, 4, 3, 1, 2, 5, 1, 5, 4]).reshape(-1, 3)
+
+
+def endpoint_crossfall(route, heights):
+    offsets = np.zeros_like(heights)
+    stair_ends = {contact.end for contact in route.stair_contacts}
+    for side, distance in enumerate((route.station, route.station[-1] - route.station)):
+        if side in stair_ends:
+            continue
+        end = (0, -1)[side]
+        edge_offsets = heights[end] - heights[end, 1]
+        reach = min(
+            route.station[-1],
+            max(
+                MINIMUM_END_CROSSFALL_REACH_M,
+                3 * abs(edge_offsets).max() / MAXIMUM_GRADE,
+            ),
+        )
+        blend = np.clip(1 - distance / reach, 0, 1)
+        blend = blend * blend * (3 - 2 * blend)
+        offsets += blend[:, None] * edge_offsets
+    for contact in route.stair_contacts:
+        offsets[contact.sections] = 0.0
+    return offsets
+
+
+def sample_profiles(routes, terrain, junctions=()):
+    samplers = [
+        SurfaceSampler(junction.mesh, xy_tolerance_m=2e-6, height_tolerance_m=3e-6)
+        for junction in junctions
+    ]
+    samples = []
+    for route in routes:
+        xy = profile_vertices(route.sections)
+        points = xy.reshape(-1, 2)
+        heights = terrain(points)
+        for sampler in samplers:
+            z = sampler.sample(points).points_enu_m[:, 2]
+            found = np.isfinite(z)
+            heights[found] = z[found]
+        heights = heights.reshape(xy.shape[:2])
+        samples.append((heights[:, 1], endpoint_crossfall(route, heights)))
+    return samples
+
+
+def longitudinal_grade_terms(route, offsets):
+    sections = profile_vertices(route.sections)
+    triangles = profile_triangles(len(sections))
+    xy = sections.reshape(-1, 2)[triangles]
+    forward = np.diff(sections[:, 1], axis=0)
+    forward /= np.linalg.norm(forward, axis=1)[:, None]
+    edges = xy[:, 1:] - xy[:, :1]
+    projection = np.linalg.solve(
+        edges.transpose(0, 2, 1), np.repeat(forward, 4, axis=0)[..., None]
+    )[..., 0]
+    station_delta = (triangles[:, 1:] // 3) - (triangles[:, :1] // 3)
+    offset_delta = offsets.ravel()[triangles]
+    offset_delta = offset_delta[:, 1:] - offset_delta[:, :1]
+    gain = (projection * station_delta).sum(axis=1)
+    bias = (projection * offset_delta).sum(axis=1)
+    return gain.reshape(-1, 4), bias.reshape(-1, 4)
 
 
 def water_level(body, xy, height):
@@ -126,6 +190,12 @@ def route_sections(line, width):
         + (width / 2) * np.array([1, -1])[None, :, None] * side[:, None, :],
         6,
     )
+    corners = profile_vertices(sections).reshape(-1, 2)[
+        profile_triangles(len(sections))
+    ]
+    a, b = (corners[:, 1:] - corners[:, :1]).transpose(1, 0, 2)
+    if np.any(a[:, 0] * b[:, 1] - a[:, 1] * b[:, 0] >= -1e-8):
+        return None
     cells = shapely.polygons(
         np.concatenate((sections[:-1], sections[1:, ::-1]), axis=1)
     )
@@ -270,8 +340,8 @@ def passage_routes(features, crossings, domain, water, floors, blocked, stairs):
     return routes
 
 
-def solve_profiles(routes, priors, crossings, minimum):
-    count = sum(map(len, priors))
+def solve_profiles(routes, samples, crossings, minimum):
+    count = sum(len(z) for z, _ in samples)
     variables = count * 2 + len(crossings)
     weights = np.r_[
         np.zeros(count), np.ones(count), [c.footprint.area for c in crossings]
@@ -287,10 +357,10 @@ def solve_profiles(routes, priors, crossings, minimum):
         rhs.append(value)
 
     first = 0
-    for route, z in zip(routes, priors, strict=True):
+    for route, (z, offsets) in zip(routes, samples, strict=True):
         end = first + len(z)
         for i in np.flatnonzero(np.isfinite(route.floor)):
-            limits[first + i] = (float(route.floor[i]), None)
+            limits[first + i] = (float(route.floor[i] - offsets[i].min()), None)
         pins = {first: z[0], end - 1: z[-1]}
         for contact in route.stair_contacts:
             pins[first if contact.end == 0 else end - 1] = contact.elevation
@@ -303,9 +373,16 @@ def solve_profiles(routes, priors, crossings, minimum):
             constraint([i, count + i], [1, -1], h)
             constraint([i, count + i], [-1, -1], -h)
         step = np.diff(route.station)
-        for i, length in enumerate(step, start=first):
-            for sign in (1, -1):
-                constraint([i, i + 1], [-sign, sign], MAXIMUM_GRADE * length)
+        for i, (gains, biases) in enumerate(
+            zip(*longitudinal_grade_terms(route, offsets), strict=True), start=first
+        ):
+            for gain, bias in zip(gains, biases, strict=True):
+                for sign in (1, -1):
+                    constraint(
+                        [i, i + 1],
+                        [-sign * gain, sign * gain],
+                        MAXIMUM_GRADE - sign * bias,
+                    )
         for i, (a, b) in enumerate(pairwise(step), start=first):
             for sign in (1, -1):
                 constraint(
@@ -315,7 +392,11 @@ def solve_profiles(routes, priors, crossings, minimum):
                 )
         for crossing, nodes, ceiling in route.ceilings:
             for node, zmax in zip(nodes, ceiling, strict=True):
-                constraint([first + node, 2 * count + crossing], [1, -1], zmax)
+                constraint(
+                    [first + node, 2 * count + crossing],
+                    [1, -1],
+                    zmax - offsets[node].max(),
+                )
         first = end
     matrix = coo_matrix((values, (rows, columns)), shape=(len(rhs), variables)).tocsr()
     result = linprog(
@@ -328,15 +409,14 @@ def solve_profiles(routes, priors, crossings, minimum):
     )
     if not result.success:
         return None
-    profiles = np.split(result.x[:count], np.cumsum([len(z) for z in priors[:-1]]))
+    profiles = np.split(result.x[:count], np.cumsum([len(z) for z, _ in samples[:-1]]))
     return profiles, result.x[2 * count :]
 
 
-def floor_mesh(route, z):
-    xy = route.sections.reshape(-1, 2)
-    cells = np.arange(0, len(xy) - 2, 2)[:, None] + [0, 1, 3, 0, 3, 2]
-    triangles = cells.reshape(-1, 3)
-    mesh = Mesh(np.c_[xy, np.repeat(z, 2)], triangles)
+def floor_mesh(route, z, offsets):
+    xy = profile_vertices(route.sections).reshape(-1, 2)
+    triangles = profile_triangles(len(route.station))
+    mesh = Mesh(np.c_[xy, (z[:, None] + offsets).ravel()], triangles)
     breaks = shapely.boundary(shapely.polygons(xy[triangles]))
     return Passage(
         route,
@@ -380,8 +460,7 @@ def fit_bridge_levels(
     )
     if not routes:
         return None
-    xy = [route.sections.mean(axis=1) for route in routes]
-    raw = [terrain(points) for points in xy]
+    raw = sample_profiles(routes, terrain)
     first = solve_profiles(routes, raw, eligible, np.zeros(len(eligible)))
     if first is None:
         return None
@@ -399,22 +478,17 @@ def fit_bridge_levels(
         )
         if not spans:
             return None
-        priors = [height.copy() for height in raw]
-        for junction in junctions:
-            sampler = SurfaceSampler(
-                junction.mesh, xy_tolerance_m=2e-6, height_tolerance_m=3e-6
-            )
-            for points, height in zip(xy, priors, strict=True):
-                z = sampler.sample(points).points_enu_m[:, 2]
-                found = np.isfinite(z)
-                height[found] = z[found]
-        fitted = solve_profiles(routes, priors, eligible, lift)
+        samples = sample_profiles(routes, terrain, junctions)
+        fitted = solve_profiles(routes, samples, eligible, lift)
         if fitted is None:
             return None
         profiles, needed = fitted
         if np.max(needed - lift) < 1e-6:
             passages = [
-                floor_mesh(route, z) for route, z in zip(routes, profiles, strict=True)
+                floor_mesh(route, z, offsets)
+                for route, z, (_, offsets) in zip(
+                    routes, profiles, samples, strict=True
+                )
             ]
             return planned, junctions, spans, passages
         lift = needed + np.where(needed > lift + 1e-6, 0.05, 0)

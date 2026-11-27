@@ -2,7 +2,7 @@ import unittest
 from types import SimpleNamespace
 
 import numpy as np
-from bridge_passages import CLEARANCE_M, FLOOR_ABOVE_WATER_M
+from bridge_passages import CLEARANCE_M, FLOOR_ABOVE_WATER_M, MAXIMUM_GRADE
 from bridges import WaterCrossing
 from outshine_ref.transport.water_span import WaterSpan
 from reference_scene import support_height
@@ -16,7 +16,13 @@ class BridgePassageTest(unittest.TestCase):
         span = WaterSpan(np.array([-20, 0]), np.array([1, 0]), 40, 1.25, 0)
         crossing = WaterCrossing(footprint, span, box(-20, -3, 20, 3), 1)
         source = SimpleNamespace(
-            height=lambda xy: np.where(abs(xy[:, 0]) < 16, -2, 0.002 * xy[:, 1]),
+            height=lambda xy: np.where(
+                abs(xy[:, 0]) < 16,
+                -2,
+                0.002 * xy[:, 1]
+                + 0.035 * xy[:, 0]
+                + 0.8 * np.exp(-(((xy[:, 1] - 57.4) / 6) ** 2)),
+            ),
             datum=0,
             lat=0,
             lon=0,
@@ -60,6 +66,12 @@ class BridgePassageTest(unittest.TestCase):
         sidewalk = support_height(mesh["sidewalk"], (18, -8))
         self.assertGreater(len(sidewalk), 0)
         self.assertLessEqual(np.ptp(sidewalk), 1e-6)
+        stations = np.linspace(-59.9, 59.9, 601)
+        for x in (17.2, 18, 18.8):
+            z = [support_height(mesh["sidewalk"], (x, y)).max() for y in stations]
+            self.assertLessEqual(
+                np.max(abs(np.diff(z)) / np.diff(stations)), MAXIMUM_GRADE + 1e-5
+            )
         for x in (-20, 20):
             left = support_height(mesh["road"], (x - 0.02, 0)).max()
             right = support_height(mesh["road"], (x + 0.02, 0)).max()
