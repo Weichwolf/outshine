@@ -67,4 +67,9 @@ scattering and sky-view lookup kernels. Blender provides its own BSDF and sky mo
 ```sh
 build/blender-python/bin/python -m pip install moderngl
 build/blender-python/bin/python test/experiments/vienna/glsl_render.py --place Wien
+build/blender-python/bin/python test/experiments/vienna/compare_wien.py
 ```
+
+The comparison writes all three views at the same scale to `build/shots/comparison/Wien.png`.
+Check the bridgehead and approaches, riverbanks, city silhouette and mountain ridge before
+judging material and lighting differences. Vegetation stays enabled in both generated views.

@@ -117,7 +117,7 @@ def projection(world):
     return clip @ view, right * t * 1280 / 720, up * t
 
 
-def draw(ctx, program, name, vertices, faces, placements):
+def upload(ctx, program, name, vertices, faces, placements):
     faces = np.asarray(faces, dtype="i4")
     if not faces.size:
         return
@@ -131,14 +131,20 @@ def draw(ctx, program, name, vertices, faces, placements):
         [(points, "3f", "position"), (instances, "4f 1f /i", "offsetAngle", "scale")],
         idx,
     )
-    rgb, rough = SURFACES[name]
-    program["surface"].value = (*rgb, rough)
-    program["waterSurface"].value = name in ("water", "regional water")
-    vao.render(instances=len(placements))
-    vao.release()
-    instances.release()
-    idx.release()
-    points.release()
+    return name, len(placements), vao, (instances, idx, points)
+
+
+def shadow_projection(world):
+    right = np.cross([0.0, 0.0, 1.0], world.sun)
+    if np.linalg.norm(right) < 1e-6:
+        right = np.array([1.0, 0.0, 0.0])
+    right /= np.linalg.norm(right)
+    up = np.cross(world.sun, right)
+    center = world.eye + 1000 * world.look
+    light = np.eye(4)
+    light[:3, :3] = np.array([right / 2400, up / 2400, -world.sun / 9000])
+    light[:3, 3] = -light[:3, :3] @ center
+    return light
 
 
 def render(ctx, place, config, out):
@@ -161,13 +167,46 @@ def render(ctx, place, config, out):
     prog["skyView"].value = 0
     prog["eyeKm"].value = 6360 + (world.eye[2] + world.source.datum) * 0.001
     ctx.enable(moderngl.DEPTH_TEST)
-    for name, pts, faces in world.surfaces():
-        draw(ctx, prog, name, pts, faces, [(0, 0, 0, 0, 1)])
+    draws = [
+        upload(ctx, prog, n, v, f, [(0, 0, 0, 0, 1)]) for n, v, f in world.surfaces()
+    ]
     for _, _, meshes, plants in tree_batches(
         world.source, 250, config["seed"], world.focal
     ):
-        for name, (pts, faces) in meshes.items():
-            draw(ctx, prog, name, pts, faces, plants)
+        draws.extend(upload(ctx, prog, n, v, f, plants) for n, (v, f) in meshes.items())
+    draws = [batch for batch in draws if batch is not None]
+    shadow = ctx.depth_texture((4096, 4096))
+    shadow.repeat_x = shadow.repeat_y = False
+    shadow.filter = (moderngl.LINEAR, moderngl.LINEAR)
+    depth = ctx.framebuffer(depth_attachment=shadow)
+    depth.use()
+    depth.clear(depth=1)
+    # Bind a separate complete depth texture while writing the shadow attachment.
+    placeholder = ctx.depth_texture((1, 1))
+    placeholder.use(3)
+    prog["shadowMap"].value = 3
+    light = shadow_projection(world).T.astype("f4").tobytes()
+    prog["shadowMatrix"].write(light)
+    prog["viewProjection"].write(light)
+    prog["shadowPass"].value = True
+    for name, count, vao, _ in draws:
+        if name not in ("water", "regional water"):
+            vao.render(instances=count)
+    target.use()
+    shadow.use(3)
+    prog["shadowPass"].value = False
+    prog["viewProjection"].write(m.T.astype("f4").tobytes())
+    for name, count, vao, buffers in draws:
+        rgb, rough = SURFACES[name]
+        prog["surface"].value = (*rgb, rough)
+        prog["waterSurface"].value = name in ("water", "regional water")
+        vao.render(instances=count)
+        vao.release()
+        for buffer in buffers:
+            buffer.release()
+    depth.release()
+    placeholder.release()
+    shadow.release()
     im = Image.frombytes(
         "RGB", target.size, target.read(components=3, alignment=1)
     ).transpose(Image.Transpose.FLIP_TOP_BOTTOM)
