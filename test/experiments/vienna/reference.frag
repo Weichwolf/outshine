@@ -17,14 +17,19 @@ uniform bool shadowPass;
 uniform mat4 shadowMatrix;
 uniform sampler2DShadow shadowMap;
 in vec3 point;
+flat in vec2 rotation;
 out vec4 colour;
 uniform vec3 eye;
 uniform vec3 sun;
 uniform vec4 surface;
 vec2 detailCoordinates(vec3 normal) {
   vec3 axis=abs(normal);
-  if (axis.z>=max(axis.x,axis.y)) return point.xy;
-  return axis.x>axis.y ? point.yz : point.xz;
+  // Use Blender BOX axes and mirroring for the shared texture.
+  if (axis.z>=max(axis.x,axis.y))
+    return vec2(normal.z>0. ? -point.y : point.y,point.x);
+  if (axis.y>axis.x)
+    return vec2(normal.y>0. ? -point.x : point.x,point.z);
+  return vec2(normal.x<0. ? -point.y : point.y,point.z);
 }
 
 vec3 bumpNormal(vec3 normal, vec3 dx, vec3 dy, float height) {
@@ -49,7 +54,10 @@ void main(){
   vec3 geometricNormal=n;
   vec4 material=surface;
   if (hasDetail) {
-    vec2 uv=detailCoordinates(n);
+    vec3 objectNormal=vec3(
+        dot(vec2(rotation.x,rotation.y),n.xy),
+        dot(vec2(-rotation.y,rotation.x),n.xy),n.z);
+    vec2 uv=detailCoordinates(objectNormal);
     vec3 fine=texture(detailMap,uv/detailScale.x).rgb;
     float macro=texture(detailMap,uv/detailScale.y).a;
     material.rgb*=fine.r*(1.68+.64*macro);
