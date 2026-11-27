@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 import shapely
-from building_passages import building_passages
+from building_passages import PORTAL_WIDTH_M, building_passages
 from reference_scene import support_height
 from scene_mesh import assemble
 
@@ -76,3 +76,28 @@ class BuildingPassageTest(unittest.TestCase):
                 self.assertFalse(
                     building_passages(transport, footprints, extent, Survey([]).height)
                 )
+
+    def test_stone_surround_follows_an_oblique_wall_without_narrowing_the_walk(self):
+        features = [
+            ("building", self.block, HOUSE),
+            ("transportation", line((-1, -9), (-1, -5)), FOOTWAY),
+            ("transportation", line((-1, -5), (1, 5)), TUNNEL),
+            ("transportation", line((1, 5), (1, 9)), FOOTWAY),
+        ]
+        points, faces = assemble(Survey(features), 16)["portal stone"]
+        points = np.asarray(points)
+        self.assertLess(points[:, 1].min(), -5.08)
+        self.assertGreater(points[:, 1].max(), 5.08)
+
+        triangles = points[faces]
+        at_eye = (triangles[:, :, 2].min(axis=1) <= 1.7) & (
+            triangles[:, :, 2].max(axis=1) >= 1.7
+        )
+        axis = np.array([-5.0, 1.0]) / np.sqrt(26.0)
+        spans = triangles[at_eye, :, :2] @ axis
+        self.assertTrue(
+            np.all(
+                (spans.min(axis=1) >= PORTAL_WIDTH_M / 2 - 1e-7)
+                | (spans.max(axis=1) <= -PORTAL_WIDTH_M / 2 + 1e-7)
+            )
+        )
