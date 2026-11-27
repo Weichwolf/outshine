@@ -295,7 +295,7 @@ def render(ctx, place, config, out):
             world.surfaces(), world.grass_and_understory(config["seed"])
         )
     ]
-    for _, _, meshes, plants in world.trees(config["seed"]):
+    for _, _, meshes, plants in world.woody_plants(config["seed"]):
         draws.extend(upload(ctx, prog, n, v, f, plants) for n, (v, f) in meshes.items())
     draws = [batch for batch in draws if batch is not None]
     shadow = ctx.depth_texture((4096, 4096))
