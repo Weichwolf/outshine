@@ -108,22 +108,23 @@ def ground_detail(name):
         height = -0.00060 * pits + 0.00035 * grain + 0.00060 * trowel
     elif name == "oak bark":
         y, x = np.indices((SIZE, SIZE), dtype=np.float32)
-        shift = 3.5 * noise(rng, (18, 6))
+        shift = 7 * noise(rng, (20, 8)) + 1.8 * noise(rng, (5, 3))
         grain_flow = map_coordinates(
-            noise(rng, (20, 1.9)), [y, x + shift], order=1, mode="grid-wrap"
+            noise(rng, (16, 2.5)), [y, x + shift], order=1, mode="grid-wrap"
         )
-        plates = noise(rng, (6, 2.9))
-        fissures = np.maximum(-grain_flow + 0.4 * plates - 0.40, 0)
-        tint = 1 - 0.24 * fissures + 0.075 * patches + 0.055 * plates
+        plates = noise(rng, (7, 4))
+        breaks = np.maximum(-noise(rng, (1.6, 5)) + 0.35 * plates - 1.12, 0)
+        fissures = np.maximum(-grain_flow + 0.56 * plates - 0.25, 0)
+        tint = 1 - 0.26 * fissures - 0.15 * breaks + 0.15 * patches + 0.080 * plates
         roughness = 0.90 + 0.032 * fissures + 0.019 * grain
-        height = -0.0040 * fissures + 0.0012 * plates + 0.00034 * fine
+        height = -0.0044 * fissures - 0.0028 * breaks + 0.0015 * plates + 0.00046 * fine
     elif name == "beech bark":
-        mottling = noise(rng, (22, 15))
-        scars = np.maximum(noise(rng, (1.8, 8)) - 1.55, 0)
-        lichen = np.maximum(noise(rng, (12, 9)) + 0.4 * fine - 0.30, 0)
-        tint = 1 + 0.12 * mottling + 0.15 * lichen + 0.040 * patches - 0.24 * scars
+        mottling = noise(rng, (28, 21))
+        scars = np.maximum(noise(rng, (2.2, 8)) - 1.29, 0)
+        lichen = np.clip(noise(rng, (16, 10)) + 0.35 * grain - 0.10, 0, 1)
+        tint = 0.90 + 0.24 * mottling + 0.25 * lichen + 0.055 * patches - 0.28 * scars
         roughness = 0.84 + 0.030 * mottling + 0.015 * lichen + 0.022 * patches
-        height = -0.0014 * scars + 0.00045 * patches + 0.00024 * grain
+        height = -0.0017 * scars + 0.00051 * patches + 0.00028 * grain
     elif name == "weir overflow":
         threads = noise(rng, (15, 1.5))
         air = np.clip(0.5 + 0.24 * threads + 0.12 * grain, 0, 1)

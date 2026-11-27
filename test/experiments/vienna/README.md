@@ -56,10 +56,11 @@ guides the soil, bark and leaf palette. The renderer infers material for paths w
 surface tags. [Adlerhof, 21 August 2008](https://presse.wien.gv.at/bilder/2008/08/21/adlerhof-innenhof) · [Lobau near Dechantlacke, 9 August 2022](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg)
 
 The Vienna stand derives two deterministic trunk and limb forms each for oak and beech.
-The stem tapers along a curved axis and swells at the authored limb attachments. The two
-species use ridged and smooth bark recipes, respectively. A lower-resolution mesh retains
-the same silhouette and attachments beyond 32 m. Nearby root buttresses follow the terrain
-and contract at path and water boundaries. The offset views share the same tile-seeded trees.
+The stem changes direction below the crown. Its cross-section tapers, twists and swells
+at old knots and live limb attachments. Oak has broken, ridged bark. Beech has smoother
+bark with patches and shallow scars. A lower-resolution mesh retains the stem profile and
+attachments beyond 32 m. Nearby uneven root buttresses follow the terrain and contract at
+path and water boundaries. The offset views share the same tile-seeded trees.
 [Weber and Penn, Creation and Rendering of Realistic Trees](https://doi.org/10.1145/218380.218427)
 
 ## Photographic targets at eye level
