@@ -24,6 +24,12 @@ The Eevee directional shadow map uses a minimum 16 mm texel. The default 1 mm te
 produced false shadows on sunlit roads with the full terrain horizon. The 16 mm limit
 keeps the terrain and directional shadows in the reference.
 
+Standalone GLSL uses a 96 m local shadow map over 2048 texels per axis. It blends
+into the 4.8 km regional map at the local footprint edge. The regional depth also
+retains shadows from sunward casters beyond the local map's depth range. Near the
+camera, finer depth resolves leaf shadows and root contact. The GLSL command prints
+the combined GPU time for both depth passes.
+
 ## Near material comparisons
 
 Adlerhof and Adlerhof-Near show the same facade and paving at eye height. Dechantlacke-Path

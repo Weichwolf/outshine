@@ -39,6 +39,8 @@ from water_reflection import (
 )
 
 REFLECTION_SIZE = (640, 360)
+REGIONAL_SHADOW_SPAN = (4800.0, 18000.0)
+LOCAL_SHADOW_SPAN = (96.0, 1024.0)
 
 SCREEN = """#version 410 core
 out vec2 ndc;
@@ -172,17 +174,35 @@ def upload(ctx, program, name, vertices, faces, placements):
     return name, len(placements), vao, tuple(buffers)
 
 
-def shadow_projection(world):
+def shadow_projection(world, span, forward_offset):
     right = np.cross([0.0, 0.0, 1.0], world.sun)
     if np.linalg.norm(right) < 1e-6:
         right = np.array([1.0, 0.0, 0.0])
     right /= np.linalg.norm(right)
     up = np.cross(world.sun, right)
-    center = world.eye + 1000 * world.look
+    center = world.eye + forward_offset * world.look
+    width, depth = span
     light = np.eye(4)
-    light[:3, :3] = np.array([right / 2400, up / 2400, -world.sun / 9000])
+    light[:3, :3] = np.array(
+        [2 * right / width, 2 * up / width, -2 * world.sun / depth]
+    )
     light[:3, 3] = -light[:3, :3] @ center
     return light
+
+
+def shadow_depth(ctx, prog, draws, light, size):
+    texture = ctx.depth_texture((size, size))
+    texture.repeat_x = texture.repeat_y = False
+    texture.filter = (moderngl.LINEAR, moderngl.LINEAR)
+    target = ctx.framebuffer(depth_attachment=texture)
+    target.use()
+    target.clear(depth=1)
+    prog["viewProjection"].write(light)
+    for name, count, vao, _ in draws:
+        if name not in WATER_MATERIALS:
+            vao.render(instances=count)
+    target.release()
+    return texture
 
 
 def draw_surfaces(ctx, prog, draws, textures, *, capture=False):
@@ -298,24 +318,27 @@ def render(ctx, place, config, out):
     for _, _, meshes, plants in world.woody_plants(config["seed"]):
         draws.extend(upload(ctx, prog, n, v, f, plants) for n, (v, f) in meshes.items())
     draws = [batch for batch in draws if batch is not None]
-    shadow = ctx.depth_texture((4096, 4096))
-    shadow.repeat_x = shadow.repeat_y = False
-    shadow.filter = (moderngl.LINEAR, moderngl.LINEAR)
-    depth = ctx.framebuffer(depth_attachment=shadow)
-    depth.use()
-    depth.clear(depth=1)
-    # Bind a separate complete depth texture while writing the shadow attachment.
+    # Bind complete textures on both units while rendering depth attachments.
     placeholder = ctx.depth_texture((1, 1))
     placeholder.use(3)
+    placeholder.use(6)
     prog["shadowMap"].value = 3
-    light = shadow_projection(world).T.astype("f4").tobytes()
-    prog["shadowMatrix"].write(light)
-    prog["viewProjection"].write(light)
+    prog["localShadowMap"].value = 6
+    regional_light = shadow_projection(world, REGIONAL_SHADOW_SPAN, 1000)
+    local_light = shadow_projection(world, LOCAL_SHADOW_SPAN, 12)
+    regional_light = regional_light.T.astype("f4").tobytes()
+    local_light = local_light.T.astype("f4").tobytes()
+    prog["shadowMatrix"].write(regional_light)
+    prog["localShadowMatrix"].write(local_light)
+    prog["regionalShadowSpan"].value = REGIONAL_SHADOW_SPAN
+    prog["localShadowSpan"].value = LOCAL_SHADOW_SPAN
     prog["shadowPass"].value = True
-    for name, count, vao, _ in draws:
-        if name not in WATER_MATERIALS:
-            vao.render(instances=count)
+    shadow_time = ctx.query(time=True)
+    with shadow_time:
+        shadow = shadow_depth(ctx, prog, draws, regional_light, 4096)
+        local_shadow = shadow_depth(ctx, prog, draws, local_light, 2048)
     shadow.use(3)
+    local_shadow.use(6)
     prog["shadowPass"].value = False
     textures = {}
     planes = reflection_planes(world)
@@ -331,9 +354,9 @@ def render(ctx, place, config, out):
             buffer.release()
     for texture in textures.values():
         texture.release()
-    depth.release()
     placeholder.release()
     shadow.release()
+    local_shadow.release()
     reflection.release()
     bed_map.release()
     im = Image.frombytes(
@@ -351,6 +374,7 @@ def render(ctx, place, config, out):
             {
                 "place": place["id"],
                 "device": ctx.info["GL_RENDERER"],
+                "shadow_gpu_ms": round(shadow_time.elapsed * 1e-6, 2),
                 "reflection_levels_m": [round(plane.height, 3) for plane in planes],
                 "reflection_gpu_ms": round(reflection_ms, 2),
                 "build_and_png_s": round(perf_counter() - start, 2),
