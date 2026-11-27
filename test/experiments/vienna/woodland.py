@@ -26,10 +26,12 @@ def stand_plan(species, form):
     stem, limbs, twigs = base.levels
     if species == "oak":
         heights, radii, bends = (6.3, 7.4), (0.285, 0.18), (0.43, 0.30)
-        first, inclination, reach = (0.19, 0.28), (0.57, 0.96), (3.0, 2.65)
+        first, inclination, reach = (0.18, 0.28), (0.52, 1.06), (3.25, 2.85)
+        branching, twig_counts, radius_ratio = (7, 9), (14, 11), (0.85, 0.66)
     else:
-        heights, radii, bends = (7.2, 8.1), (0.145, 0.23), (0.25, 0.19)
-        first, inclination, reach = (0.30, 0.34), (0.81, 0.54), (2.55, 2.35)
+        heights, radii, bends = (7.2, 8.1), (0.145, 0.23), (0.30, 0.21)
+        first, inclination, reach = (0.20, 0.38), (0.50, 0.82), (3.0, 2.65)
+        branching, twig_counts, radius_ratio = (8, 9), (12, 11), (0.86, 0.68)
     stem = replace(
         stem,
         length=heights[form],
@@ -39,23 +41,24 @@ def stand_plan(species, form):
     )
     limbs = replace(
         limbs,
-        branches=10 if form == 0 else 11,
+        branches=branching[form],
         length=1.19 * reach[form],
-        base_radius=0.175 if species == "oak" else 0.135,
-        radius_parent_ratio=0.79 if species == "oak" and form == 0 else 0.73,
+        base_radius=0.22 if species == "oak" else 0.16,
+        radius_parent_ratio=radius_ratio[form],
         first=first[form],
-        attachment_jitter=0.46,
-        angle=inclination[form] + 0.12,
-        angle_tip=0.94,
-        angle_variation=0.34,
-        azimuth_variation=0.52,
-        bend=0.43,
-        bend_variation=0.23,
-        tip_scale=0.62,
+        attachment_jitter=0.49,
+        angle=inclination[form],
+        angle_tip=0.47 if form == 0 else 0.59,
+        angle_variation=0.29,
+        azimuth_variation=0.92,
+        bend=0.29,
+        bend_variation=0.35,
+        tip_scale=0.58,
+        length_shape="taper" if form == 0 else "rounded",
     )
     twigs = replace(
         twigs,
-        branches=10 if form == 0 else 9,
+        branches=twig_counts[form],
         radius_parent_ratio=0.36,
         attachment_jitter=0.40,
         angle_variation=0.38,
@@ -110,7 +113,7 @@ def avenue_plan(form):
     beech = stand_plan("beech", form)
     stem, limbs, *outer = beech.levels
     stem = replace(stem, length=stem.length + 2.1, bend=stem.bend * 0.55)
-    limbs = replace(limbs, first=0.47, upward_bias=0.12)
+    limbs = replace(limbs, first=0.43 + 0.06 * form, upward_bias=0.12)
     return PlantPlan(beech.seed + 821, (stem, limbs, *outer), beech.blades)
 
 
@@ -157,10 +160,13 @@ def geometry(plan, step, *, has_stem, oak):
         main_limb = rows["axis_parent_ids"][i] == 0
         if step >= 16 and not main_limb:
             continue
-        rings, sides = (5, 8) if main_limb else (4, 6)
-        if step > 1 and not main_limb:
+        if main_limb:
+            rings, sides = (9, 10) if step <= 4 else (5, 8)
+        elif step > 1:
             # These twigs have a radius below one sixth of the subpixel leaf width.
             rings, sides = 3, 3
+        else:
+            rings, sides = 4, 6
         part = axis_mesh(
             rows["axis_lengths"][i],
             rows["axis_bends"][i],

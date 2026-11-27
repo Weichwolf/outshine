@@ -72,6 +72,15 @@
       "pitch_deg": 1
     },
     {
+      "id": "Dechantlacke-Stem-Oblique",
+      "origin": "Dechantlacke",
+      "offset_east_north_m": [-1.6, -3.0],
+      "heading_deg": 164,
+      "pitch_deg": 3,
+      "vertical_fov_deg": 58,
+      "utc": "2026-06-21T16:30:00Z"
+    },
+    {
       "id": "Hauptallee-Avenue",
       "origin": "Hauptallee",
       "offset_east_north_m": [98.6, 21.8],
