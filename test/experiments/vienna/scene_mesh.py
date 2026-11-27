@@ -7,6 +7,7 @@ import shapely
 from outshine_ref.buildings.facades import FacadeRepeat
 from outshine_ref.buildings.recessed_facades import RecessPlan, recess_surface
 from outshine_ref.buildings.structures import suppressed
+from outshine_ref.water.geodetic import local_points
 from shapely.geometry import Point, box
 
 
@@ -85,12 +86,52 @@ def assemble(source, radius):
     xy = np.column_stack((x.ravel(), y.ravel()))
     cell = np.arange(len(xy)).reshape(x.shape)[:-1, :-1].ravel()
     quads = cell[:, None] + [0, 1, len(axis) + 1, len(axis)]
-    meshes.add(
-        "ground",
-        np.column_stack((xy, source.height(xy))),
-        quads[:, [0, 1, 2, 0, 2, 3]].reshape(-1, 3),
-    )
+    terrain = quads[:, [0, 1, 2, 0, 2, 3]].reshape(-1, 3)
     extent = box(-radius, -radius, radius, radius)
+    bodies = shapely.union_all(
+        [
+            shapely.make_valid(g).intersection(extent)
+            for layer, g, props in source.features
+            if layer == "water"
+        ]
+    )
+    cut = shapely.intersects(shapely.polygons(xy[terrain]), bodies)
+    meshes.add("ground", np.column_stack((xy, source.height(xy))), terrain[~cut])
+    for face in terrain[cut]:
+        for piece in polygons(shapely.Polygon(xy[face]).difference(bodies)):
+            cap(meshes, "ground", piece, source.height)
+    for body in polygons(bodies):
+        samples = xy[shapely.contains_xy(body, xy[:, 0], xy[:, 1])]
+        if not len(samples):
+            samples = np.asarray(body.representative_point().coords)
+        level = float(np.median(source.height(samples))) + source.datum
+
+        def water_height(points, height=level):
+            lonlat = points / source.metres + [source.lon, source.lat]
+            return (
+                local_points((source.lon, source.lat), lonlat, height)[:, 2]
+                - source.datum
+            )
+
+        cap(meshes, "water", body, water_height)
+        for ring in [body.exterior, *body.interiors]:
+            shore = np.asarray(ring.coords)
+            wet = water_height(shore)
+            count = len(shore)
+            top = np.column_stack((shore, source.height(shore)))
+            bottom = np.column_stack((shore, wet - 0.1))
+            start = np.arange(count - 1)
+            faces = np.column_stack(
+                (
+                    start,
+                    start + count,
+                    start + 1,
+                    start + 1,
+                    start + count,
+                    start + count + 1,
+                )
+            )
+            meshes.add("ground", np.vstack((top, bottom)), faces.reshape(-1, 3))
     for name, geom, prop in source.features:
         geometry = shapely.make_valid(geom) if not geom.is_valid else geom
         if name == "building":

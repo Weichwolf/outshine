@@ -19,6 +19,7 @@ sys.path.extend(
 
 from astral import Observer
 from astral.sun import azimuth, elevation
+from horizon import terrain_horizon
 from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_light import configure_daylight
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
@@ -27,6 +28,8 @@ from source_scene import LocalScene
 
 # Linear reflectance, perceptual roughness.
 SURFACES = {
+    "water": ((0.028, 0.084, 0.095), 0.09),
+    "distant terrain": ((0.11, 0.16, 0.10), 0.95),
     "ground": ((0.15, 0.13, 0.095), 0.9),
     "road": ((0.075, 0.08, 0.082), 0.82),
     "sidewalk": ((0.27, 0.25, 0.22), 0.77),
@@ -75,11 +78,13 @@ def render(place, config, args):
     source = LocalScene(
         place, config["source_snapshot"], ROOT / "build/vienna-sources", 250
     )
+    far, faces, receipts = terrain_horizon(source, ROOT / "build/vienna-sources", 250)
     pins = json.loads((HERE / "sources.json").read_text())
-    for row in source.receipts:
+    for row in source.receipts + receipts:
         if pins.get(row["url"]) != row["sha256"]:
             raise ValueError(f"Unpinned or changed Vienna source: {row['url']}")
     objects = {n: upload(n, *mesh) for n, mesh in assemble(source, 250).items()}
+    upload("distant terrain", far, faces)
     bpy.context.view_layer.update()
     candidates = (
         ("sidewalk", "road") if place["support"] == "street" else (place["support"],)
