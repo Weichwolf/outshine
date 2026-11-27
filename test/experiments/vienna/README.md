@@ -123,8 +123,10 @@ The first twelve-image review shows missing steps at Strudlhofstiege, a missing 
 Adlerhof and striping at Prater Hochstraße. The Schemerlbrücke camera looks from a mapped
 bank path across the channel: the first integrated bank-to-bank recipe spans the water with a closed slab and edge guards.
 Its steel truss, piers and graded approach tie-ins still need work.
-Hauptallee and Dechantlacke show layered woodland. Shore plants and openings still need
-review. Franz-Karl-Fernsicht looks southwest from the mapped footpath over taller grass,
+Hauptallee and Dechantlacke show layered woodland. Dechantlacke adds sedges and reed
+groups on the low natural bank, while the Asperner See park and access edges stay open.
+Compare the patchy shoreline with the [Lobau photograph, 16 May 2015](https://commons.wikimedia.org/wiki/File:Lobau_Dechantlacke.JPG).
+Franz-Karl-Fernsicht looks southwest from the mapped footpath over taller grass,
 seed heads and wildflowers on the OSM meadow. The camera retains its 1.70 m eye height.
 Use the [Sophienalpe summer photograph, 15 August 2006](https://commons.wikimedia.org/wiki/File:Wien_Sophienalpe.jpg)
 to assess the ground cover and plant height. Wienerblick still needs a review with the current city geometry.

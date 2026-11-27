@@ -9,6 +9,7 @@ import numpy as np
 import shapely
 from astral import Observer
 from astral.sun import azimuth, elevation
+from bank_vegetation import bank_plants
 from bridge_approach import APPROACH_SEARCH, bridge_approaches
 from bridges import plan_water_crossings
 from catalog import HERE, ROOT
@@ -259,6 +260,9 @@ class ReferenceScene:
             yield from woodland_cover(
                 self.local["ground"], self.source, self.woodland_floor, self.eye, seed
             )
+        yield from bank_plants(
+            self.local, self.source, self.local.shore, self.eye, seed
+        )
 
     def woody_plants(self, seed):
         yield from tree_batches(
