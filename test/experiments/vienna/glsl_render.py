@@ -149,6 +149,37 @@ def export_sky(ctx, place, config, out):
     )
 
 
+def sky_specular_atlas(ctx, radiance):
+    native_layout = ROOT / "src/render/stages/EnvironmentSpecularValues.inc"
+    values = dict(re.findall(r"ENV_INT\((\w+), (\d+)\)", native_layout.read_text()))
+    span = int(values["kEnvironmentSide"]) + 2 * int(values["kEnvironmentBorder"])
+    source = ctx.texture(SKY_ENVIRONMENT_SIZE, 3, radiance.tobytes(), dtype="f4")
+    source.repeat_x = True
+    source.repeat_y = False
+    source.filter = (moderngl.LINEAR, moderngl.LINEAR)
+    source.use(0)
+    prog = ctx.program(
+        vertex_shader=SCREEN, fragment_shader=shader(HERE / "sky_specular.frag")
+    )
+    prog["skyRadiance"].value = 0
+    quad = ctx.vertex_array(prog, [])
+    atlas = ctx.texture((span, span * int(values["kEnvironmentLevels"])), 4, dtype="f2")
+    brdf = ctx.texture((64, 64), 2, dtype="f2")
+    for integrate_brdf, texture in ((False, atlas), (True, brdf)):
+        texture.repeat_x = texture.repeat_y = False
+        texture.filter = (moderngl.LINEAR, moderngl.LINEAR)
+        target = ctx.framebuffer([texture])
+        target.use()
+        target.clear()
+        prog["integrateBrdf"].value = integrate_brdf
+        prog["extent"].value = texture.size
+        quad.render(vertices=3)
+        target.release()
+    for resource in (quad, prog, source):
+        resource.release()
+    return atlas, brdf
+
+
 def projection(world):
     forward = world.look
     right, up = camera_axes(forward)
@@ -316,6 +347,7 @@ def render(ctx, place, config, out, *, sky_dir=None):
     prog["sun"].value = tuple(world.sun)
     sky_path = environment_path(sky_dir, place) if sky_dir is not None else None
     prog["useSkyIrradiance"].value = sky_path is not None
+    sky_tables = ()
     if sky_path is not None:
         radiance = load_environment(
             sky_path,
@@ -323,6 +355,12 @@ def render(ctx, place, config, out, *, sky_dir=None):
             world.eye[2] + world.source.datum,
         )
         prog["skyIrradiance"].write(diffuse_coefficients(radiance).tobytes())
+        sky_tables = sky_specular_atlas(ctx, radiance)
+    atlas, brdf = sky_tables or (sky, sky)
+    atlas.use(7)
+    brdf.use(8)
+    prog["skySpecularMap"].value = 7
+    prog["skyBrdf"].value = 8
     sky.use(0)
     prog["skyView"].value = 0
     sky.use(2)
@@ -403,6 +441,8 @@ def render(ctx, place, config, out, *, sky_dir=None):
     prog.release()
     veil.release()
     sky.release()
+    for texture in sky_tables:
+        texture.release()
     print(
         json.dumps(
             {
@@ -430,9 +470,7 @@ if __name__ == "__main__":
     sky_args.add_argument(
         "--export-sky", action="store_true", help="write scene-linear sky radiance only"
     )
-    sky_args.add_argument(
-        "--sky-dir", type=Path, help="use exported sky diffuse lighting"
-    )
+    sky_args.add_argument("--sky-dir", type=Path, help="use exported sky lighting")
     args = parser.parse_args()
     with moderngl.create_standalone_context(require=410) as ctx:
         for place in selected_views(config, args.place):

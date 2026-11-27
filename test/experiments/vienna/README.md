@@ -42,6 +42,8 @@ Each archive stores a scene-linear 512 × 256 equirectangular image, solar direc
 rendered eye altitude. Direct sunlight comes from the separate sun in each renderer.
 Blender uses the image as its world environment. GLSL integrates the same image with a
 Lambert cosine kernel and evaluates unoccluded diffuse light from nine spherical harmonics.
+For opaque materials, GLSL also filters the shared sky into the native renderer's
+bordered octahedral roughness atlas and integrates a GGX reflectance table.
 This profile controls the incident environment for diffuse comparisons. The renderers
 retain their respective local transport and display transforms.
 
