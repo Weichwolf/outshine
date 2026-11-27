@@ -14,6 +14,7 @@ from bridges import plan_water_crossings
 from catalog import HERE, ROOT
 from grass_cover import blades
 from horizon import terrain_horizon
+from meadow import meadow_cover
 from outshine_ref.places.height import Elevation
 from regional import (
     beyond_region,
@@ -252,6 +253,8 @@ class ReferenceScene:
     def grass_and_understory(self, seed):
         if "grass" in self.local:
             yield from blades(self.local["grass"], self.source, self.eye, seed)
+        if "meadow" in self.local:
+            yield from meadow_cover(self.local["meadow"], self.source, self.eye, seed)
         if "ground" in self.local:
             yield from woodland_cover(
                 self.local["ground"], self.source, self.woodland_floor, self.eye, seed

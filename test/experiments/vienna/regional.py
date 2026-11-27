@@ -12,6 +12,7 @@ from ground_surface import (
     ROAD_WIDTH,
     ROUTE_MATERIALS,
     clip_route_areas,
+    grassland_material,
     partition_ground,
     route_footprints,
 )
@@ -41,6 +42,16 @@ class RegionalTransport:
     crossings: list
     elevated: set
     bridges: Meshes
+
+
+REGIONAL_LAND = (
+    "regional soil",
+    "grass",
+    "regional wood",
+    "regional water",
+    "regional deck",
+    "meadow",
+)
 
 
 def tile_rect(source, tile):
@@ -158,6 +169,14 @@ def class_fields(data, size, elevated, detail):
             features = sorted(
                 features, key=lambda f: f["properties"].get("render_height", 0)
             )
+        elif layer == "landcover":
+            features = sorted(
+                features,
+                key=lambda f: (
+                    f["properties"].get("class") == "wood",
+                    grassland_material(f["properties"]) == "meadow",
+                ),
+            )
         for f in features:
             props = f["properties"]
             if layer == "building":
@@ -172,6 +191,8 @@ def class_fields(data, size, elevated, detail):
                     "wetland": 1,
                     "bridge": 4,
                 }.get(props.get("class"), 0)
+                if layer == "landcover" and grassland_material(props) == "meadow":
+                    value = REGIONAL_LAND.index("meadow")
                 if value == 4 and id(f) in elevated:
                     continue
                 if value:
@@ -237,14 +258,7 @@ def tile_surface(
     products = (
         building_shells(data, nw, se, source, dem, radius, focal) if detail else []
     )
-    names = (
-        "regional soil",
-        "grass",
-        "regional wood",
-        "regional water",
-        "regional deck",
-        *ROUTE_MATERIALS,
-    )
+    names = (*REGIONAL_LAND, *ROUTE_MATERIALS)
     tile_water = tuple(clipped_water(water_plan, tile.difference(local)))
     water = shapely.union_all([footprint for _, footprint in tile_water])
     footprints = {3: water}
@@ -269,7 +283,7 @@ def tile_surface(
         footprints.update(
             {
                 i: clip_route_areas((routes[name],), tile)
-                for i, name in enumerate(ROUTE_MATERIALS, 5)
+                for i, name in enumerate(ROUTE_MATERIALS, len(REGIONAL_LAND))
             }
         )
         if any(body.footprint.intersects(neighborhood) for body in water_plan):
@@ -309,7 +323,12 @@ def tile_surface(
             elif name == "regional water":
                 edges = vertices[triangles[:, [0, 1, 1, 2, 2, 0]]].reshape(-1, 2, 3)
                 shore_walls(shore_parts, "regional soil", source, shore, edges)
-            elif shore.contacts and name in names[:3]:
+            elif shore.contacts and name in {
+                "regional soil",
+                "grass",
+                "regional wood",
+                "meadow",
+            }:
                 used, inverse = np.unique(triangles, return_inverse=True)
                 products.append(
                     (name, shore.deform(source, vertices[used]), inverse.reshape(-1, 3))
@@ -318,7 +337,7 @@ def tile_surface(
                 products.append((name, vertices, triangles))
         products.extend((name, *mesh) for name, mesh in shore_parts.items())
     else:
-        for i, name in enumerate(names[:5]):
+        for i, name in enumerate(REGIONAL_LAND):
             mask = (land == i) & outside
             if mask.any():
                 products.append((name, ground, faces[mask]))

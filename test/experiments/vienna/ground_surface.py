@@ -142,6 +142,12 @@ def project_triangles(cells, ground):
     return vertices, np.arange(len(vertices)).reshape(-1, 3)
 
 
+def grassland_material(properties):
+    if properties.get("class") == "grass":
+        return "meadow" if properties.get("subclass") == "meadow" else "grass"
+    return None
+
+
 def surface_labels(points, base, footprints):
     labels = base.copy()
     xy = shapely.get_coordinates(points).T
