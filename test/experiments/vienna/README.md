@@ -133,9 +133,10 @@ and reuses them for warm renders. The reported capture seconds are part of scene
 For a graded reach, the capture plane is fitted to the visible water samples.
 
 The Nußdorf entry in `water_controls.json` cuts the pinned Donaukanal polygon at the
-Schemerlbrücke axis. The reference uses the two plateaus sampled from Mapterhorn at that
-crossing. Below the weir it applies the relative drops from the KWD 2020 160 m³/s
-profile along the simplified OpenFreeMap `Donaukanal` centreline. The curve is stationed
+mapped weir crest downstream of Schemerlbrücke. The upper reach runs beneath the
+bridge. The two plateaus use Mapterhorn estimates. The canal below the weir uses the
+relative drops from the KWD 2020 160 m³/s profile along the simplified OpenFreeMap
+`Donaukanal` centreline. The curve is stationed
 between the cut and the canal mouth. The gate face, shore grade and pedestrian clearance
 use this same water model. `Schemerlbruecke-Downstream` observes the gate from the lower bank.
 
