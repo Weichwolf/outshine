@@ -153,6 +153,9 @@ class PlaceHeightTests(unittest.TestCase):
     def test_absence_and_changed_source_never_become_zero(self):
         with self.assertRaises(ValueError):
             Elevation([]).sample(0, 0)
+        missing, zoom = Elevation([]).sample_with_zoom(0, 0, allow_missing=True)
+        self.assertTrue(np.isnan(missing))
+        self.assertEqual(zoom, -1)
         with tempfile.TemporaryDirectory(prefix="outshine-tests.places.") as root:
             record = stored(root, ((0, 10), (20, 30)))
             Path(record["path"]).write_bytes(b"changed")
@@ -282,12 +285,15 @@ class PlaceSourceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="outshine-tests.places.") as root:
             path = Path(root) / "source.pbf"
             path.write_bytes(data)
-            result = decode_vector(
-                {
-                    "kind": "vector",
-                    "path": str(path),
-                    "sha256": hashlib.sha256(data).hexdigest(),
-                }
+            receipt = {
+                "kind": "vector",
+                "path": str(path),
+                "sha256": hashlib.sha256(data).hexdigest(),
+            }
+            result = decode_vector(receipt)
+            self.assertEqual(
+                decode_vector(receipt, layers=("water", "missing")),
+                {"water": result["water"]},
             )
         self.assertEqual(
             set(result), {"building", "landcover", "water", "transportation", "poi"}

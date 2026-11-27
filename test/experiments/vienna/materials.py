@@ -1,8 +1,11 @@
 GLASS_IOR = 1.52
+WATER_IOR = 1.333
+WATER_MATERIALS = ("water", "regional water")
 
 # Linear reflectance, perceptual roughness.
 SURFACES = {
     "bridge deck": ((0.23, 0.22, 0.20), 0.82),
+    "retaining wall": ((0.285, 0.247, 0.186), 0.87),
     "bridge metal": ((0.085, 0.13, 0.115), 0.46),
     "oak bark": ((0.135, 0.098, 0.070), 0.91),
     "beech bark": ((0.158, 0.150, 0.131), 0.84),
@@ -22,6 +25,7 @@ SURFACES = {
     "regional roofs": ((0.27, 0.137, 0.09), 0.79),
     "regional walls": ((0.47, 0.39, 0.31), 0.86),
     "water": ((0.028, 0.084, 0.095), 0.09),
+    "weir overflow": ((0.18, 0.225, 0.195), 0.37),
     "distant terrain": ((0.11, 0.16, 0.10), 0.95),
     "ground": ((0.105, 0.073, 0.046), 0.92),
     "unpaved path": ((0.17, 0.135, 0.095), 0.89),

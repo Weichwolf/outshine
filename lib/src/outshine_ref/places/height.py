@@ -67,7 +67,8 @@ class Elevation:
             self._rasters[tile] = decode_terrarium(receipt_bytes(self.receipts[tile]))
         return self._rasters[tile]
 
-    def sample_with_zoom(self, latitude, longitude):
+    def sample_with_zoom(self, latitude, longitude, *, allow_missing=False):
+        """Return the finest available height and zoom, with NaN and -1 for allowed misses."""
         latitude, longitude = np.broadcast_arrays(latitude, longitude)
         if (
             not np.isfinite(latitude).all()
@@ -122,7 +123,7 @@ class Elevation:
                     (1 - u) * height[y, x] + u * height[y, x + 1]
                 ) + v * ((1 - u) * height[y + 1, x] + u * height[y + 1, x + 1])
                 used_zoom[unresolved[selected]] = zoom
-        if not np.isfinite(result).all():
+        if not allow_missing and not np.isfinite(result).all():
             raise ValueError(
                 f"DEM does not cover {int(np.count_nonzero(~np.isfinite(result)))} requested samples"
             )

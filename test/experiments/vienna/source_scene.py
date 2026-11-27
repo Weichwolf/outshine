@@ -64,9 +64,10 @@ class LocalScene:
             else:
                 self.features.append((name, geometry, properties))
 
-    def metric_features(self, receipt, names):
+    def metric_features(self, receipt, names, data=None):
         tile = receipt["tile"]
-        data = decode_vector(receipt)
+        if data is None:
+            data = decode_vector(receipt, layers=names)
         for name in names:
             if name not in data:
                 continue
@@ -78,4 +79,7 @@ class LocalScene:
 
             for feature in layer["features"]:
                 geom = shapely.transform(shape(feature["geometry"]), local)
-                yield name, geom, feature["properties"]
+                tags = feature["properties"]
+                if name == "water" and "id" not in tags and feature.get("id"):
+                    tags = tags | {"id": feature["id"]}
+                yield name, geom, tags

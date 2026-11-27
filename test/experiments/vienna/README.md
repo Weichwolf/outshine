@@ -65,8 +65,9 @@ and contract at path and water boundaries. The offset views share the same tile-
 ## Reference geometry
 
 The initial integration covers the local DEM, mapped building shells, near recessed facade cells
-and ground-level road surfaces. A separate level mesh fills mapped water polygons cut from the
-local terrain. Real DEM rings extend the terrain from the 250 m local square to 100 km along
+and ground-level road surfaces. Separate water meshes fill the mapped polygons cut from the
+terrain. Each mapped reach uses a shared DEM-inferred WGS84 level in the local and regional meshes.
+Real DEM rings extend the terrain from the 250 m local square to 100 km along
 each axis. The reference uses 240 rings with 128 intervals per side to retain Alpine
 ridgelines in both renderers. Subdivision of the inner edges matches the original local
 terrain. The far terrain currently has a uniform material.
@@ -102,14 +103,17 @@ Wienerblick remains an independent, eye-level site.
 
 The regional reference samples the mapped building heights, water, woods, grass and deck
 footprints around each camera. Its height field extends to the distance at which a 12 m
-building occupies one pixel (6–15 km range). Closer tiles retain mapped building outlines, facade openings and shoreline positions.
+building occupies one pixel (6–15 km range). Closer tiles retain mapped building outlines and facade openings.
 Mapped water crossings use a raised slab and piers where both banks can be resolved.
 Local and regional shorelines, roads and paths partition the same terrain triangles. The planar
-arrangement cuts triangles only at material boundaries. Terrain heights are interpolated
-within the original faces. Water takes precedence over ground routes. Mapped footpaths
+arrangement cuts triangles at material boundaries and grade contours. Terrain heights are interpolated
+within the original faces before grading. At a natural shore, the terrain blends to the
+water level within a 14 m band. Roads, footpaths, buildings and solved bridge approaches
+constrain the grade. Trees take their root heights from the finished bank surface.
+Water takes precedence over ground routes. Mapped footpaths
 retain their footprint where an inferred road width overlaps them. Tunnels and elevated
 links are excluded from the ground network.
-The outer height field still quantizes roofs and shorelines.
+The outer height field still quantizes roofs.
 
 The native Wien capture is a historical diagnostic comparison. Visual acceptance uses the
 twelve pedestrian cameras. Compare the historical view in
@@ -121,6 +125,33 @@ as in `src/render/shaders/aerialPerspective.frag`. Blender combines its own sky-
 layer and Principled BSDF render in scene-linear light. It uses Beer–Lambert attenuation
 at the green-band Rayleigh coefficient and the camera-altitude density for clear-air
 depth, independently of the GLSL tables.
+
+The reference cameras select up to two water levels for 640×360 planar reflection captures.
+Clipped scene geometry supplies the reflected forms and the sky fills the uncovered rays.
+GLSL captures the mirrors on the GPU. EEVEE prepares them once for each static camera pose
+and reuses them for warm renders. The reported capture seconds are part of scene setup.
+With `--repeat`, EEVEE also prepares the clear-sky compositing layer once in scene-linear
+precision. The sky capture time is reported separately from PNG generation.
+For a graded reach, the capture plane is fitted to the visible water samples.
+
+Both paths sample the same 0.75 m nearshore transmission raster. In the first 10 m from
+a mapped natural bank, a reference bed slope and RGB extinction approximate the fading
+return from underwater sediment. Roads and quay contacts suppress the sediment response.
+The band fades before the regional seam. The slopes and optical coefficients are estimates
+for these comparisons. [Rendering Natural Waters](https://doi.org/10.1111/1467-8659.00548)
+
+The Nußdorf entry in `water_controls.json` cuts the pinned Donaukanal polygon at the
+mapped weir crest downstream of Schemerlbrücke. The upper reach runs beneath the
+bridge. The two plateaus use Mapterhorn estimates. The canal below the weir uses the
+relative drops from the KWD 2020 160 m³/s profile along the simplified OpenFreeMap
+`Donaukanal` centreline. The curve is stationed
+between the cut and the canal mouth. The gate face, shore grade and pedestrian clearance
+use this same water model. A stationary overflow sheet joins the crest to the lower
+reach in the reference. `Schemerlbruecke-Downstream` observes the crest from the lower bank.
+The retaining reach uses the mapped water edges for the wall faces. Its inferred crest
+follows Mapterhorn ground 9 m inland. The retained grade blends into the natural bank
+at the ends of the reach and preserves the fitted transport surfaces.
+[Nußdorfer Wehr, 29 May 2018](https://commons.wikimedia.org/wiki/File:Wien_-_Nu%C3%9Fdorfer_Wehr_(1).JPG)
 
 ```sh
 build/blender-python/bin/python -m pip install moderngl

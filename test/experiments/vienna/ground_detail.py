@@ -16,6 +16,7 @@ SURFACE_DETAIL = {
     "road": "asphalt",
     "paving": "stone",
     "bridge deck": "concrete",
+    "retaining wall": "concrete",
     "sidewalk": "concrete",
     "stair limestone": "concrete",
     "foundation": "concrete",
@@ -26,6 +27,7 @@ SURFACE_DETAIL = {
     "oak bark": "oak bark",
     "beech bark": "beech bark",
     "foliage": "leaf",
+    "weir overflow": "weir overflow",
 }
 
 
@@ -69,6 +71,7 @@ def ground_detail(name):
         "leaf",
         "grass",
         "beech bark",
+        "weir overflow",
     ).index(name)
     rng = np.random.default_rng(seed)
     fine, grain, patches = (noise(rng, scale) for scale in (0.65, 1.6, 12))
@@ -119,6 +122,12 @@ def ground_detail(name):
         tint = 1 + 0.12 * mottling + 0.15 * lichen + 0.040 * patches - 0.24 * scars
         roughness = 0.84 + 0.030 * mottling + 0.015 * lichen + 0.022 * patches
         height = -0.0014 * scars + 0.00045 * patches + 0.00024 * grain
+    elif name == "weir overflow":
+        threads = noise(rng, (15, 1.5))
+        air = np.clip(0.5 + 0.24 * threads + 0.12 * grain, 0, 1)
+        tint = 0.62 + 1.0 * air
+        roughness = 0.23 + 0.29 * air
+        height = 0.0012 * threads + 0.00055 * fine
     elif name == "grass":
         clumps = noise(rng, (3.6, 1.8))
         tips = np.maximum(fine - 0.45, 0)

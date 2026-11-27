@@ -78,13 +78,6 @@ class Passage:
         return z
 
 
-def water_level(body, xy, height):
-    samples = xy[shapely.contains_xy(body, *xy.T)]
-    if not len(samples):
-        samples = np.asarray(body.representative_point().coords)
-    return float(np.median(height(samples)))
-
-
 def transverse_contacts(line, crossings, water):
     for i, crossing in enumerate(crossings):
         span = crossing.span
@@ -203,13 +196,32 @@ def stair_contacts(line, cells, footprint, stairs):
     return contacts
 
 
-def passage_routes(features, crossings, domain, water, floors, blocked, stairs):
+def water_clearance(source, floors, points):
+    sites = shapely.points(points)
+    distances = np.stack(
+        [shapely.distance(sites, footprint) for footprint, _ in floors]
+    )
+    closest = distances.min(axis=0)
+    heights = np.full(len(points), -np.inf)
+    for (footprint, body), distance in zip(floors, distances, strict=True):
+        nearest = distance <= closest + 1e-6
+        if not nearest.any():
+            continue
+        xy = shapely.get_coordinates(
+            shapely.get_point(shapely.shortest_line(sites[nearest], footprint), 1)
+        )
+        lonlat = xy / source.metres + [source.lon, source.lat]
+        heights[nearest] = np.maximum(heights[nearest], body.level_at(lonlat))
+    return heights + FLOOR_ABOVE_WATER_M
+
+
+def passage_routes(source, crossings, domain, water, floors, blocked, stairs):
     if not len(floors):
         return []
     routes = []
     seen = set()
     occupied = shapely.Polygon()
-    for name, geom, tags in features:
+    for name, geom, tags in source.features:
         if (
             name != "transportation"
             or tags.get("class") != "path"
@@ -263,12 +275,13 @@ def passage_routes(features, crossings, domain, water, floors, blocked, stairs):
                 )
             if not ceilings:
                 continue
-            _, level = min(floors, key=lambda item: item[0].distance(line))
+            centres = sections.mean(axis=1)
+            level = water_clearance(source, floors, centres)
             lower = np.full(len(station), -np.inf)
-            near = shapely.dwithin(shapely.points(sections.mean(axis=1)), water, 12)
-            lower[near] = level + FLOOR_ABOVE_WATER_M
+            near = shapely.dwithin(shapely.points(centres), water, 12)
+            lower[near] = level[near]
             for _, columns, _ in ceilings:
-                lower[columns] = level + FLOOR_ABOVE_WATER_M
+                lower[columns] = level[columns]
             routes.append(
                 PassageRoute(
                     line,
@@ -371,16 +384,11 @@ def floor_mesh(route, z, pavement):
 
 
 def fit_bridge_levels(
-    source, crossings, domain, water, roads, vertices, quads, terrain, stairs
+    source, crossings, domain, water, roads, vertices, quads, terrain, stairs, floors
 ):
     eligible = connected_bridge_crossings(source.features, crossings)
     if not eligible or water.is_empty:
         return None
-    floors = [
-        (body, water_level(body, vertices[:, :2], source.height))
-        for body in shapely.get_parts(water)
-        if body.geom_type == "Polygon"
-    ]
     roads_and_rails = shapely.union_all(
         [
             route_area(geom, width)
@@ -400,9 +408,7 @@ def fit_bridge_levels(
     blocked = roads_and_rails.difference(
         shapely.union_all([c.footprint for c in eligible])
     )
-    routes = passage_routes(
-        source.features, eligible, domain, water, floors, blocked, stairs
-    )
+    routes = passage_routes(source, eligible, domain, water, floors, blocked, stairs)
     if not routes:
         return None
     raw_ground = GroundSections(vertices, quads, terrain, ())
@@ -441,11 +447,11 @@ def fit_bridge_levels(
 
 
 def bridge_terrain(
-    source, crossings, domain, water, roads, vertices, quads, terrain, stairs
+    source, crossings, domain, water, roads, vertices, quads, terrain, stairs, floors
 ):
     decks = deck_bank_contacts(source.features, crossings, water)
     plan = fit_bridge_levels(
-        source, decks, domain, water, roads, vertices, quads, terrain, stairs
+        source, decks, domain, water, roads, vertices, quads, terrain, stairs, floors
     )
     if plan is not None:
         return plan

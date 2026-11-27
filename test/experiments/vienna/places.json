@@ -26,6 +26,43 @@
       "offset_east_north_m": [-2.7, -5.1],
       "heading_deg": 167,
       "pitch_deg": -15
+    },
+    {
+      "id": "Schemerlbruecke-Bank",
+      "origin": "Schemerlbruecke",
+      "offset_east_north_m": [-13.94, 80.51],
+      "heading_deg": 137,
+      "pitch_deg": -16
+    },
+    {
+      "id": "Schemerlbruecke-Downstream",
+      "origin": "Schemerlbruecke",
+      "offset_east_north_m": [73.153, -112.709],
+      "heading_deg": 316.6,
+      "pitch_deg": -0.8,
+      "support": "ground"
+    },
+    {
+      "id": "Dechantlacke-Bank",
+      "origin": "Dechantlacke",
+      "offset_east_north_m": [3.42, 5.77],
+      "heading_deg": 108,
+      "pitch_deg": -12
+    },
+    {
+      "id": "AspernerSee-Bank",
+      "origin": "AspernerSee",
+      "offset_east_north_m": [-92.58, 95.65],
+      "heading_deg": 14,
+      "pitch_deg": -12,
+      "support": "unpaved path"
+    },
+    {
+      "id": "AspernerSee-East-Bank",
+      "origin": "AspernerSee",
+      "offset_east_north_m": [77.023, -5.05],
+      "heading_deg": 14,
+      "pitch_deg": -8
     }
   ],
   "places": [

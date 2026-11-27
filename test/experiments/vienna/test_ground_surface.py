@@ -7,9 +7,33 @@ from ground_surface import at_grade_routes, partition_ground
 from reference_scene import support_height
 from scene_mesh import assemble
 from shapely.geometry import LineString, Point, Polygon, box
+from water_surface import WaterBody
 
 
 class GroundSurfaceTest(unittest.TestCase):
+    def test_grass_and_soil_follow_the_same_grade_at_the_waterline(self):
+        water = WaterBody(box(-40, -40, 0, 40), 0.0)
+        source = SimpleNamespace(
+            height=lambda xy: np.full(len(xy), 3.0),
+            lon=16.4,
+            lat=48.2,
+            metres=np.array([74300, 111180]),
+            datum=160,
+            features=[("landcover", box(-8, -20, 8, 0), {"class": "grass"})],
+        )
+        meshes = assemble(source, 24, water_plan=(water,))
+        for material, north in (("grass", -4), ("ground", 4)):
+            point = (0, north)
+            self.assertAlmostEqual(
+                support_height(meshes[material], point).max(),
+                support_height(meshes["water"], point).max(),
+                delta=0.001,
+            )
+        for east in (0.8, 2.5, 6.0):
+            a = support_height(meshes["grass"], (east, 0)).max()
+            b = support_height(meshes["ground"], (east, 0)).max()
+            self.assertAlmostEqual(a, b, places=6)
+
     def test_mapped_grass_shares_the_slope_and_leaves_the_road_clear(self):
         source = SimpleNamespace(
             height=lambda xy: xy[:, 0] * 0.12 + xy[:, 1] * 0.08,

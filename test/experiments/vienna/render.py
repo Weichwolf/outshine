@@ -17,6 +17,7 @@ sys.path.extend(
 )
 
 from blender_air import configure_aerial
+from blender_reflection import apply_reflection, capture_images
 from catalog import available_views, load_catalog, selected_views
 from ground_detail import (
     BARK_BOX_BLEND,
@@ -26,11 +27,20 @@ from ground_detail import (
     SURFACE_DETAIL,
     ground_detail,
 )
-from materials import DIFFUSE_TRANSMISSION, GLASS_IOR, METALLIC, SURFACES
+from materials import (
+    DIFFUSE_TRANSMISSION,
+    GLASS_IOR,
+    METALLIC,
+    SURFACES,
+    WATER_IOR,
+    WATER_MATERIALS,
+)
 from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_light import configure_daylight
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
 from reference_scene import ReferenceScene
+from water_bed import BED_ALBEDO
+from water_reflection import reflection_planes
 
 SUN_SHADOW_MIN_TEXEL_M = 0.016
 
@@ -100,6 +110,8 @@ def surface_material(name):
     bsdf.inputs["Metallic"].default_value = METALLIC.get(name, 0.0)
     if name == "glass":
         bsdf.inputs["IOR"].default_value = GLASS_IOR
+    if name in WATER_MATERIALS:
+        bsdf.inputs["IOR"].default_value = WATER_IOR
     if detail := SURFACE_DETAIL.get(name):
         apply_detail(material, bsdf, detail, colour)
     if transmission := DIFFUSE_TRANSMISSION.get(name):
@@ -112,6 +124,41 @@ def surface_material(name):
         tree.links.new(backlight.outputs[0], mix.inputs[2])
         tree.links.new(mix.outputs[0], tree.nodes["Material Output"].inputs["Surface"])
     return material
+
+
+def apply_water_bed(bed):
+    # The raster fades to zero at the boundary of the local water mesh.
+    material = bpy.data.materials.get("water")
+    if material is None:
+        return
+    height, width = bed.transmission.shape[:2]
+    image = bpy.data.images.new(
+        "Water bed transmission", width, height, float_buffer=False
+    )
+    image.colorspace_settings.name = "Non-Color"
+    pixels = np.ones((height, width, 4), dtype="f4")
+    pixels[..., :3] = bed.transmission
+    image.pixels.foreach_set(pixels.ravel())
+    east, north, inv_width, inv_height = bed.transform
+    tree = material.node_tree
+    nodes, link = tree.nodes, tree.links.new
+    position = nodes.new("ShaderNodeNewGeometry").outputs["Position"]
+    coords = nodes.new("ShaderNodeVectorMath")
+    coords.operation = "MULTIPLY_ADD"
+    coords.inputs[1].default_value = (inv_width, inv_height, 0)
+    coords.inputs[2].default_value = (-east * inv_width, -north * inv_height, 0)
+    link(position, coords.inputs[0])
+    texture = nodes.new("ShaderNodeTexImage")
+    texture.image = image
+    texture.extension = "CLIP"
+    link(coords.outputs["Vector"], texture.inputs["Vector"])
+    colour = nodes.new("ShaderNodeVectorMath")
+    colour.operation = "MULTIPLY_ADD"
+    water = np.asarray(SURFACES["water"][0])
+    colour.inputs[1].default_value = np.asarray(BED_ALBEDO) - water
+    colour.inputs[2].default_value = water
+    link(texture.outputs["Color"], colour.inputs[0])
+    link(colour.outputs["Vector"], nodes["Principled BSDF"].inputs["Base Color"])
 
 
 def upload(name, vertices, faces, *, collection, smooth=False):
@@ -204,7 +251,16 @@ def render(place, config, args):
     scene.render.resolution_percentage = 100
     scene.render.image_settings.compression = 0
     woody_plants = plant_woodland(world, config["seed"], geometry)
+    if world.water_bed is not None:
+        apply_water_bed(world.water_bed)
     scene.eevee.taa_render_samples = 16
+    planes = reflection_planes(world) if args.engine == "eevee" else ()
+    capture_s = 0.0
+    if planes:
+        images, capture_s = capture_images(scene, geometry, planes)
+        for name in WATER_MATERIALS:
+            if material := bpy.data.materials.get(name):
+                apply_reflection(material, world.eye, planes, images)
     sky_s = configure_aerial(
         scene,
         geometry,
@@ -224,6 +280,8 @@ def render(place, config, args):
                 "woodland_instances": woody_plants,
                 "eye_m": eye.z + world.source.datum,
                 **device,
+                "reflection_levels_m": [round(plane.height, 3) for plane in planes],
+                "reflection_capture_s": round(capture_s, 3),
                 "sky_capture_s": round(sky_s, 3),
                 "seconds_to_png": times,
             }
