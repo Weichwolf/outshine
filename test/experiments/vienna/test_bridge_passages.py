@@ -77,6 +77,11 @@ class BridgePassageTest(unittest.TestCase):
             self.assertLessEqual(
                 np.max(abs(np.diff(z)) / np.diff(stations)), MAXIMUM_GRADE + 1e-5
             )
+        for y in (-60, 60):
+            for x in np.linspace(17.12, 18.88, 21):
+                heights = support_height(mesh["sidewalk"], (x, y))
+                self.assertGreater(len(heights), 1)
+                self.assertAlmostEqual(np.ptp(heights), 0, places=5)
         for x in (-20, 20):
             left = support_height(mesh["road"], (x - 0.02, 0)).max()
             right = support_height(mesh["road"], (x + 0.02, 0)).max()

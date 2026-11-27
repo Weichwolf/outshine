@@ -17,6 +17,7 @@ from ground_surface import (
     at_grade_width,
     partition_ground,
     partition_triangles,
+    terrain_triangles,
 )
 from outshine_ref.buildings.facades import FacadeRepeat
 from outshine_ref.buildings.recessed_facades import RecessPlan, recess_surface
@@ -171,7 +172,7 @@ def water_surfaces(meshes, source, bodies, vertices, banks):
 
 def compound_ground(vertices, quads, junctions, footprint):
     if not junctions:
-        return vertices, quads[:, [0, 1, 2, 0, 2, 3]].reshape(-1, 3)
+        return vertices, terrain_triangles(quads)
     points, faces = [], []
     offset = 0
     parts = partition_ground(
@@ -239,7 +240,15 @@ def ground_surfaces(
     stairs.extend(branches)
     original = crossings
     crossings, junctions, joined_spans, passages = bridge_terrain(
-        source, crossings, extent, bodies, roads["road"], vertices, height, stairs
+        source,
+        crossings,
+        extent,
+        bodies,
+        roads["road"],
+        vertices,
+        quads,
+        height,
+        stairs,
     )
     openings = shapely.union_all([passage.footprint for passage in passages])
     junction_area = shapely.union_all([j.footprint for j in junctions])
