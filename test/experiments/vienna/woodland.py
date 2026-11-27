@@ -49,7 +49,7 @@ def stand_plan(species, form):
         bend_variation=0.23,
         tip_scale=0.62,
     )
-    twigs = replace(twigs, radius_parent_ratio=0.36)
+    twigs = replace(twigs, branches=10 if form == 0 else 9, radius_parent_ratio=0.36)
     return PlantPlan(base.seed + 19 * form, (stem, limbs, twigs), base.blades)
 
 
@@ -106,12 +106,15 @@ def geometry(plan, step, *, has_stem, oak):
         part = template_stem(plan, oak=oak)
         meshes.add(bark, part["vertices"], part["faces"])
     for i in range(1, len(rows["axis_ids"])):
-        sides = 8 if rows["axis_parent_ids"][i] == 0 else 6
+        main_limb = rows["axis_parent_ids"][i] == 0
+        rings, sides = (5, 8) if main_limb else (4, 6)
+        if step > 1 and not main_limb:
+            rings, sides = 3, 5
         part = axis_mesh(
             rows["axis_lengths"][i],
             rows["axis_bends"][i],
             *rows["axis_radii"][i],
-            5,
+            rings,
             sides,
         )
         vertices = part["vertices"] @ rows["axis_frames"][i].T + rows["axis_origins"][i]

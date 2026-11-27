@@ -14,6 +14,17 @@ from woodland_stem import rooted_stem, template_stem
 
 
 class WoodlandTest(unittest.TestCase):
+    def test_revised_stands_keep_the_authored_leaf_area(self):
+        for species in ("oak", "beech"):
+            data = files("outshine_ref.vegetation").joinpath(
+                "data", f"stand-{species}.json"
+            )
+            base = PlantPlan.from_recipe(json.loads(data.read_text()))
+            for form in (0, 1):
+                with self.subTest(species=species, form=form):
+                    area = stand_plan(species, form).summary()["leaf_area_m2"]
+                    self.assertGreaterEqual(area, 0.95 * base.summary()["leaf_area_m2"])
+
     def test_flared_stem_follows_a_slope_without_entering_the_path(self):
         recipe = files("outshine_ref.vegetation").joinpath("data", "stand-oak.json")
         plan = PlantPlan.from_recipe(json.loads(recipe.read_text()))
