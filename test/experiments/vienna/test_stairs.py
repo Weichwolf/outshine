@@ -10,6 +10,38 @@ from stairs import fit_stairway
 
 
 class StairwayTest(unittest.TestCase):
+    def test_steep_turn_off_a_landing_gets_treads_and_a_terrain_apron(self):
+        source = SimpleNamespace(
+            height=lambda xy: (
+                0.25 * np.maximum(xy[:, 1] - 3, 0)
+                + 0.55 * np.maximum(-xy[:, 0] - 0.9, 0)
+            ),
+            features=[
+                (
+                    "transportation",
+                    LineString([(0, 0), (0, 3), (0, 7)]),
+                    {"class": "path", "subclass": "steps"},
+                ),
+                (
+                    "transportation",
+                    LineString([(0, 0), (-3.6, 0.9)]),
+                    {"class": "path", "subclass": "footway"},
+                ),
+            ],
+        )
+        meshes = Meshes()
+        vertices, quads = terrain_grid(source, 9)
+        ground_surfaces(
+            meshes, source, box(-9, -9, 9, 9), shapely.Polygon(), vertices, quads
+        )
+        z = lambda x, y: support_height(meshes["sidewalk"], (x, y)).max()
+        for y in np.linspace(0.1, 1.7, 9):
+            self.assertAlmostEqual(z(-0.89, y), z(-0.91, y), places=5)
+            self.assertLess(abs(z(-3.59, y) - z(-3.61, y)), 0.01)
+        heights = {round(z(x, 0.9), 6) for x in np.linspace(-3.58, -0.92, 201)}
+        self.assertEqual(len(heights), 9)
+        np.testing.assert_allclose(np.diff(sorted(heights)), 1.485 / 8, atol=1e-6)
+
     def test_shared_landing_meets_a_third_flight_across_its_side(self):
         source = SimpleNamespace(
             height=lambda xy: (

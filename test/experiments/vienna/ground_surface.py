@@ -41,13 +41,26 @@ def path_material(props):
     return "sidewalk"
 
 
-def at_grade_routes(features, domain, *, focal=None):
+def at_grade_routes(features, domain, *, focal=None, replaced_paths=()):
     footprints = {"road": [], "sidewalk": [], "paving": []}
     for geom, props in features:
         kind = props.get("class")
         width = at_grade_width(props)
         if width is None:
             continue
+        if (
+            replaced_paths
+            and props.get("subclass") == "footway"
+            and geom.geom_type.endswith("LineString")
+        ):
+            kept = [
+                part
+                for part in shapely.get_parts(geom)
+                if shapely.normalize(part) not in replaced_paths
+            ]
+            if not kept:
+                continue
+            geom = shapely.union_all(kept)
         if (
             focal is not None
             and geom.geom_type.endswith("LineString")

@@ -94,7 +94,10 @@ def fit_stairway(line, width, height, material="sidewalk"):
     result = flight_sections(points, lengths, width, height(points))
     if result is None:
         return None
-    corners, heights = result
+    return stairway_from_treads(points, *result, material)
+
+
+def stairway_from_treads(points, corners, heights, material):
     treads = shapely.polygons(corners)
     if not np.all(shapely.is_valid(treads)):
         return None
