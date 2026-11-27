@@ -22,3 +22,13 @@ Use the bundled tests and real-world fixtures as comparisons for native
 algorithms. Keep tractable counterexamples, compare picture and cost on holdouts,
 and remeasure when assumptions change. Research and remaining gaps are indexed in
 [Outshine generation methods](../doc/references/procedural/outshine-generation.md).
+
+Render a prepared reference scene on the GPU. The second render measures warm time
+through the completed PNG write. Compare the Vienna working views at 1280×720.
+
+```sh
+blender -b scene.blend --python-exit-code 1 -P lib/src/outshine_ref/rendering/blender_render.py -- --engine eevee --repeat --output /tmp/outshine-preview.png
+```
+
+Use `--engine cycles` for lighting references. On the development Mac this selects
+Metal and disables the CPU render device.

@@ -1,0 +1,110 @@
+{
+  "source_snapshot": "20260927_080001_pt",
+  "eye_height_m": 1.7,
+  "vertical_fov_deg": 54,
+  "seed": 2083,
+  "utc": "2026-06-21T10:00:00Z",
+  "weather": "clear",
+  "places": [
+    {
+      "id": "Adlerhof",
+      "latitude": 48.2022899,
+      "longitude": 16.3508729,
+      "heading_deg": 76,
+      "pitch_deg": 0,
+      "support": "street"
+    },
+    {
+      "id": "Strudlhofstiege",
+      "latitude": 48.22219265,
+      "longitude": 16.35805894,
+      "heading_deg": 242,
+      "pitch_deg": 0,
+      "support": "sidewalk"
+    },
+    {
+      "id": "KarlMarxHof",
+      "latitude": 48.24945049,
+      "longitude": 16.36431711,
+      "heading_deg": 264,
+      "pitch_deg": 0,
+      "support": "sidewalk"
+    },
+    {
+      "id": "Schwedenplatz",
+      "latitude": 48.21160763,
+      "longitude": 16.37789899,
+      "heading_deg": 303,
+      "pitch_deg": 0,
+      "support": "sidewalk"
+    },
+    {
+      "id": "Nevillebruecke",
+      "latitude": 48.18950188,
+      "longitude": 16.34865907,
+      "heading_deg": 220,
+      "pitch_deg": 0,
+      "support": "sidewalk"
+    },
+    {
+      "id": "Schemerlbruecke",
+      "latitude": 48.25965895,
+      "longitude": 16.36860444,
+      "heading_deg": 137,
+      "pitch_deg": 0,
+      "support": "sidewalk"
+    },
+    {
+      "id": "AspernerSee",
+      "latitude": 48.22656259,
+      "longitude": 16.5056821,
+      "heading_deg": 14,
+      "pitch_deg": 0,
+      "support": "sidewalk"
+    },
+    {
+      "id": "Hauptallee",
+      "latitude": 48.21093947,
+      "longitude": 16.40207969,
+      "heading_deg": 126,
+      "pitch_deg": 0,
+      "support": "sidewalk"
+    },
+    {
+      "id": "PraterHochstrasse",
+      "latitude": 48.19940749,
+      "longitude": 16.42570883,
+      "heading_deg": 100,
+      "pitch_deg": 0,
+      "support": "sidewalk"
+    },
+    {
+      "id": "Dechantlacke",
+      "latitude": 48.19055452,
+      "longitude": 16.47657737,
+      "heading_deg": 108,
+      "pitch_deg": 0,
+      "support": "sidewalk"
+    },
+    {
+      "id": "Wienerblick",
+      "latitude": 48.18136804,
+      "longitude": 16.2465477,
+      "heading_deg": 73,
+      "pitch_deg": 0,
+      "support": "sidewalk"
+    },
+    {
+      "id": "FranzKarlFernsicht",
+      "latitude": 48.24095447,
+      "longitude": 16.22489300,
+      "heading_deg": 211,
+      "pitch_deg": 0,
+      "support": "sidewalk"
+    },
+    {
+      "id": "Wien",
+      "scenario": "test/outshine/data/places/Wien.scenario"
+    }
+  ]
+}

@@ -31,7 +31,7 @@ Abnahme. Alle Profile zeigen vollständige Inhalte und bis zu 240 km Sichtweite,
 und Aussicht sie zulassen. Dichte Stadt und dichter Wald teilen sich das gleiche Gesamtbudget für
 GPU-Zeit, Bandbreite und Speicher. Ich stecke Detail in die sichtbare Bildwirkung.
 
-- Ich halte zwölf wechselnde Places als Vergleich, auch unabhängige Gegenbeispiele. Ich prüfe
+- Ich halte wechselnde Places als Vergleich, auch unabhängige Gegenbeispiele. Ich prüfe
   Gehen, Blickdrehungen und Fahrten aus Autoperspektive. Ich öffne aktuelle PNGs und Zwischenbilder. Pro Place bleibt unter
   `build/shots/places/` das neueste PNG. Bilder publiziere ich nur auf ausdrücklichen Auftrag.
 - Ich messe CPU-/GPU-p50 und -p99, Passzeiten, IO, Uploads sowie physischen Speicher. Vorher/Nachher
@@ -39,13 +39,18 @@ GPU-Zeit, Bandbreite und Speicher. Ich stecke Detail in die sichtbare Bildwirkun
 - Ich erweitere in sichtbaren vertikalen Schritten. Bei hohen Kosten prüfe ich zuerst den
   dominanten Pass und seine Arbeit. Nach zwei erfolglosen Ansätzen ändere ich das Verfahren.
 
-## Neubau
+## Referenz vor nativer Umsetzung
 
-Ich baue den neuen Darstellungs- und Ladepfad neben dem lauffähigen Produktstand. Der
-[Vergleichscommit](https://github.com/Weichwolf/outshine/tree/0932b78323ebf23016f723fdfb3fa31da2e28337) hält den
-bisherigen Vergleichsstand. Ich nutze seine funktionierenden Generatoren als Datenquelle
-für den Vergleich und übernehme Verfahren aus `lib/` mit ihren Tests und Eingabefällen.
-Ich ersetze Module, sobald Bewegung, Bild und Budget auf denselben Eingaben belegt sind.
+Meine Referenzserie umfasst zwölf Wiener Fußgängerperspektiven mit aktiver Vegetation.
+Ich prüfe die Motive auf Augenhöhe und aus benachbarten Blickpunkten. Die erhöhte Kamera
+aus Wien.scenario dient als historischer Vergleich. Blender und die gemeinsamen GLSL-Shader
+liefern reproduzierbare GPU-Referenzen. EEVEE und Cycles nutzen die GPU.
+Warme EEVEE-Arbeitsbilder bei 720p dürfen je Standort fünf Sekunden brauchen.
+Die [visuelle Abnahme](https://github.com/Weichwolf/outshine/issues/2084) bestimmt die Vorlage
+für C++. Erst danach entscheide ich über Übernahme, Ersatz oder vollständigen Neubau des
+nativen Pfads. Die Gerätebudgets oben gelten für die vollständige spielbare Welt.
+
+Die native Zielarchitektur umfasst folgende Schritte.
 
 1. Ein Renderer erzeugt einen nativen Metal-Frame aus einem externen Szenario.
 2. Für die Ferne ersetze ich Objektgeometrie durch eine gefilterte Tiefen-Cubemap oder
@@ -85,4 +90,4 @@ Umsetzungsreihenfolge, Abhängigkeiten und Abnahmen stehen in der
   laufen einschlägige Tests und Lint der betroffenen Dateien. Breite Läufe bündle ich.
 - Builds und Lint laufen mit `nice -n 10`, Messungen ohne Parallellast. Builds und Bilder
   liegen unter `build/`, Logs und Versuchsausgaben im System-Tempverzeichnis.
-  Eigene überholte Versuchsausgaben entfernen. Berichte kurz auf Deutsch.
+  Ich entferne überholte Versuchsausgaben und halte rund 30 % der SSD frei. Berichte kurz auf Deutsch.
