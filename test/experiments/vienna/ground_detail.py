@@ -67,6 +67,19 @@ def stone_setts(rng, grain):
     )
 
 
+def beech_scars(rng):
+    y, x = np.indices((SIZE, SIZE), dtype=np.float32)
+    scars = np.zeros((SIZE, SIZE), dtype=np.float32)
+    centres = rng.uniform(0, SIZE, (19, 2))
+    dimensions = rng.uniform((4, 1.1), (16, 2.9), centres.shape)
+    for centre, (width, rise) in zip(centres, dimensions, strict=True):
+        across = ((x - centre[0] + SIZE / 2) % SIZE - SIZE / 2) / width
+        along = ((y - centre[1] + SIZE / 2) % SIZE - SIZE / 2) / rise
+        lip = np.exp(-((along - 1.3 * across**2) ** 2 + 1.6 * across**2))
+        scars = np.maximum(scars, lip)
+    return scars
+
+
 @cache
 def ground_detail(name):
     seed = (
@@ -122,23 +135,24 @@ def ground_detail(name):
         height = -0.00060 * pits + 0.00035 * grain + 0.00060 * trowel
     elif name == "oak bark":
         y, x = np.indices((SIZE, SIZE), dtype=np.float32)
-        shift = 4.5 * noise(rng, (32, 14)) + 1.7 * noise(rng, (9, 3))
+        shift = 5.2 * noise(rng, (25, 13)) + 2.0 * noise(rng, (7, 4))
         grain_flow = map_coordinates(
-            noise(rng, (25, 2.0)), [y, x + shift], order=1, mode="grid-wrap"
+            noise(rng, (15, 2.2)), [y, x + shift], order=1, mode="grid-wrap"
         )
-        plates = noise(rng, (13, 4.5))
-        breaks = np.maximum(-noise(rng, (2.1, 6)) + 0.45 * plates - 1.35, 0)
-        fissures = np.clip((-grain_flow + 0.41 * plates - 0.12) * 1.35, 0, 1)
-        tint = 0.99 - 0.39 * fissures - 0.18 * breaks + 0.09 * patches + 0.055 * plates
+        plates = noise(rng, (9, 4.5))
+        breaks = np.maximum(-noise(rng, (1.8, 5)) + 0.48 * plates - 0.95, 0)
+        fissures = np.clip((-grain_flow + 0.41 * plates - 0.17) * 1.35, 0, 1)
+        tint = 0.99 - 0.35 * fissures - 0.18 * breaks + 0.09 * patches + 0.075 * plates
         roughness = 0.90 + 0.032 * fissures + 0.019 * grain
-        height = -0.0061 * fissures - 0.0022 * breaks + 0.0013 * plates + 0.00050 * fine
+        height = -0.0054 * fissures - 0.0027 * breaks + 0.0016 * plates + 0.00064 * fine
     elif name == "beech bark":
         mottling = noise(rng, (20, 13))
-        scars = np.maximum(noise(rng, (2.2, 9)) + 0.25 * mottling - 1.45, 0)
+        pores = np.maximum(noise(rng, (1.6, 4.5)) + 0.25 * mottling - 1.4, 0)
         lichen = np.clip(
             noise(rng, (10, 7)) + 0.38 * patches + 0.31 * grain - 0.25, 0, 1
         )
-        tint = 0.82 + 0.16 * mottling + 0.29 * lichen + 0.052 * grain - 0.39 * scars
+        scars = 0.45 * pores + beech_scars(rng)
+        tint = 0.82 + 0.13 * mottling + 0.26 * lichen + 0.052 * grain - 0.46 * scars
         roughness = 0.86 + 0.027 * mottling + 0.015 * lichen + 0.021 * patches
         height = -0.0024 * scars + 0.00064 * lichen + 0.00034 * grain
         macro = lichen
