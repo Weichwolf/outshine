@@ -4,15 +4,29 @@ from types import SimpleNamespace
 import numpy as np
 from bridge_passages import CLEARANCE_M, FLOOR_ABOVE_WATER_M, MAXIMUM_GRADE, Passage
 from bridges import WaterCrossing
+from ground_surface import at_grade_routes
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry.sampling import SurfaceSampler
 from outshine_ref.transport.water_span import WaterSpan
 from reference_scene import support_height
-from scene_mesh import assemble
-from shapely.geometry import LineString, box
+from scene_mesh import assemble, bank_protection
+from shapely.geometry import LineString, Point, Polygon, box
 
 
 class BridgePassageTest(unittest.TestCase):
+    def test_bank_grading_protects_an_unpaved_path_beside_the_opening(self):
+        extent = box(-10, -10, 10, 10)
+        opening = box(-1, -1, 1, 1)
+        path = LineString([(0, 0), (5, 0)])
+        tags = {"class": "path", "surface": "compacted"}
+        source = SimpleNamespace(features=[("transportation", path, tags)])
+        roads = at_grade_routes([(path, tags)], extent)
+
+        protected = bank_protection(source, extent, Polygon(), opening, roads, [], [])
+
+        self.assertTrue(protected.covers(Point(3, 0)))
+        self.assertFalse(protected.covers(Point(0, 0)))
+
     def test_path_floor_prefers_the_containing_face_between_close_cut_edges(self):
         xs = np.array([0.0, 1.0, 1.0000015, 2.0])
         xy = np.stack(np.meshgrid(xs, [0.0, 1.0]), axis=-1).reshape(-1, 2)

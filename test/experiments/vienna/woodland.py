@@ -5,14 +5,16 @@ from importlib.resources import files
 
 import numpy as np
 import shapely
+from ground_surface import at_grade_width, route_area
 from outshine_ref.places.sources import tile_geography
 from outshine_ref.vegetation import PlantPlan
 from outshine_ref.vegetation.axis_surface import axis_mesh
 from outshine_ref.vegetation.ground_cover import GroundCoverPlan
-from scene_mesh import Meshes
+from scene_mesh import Meshes, terrain_grid, terrain_height
+from woodland_stem import rooted_stem
 
 
-def habitat(source):
+def habitat(source, *, stems=True):
     woods, excluded = [], []
     for layer, geom, props in source.features:
         if layer == "landcover" and props.get("class") == "wood":
@@ -20,6 +22,9 @@ def habitat(source):
         elif layer in ("building", "water"):
             excluded.append(shapely.make_valid(geom).buffer(0.6))
         elif layer == "transportation" and props.get("brunnel") != "tunnel":
+            if not stems and (width := at_grade_width(props)) is not None:
+                excluded.append(route_area(geom, width))
+                continue
             margin = 1.4 if props.get("class") == "path" else 3.5
             excluded.append(
                 geom.buffer(margin if geom.geom_type.endswith("LineString") else 0.6)
@@ -54,10 +59,12 @@ def roots(source, domain, radius, seed):
             yield xy[keep], sites["marks"][keep]
 
 
-def geometry(plan, step):
+def geometry(plan, step, *, has_stem):
     rows = plan.tables(sum(plan.axis_counts), sum(plan.leaf_counts))
     meshes = Meshes()
     for i in range(len(rows["axis_ids"])):
+        if not has_stem and rows["axis_parent_ids"][i] == -1:
+            continue
         part = axis_mesh(
             rows["axis_lengths"][i], rows["axis_bends"][i], *rows["axis_radii"][i], 4, 6
         )
@@ -103,6 +110,9 @@ def tree_batches(source, radius, seed, focal_pixels):
         return
     templates = {}
     plans = {}
+    stems = Meshes()
+    root_domain = habitat(source, stems=False)
+    terrain, _ = terrain_grid(source, radius)
 
     for positions, marks in roots(source, domain, radius, seed):
         heights = source.height(positions)
@@ -119,13 +129,27 @@ def tree_batches(source, radius, seed, focal_pixels):
                 plans[species] = PlantPlan.from_recipe(json.loads(data))
             plan = plans[species]
             scale = 0.95 + scale * 0.95
-            width_px = (
-                plan.blades[0].width * scale * focal_pixels / max(1, np.linalg.norm(xy))
-            )
+            distance = np.linalg.norm(xy)
+            width_px = plan.blades[0].width * scale * focal_pixels / max(1, distance)
             group = 1 if width_px >= 1 else (4 if width_px >= 0.5 else 16)
-            key = species, group
-            templates.setdefault(key, []).append(
-                (*xy, z - 0.08, rotation * 2 * np.pi, scale)
-            )
-    for (species, group), placements in templates.items():
-        yield species, group, geometry(plans[species], group), np.asarray(placements)
+            angle = rotation * 2 * np.pi
+            near_stem = distance < 32
+            if near_stem:
+                z = terrain_height(terrain, xy[None])[0]
+                stem = rooted_stem(
+                    plan,
+                    root_domain,
+                    terrain,
+                    np.array([*xy, z - 0.08]),
+                    angle,
+                    scale,
+                    oak=species == "oak",
+                )
+                stems.add("bark", stem["vertices"], stem["faces"])
+            key = species, group, near_stem
+            templates.setdefault(key, []).append((*xy, z - 0.08, angle, scale))
+    for (species, group, near_stem), placements in templates.items():
+        meshes = geometry(plans[species], group, has_stem=not near_stem)
+        yield species, group, meshes, np.asarray(placements)
+    if stems:
+        yield "rooted stems", None, stems, np.array([[0, 0, 0, 0, 1]])

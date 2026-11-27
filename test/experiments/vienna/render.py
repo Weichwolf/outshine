@@ -17,7 +17,7 @@ sys.path.extend(
 )
 
 from blender_air import configure_aerial
-from catalog import load_catalog, selected_views
+from catalog import available_views, load_catalog, selected_views
 from ground_detail import (
     DETAIL_SPAN_M,
     HEIGHT_SPAN_M,
@@ -25,7 +25,7 @@ from ground_detail import (
     SURFACE_DETAIL,
     ground_detail,
 )
-from materials import METALLIC, SURFACES
+from materials import GLASS_IOR, METALLIC, SURFACES
 from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_light import configure_daylight
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
@@ -36,12 +36,17 @@ SUN_SHADOW_MIN_TEXEL_M = 0.016
 
 
 def apply_detail(material, bsdf, name, colour):
-    pixels = ground_detail(name)
-    size = pixels.shape[0]
-    image = bpy.data.images.new(name, width=size, height=size, float_buffer=True)
-    image.colorspace_settings.name = "Non-Color"
-    image.alpha_mode = "CHANNEL_PACKED"
-    image.pixels.foreach_set(pixels.ravel())
+    image_name = f"Outshine detail {name}"
+    image = bpy.data.images.get(image_name)
+    if image is None:
+        pixels = ground_detail(name)
+        size = pixels.shape[0]
+        image = bpy.data.images.new(
+            image_name, width=size, height=size, float_buffer=True
+        )
+        image.colorspace_settings.name = "Non-Color"
+        image.alpha_mode = "CHANNEL_PACKED"
+        image.pixels.foreach_set(pixels.ravel())
     nodes = material.node_tree.nodes
     link = material.node_tree.links.new
     position = nodes.new("ShaderNodeNewGeometry").outputs["Position"]
@@ -91,12 +96,14 @@ def surface_material(name):
     bsdf.inputs["Base Color"].default_value = (*colour, 1)
     bsdf.inputs["Roughness"].default_value = roughness
     bsdf.inputs["Metallic"].default_value = METALLIC.get(name, 0.0)
+    if name == "glass":
+        bsdf.inputs["IOR"].default_value = GLASS_IOR
     if detail := SURFACE_DETAIL.get(name):
         apply_detail(material, bsdf, detail, colour)
     return material
 
 
-def upload(name, vertices, faces, *, collection):
+def upload(name, vertices, faces, *, collection, smooth=False):
     mesh = bpy.data.meshes.new(name)
     if isinstance(vertices, np.ndarray) and isinstance(faces, np.ndarray):
         used, indices = np.unique(faces, return_inverse=True)
@@ -110,6 +117,8 @@ def upload(name, vertices, faces, *, collection):
         )
     else:
         mesh.from_pydata(vertices, [], faces)
+    if smooth:
+        mesh.polygons.foreach_set("use_smooth", np.ones(len(mesh.polygons), dtype=bool))
     mesh.update()
     mesh.materials.append(surface_material(name))
     obj = bpy.data.objects.new(name, mesh)
@@ -122,6 +131,10 @@ def plant_woodland(world, seed, geometry):
     for species, group, meshes, placements in tree_batches(
         world.source, 250, seed, world.focal
     ):
+        if group is None:
+            for name, (vertices, faces) in meshes.items():
+                upload(name, vertices, faces, collection=geometry, smooth=True)
+            continue
         collection = bpy.data.collections.new(f"{species} group {group}")
         for name, (vertices, faces) in meshes.items():
             upload(name, vertices, faces, collection=collection)
@@ -199,7 +212,7 @@ if __name__ == "__main__":
     config = load_catalog()
     p = argparse.ArgumentParser()
     p.add_argument(
-        "--place", action="append", choices=[v["id"] for v in config["places"]]
+        "--place", action="append", choices=[v["id"] for v in available_views(config)]
     )
     p.add_argument("--output", type=Path, default=ROOT / "build/shots/places")
     p.add_argument("--engine", choices=["eevee", "cycles"], default="eevee")

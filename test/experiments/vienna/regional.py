@@ -7,7 +7,12 @@ import shapely
 from bridge_approach import APPROACH_SEARCH, bridge_approaches, earthwork_meshes
 from bridge_contacts import bank_cuts
 from bridges import draw_water_crossings, plan_water_crossings
-from ground_surface import ROAD_WIDTH, partition_ground, route_footprints
+from ground_surface import (
+    ROAD_WIDTH,
+    ROUTE_MATERIALS,
+    partition_ground,
+    route_footprints,
+)
 from outshine_ref.buildings.structures import suppressed
 from outshine_ref.places.height import Elevation
 from outshine_ref.places.sources import (
@@ -223,9 +228,7 @@ def tile_surface(
         "regional wood",
         "regional water",
         "regional deck",
-        "road",
-        "sidewalk",
-        "paving",
+        *ROUTE_MATERIALS,
     )
     if detail:
         polys, _ = metric_polygons(data.get("water", {}), nw, se, lambda p: 1)
@@ -250,7 +253,7 @@ def tile_surface(
             dict(enumerate(names)) | {i: i for i in graded},
             {3: water}
             | {i: work.footprint.intersection(tile) for i, (work, _) in graded.items()}
-            | {5: routes["road"], 6: routes["sidewalk"], 7: routes["paving"]},
+            | {i: routes[name] for i, name in enumerate(ROUTE_MATERIALS, 5)},
         )
         for name, vertices, triangles in parts:
             if name in graded:

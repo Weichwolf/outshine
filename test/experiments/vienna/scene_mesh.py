@@ -14,6 +14,7 @@ from bridge_passages import bridge_terrain, water_level
 from bridges import draw_water_crossings, plan_water_crossings
 from deck_walk_links import DeckWalkLink, deck_walk_links
 from ground_surface import (
+    ROUTE_MATERIALS,
     at_grade_routes,
     at_grade_width,
     partition_ground,
@@ -215,7 +216,9 @@ def bank_protection(source, extent, bodies, openings, roads, crossings, fixtures
         and interest.intersects(geom)
     ]
     land_routes = roads["road"].difference(decks)
-    paths = roads["sidewalk"].union(roads["paving"]).difference(openings.buffer(0.4))
+    paths = shapely.union_all(
+        [shape for name, shape in roads.items() if name != "road"]
+    ).difference(openings.buffer(0.4))
     occupied = shapely.union_all(
         [
             land_routes.intersection(interest),
@@ -332,7 +335,7 @@ def ground_surfaces(
         for stair in stairs
         for foot, z in zip(stair.treads, stair.heights, strict=True)
     ]
-    names = dict(enumerate(("ground", "water", "road", "sidewalk", "paving")))
+    names = dict(enumerate(("ground", "water", *ROUTE_MATERIALS)))
     first_stair = len(names)
     stair_tops = {
         i: (z, name) for i, (_, z, name) in enumerate(pieces, start=first_stair)
@@ -383,7 +386,7 @@ def ground_surfaces(
     footprints.update(
         {i: work.footprint.intersection(extent) for i, (work, _) in graded.items()}
     )
-    footprints.update({2: roads["road"], 3: roads["sidewalk"], 4: roads["paving"]})
+    footprints.update({i: roads[name] for i, name in enumerate(ROUTE_MATERIALS, 2)})
     banks = np.empty((0, 2, 3))
     surface, indices = compound_ground(vertices, quads, junctions, junction_area)
     for name, points, faces in partition_triangles(

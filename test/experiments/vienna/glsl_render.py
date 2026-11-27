@@ -9,7 +9,7 @@ from time import perf_counter
 
 import moderngl
 import numpy as np
-from catalog import HERE, ROOT, load_catalog, selected_views
+from catalog import HERE, ROOT, available_views, load_catalog, selected_views
 from PIL import Image
 
 sys.path.insert(0, str(ROOT / "lib/src"))
@@ -20,7 +20,7 @@ from ground_detail import (
     SURFACE_DETAIL,
     ground_detail,
 )
-from materials import METALLIC, SURFACES
+from materials import GLASS_IOR, METALLIC, SURFACES
 from reference_scene import ReferenceScene
 from woodland import tree_batches
 
@@ -218,6 +218,7 @@ def render(ctx, place, config, out):
         prog["surface"].value = (*rgb, rough)
         prog["metalness"].value = METALLIC.get(name, 0.0)
         prog["waterSurface"].value = name in ("water", "regional water")
+        prog["glassIor"].value = GLASS_IOR if name == "glass" else 1.0
         detail = SURFACE_DETAIL.get(name)
         prog["hasDetail"].value = detail is not None
         if detail is not None:
@@ -262,7 +263,7 @@ if __name__ == "__main__":
     config = load_catalog()
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--place", action="append", choices=[v["id"] for v in config["places"]]
+        "--place", action="append", choices=[v["id"] for v in available_views(config)]
     )
     parser.add_argument("--output", type=Path, default=ROOT / "build/shots/glsl")
     args = parser.parse_args()
