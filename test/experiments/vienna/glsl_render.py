@@ -27,6 +27,7 @@ from materials import (
     DIFFUSE_TRANSMISSION,
     GLASS_IOR,
     METALLIC,
+    WATER_IOR,
     WATER_MATERIALS,
     surface_properties,
 )
@@ -153,14 +154,18 @@ def export_sky(ctx, place, config, out):
     )
 
 
-def sky_specular_atlas(ctx, radiance):
-    native_layout = ROOT / "src/render/stages/EnvironmentSpecularValues.inc"
-    values = dict(re.findall(r"ENV_INT\((\w+), (\d+)\)", native_layout.read_text()))
-    span = int(values["kEnvironmentSide"]) + 2 * int(values["kEnvironmentBorder"])
+def sky_radiance_texture(ctx, radiance):
     source = ctx.texture(SKY_ENVIRONMENT_SIZE, 3, radiance.tobytes(), dtype="f4")
     source.repeat_x = True
     source.repeat_y = False
     source.filter = (moderngl.LINEAR, moderngl.LINEAR)
+    return source
+
+
+def sky_specular_atlas(ctx, source):
+    native_layout = ROOT / "src/render/stages/EnvironmentSpecularValues.inc"
+    values = dict(re.findall(r"ENV_INT\((\w+), (\d+)\)", native_layout.read_text()))
+    span = int(values["kEnvironmentSide"]) + 2 * int(values["kEnvironmentBorder"])
     source.use(0)
     prog = ctx.program(
         vertex_shader=SCREEN, fragment_shader=shader(HERE / "sky_specular.frag")
@@ -179,7 +184,7 @@ def sky_specular_atlas(ctx, radiance):
         prog["extent"].value = texture.size
         quad.render(vertices=3)
         target.release()
-    for resource in (quad, prog, source):
+    for resource in (quad, prog):
         resource.release()
     return atlas, brdf
 
@@ -418,12 +423,15 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
             world.eye[2] + world.source.datum,
         )
         prog["skyIrradiance"].write(diffuse_coefficients(radiance).tobytes())
-        sky_tables = sky_specular_atlas(ctx, radiance)
-    atlas, brdf = sky_tables or (sky, sky)
+        source = sky_radiance_texture(ctx, radiance)
+        sky_tables = (*sky_specular_atlas(ctx, source), source)
+    atlas, brdf, archive = sky_tables or (sky, sky, sky)
     atlas.use(7)
     brdf.use(8)
+    archive.use(10)
     prog["skySpecularMap"].value = 7
     prog["skyBrdf"].value = 8
+    prog["skyRadiance"].value = 10
     sky.use(0)
     prog["skyView"].value = 0
     sky.use(2)
@@ -440,6 +448,7 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
     prog["waterBedMap"].value = 5
     prog["waterBedTransform"].value = bed.transform if bed is not None else (0, 0, 1, 1)
     prog["bedAlbedo"].value = BED_ALBEDO
+    prog["waterIor"].value = WATER_IOR
     veil.use(1)
     prog["veil"].value = 1
     prog["eyeKm"].value = 6360 + (world.eye[2] + world.source.datum) * 0.001

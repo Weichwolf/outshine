@@ -6,6 +6,7 @@ const float kPi=3.14159265359;
 #include "skyViewLookup.glsl"
 #include "display.glsl"
 #include "environmentSampling.glsl"
+#include "archived_sky.glsl"
 uniform sampler2D skyView;
 uniform sampler2D veil;
 uniform sampler2D detailMap;
@@ -16,6 +17,7 @@ uniform bool hasDetail;
 uniform float eyeKm;
 uniform float glassIor;
 uniform bool waterSurface;
+uniform float waterIor;
 uniform sampler2D waterBedMap;
 uniform vec4 waterBedTransform;
 uniform vec3 bedAlbedo;
@@ -49,6 +51,7 @@ uniform float metalness;
 uniform float diffuseTransmission;
 uniform bool useSkyIrradiance;
 uniform vec3 skyIrradiance[9];
+uniform sampler2D skyRadiance;
 uniform sampler2D skySpecularMap;
 uniform sampler2D skyBrdf;
 uniform bool linearOutput;
@@ -151,7 +154,7 @@ vec3 reflectedSky(vec3 ray) {
 }
 
 vec3 reflectedEnvironment(vec3 ray) {
-  vec3 sky = reflectedSky(ray);
+  vec3 sky = useSkyIrradiance ? archivedSky(skyRadiance, ray) : reflectedSky(ray);
   float distance = length(point.xy - eye.xy);
   if (reflectionCount == 0 || distance >= reflectionRange)
     return sky;
@@ -183,6 +186,14 @@ vec3 reflectedEnvironment(vec3 ray) {
   float weight = (1.-smoothstep(.8*reflectionRange,reflectionRange,distance)) *
                  (1.-smoothstep(.75*reflectionTolerance,reflectionTolerance,error[layer]));
   return weight*scene.rgb + sky * (1.-weight*scene.a);
+}
+
+float waterFresnel(float cosine) {
+  float nv = clamp(cosine, 0., 1.);
+  float nt = sqrt(1. - (1. - nv * nv) / (waterIor * waterIor));
+  float s = (nv - waterIor * nt) / (nv + waterIor * nt);
+  float p = (waterIor * nv - nt) / (waterIor * nv + nt);
+  return .5 * (s * s + p * p);
 }
 
 void main(){
@@ -241,7 +252,10 @@ void main(){
     vec2 bedUV=(point.xy-waterBedTransform.xy)*waterBedTransform.zw;
     vec3 transmission=texture(waterBedMap,bedUV).rgb;
     vec3 bodyColour=mix(surface.rgb,bedAlbedo,transmission);
-    light=mix(bodyColour*.28,reflectedEnvironment(ray),brdfFresnel(vec3(.0204),1.,nv))*mix(.58,1.,visibility);
+    vec3 bodyLight = useSkyIrradiance
+      ? bodyColour * (diffuseSky(n) + (2.5 / kPi) * nl * visibility)
+      : bodyColour * .28 * mix(.58, 1., visibility);
+    light = mix(bodyLight, reflectedEnvironment(ray), waterFresnel(dot(n, view)));
   } else if (glassIor>1.) {
     vec3 ray=reflect(-view,n);
     vec3 sky=reflectedSky(normalize(vec3(ray.xy,max(ray.z,.001))));

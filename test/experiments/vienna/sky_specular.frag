@@ -3,6 +3,7 @@
 const float kPi = 3.14159265359;
 #include "environmentSampling.glsl"
 #include "metalRoughBrdf.glsl"
+#include "archived_sky.glsl"
 
 uniform sampler2D skyRadiance;
 uniform bool integrateBrdf;
@@ -14,17 +15,9 @@ vec2 samplePoint(int index, int count) {
               float(bitfieldReverse(uint(index))) * 2.3283064365386963e-10);
 }
 
-vec3 environmentRadiance(vec3 direction) {
-  float longitude = dot(direction.xy, direction.xy) > 1.e-10
-      ? atan(direction.y, direction.x) : 0.;
-  vec2 uv = vec2(.5 - longitude / (2. * kPi),
-                 .5 + asin(clamp(direction.z, -1., 1.)) / kPi);
-  return textureLod(skyRadiance, uv, 0.).rgb;
-}
-
 vec3 filteredRadiance(vec3 axis, int level) {
   if (level == 0)
-    return environmentRadiance(axis);
+    return archivedSky(skyRadiance, axis);
   float roughness = float(level) / float(kEnvironmentSpecularLevels - 1);
   vec3 total = vec3(0.);
   float weight = 0.;
@@ -32,7 +25,7 @@ vec3 filteredRadiance(vec3 axis, int level) {
     vec3 halfVector = environmentHalfVector(samplePoint(i, kEnvironmentSamples), roughness, axis);
     vec3 light = reflect(-axis, halfVector);
     float nl = max(dot(axis, light), 0.);
-    total += environmentRadiance(light) * nl;
+    total += archivedSky(skyRadiance, light) * nl;
     weight += nl;
   }
   return total / max(weight, 1.e-6);

@@ -47,6 +47,11 @@ For opaque materials, GLSL also filters the shared sky into the native renderer'
 bordered octahedral roughness atlas and integrates a GGX reflectance table.
 This profile controls the incident environment for diffuse and reflected light.
 The renderers retain their respective local transport.
+Water in this profile mixes a lit body with the reflected radiance using the
+air–water Fresnel response. The reflection uses the planar capture where covered
+and the same archived sky through its gaps. Coverage is applied once at filtered
+capture edges. Sunlight on the visible water affects its body term, and objects
+in the reflection carry their own lighting.
 
 ```sh
 build/blender-python/bin/python test/experiments/vienna/glsl_render.py --export-sky \

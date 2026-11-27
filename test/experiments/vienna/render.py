@@ -230,6 +230,7 @@ def plant_woodland(world, seed, geometry):
 def configure_world_sky(scene, sunlight, radiance):
     nodes = scene.world.node_tree.nodes
     background = nodes["Background"]
+    image = None
     if radiance is None:
         sky = nodes.new("ShaderNodeTexSky")
         sky.sky_type = "HOSEK_WILKIE"
@@ -251,6 +252,7 @@ def configure_world_sky(scene, sunlight, radiance):
         background.inputs["Strength"].default_value = 1.0
         scene.world.sun_threshold = 0.0
     scene.world.node_tree.links.new(sky.outputs["Color"], background.inputs["Color"])
+    return image
 
 
 def render(place, config, args):
@@ -269,7 +271,7 @@ def render(place, config, args):
     radiance = (
         load_environment(sky_path, world.sun, eye_m) if sky_path is not None else None
     )
-    configure_world_sky(scene, sunlight, radiance)
+    sky_image = configure_world_sky(scene, sunlight, radiance)
     scene.cycles.seed = config["seed"]
     geometry = bpy.data.collections.new("World geometry")
     scene.collection.children.link(geometry)
@@ -301,12 +303,16 @@ def render(place, config, args):
         else (0, 0.0)
     )
     planes = reflection_planes(world) if args.engine == "eevee" else ()
+    images = ()
     capture_s = 0.0
     if planes:
         images, capture_s = capture_images(scene, geometry, planes)
+    if args.engine == "eevee" and (planes or sky_image is not None):
         for name in WATER_MATERIALS:
             if material := bpy.data.materials.get(name):
-                apply_reflection(material, world.eye, planes, images)
+                apply_reflection(
+                    material, world.eye, planes, images, sky_image=sky_image
+                )
     sky_s = configure_aerial(
         scene,
         geometry,
