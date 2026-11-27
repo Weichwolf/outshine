@@ -9,6 +9,7 @@ uniform sampler2D skyView;
 uniform sampler2D veil;
 uniform sampler2D detailMap;
 uniform vec3 detailScale;
+uniform float barkBoxBlend;
 uniform bool hasDetail;
 uniform float eyeKm;
 uniform float glassIor;
@@ -26,6 +27,7 @@ uniform float reflectionTolerance;
 uniform mat4 shadowMatrix;
 uniform sampler2DShadow shadowMap;
 in vec3 point;
+in vec3 smoothNormal;
 flat in vec2 rotation;
 out vec4 colour;
 uniform vec3 eye;
@@ -40,6 +42,17 @@ vec2 detailCoordinates(vec3 normal) {
   if (axis.y>axis.x)
     return vec2(normal.y>0. ? -point.x : point.x,point.z);
   return vec2(normal.x<0. ? -point.y : point.y,point.z);
+}
+
+vec4 barkDetail(vec3 normal, float span) {
+  vec3 axis=abs(normal);
+  vec3 ratios=axis/max(axis.x,max(axis.y,axis.z));
+  vec3 w=smoothstep(vec3(1.-barkBoxBlend),vec3(1.),ratios);
+  w/=w.x+w.y+w.z;
+  vec2 x=vec2(normal.x<0. ? -point.y : point.y,point.z)/span;
+  vec2 y=vec2(normal.y>0. ? -point.x : point.x,point.z)/span;
+  vec2 z=vec2(normal.z>0. ? -point.y : point.y,point.x)/span;
+  return w.x*texture(detailMap,x)+w.y*texture(detailMap,y)+w.z*texture(detailMap,z);
 }
 
 vec3 bumpNormal(vec3 normal, vec3 dx, vec3 dy, float height) {
@@ -98,14 +111,19 @@ void main(){
   vec3 n=normalize(cross(dx,dy));
   if(dot(n,view)<0.) n=-n;
   vec3 geometricNormal=n;
+  bool bark=dot(smoothNormal,smoothNormal)>.01;
+  if(bark) {
+    n=normalize(smoothNormal);
+    if(dot(n,view)<0.) n=-n;
+  }
   vec4 material=surface;
   if (hasDetail) {
     vec3 objectNormal=vec3(
         dot(vec2(rotation.x,rotation.y),n.xy),
         dot(vec2(-rotation.y,rotation.x),n.xy),n.z);
     vec2 uv=detailCoordinates(objectNormal);
-    vec3 fine=texture(detailMap,uv/detailScale.x).rgb;
-    float macro=texture(detailMap,uv/detailScale.y).a;
+    vec3 fine=bark ? barkDetail(objectNormal,detailScale.x).rgb : texture(detailMap,uv/detailScale.x).rgb;
+    float macro=bark ? barkDetail(objectNormal,detailScale.y).a : texture(detailMap,uv/detailScale.y).a;
     material.rgb*=fine.r*(1.68+.64*macro);
     material.a=fine.g;
     n=bumpNormal(n,dx,dy,fine.b*detailScale.z);

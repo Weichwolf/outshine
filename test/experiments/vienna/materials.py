@@ -6,7 +6,8 @@ WATER_MATERIALS = ("water", "regional water")
 SURFACES = {
     "bridge deck": ((0.23, 0.22, 0.20), 0.82),
     "bridge metal": ((0.085, 0.13, 0.115), 0.46),
-    "bark": ((0.12, 0.075, 0.045), 0.92),
+    "oak bark": ((0.135, 0.098, 0.070), 0.91),
+    "beech bark": ((0.158, 0.150, 0.131), 0.84),
     "foliage": ((0.095, 0.205, 0.044), 0.52),
     "regional soil": ((0.19, 0.16, 0.105), 0.95),
     "regional grass": ((0.14, 0.21, 0.07), 0.91),

@@ -55,9 +55,11 @@ The Adlerhof photo guides the plaster and rectangular paving. The Dechantlacke p
 guides the soil, bark and leaf palette. The renderer infers material for paths without
 surface tags. [Adlerhof, 21 August 2008](https://presse.wien.gv.at/bilder/2008/08/21/adlerhof-innenhof) · [Lobau near Dechantlacke, 9 August 2022](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg)
 
-Within 32 m of the camera anchor, each trunk uses a continuous mesh with a terrain-following
-root flare and an irregular section. Its lower curve rejoins the authored stem before
-the first branch attachment. The same tree retains its shape across the offset views.
+The Vienna stand derives two deterministic trunk and limb forms each for oak and beech.
+The stem tapers along a curved axis and swells at the authored limb attachments. The two
+species use ridged and smooth bark recipes, respectively. A lower-resolution mesh retains
+the same silhouette and attachments beyond 32 m. Nearby root buttresses follow the terrain
+and contract at path and water boundaries. The offset views share the same tile-seeded trees.
 [Weber and Penn, Creation and Rendering of Realistic Trees](https://doi.org/10.1145/218380.218427)
 
 ## Reference geometry
