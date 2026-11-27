@@ -14,6 +14,18 @@ from woodland_stem import lean_tree, rooted_stem, template_stem
 
 
 class WoodlandTest(unittest.TestCase):
+    def test_middle_canopy_samples_both_sides_of_an_alternating_shoot(self):
+        rows = {
+            "leaf_axis_ids": np.zeros(64, dtype=int),
+            "leaf_variants": np.zeros(64, dtype=int),
+            "leaf_origins": np.zeros((64, 3)),
+        }
+        for stride in (4, 16):
+            with self.subTest(stride=stride):
+                leaves, _, _ = represented_leaves(rows, np.ones(1), stride)
+                np.testing.assert_array_equal(leaves // stride, np.arange(64 // stride))
+                self.assertEqual(set(leaves % 2), {0, 1})
+
     def test_distant_canopy_preserves_leaf_area_with_fewer_representatives(self):
         plan = stand_plan("oak", 0)
         rows = plan.tables(sum(plan.axis_counts), sum(plan.leaf_counts))
