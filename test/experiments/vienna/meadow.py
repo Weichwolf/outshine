@@ -9,30 +9,10 @@ from outshine_ref.vegetation import Bellflower, Blade
 from outshine_ref.vegetation.axis_surface import axis_mesh
 from outshine_ref.vegetation.curve_frame import arc_frame
 from outshine_ref.vegetation.graminoid import graminoid_tuft_mesh
-from plant_sites import root_elevations, scatter_mesh, tile_sites
+from plant_sites import patch_density, root_elevations, scatter_mesh, tile_sites
 from scene_mesh import Meshes
 
 MEADOW_REACH_M = 28.0
-
-
-def patch_density(source, xy, seed):
-    longitude_latitude = np.array([source.lon, source.lat]) + xy / source.metres
-    uv = longitude_latitude * [11600.0, 20000.0]
-    cells = np.floor(uv).astype(np.int64)
-    weight = uv - cells
-    weight = weight**2 * (3 - 2 * weight)
-    corners = (cells[:, None, :] + [[0, 0], [1, 0], [0, 1], [1, 1]]).astype(np.uint32)
-    x, y = corners[..., 0], corners[..., 1]
-    bits = (
-        x * np.uint32(0x9E3779B9)
-        ^ y * np.uint32(0x85EBCA6B)
-        ^ np.uint32(seed & 0xFFFFFFFF)
-    )
-    bits = (bits ^ (bits >> 16)) * np.uint32(0x7FEB352D)
-    bits = (bits ^ (bits >> 15)) * np.uint32(0x846CA68B)
-    a, b, c, d = ((bits ^ (bits >> 16)) / 2**32).T
-    u, v = weight.T
-    return ((1 - u) * a + u * b) * (1 - v) + ((1 - u) * c + u * d) * v
 
 
 @cache
