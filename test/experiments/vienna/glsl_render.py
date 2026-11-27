@@ -16,8 +16,8 @@ from PIL import Image
 sys.path.insert(0, str(ROOT / "lib/src"))
 from ground_detail import (
     BARK_BOX_BLEND,
-    BEECH_LICHEN_TINT,
     DETAIL_SPAN_M,
+    DETAIL_TINTS,
     HEIGHT_SPAN_M,
     MACRO_SPAN_M,
     SURFACE_DETAIL,
@@ -275,9 +275,7 @@ def draw_surfaces(ctx, prog, draws, textures, *, capture=False):
         prog["glassIor"].value = GLASS_IOR if name == "glass" else 1.0
         detail = SURFACE_DETAIL.get(base)
         prog["hasDetail"].value = detail is not None
-        prog["detailTint"].value = (
-            BEECH_LICHEN_TINT if detail == "beech bark" else (1, 1, 1)
-        )
+        prog["detailTint"].value = DETAIL_TINTS.get(detail, (1, 1, 1))
         if detail is not None:
             if detail not in textures:
                 pixels = ground_detail(detail)

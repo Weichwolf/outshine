@@ -7,7 +7,7 @@ from importlib.resources import files
 
 import numpy as np
 import shapely
-from ground_surface import at_grade_width, route_area
+from ground_surface import SOIL_MATERIALS, at_grade_width, route_area
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry.sampling import SurfaceSampler
 from outshine_ref.vegetation import PlantPlan
@@ -183,7 +183,7 @@ def woodland_surface(surfaces):
     parts = [
         np.asarray(vertices)[np.asarray(faces, dtype=int)]
         for name, (vertices, faces) in surfaces.items()
-        if name in {"ground", "grass", "meadow"} and len(faces)
+        if name in SOIL_MATERIALS and len(faces)
     ]
     if not parts:
         return None
