@@ -23,32 +23,6 @@ def metric_polygons(group, nw, se, key):
     return geoms, np.asarray(values)
 
 
-def true_shore(xy, land, data, nw, se, radius):
-    wet = land == 3
-    if not wet.any() or wet.all():
-        return
-    polys, _ = metric_polygons(data.get("water", {}), nw, se, lambda p: 1)
-    if not len(polys):
-        return
-    line = shapely.union_all(shapely.make_valid(polys)).boundary
-    internal = xy[1:-1, 1:-1]
-    count = wet[:-1, :-1].astype(np.int8) + wet[1:, :-1] + wet[1:, 1:] + wet[:-1, 1:]
-    use = (
-        (count > 0)
-        & (count < 4)
-        & np.all(np.abs(np.abs(internal) - radius) > 0.01, axis=2)
-    )
-    pts = internal[use]
-    if not len(pts):
-        return
-    snap = shapely.shortest_line(shapely.points(pts), line)
-    nearest = shapely.get_coordinates(shapely.get_point(snap, -1))
-    step = abs(xy[0, -1, 0] - xy[0, 0, 0]) / land.shape[1]
-    within = np.linalg.norm(nearest - pts, axis=1) < 1.6 * step
-    pts[within] = nearest[within]
-    internal[use] = pts
-
-
 def building_shells(data, nw, se, source, dem, radius, focal):
     group = data.get("building", {})
 

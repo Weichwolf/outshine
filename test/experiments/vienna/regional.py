@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import shapely
 from bridges import build_water_bridges
-from ground_routes import cut_ground_routes, route_footprints
+from ground_surface import partition_ground, route_footprints
 from outshine_ref.buildings.structures import suppressed
 from outshine_ref.places.height import Elevation
 from outshine_ref.places.sources import (
@@ -15,7 +15,7 @@ from outshine_ref.places.sources import (
     tile_geography,
 )
 from PIL import Image, ImageDraw
-from regional_detail import building_shells, true_shore
+from regional_detail import building_shells, metric_polygons
 from scene_mesh import Meshes
 from shapely.geometry import Polygon, box, shape
 
@@ -89,7 +89,7 @@ def paint(image, feature, extent, value):
 def class_fields(data, size, elevated, detail):
     land, structures = Image.new("L", (size, size)), Image.new("F", (size, size))
     for layer in ("landcover", "water", "transportation", "building"):
-        if layer not in data or (detail and layer == "building"):
+        if layer not in data or (detail and layer in ("building", "water")):
             continue
         group = data[layer]
         features = group["features"]
@@ -140,8 +140,6 @@ def tile_surface(source, receipt, dem, focal, radius, data, elevated):
     height = height[np.ix_(iy, ix)]
     gx, gy = np.meshgrid(xx, yy)
     xy = np.stack((gx, gy), axis=-1)
-    if detail:
-        true_shore(xy, land, data, nw, se, radius)
     lon, lat = (xy / source.metres + [source.lon, source.lat]).T
     # Shared DEM vertices preserve tile-edge elevations and account for Earth curvature.
     z = (
@@ -157,25 +155,36 @@ def tile_surface(source, receipt, dem, focal, radius, data, elevated):
     products = (
         building_shells(data, nw, se, source, dem, radius, focal) if detail else []
     )
-    routes = (
-        route_footprints(data.get("transportation", {}), nw, se, tile, focal)
-        if detail
-        else {}
+    names = (
+        "regional soil",
+        "regional grass",
+        "regional wood",
+        "regional water",
+        "regional deck",
+        "road",
+        "sidewalk",
     )
-    for i, name in enumerate(
-        (
-            "regional soil",
-            "regional grass",
-            "regional wood",
-            "regional water",
-            "regional deck",
+    if detail:
+        polys, _ = metric_polygons(data.get("water", {}), nw, se, lambda p: 1)
+        parts = shapely.get_parts(shapely.make_valid(polys))
+        water = shapely.union_all(parts[shapely.get_type_id(parts) == 3]).intersection(
+            tile
         )
-    ):
+        routes = route_footprints(data.get("transportation", {}), nw, se, tile, focal)
+        mask = (land < 3) & outside
+        products.extend(
+            partition_ground(
+                ground,
+                faces[mask],
+                land[mask],
+                names,
+                {3: water, 5: routes["road"], 6: routes["sidewalk"]},
+            )
+        )
+    for i in range(4 if detail else 0, 5):
         mask = (land == i) & outside
-        if routes and i < 3:
-            products.extend(cut_ground_routes(ground, faces[mask], name, routes))
-        elif mask.any():
-            products.append((name, ground, faces[mask]))
+        if mask.any():
+            products.append((names[i], ground, faces[mask]))
     mask = (height > 0) & outside
     if mask.any():
         q = ground[faces[mask]].copy()
