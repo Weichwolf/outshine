@@ -105,7 +105,7 @@ def fit_landing(
     return pieces, footprint, port_edges
 
 
-def local_landings(features, stairs, domain, water, height):
+def local_landings(features, stairs, domain, water, height, *, reserved=None):
     if not stairs:
         return [], shapely.GeometryCollection()
     ports = defaultdict(list)
@@ -115,7 +115,7 @@ def local_landings(features, stairs, domain, water, height):
     stair_area = shapely.union_all([stair.footprint for stair in stairs])
     neighbors = [port for group in ports.values() for port in group if len(group) == 1]
     approaches, joined = [], []
-    occupied = shapely.GeometryCollection()
+    occupied = shapely.GeometryCollection() if reserved is None else reserved
     for name, geom, tags in features:
         if name != "transportation" or tags.get("subclass") != "footway":
             continue

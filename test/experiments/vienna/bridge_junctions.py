@@ -100,7 +100,7 @@ def approach_core(crossing):
     return shapely.union_all(pieces)
 
 
-def patch_mesh(footprint, terrain, lattice, spacing):
+def patch_mesh(footprint, terrain, lattice, spacing, *, breaks=()):
     minimum, maximum = np.asarray(footprint.bounds).reshape(2, 2)
     first = np.floor((minimum - lattice) / spacing).astype(int)
     last = np.ceil((maximum - lattice) / spacing).astype(int)
@@ -118,6 +118,7 @@ def patch_mesh(footprint, terrain, lattice, spacing):
         np.zeros(len(quads), dtype=int),
         {0: "outside", 1: "head"},
         {1: footprint},
+        breaks=breaks,
     )
     xy = np.concatenate([v[f, :2] for name, v, f in parts if name == "head"])
     points, indices = np.unique(

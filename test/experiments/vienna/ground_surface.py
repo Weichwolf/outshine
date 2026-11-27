@@ -122,9 +122,14 @@ def terrain_triangles(quads):
     return quads[:, [0, 1, 2, 0, 2, 3]].reshape(-1, 3)
 
 
-def partition_ground(vertices, quads, base, names, footprints):
+def partition_ground(vertices, quads, base, names, footprints, *, breaks=()):
     yield from partition_triangles(
-        vertices, terrain_triangles(quads), np.repeat(base, 2), names, footprints
+        vertices,
+        terrain_triangles(quads),
+        np.repeat(base, 2),
+        names,
+        footprints,
+        breaks=breaks,
     )
 
 

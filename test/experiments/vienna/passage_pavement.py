@@ -74,6 +74,13 @@ class GroundSections:
         keep = np.diff(along, prepend=-np.inf) > 2e-6
         return along[keep] / length
 
+    def breaks_in(self, footprint):
+        borders = self.edges.geometries[
+            self.edges.query(footprint, predicate="intersects")
+        ]
+        parts = shapely.get_parts(shapely.intersection(footprint, borders))
+        return parts[shapely.get_type_id(parts) == 1]
+
 
 def profile_vertices(sections, fractions=(0.0, 0.5, 1.0)):
     cross = sections[:, 1] - sections[:, 0]
