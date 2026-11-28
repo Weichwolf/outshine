@@ -28,6 +28,7 @@ from outshine.transport.viaducts import local_viaducts
 from outshine.vegetation.atlas import VegetationAtlas
 from outshine.vegetation.bank_vegetation import bank_plants
 from outshine.vegetation.grass_cover import blades
+from outshine.vegetation.landscape_cover import landscape_cover
 from outshine.vegetation.meadow import meadow_cover
 from outshine.vegetation.open_cover import (
     ACACIA_COMMIPHORA_BUSHLANDS,
@@ -71,7 +72,7 @@ SAVANNA_SURFACES = {
 PATAGONIAN_SURFACES = {
     "ground": "patagonian gravel soil",
     "grass": "patagonian gravel soil",
-    "unpaved path": "patagonian gravel soil",
+    "unpaved path": "patagonian footpath",
     "unpaved road": "patagonian unpaved road",
 }
 
@@ -359,6 +360,10 @@ class ReferenceScene:
     @cached_property
     def terrain_cover(self):
         return distant_cover(*self.terrain_cover_sources)
+
+    @cached_property
+    def landscape_cover(self):
+        return landscape_cover(self.open_cover, self.eye, self.canopy_seed)
 
     @property
     def source_receipts(self):

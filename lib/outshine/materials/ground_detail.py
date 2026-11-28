@@ -40,6 +40,7 @@ SURFACE_DETAIL = {
     "ground": "soil",
     "dry savanna soil": "sandy clay loam",
     "patagonian gravel soil": "gravelly soil",
+    "patagonian footpath": "gravelly soil",
     "forest floor": "leaf litter",
     "regional wood": CANOPY_DETAIL,
     "needle crown": CROWN_DETAIL,
