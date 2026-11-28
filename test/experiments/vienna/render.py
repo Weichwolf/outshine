@@ -613,7 +613,10 @@ def render(place, config, args):
         start = perf_counter()
         graph = bpy.context.evaluated_depsgraph_get()
         ray_index = reflection_index(
-            graph, np.asarray(scene.camera.location), world.sun
+            graph,
+            np.asarray(scene.camera.location),
+            world.sun,
+            reflected_sky=below_deck,
         )
         ray_index_s = perf_counter() - start
     bounce_count, bounce_s = (

@@ -81,7 +81,10 @@ def bake_street_sky(scene, batches, radiance, *, index=None, below_deck=False):
         return 0, perf_counter() - start
     if index is None:
         index = reflection_index(
-            bpy.context.evaluated_depsgraph_get(), eye, np.zeros(3)
+            bpy.context.evaluated_depsgraph_get(),
+            eye,
+            np.zeros(3),
+            reflected_sky=below_deck,
         )
     directions = hemisphere_directions(SAMPLES)
     if below_deck:

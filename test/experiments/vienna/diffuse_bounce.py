@@ -177,11 +177,15 @@ def static_ray_mesh(objects, lower, upper):
     return tree, colours
 
 
-def reflection_index(graph, eye, sunlight):
+def reflection_index(graph, eye, sunlight, *, reflected_sky=False):
     reach = RECEIVER_REACH_M + REFLECTION_REACH_M + 2 * SURFACE_BIAS_M
     sunward = np.asarray(sunlight) * SUN_OCCLUSION_REACH_M
     lower = eye - reach + np.minimum(sunward, 0)
     upper = eye + reach + np.maximum(sunward, 0)
+    if reflected_sky:
+        sky_reach = reach + REFLECTION_REACH_M
+        lower = np.minimum(lower, eye - sky_reach)
+        upper = np.maximum(upper, eye + sky_reach)
     objects, placements = [], []
     for instance in graph.object_instances:
         obj = instance.object
