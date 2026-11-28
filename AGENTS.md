@@ -9,6 +9,11 @@ regionalen Zusammenhängen. Die Welt soll aus Augenhöhe, in Bewegung und bei
 weiter Sicht möglichst fotorealistisch wirken. Ein digitales Modell darf
 fehlende Details plausibel ergänzen.
 
+Ich erzeuge aus OSM architektonisch plausible und funktionale 3D-Geometrie. Ich
+prüfe die für ihre Nutzung relevanten Bedingungen numerisch, etwa Anschlüsse,
+Gefälle und Freiräume, und nehme das Ergebnis an geöffneten Renderings ab.
+Ungelöste Fälle halte ich im zuständigen Issue fest.
+
 Ich rendere physikalisch basiert. Der A18 Pro mit 8 GB gemeinsamem Speicher
 ist das Entwicklungs- und Abnahmegerät. Ich nutze das verfügbare Budget für
 Bildqualität, flüssige Bewegung und vollständige Szenen. Ich messe am selben
