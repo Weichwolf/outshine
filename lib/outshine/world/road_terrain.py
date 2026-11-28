@@ -24,7 +24,9 @@ from outshine.transport.road_grades import (
 )
 from outshine.transport.route_graph import route_graph
 from outshine.transport.route_tiles import WORLD_CELLS
+from outshine.transport.tram_curves import tram_corners
 from outshine.transport.tram_grades import fit_tram_grades
+from outshine.transport.tram_rails import TRAM_BED_WIDTH_M
 
 from .crown_surface import CrownPatch, CrownSurface
 
@@ -150,6 +152,7 @@ class RoadTerrain:
         self.vectors = vectors
         self.tiles = {}
         self.parents = {}
+        self.tram_curves = {}
         self.reservations = {}
         self.prepared = {}
         self.crowns = CrownSurface(1 << TERRAIN_ZOOM, CELLS_PER_TILE, self._patch)
@@ -163,6 +166,11 @@ class RoadTerrain:
             def project(longitude, latitude):
                 return local_metric(longitude, latitude, origin, metres)
 
+            def unproject(xy):
+                lonlat = xy / metres + origin
+                lonlat[:, 0] = dem_longitude(lonlat[:, 0])
+                return lonlat
+
             data = self.vectors[parent]
             features = tuple(
                 self.source.metric_features(
@@ -173,8 +181,45 @@ class RoadTerrain:
             transport = (
                 {parent: data["transportation"]} if "transportation" in data else {}
             )
-            self.parents[parent] = project, features, index, transport
+            self.parents[parent] = project, features, index, transport, unproject
         return self.parents[parent]
+
+    def _tram_corner(self, before, middle, after):
+        if before.cut is not None or middle.cut is not None or after.cut is not None:
+            return None
+        stride = WORLD_CELLS >> VECTOR_ZOOM
+        x, y = middle.point
+        parent = VECTOR_ZOOM, x // stride, y // stride
+        if parent not in self.vectors:
+            return None
+        if parent not in self.tram_curves:
+            project, features, _, transport, unproject = self._parent(parent)
+            lat, lon = tile_geography([[0, 1], [1, 0]], 1, parent)
+            lower, upper = project(lon, lat)
+            boundary = shapely.box(*lower, *upper).boundary.buffer(
+                TRAM_BED_WIDTH_M / 2, quad_segs=1
+            )
+            turns = tram_corners(
+                route_graph(transport),
+                project,
+                [boundary, *_reservations(features, fit_tram=True)],
+            )
+            self.tram_curves[parent] = {
+                key: unproject(turn) for key, turn in turns.items()
+            }
+        candidates = self.tram_curves[parent]
+        key = before.point, middle.point, after.point
+        turn = candidates.get(key)
+        if turn is None and (turn := candidates.get(key[::-1])) is not None:
+            return turn[::-1]
+        return turn
+
+    def tram_lines(self, graph, project):
+        return tuple(
+            surface_rail_lines(
+                graph, project, kind="transit", mode="tram", curves=self._tram_corner
+            )
+        )
 
     def _crossfall_reservations(self, parent, tile):
         frame = MercatorTile(parent)
@@ -253,7 +298,7 @@ class RoadTerrain:
         )
         if not np.isfinite(heights).all():
             return None
-        project, features, index, transport = self._parent(parent)
+        project, features, index, transport, _ = self._parent(parent)
         axes = project(longitude, latitude)
         bounds = shapely.box(*axes[0], *axes[-1])
         nearby = bounds.buffer(max(ROAD_WIDTH.values()) / 2, quad_segs=1)
@@ -265,7 +310,7 @@ class RoadTerrain:
             transport,
             bounds=(x * stride, y * stride, (x + 1) * stride, (y + 1) * stride),
         )
-        trams = tuple(surface_rail_lines(graph, project, kind="transit", mode="tram"))
+        trams = self.tram_lines(graph, project)
         carriageways = tuple(carriageway_axes(graph.paths, project, bounds))
         roads = ground_carriageways(carriageways, bounds, local)
         if roads or trams:
