@@ -431,6 +431,9 @@ grass, taller stems and patches of wildflowers on the OSM meadow. The camera is
 1.70 m above the solved path. Both heights use tile-stable roots. Wider leaves and
 flowerheads stay inside the meadow footprint. Leaf sheets keep their silhouette
 with half as many faces once the measured fold projects below 0.5–0.75 px.
+Smaller clumps follow the field edge. Sparse groups beyond the detailed blades
+fade as their height approaches two pixels. Blender and GLSL share a tile baked
+from the tuft leaves so the ground between clumps retains grass relief.
 Use the [Sophienalpe summer photograph, 15 August 2006](https://commons.wikimedia.org/wiki/File:Wien_Sophienalpe.jpg)
 to assess the ground cover and plant height.
 Shore levels, road profiles, ground materials and light still need comparison with real scenes.

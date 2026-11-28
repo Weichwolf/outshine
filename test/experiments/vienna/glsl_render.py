@@ -18,8 +18,8 @@ from PIL import Image
 sys.path.insert(0, str(ROOT / "lib/src"))
 from ground_detail import (
     BARK_BOX_BLEND,
-    CANOPY_DETAIL,
     DETAIL_TINTS,
+    PLANAR_DETAILS,
     SURFACE_DETAIL,
     detail_scale,
     ground_detail,
@@ -424,7 +424,7 @@ def draw_surfaces(ctx, prog, draws, textures, *, capture=False):
         prog["hasTrailLitter"].value = trail
         prog["hasDetail"].value = detail is not None
         prog["blendDetailAxes"].value = base.endswith(" bark")
-        prog["planarDetail"].value = detail == CANOPY_DETAIL
+        prog["planarDetail"].value = detail in PLANAR_DETAILS
         prog["detailTint"].value = DETAIL_TINTS.get(detail, (1, 1, 1))
         if detail is not None:
             prog["detailScale"].value = detail_scale(detail)
