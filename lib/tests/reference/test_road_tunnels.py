@@ -27,6 +27,11 @@ class RoadTunnelTest(unittest.TestCase):
                 ("transportation", shapely.LineString([(-85, 0), (-48, 0)]), tag),
                 ("transportation", shapely.LineString([(48, 0), (85, 0)]), tag),
                 ("transportation", shapely.LineString([(0, -15), (0, 15)]), tag),
+                (
+                    "transportation",
+                    shapely.LineString([(8, -45), (8, 45)]),
+                    {"class": "rail"},
+                ),
             ],
         )
         terrain, quads = terrain_grid(source, 90)
@@ -48,6 +53,12 @@ class RoadTunnelTest(unittest.TestCase):
             ceiling = support_height(meshes["bridge deck"], (0, y))
             self.assertAlmostEqual(ceiling.min() - road.min(), PREFERRED_CLEARANCE)
             self.assertGreater(road.max(), ceiling.max())
+        for x in (7.2475, 8.7525):
+            ballast = support_height(meshes["rail ballast"], (x, 0)).max()
+            roof = support_height(meshes["bridge deck"], (x, 0)).min()
+            rail = support_height(meshes["rail head"], (x, 0)).max()
+            self.assertGreater(ballast, roof)
+            self.assertAlmostEqual(rail - ballast, 0.18 + 0.172)
         for x in tunnel.points[[0, -1], :, 0].mean(axis=1):
             for y in (-2.5, 0, 2.5):
                 self.assertAlmostEqual(
