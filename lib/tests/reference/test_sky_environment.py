@@ -14,7 +14,7 @@ from outshine.rendering.sky_environment import (
 from outshine.weather.air_profile import (
     AEROSOL_HEIGHT_KM,
     aerosol_extinction,
-    direct_sun_fraction,
+    direct_sun_transmission,
 )
 from outshine.weather.cloud_profile import SUN_MAP_SIZE, WIND_KM_S, cloud_profile
 
@@ -83,13 +83,75 @@ class SkyEnvironmentTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "aerosol extinction"):
                 load_environment(path, sun, eye)
 
-    def test_haze_attenuates_low_elevation_sun_more_than_zenith(self):
+    def test_solar_transmission_matches_vertical_column_and_varies_with_elevation(self):
         haze = aerosol_extinction("haze")
-        above = direct_sun_fraction(0.0, 1.0, haze)
-        self.assertAlmostEqual(above, np.exp(-haze * AEROSOL_HEIGHT_KM), places=5)
-        self.assertLess(direct_sun_fraction(0.0, 0.2, haze), above)
-        self.assertGreater(direct_sun_fraction(1500.0, 1.0, haze), above)
-        self.assertEqual(direct_sun_fraction(0.0, 0.2, aerosol_extinction("clear")), 1)
+        clear = np.array(direct_sun_transmission(0.0, 1.0, 0.0))
+        rayleigh = 8 * (1 - np.exp(-100 / 8)) * np.array([0.005802, 0.013558, 0.033100])
+        ozone = 15 * np.array([0.000650, 0.001881, 0.000085])
+        np.testing.assert_allclose(clear, np.exp(-rayleigh - ozone), atol=1e-8)
+        zenith = direct_sun_transmission(0.0, 1.0, haze)
+        np.testing.assert_allclose(zenith / clear, np.exp(-haze * AEROSOL_HEIGHT_KM))
+        low = direct_sun_transmission(0.0, 0.2, haze)
+        self.assertTrue(np.all(np.array(low) < zenith))
+        self.assertGreater(low[0] / low[2], zenith[0] / zenith[2])
+        self.assertTrue(
+            np.all(np.array(direct_sun_transmission(1500.0, 1.0, haze)) > zenith)
+        )
+        self.assertEqual(direct_sun_transmission(0.0, -0.01, 0.0), (0.0, 0.0, 0.0))
+        self.assertGreater(direct_sun_transmission(1500.0, -0.01, 0.0)[0], 0.0)
+        self.assertEqual(direct_sun_transmission(110_000.0, 1.0, 0.0), (1.0, 1.0, 1.0))
+
+    def test_solar_transmission_matches_the_atmosphere_shader(self):
+        try:
+            from outshine.rendering import glsl
+            from outshine.rendering.image import gl_context
+
+            context = gl_context()
+        except Exception as error:  # noqa: BLE001
+            self.skipTest(f"OpenGL reference unavailable: {error}")
+        with context as ctx:
+            fragment = (
+                "#version 410 core\n"
+                + glsl.shader(glsl.ROOT / "src/render/shaders/medium.glsl")
+                + glsl.shader(glsl.HERE / "clear_air.glsl")
+                + """
+out vec4 colour;
+uniform float eyeKm;
+uniform float sunVertical;
+uniform float aerosol;
+void main() {
+  Medium air = referenceAir(aerosol);
+  vec3 transmission = mediumTransmittanceToTop(air, MediumLook(eyeKm, sunVertical), 2048u);
+  colour = vec4(transmission, 1.);
+}
+"""
+            )
+            program = ctx.program(vertex_shader=glsl.SCREEN, fragment_shader=fragment)
+            quad = ctx.vertex_array(program, [])
+            target = ctx.simple_framebuffer((1, 1), components=4, dtype="f4")
+            target.use()
+            for eye_m, elevation, haze in (
+                (170, 61, 0.0),
+                (170, 24, 0.0),
+                (170, 8, 0.04),
+                (170, 0, 0.04),
+                (1500, -0.5, 0.04),
+            ):
+                with self.subTest(eye_m=eye_m, elevation=elevation, haze=haze):
+                    vertical = np.sin(np.radians(elevation))
+                    program["eyeKm"].value = 6360 + eye_m * 0.001
+                    program["sunVertical"].value = vertical
+                    program["aerosol"].value = haze
+                    quad.render(vertices=3)
+                    gpu = np.frombuffer(
+                        target.read(components=3, dtype="f4"), dtype="f4"
+                    )
+                    np.testing.assert_allclose(
+                        direct_sun_transmission(eye_m, vertical, haze),
+                        gpu,
+                        atol=2e-5,
+                        rtol=0,
+                    )
 
     def test_cloud_sky_keeps_its_advected_field_and_direct_light(self):
         def profile(name, elapsed):

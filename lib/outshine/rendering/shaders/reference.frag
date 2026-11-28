@@ -24,7 +24,7 @@ uniform bool hasTerrainCover;
 uniform sampler2D terrainCover;
 uniform vec4 terrainTransform;
 uniform float eyeKm;
-uniform float directSunFraction;
+uniform vec3 directSunRadiance;
 uniform sampler2D cloudSunMap;
 uniform float cloudSunMapScale;
 uniform float cloudSunMapTopM;
@@ -322,7 +322,7 @@ void main(){
             reflectance * filteredSky(reflect(-view, n), roughness);
   }
   vec3 environment = mix(front, diffuseColour * diffuseSky(-n), diffuseTransmission);
-  float directSun = 2.5 * directSunFraction;
+  vec3 directSun = directSunRadiance;
   if (cloudSunMapScale > 0. && point.z < cloudSunMapTopM) {
     vec3 offset = point - cloudSunMapOrigin;
     vec2 projected = offset.xy - offset.z * sun.xy / max(sun.z, .01);

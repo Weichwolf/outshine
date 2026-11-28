@@ -372,7 +372,7 @@ def bake_sun_bounce(scene, sun, batches, *, index=None):
     directions = hemisphere_directions(128)
     if index is None:
         index = reflection_index(bpy.context.evaluated_depsgraph_get(), eye, sunlight)
-    strength = sun.data.energy / (np.pi * len(directions))
+    strength = sun.data.energy * np.asarray(sun.data.color) / (np.pi * len(directions))
     values = strength * np.array(
         [
             reflected_rgb(
