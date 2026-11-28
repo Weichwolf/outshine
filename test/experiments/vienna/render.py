@@ -335,6 +335,7 @@ def render(place, config, args):
     if world.water_bed is not None:
         apply_water_bed(world.water_bed)
     scene.eevee.taa_render_samples = 6
+    receiver_start = perf_counter()
     bounce = (
         street_receivers(scene)
         if args.engine == "eevee"
@@ -342,6 +343,7 @@ def render(place, config, args):
         and sun.data.energy > 0
         else []
     )
+    receiver_s = perf_counter() - receiver_start
     probes, bake_s = (
         bake_reference_irradiance(
             scene, world.local.covered_walks, world.eye[:2], street_sky=bool(bounce)
@@ -409,7 +411,7 @@ def render(place, config, args):
                 "passage_irradiance_bake_s": round(bake_s, 3),
                 "street_bounce": {
                     "samples": bounce_count,
-                    "seconds": round(bounce_s, 3),
+                    "seconds": round(receiver_s + bounce_s, 3),
                 }
                 if bounce_count
                 else None,
