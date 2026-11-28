@@ -11,7 +11,10 @@ blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/ren
 
 The measured interval includes rendering and PNG output. Source acquisition, scene construction and
 Blender startup are separate. Run with `--engine cycles --output /tmp/outshine-vienna-light` for
-an independent lighting comparison. Inputs are genuine ZXY tiles pinned in sources.json.
+an independent lighting comparison. Cycles uses adaptive sampling with GPU denoising and a
+128-sample ceiling. Use `--cycles-samples` to change that ceiling for a paired comparison.
+Use EEVEE for rapid scene iteration and Cycles for light transport that needs off-screen
+occluders or multiple bounces. Inputs are genuine ZXY tiles pinned in sources.json.
 The seed, camera, clear sky and UTC are in places.json. The final eye position follows a vertical
 intersection with the rendered support mesh.
 
@@ -19,6 +22,8 @@ Omit `--place Adlerhof` to render the twelve pedestrian views in catalog order. 
 `--place Wien` for the historical reference. With `--repeat`, the
 second interval measures the warm image, including PNG encoding and writing. Report timing
 with the image and profile so workstation cost can be compared across reference runs.
+When using Cycles with `--repeat`, the fixed camera also reuses the scene data and, with
+`--sky-dir`, the matching sky-only image for aerial compositing.
 
 Blender uses the same mean solar diameter as the shared atmosphere, about 0.533°.
 EEVEE uses six temporal samples and jittered sun shadows. The render report records
@@ -37,7 +42,11 @@ Use `--street-bounce` with EEVEE for the one-bounce street-light reference in
 [#1965](https://github.com/Weichwolf/outshine/issues/1965). It bakes sky visibility,
 traces sunlight reflected by the generated geometry, and interpolates it on nearby
 opaque surfaces. Under clouds it uses the mean solar transmission for the reflected term.
-Compare it at the same camera and time with `--engine cycles`.
+Compare it at the same camera and time with `--engine cycles --sky-dir …`.
+With the shared sky isolated at Adlerhof, the EEVEE volume delivers about 7% of Cycles'
+direct-sky luminance on a shaded paving patch. Cosine-weighted visibility against the generated
+geometry yields 92% on that patch and 99% on the adjoining façade. Use the Cycles image to judge
+those shadows. The one-bounce EEVEE image remains a fast comparison for reflected sunlight.
 
 Standalone GLSL uses 16 m and 96 m camera-centred shadow footprints with 2048 texels
 per axis. They resolve close sills, leaf shadows and root contact. Visibility blends

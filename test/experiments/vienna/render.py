@@ -53,6 +53,8 @@ from water_bed import BED_ALBEDO
 from water_reflection import reflection_planes
 
 SUN_SHADOW_MIN_TEXEL_M = 0.016
+CYCLES_REFERENCE_SAMPLES = 128
+CYCLES_NOISE_THRESHOLD = 0.025
 
 
 def apply_detail(material, bsdf, name, colour):
@@ -266,6 +268,18 @@ def configure_world_sky(scene, sunlight, radiance, *, haze=False):
     return image
 
 
+def configure_cycles_reference(scene, samples, repeat):
+    device = configure_gpu(scene, "cycles")
+    scene.cycles.samples = samples
+    scene.cycles.use_adaptive_sampling = True
+    scene.cycles.adaptive_threshold = CYCLES_NOISE_THRESHOLD
+    scene.cycles.adaptive_min_samples = min(8, samples)
+    scene.cycles.use_denoising = True
+    scene.cycles.denoising_use_gpu = True
+    scene.render.use_persistent_data = repeat
+    return device
+
+
 def render(place, config, args):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
@@ -379,11 +393,15 @@ def render(place, config, args):
         geometry,
         world,
         eye_m,
-        cache_sky=args.engine == "eevee" and args.repeat,
+        cache_sky=args.repeat and (args.engine == "eevee" or sky_image is not None),
         surface_filter=surface_filter,
     )
     if args.engine == "cycles":
-        device = configure_gpu(scene, "cycles")
+        device = configure_cycles_reference(
+            scene,
+            getattr(args, "cycles_samples", None) or CYCLES_REFERENCE_SAMPLES,
+            args.repeat,
+        )
     image = args.output / (place["id"] + ".png")
     args.output.mkdir(parents=True, exist_ok=True)
     times = [render_png(scene, image) for _ in range(2 if args.repeat else 1)]
@@ -401,6 +419,9 @@ def render(place, config, args):
                 else None,
                 "eevee_samples": scene.eevee.taa_render_samples
                 if args.engine == "eevee"
+                else None,
+                "cycles_sample_cap": scene.cycles.samples
+                if args.engine == "cycles"
                 else None,
                 "surface": world.support,
                 "woody_instances": woody_instances,
@@ -485,6 +506,11 @@ if __name__ == "__main__":
     p.add_argument("--output", type=Path)
     p.add_argument("--engine", choices=["eevee", "cycles"], default="eevee")
     p.add_argument(
+        "--cycles-samples",
+        type=int,
+        help=f"Cycles adaptive sample ceiling (default: {CYCLES_REFERENCE_SAMPLES})",
+    )
+    p.add_argument(
         "--sky-dir", type=Path, help="use exported scene-linear sky radiance"
     )
     p.add_argument("--repeat", action="store_true")
@@ -498,6 +524,12 @@ if __name__ == "__main__":
     )
     if args.street_bounce and args.engine != "eevee":
         p.error("--street-bounce requires EEVEE")
+    if args.cycles_samples is not None and (
+        args.display_linear is not None
+        or args.engine != "cycles"
+        or args.cycles_samples < 1
+    ):
+        p.error("--cycles-samples requires a Cycles render and a positive integer")
     if args.display_linear is not None:
         display_linear(
             args.display_linear, args.output or ROOT / "build/shots/glsl-agx"
