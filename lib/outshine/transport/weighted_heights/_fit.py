@@ -126,7 +126,14 @@ def fit_weighted_heights(
             },
         )
     heights, report = solve(
-        faces, target, frames, coefficients, fixed, reference_datum_m, values, budget
+        faces,
+        target,
+        frames,
+        coefficients,
+        fixed,
+        np.full(len(fixed), reference_datum_m),
+        values,
+        budget,
     )
     report.update(
         valid=False,

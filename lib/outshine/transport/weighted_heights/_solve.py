@@ -7,7 +7,7 @@ import numpy as np
 from ..heights import _gradient_matrix
 
 
-def solve(faces, target, frames, coefficients, fixed, datum, weights, budget):
+def solve(faces, target, frames, coefficients, fixed, fixed_heights, weights, budget):
     import clarabel
     from scipy import sparse
 
@@ -23,7 +23,7 @@ def solve(faces, target, frames, coefficients, fixed, datum, weights, budget):
     matrix = sparse.vstack((matrix, contacts)).tocsc()
     rhs = np.r_[
         np.c_[np.ones(len(faces)), np.zeros((len(faces), 2))].ravel(),
-        np.full(len(fixed), datum - centre),
+        np.asarray(fixed_heights) - centre,
     ]
     cones = [clarabel.SecondOrderConeT(3) for _ in faces]
     if len(fixed):
