@@ -112,10 +112,11 @@ def stand_plan(species, form):
     if form == 0:
         limbs = replace(
             limbs,
-            first=0.23 if species == "oak" else 0.26,
+            first=0.23 if species == "oak" else 0.20,
             last=0.99,
-            angle=1.15 if species == "oak" else 0.97,
-            angle_tip=0.49,
+            angle=0.64 if species == "oak" else 0.55,
+            angle_tip=0.94 if species == "oak" else 0.87,
+            angle_variation=0.22,
         )
         twigs = replace(
             twigs,
@@ -172,13 +173,13 @@ def avenue_plan(form):
     )
     limbs = replace(
         limbs,
-        length=(5.3, 4.5)[form],
-        base_radius=(0.30, 0.23)[form],
-        radius_parent_ratio=(0.84, 0.77)[form],
-        first=(0.19, 0.35)[form],
+        length=(5.6, 4.5)[form],
+        base_radius=(0.32, 0.23)[form],
+        radius_parent_ratio=(0.94, 0.77)[form],
+        first=(0.205, 0.35)[form],
         last=0.87,
-        angle=(1.07, 0.98)[form],
-        angle_tip=0.57,
+        angle=(0.78, 0.98)[form],
+        angle_tip=(0.99, 0.57)[form],
         upward_bias=0.18,
     )
     twigs = replace(twigs, leaf_internode=0.22, arrangement="opposite")
