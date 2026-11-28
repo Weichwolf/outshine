@@ -5,12 +5,20 @@ from collections import defaultdict
 import numpy as np
 import shapely
 
-from outshine.terrain.ground_surface import project_triangles
+from outshine.terrain.ground_surface import clip_route_areas, project_triangles
 from outshine.transport.bridges import cap_mesh
 from outshine.transport.rail_hardware import RailRecipe
+from outshine.transport.viaducts import LOWER_CLEARANCE, SLAB_DEPTH
 
 RAIL_HEAD_WIDTH_M = 0.072
 RAIL_HEAD_RISE_M = 0.007
+FLANGEWAY_WIDTH_M = 0.046
+FLANGEWAY_DEPTH_M = 0.029
+TRAM_BED_WIDTH_M = 2.04
+TRAM_SURFACE_OFFSETS = {
+    "tram rail": RAIL_HEAD_RISE_M,
+    "tram flangeway": -FLANGEWAY_DEPTH_M,
+}
 
 
 def bank_route(port, layer, neighbors):
@@ -76,15 +84,76 @@ def tram_routes(features, crossings):
     return result
 
 
-def rail_head_footprints(routes):
-    centre = (RailRecipe().gauge_m + RAIL_HEAD_WIDTH_M) / 2
-    lines = np.array([line for _, line in routes], dtype=object)
+def track_strips(lines, centre, width):
     offsets = shapely.offset_curve(
-        lines[:, None], [-centre, centre], join_style="round"
+        np.asarray(lines, dtype=object)[:, None], [-centre, centre], join_style="round"
     )
     return shapely.get_parts(
-        shapely.buffer(offsets.ravel(), RAIL_HEAD_WIDTH_M / 2, cap_style="flat")
+        shapely.buffer(offsets.ravel(), width / 2, cap_style="flat")
     )
+
+
+def rail_head_footprints(routes):
+    centre = (RailRecipe().gauge_m + RAIL_HEAD_WIDTH_M) / 2
+    return track_strips([line for _, line in routes], centre, RAIL_HEAD_WIDTH_M)
+
+
+def tram_underdeck_reservations(decks, vertices, faces, interest):
+    spans = [deck for deck in decks if deck.footprint.intersects(interest)]
+    if not spans:
+        return ()
+    ground = vertices[faces]
+    index = shapely.STRtree(shapely.polygons(ground[:, :, :2]))
+    clearance = LOWER_CLEARANCE["transit"] + RAIL_HEAD_RISE_M
+    reserved = []
+    for deck in spans:
+        lower = deck.footprint.intersection(deck.lower_routes).intersection(interest)
+        selected = index.query(lower, predicate="intersects")
+        if not len(selected):
+            reserved.append(deck.footprint)
+            continue
+        cells = shapely.intersection(index.geometries[selected], lower)
+        subfaces, owners = shapely.get_parts(cells, return_index=True)
+        valid = shapely.get_type_id(subfaces) == shapely.GeometryType.POLYGON
+        if not valid.any():
+            reserved.append(deck.footprint)
+            continue
+        cell_ground, _ = project_triangles(
+            subfaces[valid], ground[selected[owners[valid]]]
+        )
+        samples = cell_ground.reshape(-1, 3, 3)
+        ceiling = deck.height(samples[:, :, :2]) - SLAB_DEPTH
+        unsafe = (ceiling - samples[:, :, 2] < clearance - 1e-6).any(axis=1)
+        clipped = shapely.union_all(shapely.polygons(samples[unsafe, :, :2]))
+        reserved.append(deck.footprint.difference(lower.difference(clipped)))
+    return reserved
+
+
+def street_tram_surfaces(lines, extent, pavement, blocked, decks, vertices, faces):
+    if not lines:
+        return {}
+    half = TRAM_BED_WIDTH_M / 2
+    interest = shapely.union_all(shapely.buffer(lines, 2 * half)).intersection(extent)
+    underdecks = tram_underdeck_reservations(decks, vertices, faces, interest)
+    domain = extent.difference(shapely.union_all([*blocked, *underdecks]))
+    usable = domain.buffer(-half, quad_segs=2)
+    routes = [
+        part
+        for part in shapely.get_parts(shapely.intersection(lines, usable))
+        if part.geom_type == "LineString" and part.length >= TRAM_BED_WIDTH_M
+    ]
+    if not routes:
+        return {}
+    gauge = RailRecipe().gauge_m
+    heads = track_strips(routes, (gauge + RAIL_HEAD_WIDTH_M) / 2, RAIL_HEAD_WIDTH_M)
+    grooves = track_strips(routes, (gauge - FLANGEWAY_WIDTH_M) / 2, FLANGEWAY_WIDTH_M)
+    bed = clip_route_areas(
+        shapely.buffer(routes, half, cap_style="flat", join_style="round"), domain
+    )
+    rail = clip_route_areas(heads, bed)
+    flangeway = clip_route_areas(grooves, bed).difference(rail, grid_size=1e-6)
+    slab = bed.difference(pavement, grid_size=1e-6)
+    return {"tram rail": rail, "tram flangeway": flangeway, "tram slab": slab}
 
 
 def project_rail_heads(meshes, junction, heads):

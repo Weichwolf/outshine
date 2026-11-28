@@ -165,6 +165,14 @@ class LocalScene:
     def surface_rail_lines(self):
         return tuple(surface_rail_lines(self.transport_graph, self.metric))
 
+    @cached_property
+    def street_tram_lines(self):
+        return tuple(
+            surface_rail_lines(
+                self.transport_graph, self.metric, kind="transit", mode="tram"
+            )
+        )
+
     def metric(self, longitude, latitude):
         return local_metric(longitude, latitude, (self.lon, self.lat), self.metres)
 
