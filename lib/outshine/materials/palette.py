@@ -14,6 +14,9 @@ SURFACES = {
     "beech bark": ((0.158, 0.150, 0.131), 0.84),
     "chestnut bark": ((0.078, 0.071, 0.063), 0.92),
     "spruce bark": ((0.078, 0.054, 0.038), 0.91),
+    "umbrella thorn bark": ((0.118, 0.102, 0.082), 0.89),
+    "umbrella thorn foliage": ((0.105, 0.165, 0.045), 0.74),
+    "umbrella thorn shaded foliage": ((0.067, 0.110, 0.034), 0.76),
     "foliage": ((0.095, 0.205, 0.044), 0.52),
     "spruce foliage": ((0.049, 0.121, 0.032), 0.60),
     "regional soil": ((0.19, 0.16, 0.105), 0.95),
@@ -78,6 +81,8 @@ METALLIC = {"rail head": 1.0}
 DIFFUSE_TRANSMISSION = {
     "foliage": 0.32,
     "spruce foliage": 0.17,
+    "umbrella thorn foliage": 0.30,
+    "umbrella thorn shaded foliage": 0.30,
     "grass blades": 0.34,
     "grass pale blades": 0.34,
     "savanna grass blades": 0.34,

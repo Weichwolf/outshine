@@ -21,6 +21,7 @@ DETAIL_SCALES = {
     CANOPY_DETAIL: (512.0, 1523.0, 2.4),
     CROWN_DETAIL: (24.8, 127.9, 0.48),
     MEADOW_DETAIL: (MEADOW_TILE_M, 31.0, HEIGHT_SPAN_M),
+    "umbrella thorn bark": (1.30, 8.0, 0.020),
 }
 DETAIL_TINTS = {"beech bark": (0.86, 1.0, 0.78), "leaf litter": (0.53, 1.26, 0.66)}
 SIZE = 512
@@ -55,6 +56,7 @@ SURFACE_DETAIL = {
     "beech bark": "beech bark",
     "chestnut bark": "chestnut bark",
     "spruce bark": "spruce bark",
+    "umbrella thorn bark": "umbrella thorn bark",
     "foliage": "leaf",
     "woodland low leaves": "leaf",
     "weir overflow": "weir overflow",
@@ -152,6 +154,7 @@ def ground_detail(name):
         "spruce bark",
         CROWN_DETAIL,
         MEADOW_DETAIL,
+        "umbrella thorn bark",
     ).index(name)
     rng = np.random.default_rng(seed)
     fine, grain, patches = (noise(rng, scale) for scale in (0.65, 1.6, 12))
@@ -247,6 +250,18 @@ def ground_detail(name):
         tint = 0.74 + 0.42 * lifted - 0.28 * rims + 0.19 * patches + 0.044 * fine
         roughness = 0.91 + 0.021 * grain + 0.030 * rims
         height = 0.0048 * lifted - 0.0028 * rims + 0.00062 * fine
+    elif name == "umbrella thorn bark":
+        y, x = np.indices((SIZE, SIZE), dtype=np.float32)
+        shift = 5.4 * noise(rng, (27, 17)) + 2.1 * noise(rng, (9, 6))
+        ridges = map_coordinates(
+            noise(rng, (25, 4)), [y, x + shift], order=1, mode="grid-wrap"
+        )
+        scales = np.tanh(noise(rng, (9, 6)) + 0.31 * ridges)
+        fissures = np.exp(-(((ridges + 0.17 * scales) / 0.26) ** 2))
+        breaks = np.clip(-noise(rng, (2.2, 6)) - 0.75, 0, 1)
+        tint = 0.92 + 0.26 * scales - 0.46 * fissures - 0.27 * breaks + 0.08 * patches
+        roughness = 0.90 + 0.035 * fissures + 0.015 * grain
+        height = 0.0037 * scales - 0.0058 * fissures - 0.0021 * breaks + 0.0004 * fine
     elif name == "weir overflow":
         threads = noise(rng, (15, 1.5))
         air = np.clip(0.5 + 0.24 * threads + 0.12 * grain, 0, 1)

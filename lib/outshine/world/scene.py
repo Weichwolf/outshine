@@ -28,6 +28,7 @@ from outshine.vegetation.bank_vegetation import bank_plants
 from outshine.vegetation.grass_cover import blades
 from outshine.vegetation.meadow import meadow_cover
 from outshine.vegetation.open_cover import RegionalOpenCover
+from outshine.vegetation.regional_woody import savanna_woody
 from outshine.vegetation.understory import woodland_cover
 from outshine.vegetation.woodland import habitat, tree_batches
 from outshine.vegetation.woodland_shrubs import woodland_shrubs
@@ -377,6 +378,8 @@ class ReferenceScene:
         return None
 
     def woody_plants(self, seed, *, eye_route=None, skylight=False):
+        if self.open_cover is not None:
+            yield from savanna_woody(self.open_cover, self.local, self.eye[:2], seed)
         root_domain = shapely.union_all((self.woodland_floor, self.stands.verges))
         yield from tree_batches(
             self.source,

@@ -46,14 +46,18 @@ class RegionalOpenCover:
         for _, geometry in self.overrides:
             shapely.prepare(geometry)
 
-    def classify(self, xy):
+    def open_habitat(self, xy, codes=(20, 30)):
         lon, lat = (
             np.array([self.source.lon, self.source.lat]) + xy / self.source.metres
         ).T
         cover, ecoregion = self.atlas.land_cells(lat, lon)
-        open_land = np.isin(cover, (20, 30))
+        open_land = np.isin(cover, codes)
         for allowed, geometry in self.overrides:
             open_land[shapely.intersects_xy(geometry, xy[:, 0], xy[:, 1])] = allowed
+        return open_land, ecoregion
+
+    def classify(self, xy):
+        open_land, ecoregion = self.open_habitat(xy)
         groups = np.zeros(len(xy), dtype=np.uint8)
         groups[open_land & (ecoregion == ACACIA_COMMIPHORA_BUSHLANDS)] = SAVANNA
         upslope = open_land & (ecoregion == NORTH_ISLAND_TEMPERATE_FORESTS)
@@ -115,7 +119,7 @@ class RegionalOpenCover:
         )
 
 
-def planting_surface(surfaces, centre, materials=OPEN_SURFACES):
+def planting_surface(surfaces, centre, materials=OPEN_SURFACES, *, reach=REACH_M):
     parts = []
     for material in materials:
         if material in surfaces:
@@ -123,12 +127,8 @@ def planting_surface(surfaces, centre, materials=OPEN_SURFACES):
             if not len(faces):
                 continue
             triangles = np.asarray(vertices)[np.asarray(faces)]
-            keep = np.all(
-                triangles[..., :2].max(axis=1) >= centre - REACH_M - 1, axis=1
-            )
-            keep &= np.all(
-                triangles[..., :2].min(axis=1) <= centre + REACH_M + 1, axis=1
-            )
+            keep = np.all(triangles[..., :2].max(axis=1) >= centre - reach - 1, axis=1)
+            keep &= np.all(triangles[..., :2].min(axis=1) <= centre + reach + 1, axis=1)
             parts.append(triangles[keep].reshape(-1, 3))
     if not parts or not any(len(part) for part in parts):
         return None
