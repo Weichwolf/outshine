@@ -104,6 +104,13 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
   [WCVP](https://powo.science.kew.org/about-wcvp) ·
   [SoilGrids](https://docs.isric.org/globaldata/soilgrids/)
 
+- **Unabhängige Standorte für die Vegetationsabnahme**. Die Welterbeliste
+  der UNESCO liefert amtliche Koordinaten und dauerhaft referenzierbare
+  Gebiete. Outshine nutzt sie, um Kontrollgebiete nach Kontinent und Habitat
+  auszuwählen. Begehbare Kamerapositionen und datierte Bildbelege kommen
+  aus der jeweiligen Ortsrecherche.
+  [UNESCO World Heritage List](https://data.unesco.org/explore/assets/whc001/)
+
 - **Pflanzengesellschaften in japanischen Hochmooren**. Die Vegetationskarte
   des japanischen Umweltministeriums liefert abgegrenzte Moor- und
   Grasgesellschaften. Das Feuchtgebietsinventar beschreibt Pfeifengras und

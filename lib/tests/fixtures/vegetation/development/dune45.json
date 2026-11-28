@@ -1,0 +1,37 @@
+{
+  "seed": 2083,
+  "utc": "2026-10-23T08:20:00Z",
+  "weather": "clear",
+  "eye_height_m": 1.7,
+  "vertical_fov_deg": 54,
+  "source_snapshot": "20260927_080001_pt",
+  "source_pins": "dune45-sources.json",
+  "places": [
+    {
+      "id": "Dune45-Near",
+      "latitude": -24.72509638,
+      "longitude": 15.47112943,
+      "heading_deg": 178,
+      "pitch_deg": -8,
+      "support": "unpaved path"
+    },
+    {
+      "id": "Dune45-Stand",
+      "latitude": -24.72665287,
+      "longitude": 15.47153217,
+      "heading_deg": 107,
+      "pitch_deg": -1,
+      "support": "unpaved path"
+    }
+  ],
+  "walks": {
+    "Dune45-Footpath": {
+      "origin": "Dune45-Near",
+      "station_offsets_m": [
+        0,
+        7.2
+      ],
+      "step_m": 0.45
+    }
+  }
+}

@@ -1,4 +1,4 @@
-"""Pilot site definitions backed by pinned Python reference views."""
+"""Vegetation corpus definitions and pinned Python reference views."""
 
 import json
 from pathlib import Path
@@ -6,17 +6,39 @@ from pathlib import Path
 from ..vienna.catalog import ROOT, available_views
 
 MANIFEST = Path(__file__).with_name("pilot.json")
+DEVELOPMENT = MANIFEST.with_name("development.json")
+HOLDOUTS = MANIFEST.with_name("holdouts.json")
 SOURCE_CACHE = ROOT / "build/vegetation-pilot-sources"
 
+CONTINENTS = (
+    "Africa",
+    "Asia",
+    "Europe",
+    "North America",
+    "Oceania",
+    "South America",
+)
 
-def load_sites():
-    document = json.loads(MANIFEST.read_text())
+
+def read_site_records(path):
+    document = json.loads(path.read_text())
     if document["version"] != 1:
-        raise ValueError("unsupported vegetation corpus version")
-    sites = {site["id"]: site for site in document["sites"]}
-    if len(sites) != len(document["sites"]):
-        raise ValueError("duplicate vegetation corpus site ID")
+        raise ValueError(f"unsupported vegetation corpus version in {path.name}")
+    return document["sites"]
+
+
+def load_sites(*, pilot_only=False):
+    records = read_site_records(MANIFEST)
+    if not pilot_only:
+        records.extend(read_site_records(DEVELOPMENT))
+    sites = {site["id"]: site for site in records}
+    if len(sites) != len(records):
+        raise ValueError("duplicate vegetation development site ID")
     return sites
+
+
+def load_holdout_anchors():
+    return read_site_records(HOLDOUTS)
 
 
 def site_views(site, vienna):
