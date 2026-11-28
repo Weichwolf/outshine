@@ -4,8 +4,8 @@ import unittest
 
 import numpy as np
 import shapely
-from outshine_ref.contracts import LocalFrame
-from outshine_ref.materials import MaterialRegion, coalesce_regions
+from outshine.contracts import LocalFrame
+from outshine.materials import MaterialRegion, coalesce_regions
 
 
 class MaterialRegionTests(unittest.TestCase):

@@ -5,7 +5,7 @@ import unittest
 from dataclasses import replace
 
 import numpy as np
-from outshine_ref.transport.canonical_ports import (
+from outshine.transport.canonical_ports import (
     PortBudget,
     PortDemand,
     PortNode,
@@ -13,13 +13,13 @@ from outshine_ref.transport.canonical_ports import (
     PortSpan,
     derive_canonical_ports,
 )
-from outshine_ref.transport.canonical_ports._bridge_lift import (
+from outshine.transport.canonical_ports._bridge_lift import (
     LiftedProfile,
     clear_coarse_observations,
     limits,
 )
-from outshine_ref.transport.canonical_ports._geodesy import positions_in_frame
-from outshine_ref.transport.endpoint_grades import plan_endpoint_transition
+from outshine.transport.canonical_ports._geodesy import positions_in_frame
+from outshine.transport.endpoint_grades import plan_endpoint_transition
 
 RADIUS = 6378137.0
 BINDING = {

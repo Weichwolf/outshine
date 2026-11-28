@@ -5,7 +5,7 @@ import unittest
 from fractions import Fraction
 
 import numpy as np
-from outshine_ref.geometry.occlusion import classify_boxes, convex_patch_umbra
+from outshine.geometry.occlusion import classify_boxes, convex_patch_umbra
 
 WALL = np.array([[-1, 0, -1], [1, 0, -1], [1, 0, 1], [-1, 0, 1]], dtype=float)
 

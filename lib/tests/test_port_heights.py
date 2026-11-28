@@ -5,8 +5,8 @@ from dataclasses import FrozenInstanceError, replace
 
 import numpy as np
 import shapely
-from outshine_ref.contracts import Mesh
-from outshine_ref.transport import (
+from outshine.contracts import Mesh
+from outshine.transport import (
     PortHeightBudget,
     PortHeightInput,
     PortPlaneField,

@@ -4,14 +4,14 @@ from dataclasses import replace
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.vegetation import (
+from outshine.vegetation import (
     AxisLevel,
     Needle,
     NeedledPlant,
     NeedlePattern,
     PlantPlan,
 )
-from outshine_ref.vegetation.curve_frame import arc_frame
+from outshine.vegetation.curve_frame import arc_frame
 
 
 def wood(seed=17):

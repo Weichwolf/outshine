@@ -5,12 +5,12 @@ from types import SimpleNamespace
 
 import numpy as np
 import shapely
-from outshine_ref.transport.canonical_ports import PortBudget
-from outshine_ref.transport.canonical_ports._ground_network_geometry import layout
-from outshine_ref.transport.canonical_ports._ground_network_input import (
+from outshine.transport.canonical_ports import PortBudget
+from outshine.transport.canonical_ports._ground_network_geometry import layout
+from outshine.transport.canonical_ports._ground_network_input import (
     prepare_network_ground,
 )
-from outshine_ref.transport.canonical_ports._ground_recipe import source_network
+from outshine.transport.canonical_ports._ground_recipe import source_network
 
 
 class GroundNetwork(unittest.TestCase):

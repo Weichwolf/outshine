@@ -4,8 +4,8 @@ import unittest
 
 import numpy as np
 
-from outshine_ref.contracts import Mesh
-from outshine_ref.transport import HeightBudget, fit_surface_heights
+from outshine.contracts import Mesh
+from outshine.transport import HeightBudget, fit_surface_heights
 
 
 class TransportHeights(unittest.TestCase):

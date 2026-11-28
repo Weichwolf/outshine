@@ -5,14 +5,14 @@ from unittest.mock import patch
 
 import numpy as np
 import shapely
-from outshine_ref.geometry import (
+from outshine.geometry import (
     ProjectedSurfaceBudget,
     SurfaceSampler,
     conform_triangles,
     projected_height_surface,
 )
-from outshine_ref.geometry.projected_surface import _weld_xy
-from outshine_ref.transport import (
+from outshine.geometry.projected_surface import _weld_xy
+from outshine.transport import (
     close_surface,
     mesh_projected_profile,
     plan_vertical_transition,

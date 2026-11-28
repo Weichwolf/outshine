@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.vegetation import GroundCoverPlan
+from outshine.vegetation import GroundCoverPlan
 
 
 def ordered(product):

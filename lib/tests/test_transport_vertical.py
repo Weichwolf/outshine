@@ -3,7 +3,7 @@
 import unittest
 
 import numpy as np
-from outshine_ref.transport import (
+from outshine.transport import (
     VerticalTransition,
     minimum_transition_length,
     plan_vertical_transition,

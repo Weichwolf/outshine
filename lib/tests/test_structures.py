@@ -3,7 +3,7 @@ import unittest
 
 import shapely
 
-from outshine_ref.buildings.structures import classify_structure, classify_structure_marker
+from outshine.buildings.structures import classify_structure, classify_structure_marker
 
 
 class StructuralInterpretationTests(unittest.TestCase):

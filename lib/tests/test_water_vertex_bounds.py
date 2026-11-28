@@ -1,8 +1,8 @@
 import unittest
 
 import numpy as np
-from outshine_ref.contracts import Mesh
-from outshine_ref.water import fit_physical_surface
+from outshine.contracts import Mesh
+from outshine.water import fit_physical_surface
 
 
 class WaterVertexBounds(unittest.TestCase):

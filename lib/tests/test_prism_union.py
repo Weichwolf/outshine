@@ -5,7 +5,7 @@ import numpy as np
 import shapely
 from shapely.affinity import translate
 
-from outshine_ref.buildings.modelling import PrismVolume,union_prisms
+from outshine.buildings.modelling import PrismVolume,union_prisms
 
 
 def closed(product):

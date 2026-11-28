@@ -3,7 +3,7 @@
 import unittest
 
 import numpy as np
-from outshine_ref.vegetation.leaf_normals import (
+from outshine.vegetation.leaf_normals import (
     mip_pyramid,
     resolve_moments,
     slope_moments,

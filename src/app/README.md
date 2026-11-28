@@ -188,7 +188,7 @@ build/outshine benchmark --scenario "$scenario" --tile-product "$tile" --frames 
 ```
 
 Der Kachelbenchmark nimmt eine geografische Kamera mit absoluter Höhe und eine vorbereitete
-Oberflächenkachel bei 1280×720. `test/experiments/render/export_surface_tile.py` exportiert
+Oberflächenkachel bei 1280×720. `lib/experiments/render/export_surface_tile.py` exportiert
 eine explizite Z/X/Y-Seite aus einer Ground-Region mit eingebetteten Seiten oder einem
 vollständigen Terrain-Pack (`--kind ground-terrain-pack`). Der Export verwendet die gespeicherten Höhen und die Triangulierung des
 Terrain-Meshers. Die Fehlerschranke bezieht sich auf die Triangulierung derselben Höhenzellen.
@@ -203,7 +203,7 @@ Gebäudehüllen dieser Kachel.
 
 ```sh
 cmake --build build --target outshine_experiment_surface_buildings
-python3 -B test/experiments/render/bake_surface_buildings.py "$asset_cache" \
+python3 -B lib/experiments/render/bake_surface_buildings.py "$asset_cache" \
   "$geometry_cache" build/outshine_experiment_surface_buildings "$output_dir" "$grid" \
   --building-key "$building_key" --fine-level "$fine_level"
 ```
@@ -212,7 +212,7 @@ Für den SSD-Vergleich importiert der Client gepackte Kacheln und Fernpanoramen 
 SHA-256-Revision, die Quellen und Generatorversion identifiziert.
 
 ```sh
-python3 -B test/experiments/render/pack_surface_tile.py "$tile" "$packed"
+python3 -B lib/experiments/render/pack_surface_tile.py "$tile" "$packed"
 build/outshine cache import-surface "$database" "$revision" "$packed"
 build/outshine cache import-panorama "$database" "$revision" "$first" "$next"
 build/outshine benchmark --scenario "$scenario" --product-store "$database" \
@@ -225,7 +225,7 @@ er drei Byte lineare Farbe und ein Byte Rauheit. Geometrie und Gebäudefarben bl
 
 ```sh
 cmake --build build --target outshine_experiment_surface_ground
-python3 -B test/experiments/render/bake_surface_ground.py "$cache" "$region_key" \
+python3 -B lib/experiments/render/bake_surface_ground.py "$cache" "$region_key" \
   build/outshine_experiment_surface_ground "$output_dir" "$packed"
 ```
 

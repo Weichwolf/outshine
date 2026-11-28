@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 class ReferenceImports(unittest.TestCase):
     def fresh(self, source):
         bootstrap = (
-            f"import sys; sys.path.insert(0, {json.dumps(str(ROOT / 'lib/src'))})\n"
+            f"import sys; sys.path.insert(0, {json.dumps(str(ROOT / 'lib'))})\n"
         )
         result = subprocess.run(
             [sys.executable, "-I", "-c", bootstrap + source],
@@ -27,23 +27,23 @@ class ReferenceImports(unittest.TestCase):
         self.fresh("""
 class BlockGenerators:
     def find_spec(self, name, *args):
-        blocked = ('shapely', 'outshine_ref.contracts', 'outshine_ref.pipeline',
-                   'outshine_ref.buildings', 'outshine_ref.geometry',
-                   'outshine_ref.transport', 'outshine_ref.vegetation')
+        blocked = ('shapely', 'outshine.contracts', 'outshine.pipeline',
+                   'outshine.buildings', 'outshine.geometry',
+                   'outshine.transport', 'outshine.vegetation')
         if name.startswith(blocked):
             raise AssertionError('rendering requested generator dependency: ' + name)
 sys.meta_path.insert(0, BlockGenerators())
-from outshine_ref.rendering.blender_camera import configure_camera, verify_camera
-from outshine_ref.rendering.blender_light import configure_daylight
+from outshine.rendering.blender_camera import configure_camera, verify_camera
+from outshine.rendering.blender_light import configure_daylight
 assert all(callable(fn) for fn in (configure_camera, verify_camera, configure_daylight))
 """)
 
     def test_consumed_exports_retain_their_original_objects(self):
         self.fresh("""
-import outshine_ref as reference
-from outshine_ref import LocalFrame, PreparedWorld, buildings, geometry, transport, vegetation
-from outshine_ref.contracts import LocalFrame as contract
-from outshine_ref.pipeline import PreparedWorld as world, prepare
+import outshine as reference
+from outshine import LocalFrame, PreparedWorld, buildings, geometry, transport, vegetation
+from outshine.contracts import LocalFrame as contract
+from outshine.pipeline import PreparedWorld as world, prepare
 assert reference.LocalFrame is LocalFrame is contract
 assert reference.PreparedWorld is PreparedWorld is world
 assert reference.prepare is prepare
@@ -54,16 +54,16 @@ for name, module in [('buildings', buildings), ('geometry', geometry),
 
     def test_discovery_and_unknown_names_keep_python_module_semantics(self):
         self.fresh("""
-import outshine_ref as reference
+import outshine as reference
 assert set(reference.__all__) <= set(dir(reference))
-assert 'outshine_ref.contracts' not in sys.modules
+assert 'outshine.contracts' not in sys.modules
 try:
     reference.no_such_export
 except AttributeError:
     pass
 else:
     raise AssertionError('unknown package attribute was accepted')
-assert 'outshine_ref.contracts' not in sys.modules
+assert 'outshine.contracts' not in sys.modules
 """)
 
 

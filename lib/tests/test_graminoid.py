@@ -3,7 +3,7 @@
 import unittest
 
 import numpy as np
-from outshine_ref.vegetation.graminoid import graminoid_tuft_mesh
+from outshine.vegetation.graminoid import graminoid_tuft_mesh
 
 
 class GraminoidTests(unittest.TestCase):

@@ -11,7 +11,7 @@ the texture. The triangle count assumes two triangles per planar block.
 cmake --build build --target outshine_experiment_group_impostors
 probe=$(mktemp -d "${TMPDIR:-/tmp}/outshine-group-impostors.XXXXXX")
 mkdir "$probe/block" "$probe/tree" "$probe/stand"
-reference=test/experiments/render/group_impostor_views.py
+reference=lib/experiments/render/group_impostor_views.py
 python3 -B "$reference" directions > "$probe/views"
 bake=build/outshine_experiment_group_impostors
 spruce=data/world/species/spruce.json
@@ -143,7 +143,7 @@ through both world handoffs require separate measurements.
 ## Canopy directions
 
 ```sh
-canopy=test/experiments/render/canopy_group_angles.py
+canopy=lib/experiments/render/canopy_group_angles.py
 python3 -B "$canopy" directions > "$probe/canopy-views"
 mkdir "$probe/canopy-tree" "$probe/canopy-stand"
 "$bake" tree "$spruce" "$probe/canopy-views" 256 "$probe/canopy-tree"
@@ -192,7 +192,7 @@ surface grid using the source forest classes and declared tree densities.
 It groups two-by-two terrain cells. The replay uses one spruce prototype.
 
 ```sh
-python3 -B test/experiments/render/canopy_group_layout.py \
+python3 -B lib/experiments/render/canopy_group_layout.py \
   "$surface" "$ground_samples" data/world/vegetation.json "$prototype/group.json" \
   "$probe/layouts"
 mkdir "$probe/hillside"
@@ -225,7 +225,7 @@ the four samples and leaf depth represents texels with at least half coverage.
 The prototype uses the panorama's irradiance and exposure for matching shade.
 
 ```sh
-python3 -B test/experiments/render/compose_canopy_panorama.py \
+python3 -B lib/experiments/render/compose_canopy_panorama.py \
   "$terrain_panorama" "$canopy_panorama" "$database" "$revision"
 outshine cache import-panorama "$database" "$revision" "$canopy_panorama"
 ```
@@ -263,11 +263,11 @@ at the closer control distance. This comparison covers one species.
 
 ```sh
 build/outshine_experiment_tree_prototype "$species" "$prototype"
-python3 -B test/experiments/render/near_canopy_geometry.py \
+python3 -B lib/experiments/render/near_canopy_geometry.py \
   "$prototype/3" "$flat_surface" "$one_tree_layout" "$tree_mesh" \
   --cell-m .65 --coverage-gain 1.4
 build/outshine_experiment_group_impostors overlay "$tree_mesh" "$directions" 256 "$mesh_capture"
-python3 -B test/experiments/render/near_canopy_coverage.py "$source_capture" "$mesh_capture"
+python3 -B lib/experiments/render/near_canopy_coverage.py "$source_capture" "$mesh_capture"
 build/outshine_experiment_metal_groups "$group" "$terrain" "$output" \
   1190 12 "$tree_mesh" "$group_layout" 1260
 ```
@@ -584,7 +584,7 @@ texels and pack the first four at both 128 and 256 texels. Compare the
 reprojected pairs against the fifth capture on the same 128 × 128 grid.
 
 ```sh
-python3 -B test/experiments/render/group_impostor_views.py compare-pairs \
+python3 -B lib/experiments/render/group_impostor_views.py compare-pairs \
   "$capture256" "$result" --probe 4 --side 128 \
   --pair "$capture256" 0 1 --pair "$capture128" 2 3 --pair "$capture256" 2 3
 ```
@@ -639,7 +639,7 @@ had less improvement. Using the frontmost material sample alone was
 worse than the weighted mean for both of those orientations.
 
 ```sh
-python3 -B test/experiments/render/group_impostor_views.py compare-pairs \
+python3 -B lib/experiments/render/group_impostor_views.py compare-pairs \
   "$capture" "$result" --probe "$probe" --side 128 \
   --pair "$before" "$left" "$right" --pair "$after" "$left" "$right" \
   --light "$panorama/panorama.json"
@@ -731,7 +731,7 @@ horizontal captures for the trial. The runtime benchmark and indexed
 replay use the normal renderer.
 
 ```sh
-python3 -B test/experiments/render/compose_panorama_overlap.py \
+python3 -B -m outshine.rendering.compose_panorama_overlap \
   "$far" "$surface" "$matched" --fade-m 300
 outshine cache import-panorama "$database" "$revision" "$matched"
 ```
@@ -763,8 +763,8 @@ lighting with the capture.
 outshine benchmark --scenario "$anchor" --frames 1 \
   --product-store "$database" --product-revision "$revision" \
   --panorama-product "$far" --panorama-output "$capture"
-python3 -B test/experiments/render/pack_far_panorama.py "$capture" "$surface"
-python3 -B test/experiments/render/compose_panorama_overlap.py \
+python3 -B -m outshine.rendering.pack_far_panorama "$capture" "$surface"
+python3 -B -m outshine.rendering.compose_panorama_overlap \
   "$far" "$surface" "$matched" --fade-m "$fade_m"
 ```
 
@@ -886,7 +886,7 @@ existing sky and any farther canopy already in the exterior. Publish
 the result in a separate store with only the panorama body.
 
 ```sh
-python3 -B test/experiments/render/compose_panorama_overlap.py \
+python3 -B -m outshine.rendering.compose_panorama_overlap \
   "$exterior" "$packed_interior" "$complete" --standalone
 outshine cache import-panorama "$cube_store" "$revision" "$complete"
 outshine benchmark --scenario "$camera" --frames 120 --angular-velocity '0,-90,0' \

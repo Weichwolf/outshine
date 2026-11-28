@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 import numpy as np
 import shapely
-from outshine_ref.buildings.modelling import heightfield_envelope
-from outshine_ref.buildings.section_roofs import RoofSection, section_surface
+from outshine.buildings.modelling import heightfield_envelope
+from outshine.buildings.section_roofs import RoofSection, section_surface
 
 
 class SectionRoofs(unittest.TestCase):

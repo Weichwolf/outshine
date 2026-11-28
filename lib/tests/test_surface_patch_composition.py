@@ -5,9 +5,9 @@ from unittest.mock import patch
 
 import numpy as np
 import shapely
-from outshine_ref.contracts import LocalFrame, Mesh
-from outshine_ref.geometry import SurfaceSampler
-from outshine_ref.geometry.surface_patches import SurfacePatch, SurfacePatches, _field
+from outshine.contracts import LocalFrame, Mesh
+from outshine.geometry import SurfaceSampler
+from outshine.geometry.surface_patches import SurfacePatch, SurfacePatches, _field
 
 
 def part(name, xy, faces):

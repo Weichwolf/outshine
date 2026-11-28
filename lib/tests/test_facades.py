@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import shapely
 
-from outshine_ref.buildings.facades import FacadeRepeat,rectangle_coverage
+from outshine.buildings.facades import FacadeRepeat,rectangle_coverage
 
 
 def explicit(repeat,centres,footprints):

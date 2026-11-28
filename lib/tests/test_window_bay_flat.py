@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import numpy as np
 import shapely
-from outshine_ref.buildings.window_bays import WindowBay, bay_flat, bay_skin
+from outshine.buildings.window_bays import WindowBay, bay_flat, bay_skin
 
 
 def surface_distance(points, product):
@@ -75,14 +75,14 @@ class FlatWindowBays(unittest.TestCase):
     ):
         plan = WindowBay(2.8, 2.9)
         with patch(
-            "outshine_ref.buildings.window_bays._outline",
+            "outshine.buildings.window_bays._outline",
             side_effect=AssertionError("expanded"),
         ):
             for capacity in (45, True, 46.0):
                 with self.assertRaisesRegex(ValueError, "capacity"):
                     bay_flat(plan, back_covered=True, max_triangles=capacity)
         with patch(
-            "outshine_ref.buildings.window_bays.sections",
+            "outshine.buildings.window_bays.sections",
             side_effect=AssertionError("hidden parts"),
         ):
             self.assertEqual(len(bay_flat(plan, back_covered=True)["faces"]), 46)

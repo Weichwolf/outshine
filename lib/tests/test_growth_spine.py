@@ -7,7 +7,7 @@ from dataclasses import replace
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.vegetation import (
+from outshine.vegetation import (
     AttractionField,
     DirectionField,
     GrowthSpine,
@@ -15,8 +15,8 @@ from outshine_ref.vegetation import (
     RadialFalloff,
     SpatialFrondGuide,
 )
-from outshine_ref.vegetation.growth_integrate import constant_samples
-from outshine_ref.vegetation.scalar_forces import compile_fields, scalar_force
+from outshine.vegetation.growth_integrate import constant_samples
+from outshine.vegetation.scalar_forces import compile_fields, scalar_force
 from scipy.spatial.transform import Rotation
 
 
@@ -161,7 +161,7 @@ class GrowthSpineTests(unittest.TestCase):
     def test_budget_refusal_and_invalid_preflight(self):
         p = GrowthSpine(1.3, (DirectionField((0, -0.2, -1), rate(0.8)),))
         with patch(
-            "outshine_ref.vegetation.growth_integrate.compile_fields",
+            "outshine.vegetation.growth_integrate.compile_fields",
             side_effect=AssertionError("field preparation"),
         ):
             self.assertIsNone(p.prepare(max_evaluations=0))
@@ -175,11 +175,11 @@ class GrowthSpineTests(unittest.TestCase):
             calls.append(1)
             return original(*args)
 
-        with patch("outshine_ref.vegetation.growth_integrate.scalar_force", counted):
+        with patch("outshine.vegetation.growth_integrate.scalar_force", counted):
             self.assertIsNone(p.prepare(method="DOP853", max_evaluations=100))
         self.assertEqual(len(calls), 100)
         with patch(
-            "outshine_ref.vegetation.growth_integrate.compile_fields",
+            "outshine.vegetation.growth_integrate.compile_fields",
             side_effect=AssertionError("field preparation"),
         ):
             self.assertIsNone(p.prepare(method="DOP853", max_evaluations=1))

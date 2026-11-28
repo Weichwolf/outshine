@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 import numpy as np
-from outshine_ref.rendering.blender_camera import configure_camera, verify_camera
+from outshine.rendering.blender_camera import configure_camera, verify_camera
 
 
 @unittest.skipUnless(

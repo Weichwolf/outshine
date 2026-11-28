@@ -3,7 +3,7 @@
 Orte, Kameras und Inhalte richten sich nach der Bildfrage. Wald, Parkrand und
 Stadtgrün profitieren von Ansichten mit Vegetation. Diagnoseansichten machen
 Gelände-, Gebäude- und Verkehrskontakte sichtbar. Für Phase 1 stehen die
-[Python-/Blender-Ansichten](../../../experiments/vienna/) zur Verfügung.
+[Python-/Blender-Ansichten](../../../../lib/tests/fixtures/vienna/) zur Verfügung.
 `references.json` erhält Webcam-Herkunft und Archivvergleiche, auch für archivierte Orte.
 Datierte Webcam-Aufnahmen sind die erste Bildreferenz. Vergleiche wiederholte Ansichten
 über Tageszeiten, Wetter und Jahreszeiten und gleiche die Kamera vor einem Geometrievergleich ab.

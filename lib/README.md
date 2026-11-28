@@ -1,37 +1,46 @@
 # Outshine Python reference
 
-`outshine_ref` preserves Outshine’s generator research, recipes and counterexamples.
-Phase 1 uses these generators in Blender to develop plausible infrastructure and
-varied vegetation. The checked images and generator inputs guide application work.
+`outshine` prepares a geographic scene and renders one PNG per camera. It contains
+sources, procedural generators, materials and the Blender and GLSL renderers.
+The C++ realtime application lives in `src/` and its tests live in `test/`.
 
-| Modules | Preserved methods |
+| Path | Contents |
 |---|---|
-| `transport` | Canonical ports, corridor and junction geometry, grades, layered connections and rail hardware |
-| `buildings` | Footprints, roofing, facade rules, entrances and interior placement |
-| `geometry`, `water` | Surface topology and patches, water levels, profiles and contacts |
-| `vegetation`, `materials` | Habitat, morphology, leaf optics and surface composition |
-| `places`, `rendering` | Reference data loading and Blender comparison helpers |
+| `outshine/` | Python implementation and reference shader sources |
+| `tests/` | Python tests, pinned camera and source fixtures, image comparisons |
+| `experiments/` | Standalone Python research probes |
 
-With Python 3.11 or newer, install in a virtual environment.
+Install from the checkout. For Blender, use a virtual environment with the same
+Python major and minor as Blender. The GLSL backend uses the shared native shader
+includes from the checkout. It uses a hardware OpenGL 4.1 context, via EGL on
+headless Linux.
 
 ```sh
-python -m pip install -e './lib[transport,water,roofs,solids,places,assets]'
+python -m pip install -e './lib[render,assets,roofs]'
 python -m unittest discover -s lib/tests
+python -m outshine --latitude 48.13737 --longitude 11.57574 --heading 290 \
+  --absolute-height --height 565 --pitch -14 --time 2026-06-21T10:00:00Z --backend blender --output build/shots/Munich.png
 ```
 
-Use the bundled tests and real-world fixtures to compare generator behavior and
-application results. Keep tractable counterexamples, compare picture and cost on holdouts,
-and remeasure when assumptions change. Research and remaining gaps are indexed in
-[Outshine generation methods](../doc/references/procedural/outshine-generation.md).
-Choose the smallest source fixture that exposes the behavior. Expand to a larger
-scene for interactions, motion or effects that depend on the surrounding landscape.
+Use `--backend glsl` for the alternate reference renderer or `--engine cycles`
+for Blender light transport. Camera height defaults to 1.7 m above the solved
+surface. `--absolute-height` selects a height above sea level. Coordinates use
+the Web Mercator domain of the elevation and OSM providers. Source cache and
+snapshot can be selected via `--cache` and `--snapshot`.
 
-Render a prepared reference scene on the GPU. The second render measures warm time
-through the completed PNG write. Compare the Vienna working views at 1280×720.
+```python
+from outshine import Camera, render_png
 
-```sh
-blender -b scene.blend --python-exit-code 1 -P lib/src/outshine_ref/rendering/blender_render.py -- --engine eevee --repeat --output /tmp/outshine-preview.png
+render_png(Camera(48.13737, 11.57574, 290, -14, 565, above_ground=False),
+           "build/shots/Munich.png", backend="glsl")
 ```
 
-Use `--engine cycles` for lighting references. On the development Mac this selects
-Metal and disables the CPU render device.
+Run the [pinned pedestrian comparisons](tests/fixtures/vienna/) with
+`python -m lib.tests.render_places --place Adlerhof`. These fixtures own their
+camera catalog, source receipts and survey controls. The camera API uses the
+requested position and source snapshot directly.
+
+Use the smallest fixture that exposes the change. Open the renders and compare
+with dated photos and earlier results. See the
+[generation methods](../doc/references/procedural/outshine-generation.md) for
+research and known gaps.

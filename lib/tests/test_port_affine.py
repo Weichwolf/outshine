@@ -5,8 +5,8 @@ from dataclasses import replace
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.contracts import Mesh
-from outshine_ref.transport import PortHeightBudget, PortHeightInput, plan_port_heights
+from outshine.contracts import Mesh
+from outshine.transport import PortHeightBudget, PortHeightInput, plan_port_heights
 
 
 def terminal(junction=True, gradient=(0.02, 0.012)):
@@ -128,7 +128,7 @@ class AffinePorts(unittest.TestCase):
             np.tile(np.eye(2) / 0.025, (len(faces), 1, 1)),
         )
         with patch(
-            "outshine_ref.transport.port_heights._system.local_matrix",
+            "outshine.transport.port_heights._system.local_matrix",
             side_effect=AssertionError(
                 "a feasible global plane needs no sparse assembly"
             ),

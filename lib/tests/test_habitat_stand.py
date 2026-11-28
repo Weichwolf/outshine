@@ -8,8 +8,8 @@ from unittest.mock import patch
 
 import numpy as np
 import shapely
-from outshine_ref import LocalFrame
-from outshine_ref.vegetation import HabitatStand, StandHabitat
+from outshine import LocalFrame
+from outshine.vegetation import HabitatStand, StandHabitat
 from shapely.geometry.base import BaseGeometry
 
 

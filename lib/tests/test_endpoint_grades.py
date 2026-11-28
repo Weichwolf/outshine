@@ -4,7 +4,7 @@ import json
 import unittest
 
 import numpy as np
-from outshine_ref.transport import (
+from outshine.transport import (
     EndpointTransition,
     plan_endpoint_transition,
     sample_vertical_transition,

@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import numpy as np
 import shapely
-from outshine_ref.buildings.profiled_bands import (
+from outshine.buildings.profiled_bands import (
     BandPlan,
     band_surface,
     edge_footprints,
@@ -161,7 +161,7 @@ class ProfileBands(unittest.TestCase):
         plan = BandPlan(shapely.box(0, 0, 12, 18), PROFILE)
         with (
             patch(
-                "outshine_ref.buildings.profiled_bands._quads",
+                "outshine.buildings.profiled_bands._quads",
                 side_effect=AssertionError("expanded"),
             ),
             self.assertRaisesRegex(ValueError, "capacity"),

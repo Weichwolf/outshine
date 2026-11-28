@@ -5,12 +5,12 @@ import numpy as np
 import shapely
 from shapely.geometry import Point, box
 
-from outshine_ref import (
+from outshine import (
     BuildingFootprint, FootprintAdjustment, HeightInterval, Hint, LocalFrame,
     Mesh, Reservation, SourceFeature, SourceInputs, buildings, prepare, transport, vegetation,
 )
-from outshine_ref.geometry import conform_triangles
-from outshine_ref.pipeline import adjusted_footprints
+from outshine.geometry import conform_triangles
+from outshine.pipeline import adjusted_footprints
 
 
 class SpatialPipeline(unittest.TestCase):

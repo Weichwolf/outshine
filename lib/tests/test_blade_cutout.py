@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import numpy as np
 import shapely
-from outshine_ref.vegetation import Blade, BladeCutout
+from outshine.vegetation import Blade, BladeCutout
 from shapely.affinity import scale
 
 

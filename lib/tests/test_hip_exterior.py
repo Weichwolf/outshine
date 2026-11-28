@@ -4,8 +4,8 @@ import unittest
 import numpy as np
 import shapely
 
-from outshine_ref.buildings.modelling import Face,Frame,Shape
-from outshine_ref.buildings.modelling.faces import plane
+from outshine.buildings.modelling import Face,Frame,Shape
+from outshine.buildings.modelling.faces import plane
 from test_roof_hip import volume
 
 

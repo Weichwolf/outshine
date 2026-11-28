@@ -3,7 +3,7 @@
 import unittest
 
 import numpy as np
-from outshine_ref.vegetation.normal_distribution import (
+from outshine.vegetation.normal_distribution import (
     evaluate_diffuse,
     jensen_error_bound,
     mass_preserving_error_bound,

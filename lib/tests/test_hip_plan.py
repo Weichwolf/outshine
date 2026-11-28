@@ -6,7 +6,7 @@ import numpy as np
 import shapely
 from shapely import affinity
 
-from outshine_ref.buildings.modelling import SkeletonBudgetExceeded, SkeletonLimits, prepare_hip
+from outshine.buildings.modelling import SkeletonBudgetExceeded, SkeletonLimits, prepare_hip
 
 
 def volume(plan, value, mode):
@@ -91,7 +91,7 @@ class HipPlanning(unittest.TestCase):
                 plan.lifted_vertices(value, mode)
 
     def test_basic_import_and_rectangle_do_not_load_the_optional_solver(self):
-        command = "import sys,shapely; from outshine_ref.buildings.modelling import prepare_hip; prepare_hip(shapely.box(0,0,12,5)); assert not any(k.startswith('py_straight_skeleton') for k in sys.modules)"
+        command = "import sys,shapely; from outshine.buildings.modelling import prepare_hip; prepare_hip(shapely.box(0,0,12,5)); assert not any(k.startswith('py_straight_skeleton') for k in sys.modules)"
         subprocess.run([sys.executable, '-I', '-c', command], check=True, capture_output=True)
 
 

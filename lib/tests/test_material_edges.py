@@ -5,7 +5,7 @@ import unittest
 from itertools import pairwise
 
 import numpy as np
-from outshine_ref.materials import filtered_edge_weight
+from outshine.materials import filtered_edge_weight
 
 
 def mask(distance, reach):

@@ -4,7 +4,7 @@ from unittest.mock import patch
 import numpy as np
 import shapely
 
-from outshine_ref.buildings.modelling import Shape,hip_footprints,prepare_hip
+from outshine.buildings.modelling import Shape,hip_footprints,prepare_hip
 
 
 class PreparedHip(unittest.TestCase):
@@ -15,7 +15,7 @@ class PreparedHip(unittest.TestCase):
         for even in [False,True]:
             for overhang in [0.,-.5,.5]:
                 expected=source.roof_hip(3.,'byHeight',even=even,overhang=overhang).emit()
-                with patch('outshine_ref.buildings.modelling.roof_hip.prepare_hip',side_effect=AssertionError('Unexpected solver call')):
+                with patch('outshine.buildings.modelling.roof_hip.prepare_hip',side_effect=AssertionError('Unexpected solver call')):
                     actual=source.roof_hip(3.,'byHeight',even=even,overhang=overhang,prepared_plans=plans).emit()
                 for key in expected:
                     if isinstance(expected[key],np.ndarray):np.testing.assert_array_equal(actual[key],expected[key])

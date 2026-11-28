@@ -344,7 +344,7 @@ class ScenarioBenchmark(unittest.TestCase):
                     self.assertNotIn(blended, (background, foreground))
 
             packed = root / 'tile.surface'
-            packer = ROOT / 'test/experiments/render/pack_surface_tile.py'
+            packer = ROOT / 'lib/experiments/render/pack_surface_tile.py'
             subprocess.run([sys.executable, '-B', str(packer), str(tile), str(packed)], check=True)
             packed_image, packed_report = draw('--tile-product', str(packed))
             self.assertEqual(packed_image, foreground)
@@ -538,7 +538,7 @@ class ScenarioBenchmark(unittest.TestCase):
                     'vertices_eus_m': [[-10, 90, -5], [10, 90, -5], [-10, 110, -5], [10, 110, -5]],
                     'normals_eus': [[0, 0, 1]] * 4, 'indices': [0, 1, 3, 0, 3, 2],
                 }))
-                packer = ROOT / 'test/experiments/render/pack_surface_tile.py'
+                packer = ROOT / 'lib/experiments/render/pack_surface_tile.py'
                 subprocess.run([sys.executable, '-B', str(packer), str(source), str(packed)],
                                check=True)
                 files.append(str(packed))
@@ -602,7 +602,7 @@ class ScenarioBenchmark(unittest.TestCase):
             }))
             packed = root / 'tile.surface'
             subprocess.run([sys.executable, '-B',
-                            str(ROOT / 'test/experiments/render/pack_surface_tile.py'),
+                            str(ROOT / 'lib/experiments/render/pack_surface_tile.py'),
                             str(tile), str(packed)], check=True)
             store = root / 'products.sqlite'
             revision = '9' * 64
@@ -659,7 +659,7 @@ class ScenarioBenchmark(unittest.TestCase):
                     recipe['colours_rgba8'] += [[217, 167, 24, 255]] * 3
                 path.write_text(json.dumps(recipe))
                 subprocess.run([sys.executable, '-B',
-                                str(ROOT / 'test/experiments/render/pack_surface_tile.py'),
+                                str(ROOT / 'lib/experiments/render/pack_surface_tile.py'),
                                 str(path), str(packed)], check=True, timeout=20)
                 return packed
 

@@ -4,13 +4,13 @@ import struct
 import unittest
 from dataclasses import replace
 
-from outshine_ref.transport.canonical_ports import (
+from outshine.transport.canonical_ports import (
     PortBudget,
     PortNode,
     PortSource,
     PortSpan,
 )
-from outshine_ref.transport.canonical_ports._end_candidates import (
+from outshine.transport.canonical_ports._end_candidates import (
     CandidateGroup,
     CandidateMember,
     CandidateWay,

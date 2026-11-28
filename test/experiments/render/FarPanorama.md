@@ -9,8 +9,8 @@ focal length, a 1,200 m foreground boundary limits the angular shift to about 3.
 ```sh
 outshine benchmark --scenario "$source" --frames 1 --offline \
   --preload-seconds 240 --panorama-output "$capture"
-python3 -B test/experiments/render/pack_far_panorama.py "$capture" "$product"
-python3 -B test/experiments/render/preview_far_panorama.py "$product" "$comparison" "$png"
+python3 -B -m outshine.rendering.pack_far_panorama "$capture" "$product"
+python3 -B lib/experiments/render/preview_far_panorama.py "$product" "$comparison" "$png"
 ```
 
 The comparison is a standard world benchmark JSON with the same geographic anchor and

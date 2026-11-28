@@ -5,7 +5,7 @@ from dataclasses import replace
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.buildings.roller_gates import RollerGate, leaf_surface, lift, profile
+from outshine.buildings.roller_gates import RollerGate, leaf_surface, lift, profile
 
 
 class RollerGates(unittest.TestCase):
@@ -71,7 +71,7 @@ class RollerGates(unittest.TestCase):
 
     def test_fully_open_does_not_triangulate_or_model_hidden_winding(self):
         with patch(
-            "outshine_ref.buildings.roller_gates.extrusion",
+            "outshine.buildings.roller_gates.extrusion",
             side_effect=AssertionError("hidden sheet"),
         ):
             self.assertEqual(len(leaf_surface(RollerGate(3.8, 3), 1)["faces"]), 0)
@@ -86,7 +86,7 @@ class RollerGates(unittest.TestCase):
         gate = RollerGate(3.8, 3)
         with (
             patch(
-                "outshine_ref.buildings.roller_gates.profile",
+                "outshine.buildings.roller_gates.profile",
                 side_effect=AssertionError("late capacity"),
             ),
             self.assertRaises(ValueError),

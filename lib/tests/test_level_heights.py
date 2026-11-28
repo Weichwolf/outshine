@@ -8,9 +8,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.contracts import Mesh
-from outshine_ref.transport import HeightBudget, fit_surface_heights
-from outshine_ref.transport.level_heights import fit_level_heights
+from outshine.contracts import Mesh
+from outshine.transport import HeightBudget, fit_surface_heights
+from outshine.transport.level_heights import fit_level_heights
 
 
 def strip():
@@ -99,7 +99,7 @@ class LevelHeights(unittest.TestCase):
             source.triangles,
         )
         with patch(
-            "outshine_ref.transport.level_heights._continuous.solve_groups",
+            "outshine.transport.level_heights._continuous.solve_groups",
             side_effect=AssertionError("unnecessary solve"),
         ):
             result = fit_level_heights(flat, frames, groups)
@@ -164,7 +164,7 @@ class LevelHeights(unittest.TestCase):
         ):
             answer = (heights, {"solver_status": "Solved", "iterations": 1})
             with patch(
-                "outshine_ref.transport.level_heights._continuous.solve_groups",
+                "outshine.transport.level_heights._continuous.solve_groups",
                 return_value=answer,
             ):
                 result = fit_level_heights(source, frames, groups)
@@ -181,7 +181,7 @@ class LevelHeights(unittest.TestCase):
             with (
                 np.errstate(over="raise"),
                 patch(
-                    "outshine_ref.transport.level_heights._continuous.solve_groups",
+                    "outshine.transport.level_heights._continuous.solve_groups",
                     side_effect=AssertionError("unsupported solve"),
                 ),
             ):

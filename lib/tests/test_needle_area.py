@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.vegetation import (
+from outshine.vegetation import (
     AxisLevel,
     Needle,
     NeedledPlant,

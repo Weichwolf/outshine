@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.vegetation import SpeciesHeightMixture, species_site_uniforms
+from outshine.vegetation import SpeciesHeightMixture, species_site_uniforms
 
 
 class SpeciesMixtureTests(unittest.TestCase):
