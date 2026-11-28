@@ -21,7 +21,9 @@ from outshine.transport.route_tiles import geography, grid_point
 
 from .road_terrain import (
     ROAD_LAYERS,
+    VECTOR_ZOOM,
     RoadTerrain,
+    crossfall_tiles,
     dem_longitude,
     elevation_tiles,
     local_metric,
@@ -42,12 +44,16 @@ class LocalScene:
         self.dem = Elevation([])
         transport_tiles = {}
         vectors = {}
-        support = elevation_tiles(terrain_tiles(self.lat, self.lon, radius), 12)
+        ground_tiles = terrain_tiles(self.lat, self.lon, radius)
+        support = {
+            "elevation": elevation_tiles(ground_tiles, 12),
+            "vector": crossfall_tiles(ground_tiles),
+        }
         extent = box(-radius, -radius, radius, radius)
         shapely.prepare(extent)
-        for kind, zoom in (("elevation", 12), ("vector", 14)):
+        for kind, zoom in (("elevation", 12), ("vector", VECTOR_ZOOM)):
             local = set(covering_tiles(self.lat, self.lon, radius, zoom))
-            tiles = local | support if kind == "elevation" else local
+            tiles = local | support[kind]
             for tile in sorted(tiles):
                 key = "/".join(map(str, tile))
                 url = (
@@ -60,13 +66,18 @@ class LocalScene:
                 receipt = acquire((kind, tile, url), Path(cache), fetch=True)
                 self.receipts.append(receipt)
                 if kind == "vector":
-                    data = decode_vector(receipt, layers=LOCAL_LAYERS)
+                    if tile not in local and receipt.get("missing"):
+                        continue
+                    data = decode_vector(
+                        receipt, layers=LOCAL_LAYERS if tile in local else ROAD_LAYERS
+                    )
                     vectors[tile] = {
                         name: data[name] for name in ROAD_LAYERS if name in data
                     }
-                    if "transportation" in data:
-                        transport_tiles[tile] = data["transportation"]
-                    self.add_features(receipt, extent, data)
+                    if tile in local:
+                        if "transportation" in data:
+                            transport_tiles[tile] = data["transportation"]
+                        self.add_features(receipt, extent, data)
             if kind == "elevation":
                 self.dem = Elevation(self.receipts)
         self.datum = float(self.dem.sample(self.lat, self.lon))
