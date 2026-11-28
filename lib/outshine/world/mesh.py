@@ -30,6 +30,7 @@ from outshine.buildings.entrances import (
     pave_entrances,
 )
 from outshine.buildings.facade import FacadeView, draw_facade
+from outshine.buildings.platform_canopies import draw_platform_canopy, platform_canopies
 from outshine.buildings.rail_station import StationHall, plan_station_halls
 from outshine.buildings.street_facade import draw_low_front, draw_street_storey
 from outshine.buildings.structures import suppressed
@@ -1039,6 +1040,8 @@ def assemble(
         )
         if polygon.distance(centre) <= radius
     ]
+    canopies = platform_canopies(source.features, footprints)
+    footprints = [(g, tags) for g, tags in footprints if g not in canopies]
     geometries = [g for g, _ in footprints]
     tags = [p for _, p in footprints]
     colours = facade_colours(geometries, tags)
@@ -1148,6 +1151,9 @@ def assemble(
         bridges[deck.layer] = deck.footprint.union(
             bridges.get(deck.layer, shapely.Polygon())
         )
+    rail_mesh = meshes.get("rail head")
+    for polygon, canopy in canopies.items():
+        draw_platform_canopy(meshes, polygon, canopy, extent, grade, rail_mesh)
     footprints = [form.polygon for form in forms]
     eaves, roofs = plan_roofs(
         footprints,
