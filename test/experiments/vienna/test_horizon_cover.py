@@ -2,7 +2,8 @@ import unittest
 
 import numpy as np
 import shapely
-from horizon_cover import COVER_CODES, COVER_MATERIALS, cover_material, rasterize_cover
+from horizon_cover import COVER_CODES, COVER_MATERIALS, rasterize_cover
+from land_cover import cover_material
 
 
 def material_pixel(name):

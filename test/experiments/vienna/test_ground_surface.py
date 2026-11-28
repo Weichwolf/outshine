@@ -10,6 +10,7 @@ from ground_surface import (
     partition_ground,
     trail_litter_weights,
 )
+from land_cover import cover_material
 from reference_scene import support_height
 from regional import REGIONAL_LAND, class_fields
 from scene_mesh import assemble
@@ -118,6 +119,36 @@ class GroundSurfaceTest(unittest.TestCase):
         self.assertEqual(
             [REGIONAL_LAND[land[8, x]] for x in (1, 3, 5)],
             ["grass", "meadow", "regional wood"],
+        )
+
+    def test_regional_field_retains_cover_inside_woodland_clearance(self):
+        def feature(geometry, id, **tags):
+            return {
+                "geometry": shapely.geometry.mapping(geometry),
+                "id": id,
+                "properties": tags,
+            }
+
+        tags = {"class": "farmland"}
+        crop = feature(box(0, 0, 16, 16), 6382, **tags)
+        woodland = box(2, 2, 14, 14).difference(box(6, 5, 11, 12))
+        data = {
+            "landcover": {
+                "extent": 16,
+                "features": [feature(woodland, 12, **{"class": "wood"}), crop],
+            },
+            "landuse": {
+                "extent": 16,
+                "features": [
+                    feature(box(0, 0, 16, 16), 24, **{"class": "residential"})
+                ],
+            },
+        }
+        land, _ = class_fields(data, 16, set(), False)
+        field = cover_material("landcover", tags, crop["id"])
+        self.assertEqual(
+            [REGIONAL_LAND[land[8, x]] for x in (1, 4, 8)],
+            [field, "regional wood", field],
         )
 
     def test_tagged_meadow_overrides_generic_grass_and_keeps_the_path(self):
