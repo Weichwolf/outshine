@@ -149,8 +149,10 @@ route, supply its camera stations as separate calls to `outshine.render_png`.
 
 Export the GLSL atmosphere for a fixed view and pass the directory to both renderers.
 Each archive stores a scene-linear 512 × 256 equirectangular image, solar direction,
-rendered eye altitude and aerosol extinction. Direct sunlight comes from the
-separate sun in each renderer.
+rendered eye altitude and aerosol extinction. Blender and GLSL use the same RGB
+transmission for direct sunlight at that altitude. The solar ray passes through
+the reference atmosphere's Rayleigh, ozone and aerosol profiles. Cloud
+transmission multiplies the attenuated direct light.
 Blender uses the image as its world environment. GLSL integrates the same image with a
 Lambert cosine kernel and evaluates unoccluded diffuse light from nine spherical harmonics.
 For opaque materials, GLSL also filters the shared sky into the native renderer's
@@ -200,8 +202,7 @@ with a 1.2 km exponential scale height and 0.9 scattering albedo. GLSL samples t
 atmospheric lookup tables for the camera-to-surface segment. Blender integrates the
 Rayleigh and aerosol columns along each camera ray using its Mist distance pass and
 the altitude above the curved Earth. Rayleigh transmission is evaluated per RGB band
-and aerosol extinction is grey. Both renderers attenuate direct sunlight through the
-aerosol column. Use separate sky archives for the two weather profiles.
+and aerosol extinction is grey. Use separate sky archives for the two weather profiles.
 [Hillaire, Scalable Atmosphere Rendering](https://doi.org/10.1111/cgf.14050)
 
 FranzKarlFernsicht-Adjacent looks through a wider gap in the crowns from the

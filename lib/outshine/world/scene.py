@@ -32,7 +32,7 @@ from outshine.vegetation.woodland_shrubs import woodland_shrubs
 from outshine.water.river_control import RiverControl, control_surfaces
 from outshine.water.water_bed import nearshore_bed
 from outshine.water.water_surface import water_bodies
-from outshine.weather.air_profile import aerosol_extinction, direct_sun_fraction
+from outshine.weather.air_profile import aerosol_extinction, direct_sun_transmission
 from outshine.weather.cloud_profile import cloud_profile
 from outshine.world.mesh import assemble, terrain_grid
 from outshine.world.regional import (
@@ -276,7 +276,7 @@ class ReferenceScene:
             (utc - datetime.fromisoformat(config["utc"])).total_seconds(),
             config["seed"],
         )
-        self.direct_sun_fraction = direct_sun_fraction(
+        self.direct_sun_transmission = direct_sun_transmission(
             z + self.source.datum, self.sun[2], self.aerosol_extinction
         )
 

@@ -218,6 +218,12 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
   - **Relevanz: Hoch — Atmosphäre / #7, #4.**
   - **Einsatz:** Kompakte Transmission-/Mehrfachstreuungs-/Himmels-/Luftperspektiv-LUTs; Boden,
     Flug, Orbit; vorhandene SkyStage; physikalisch begrenzte Fernsicht.
+  - **Anwendungsfall im Lichtvergleich #1965.** Blender und GLSL nutzen für das
+    direkte Sonnenlicht dieselbe RGB-Transmission aus Rayleigh-Streuung,
+    Ozonabsorption und Aerosol-Extinktion. Am Adlerhof wird die besonnte Fassade
+    bei 21,6° Sonnenhöhe wärmer. Auf Iris Xe stimmte die Integration je Kanal
+    bis auf rund 0,000004 mit der dicht abgetasteten GLSL-Atmosphäre überein.
+    [#1965](https://github.com/Weichwolf/outshine/issues/1965)
   - **Grenzen:** LUT-Auflösung/Updates und Sonnen-/Geländeschatten gegen Referenz; approximierte
     Streuung; Wetterparameter weder gemessene Aerosole noch Wolkenlösung.
 
