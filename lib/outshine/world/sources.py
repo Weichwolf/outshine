@@ -84,6 +84,22 @@ class LocalScene:
                 self.features.append((name, geometry, properties))
 
     @cached_property
+    def road_tunnel_approaches(self):
+        approaches = {}
+        for portal in self.transport_graph.portals:
+            if portal.structure.domain[2] != "tunnel" or "motor" not in (
+                portal.enter_modes | portal.exit_modes
+            ):
+                continue
+            mouth, lead = self.metric(
+                *np.asarray(
+                    [geography(portal.ground.point), geography(portal.ground_next)]
+                ).T
+            )
+            approaches[tuple(np.round(mouth, 6))] = tuple(lead)
+        return approaches
+
+    @cached_property
     def ground_tile_joins(self):
         graph = self.transport_graph
         joined = []

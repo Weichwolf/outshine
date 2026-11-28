@@ -10,6 +10,28 @@ from outshine.world.scene import support_height
 
 
 class RoadTunnelTest(unittest.TestCase):
+    def test_graph_mouth_approaches_fit_a_tunnel_across_road_class_changes(self):
+        def way(points, tags):
+            return "transportation", shapely.LineString(points), tags
+
+        source = SimpleNamespace(
+            height=lambda xy: 6 * np.maximum(1 - (xy[:, 0] / 39) ** 2, 0),
+            features=[
+                way([(-48, 0), (48, 0)], {"class": "secondary", "brunnel": "tunnel"}),
+                way([(-85, 0), (-48, 0)], {"class": "primary"}),
+                way([(48, 0), (85, 0)], {"class": "tertiary"}),
+            ],
+            road_tunnel_approaches={(-48, 0): (-85, 0), (48, 0): (85, 0)},
+        )
+        meshes = assemble(source, 90)
+        for y in (-2.5, 0.0, 2.5):
+            roof = support_height(meshes["bridge deck"], (0, y))
+            road = support_height(meshes["road"], (0, y))
+            self.assertAlmostEqual(roof.min() - road.min(), PREFERRED_CLEARANCE)
+        stations = np.arange(-84, 85, 2)
+        floor = [support_height(meshes["road"], (x, 0)).min() for x in stations]
+        self.assertLessEqual(np.max(abs(np.diff(floor))) / 2, 0.08 + 1e-6)
+
     def test_both_mouths_join_the_roads_and_carry_the_surface_road_above(self):
         tag = {"class": "secondary"}
         source = SimpleNamespace(
