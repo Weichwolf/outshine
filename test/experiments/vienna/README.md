@@ -226,8 +226,10 @@ same shore trees from the next path position, with the lower forks above the roo
 [Weber and Penn, Creation and Rendering of Realistic Trees](https://doi.org/10.1145/218380.218427) ·
 [Hauptallee, 9 August 2022](https://commons.wikimedia.org/wiki/File:Hauptallee_Prater_Wien_2022-08-09_15.jpg)
 
-In the summer crowns, upper limbs spread out and the outer twigs carry shorter,
-more numerous shoots. Seeded blade roll keeps the midrib attached to its shoot.
+The summer crown recipes include a spreading form and an upright form for both oak
+and beech. On spreading trees, the lower limbs extend sideways, the upper limbs fill
+above them, and staggered shoots spread foliage across fewer supporting twigs.
+Seeded blade roll keeps the midrib attached to its shoot.
 The lower foliage stays flatter, and oak blades have a wider range of inclinations
 than beech blades. The same leaf orientations feed the near meshes and the grouped
 distance meshes. Compare leaf area and blade inclination against measured broadleaf

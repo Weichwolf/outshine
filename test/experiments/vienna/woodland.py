@@ -88,6 +88,35 @@ def stand_plan(species, form):
         leaf_internode=0.023 if species == "oak" else 0.018,
         leaf_sky_alignment=0.49,
     )
+    if form == 0:
+        limbs = replace(
+            limbs,
+            first=0.23 if species == "oak" else 0.26,
+            last=0.99,
+            angle=1.15 if species == "oak" else 0.97,
+            angle_tip=0.49,
+        )
+        twigs = replace(
+            twigs,
+            branches=twigs.branches - 3,
+            first=0.16,
+            last=0.96,
+            tip_scale=0.55,
+            angle=1.08,
+            leaf_internode=0.016,
+            upward_bias=0.14,
+        )
+        shoots = replace(
+            shoots,
+            branches=shoots.branches + 3,
+            first=0.13,
+            angle=1.34,
+            angle_variation=0.47,
+            length=shoots.length * 1.18,
+            leaf_internode=shoots.leaf_internode * 1.07,
+            length_shape="rounded",
+            upward_bias=0.06,
+        )
     return PlantPlan(base.seed + 19 * form, (stem, limbs, twigs, shoots), base.blades)
 
 
