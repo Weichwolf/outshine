@@ -15,7 +15,7 @@ uniform vec3 detailTint;
 uniform float barkBoxBlend;
 uniform bool hasDetail;
 uniform bool planarDetail;
-uniform bool hasTrailLitter;
+uniform bool hasGroundLitter;
 uniform sampler2D litterMap;
 uniform vec3 litterColour;
 uniform vec3 litterScale;
@@ -240,9 +240,10 @@ void main(){
     material.rgb*=fine.r*(1.68+.64*macro)*mix(vec3(1.),detailTint,fine.a);
     material.a=fine.g;
     float height = fine.b * detailScale.z;
-    if (hasTrailLitter) {
-      vec4 litter = texture(litterMap,uv/litterScale.x);
-      float broad = texture(litterMap,uv/litterScale.y).a;
+    if (hasGroundLitter) {
+      vec2 litterUv = detailCoordinates(objectNormal);
+      vec4 litter = texture(litterMap,litterUv/litterScale.x);
+      float broad = texture(litterMap,litterUv/litterScale.y).a;
       float weight = pow(smoothstep(0.,1.,litterWeight),1.35 - .70 * litter.a);
       vec3 albedo = litterColour * litter.r * (1.68 + .64 * broad) *
                     mix(vec3(1.),litterTint,litter.a);

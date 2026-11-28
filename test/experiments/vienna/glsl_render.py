@@ -19,6 +19,7 @@ sys.path.insert(0, str(ROOT / "lib/src"))
 from ground_detail import (
     BARK_BOX_BLEND,
     DETAIL_TINTS,
+    LITTER_DETAILS,
     PLANAR_DETAILS,
     SURFACE_DETAIL,
     detail_scale,
@@ -292,7 +293,7 @@ def projection(world):
     return clip @ view, right * t * 1280 / 720, up * t
 
 
-def upload(ctx, program, name, vertices, faces, placements, *, trail_litter=None):
+def upload(ctx, program, name, vertices, faces, placements, *, ground_litter=None):
     faces = np.asarray(faces, dtype="i4")
     if not faces.size:
         return
@@ -307,9 +308,9 @@ def upload(ctx, program, name, vertices, faces, placements, *, trail_litter=None
         (instances, "4f 1f /i", "offsetAngle", "scale"),
     ]
     buffers = [instances, idx, points]
-    if trail_litter is not None:
-        litter = ctx.buffer(trail_litter.tobytes())
-        content.append((litter, "1f", "trailLitter"))
+    if ground_litter is not None:
+        litter = ctx.buffer(ground_litter.tobytes())
+        content.append((litter, "1f", "groundLitter"))
         buffers.append(litter)
     if name.endswith((" bark", " crown")):
         a, b, c = vertices[faces].transpose(1, 0, 2)
@@ -420,8 +421,8 @@ def draw_surfaces(ctx, prog, draws, textures, *, capture=False):
         prog["hasTerrainCover"].value = base == "distant terrain"
         prog["glassIor"].value = GLASS_IOR if name == "glass" else 1.0
         detail = SURFACE_DETAIL.get(base)
-        trail = detail == "compacted"
-        prog["hasTrailLitter"].value = trail
+        litter = detail in LITTER_DETAILS
+        prog["hasGroundLitter"].value = litter
         prog["hasDetail"].value = detail is not None
         prog["blendDetailAxes"].value = base.endswith(" bark")
         prog["planarDetail"].value = detail in PLANAR_DETAILS
@@ -429,7 +430,7 @@ def draw_surfaces(ctx, prog, draws, textures, *, capture=False):
         if detail is not None:
             prog["detailScale"].value = detail_scale(detail)
             detail_texture(ctx, textures, detail).use(2)
-        if trail:
+        if litter:
             detail_texture(ctx, textures, "leaf litter").use(12)
         vao.render(instances=count)
 
@@ -604,7 +605,13 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
     crown_sites = []
     draws = [
         upload(
-            ctx, prog, n, v, f, [(0, 0, 0, 0, 1)], trail_litter=world.trail_litter(n, v)
+            ctx,
+            prog,
+            n,
+            v,
+            f,
+            [(0, 0, 0, 0, 1)],
+            ground_litter=world.ground_litter(n, v),
         )
         for n, v, f in chain(
             world.surfaces(crown_sites=crown_sites),

@@ -19,6 +19,7 @@ ROAD_WIDTH = {
 ROUTE_MATERIALS = ("road", "sidewalk", "paving", "unpaved path")
 SOIL_MATERIALS = ("ground", "forest floor", "grass", "meadow")
 TRAIL_SHOULDER_M = 0.42
+MEADOW_MARGIN_M = 2.4
 
 
 def polygons(geometry):
@@ -75,20 +76,25 @@ def clip_route_areas(areas, domain):
 
 
 def forest_trail_edges(path, woodland, reserved):
-    floor = woodland.difference(path)
-    # The overlay may place an intersection a few ulps off the input edge.
-    contact = floor.buffer(1e-4, quad_segs=2)
-    edge = path.boundary.intersection(contact).difference(
-        reserved.buffer(2 * TRAIL_SHOULDER_M, quad_segs=2)
+    return shared_edges(
+        path,
+        woodland.difference(path),
+        reserved.buffer(2 * TRAIL_SHOULDER_M, quad_segs=2),
     )
+
+
+def shared_edges(area, neighbour, reserved):
+    # The overlay may place an intersection a few ulps off the input edge.
+    contact = neighbour.buffer(1e-4, quad_segs=2)
+    edge = area.boundary.intersection(contact).difference(reserved)
     parts = shapely.get_parts(edge)
     return shapely.union_all(parts[(shapely.get_dimensions(parts) == 1)])
 
 
-def trail_litter_weights(edge, vertices):
+def margin_weights(edge, vertices, width):
     xy = np.asarray(vertices)[:, :2]
     distance = shapely.distance(shapely.points(xy), edge)
-    return np.clip(1 - distance / TRAIL_SHOULDER_M, 0, 1).astype("f4")
+    return np.clip(1 - distance / width, 0, 1).astype("f4")
 
 
 def at_grade_routes(features, domain, *, focal=None, replaced_paths=()):

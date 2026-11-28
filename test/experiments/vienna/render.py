@@ -33,6 +33,7 @@ from diffuse_bounce import (
 from ground_detail import (
     BARK_BOX_BLEND,
     DETAIL_TINTS,
+    LITTER_DETAILS,
     PLANAR_DETAILS,
     SURFACE_DETAIL,
     detail_scale,
@@ -137,14 +138,14 @@ def detail_nodes(material, name, colour):
     )
 
 
-def blend_trail_litter(material, colour, roughness, height):
+def blend_ground_litter(material, colour, roughness, height):
     nodes = material.node_tree.nodes
     link = material.node_tree.links.new
     floor, floor_roughness, floor_height, litter = detail_nodes(
         material, "leaf litter", SURFACES["forest floor"][0]
     )
     mask = nodes.new("ShaderNodeAttribute")
-    mask.attribute_name = "trail litter"
+    mask.attribute_name = "ground litter"
     edge = nodes.new("ShaderNodeMapRange")
     edge.interpolation_type = "SMOOTHSTEP"
     link(mask.outputs["Fac"], edge.inputs["Value"])
@@ -176,8 +177,8 @@ def apply_detail(material, bsdf, name, colour):
     nodes = material.node_tree.nodes
     link = material.node_tree.links.new
     reflectance, roughness, height, _ = detail_nodes(material, name, colour)
-    if name == "compacted":
-        reflectance, roughness, height = blend_trail_litter(
+    if name in LITTER_DETAILS:
+        reflectance, roughness, height = blend_ground_litter(
             material, reflectance, roughness, height
         )
     link(reflectance, bsdf.inputs["Base Color"])
@@ -279,7 +280,7 @@ def apply_distant_cover(material, cover):
     link(texture.outputs["Alpha"], bsdf.inputs["Roughness"])
 
 
-def upload(name, vertices, faces, *, collection, smooth=False, trail_litter=None):
+def upload(name, vertices, faces, *, collection, smooth=False, ground_litter=None):
     mesh = bpy.data.meshes.new(name)
     if isinstance(vertices, np.ndarray) and isinstance(faces, np.ndarray):
         used, indices = np.unique(faces, return_inverse=True)
@@ -293,13 +294,13 @@ def upload(name, vertices, faces, *, collection, smooth=False, trail_litter=None
         )
     else:
         mesh.from_pydata(vertices, [], faces)
-    if trail_litter is not None:
+    if ground_litter is not None:
         data = (
-            trail_litter[used]
+            ground_litter[used]
             if isinstance(vertices, np.ndarray) and isinstance(faces, np.ndarray)
-            else trail_litter
+            else ground_litter
         )
-        attribute = mesh.attributes.new("trail litter", "FLOAT", "POINT")
+        attribute = mesh.attributes.new("ground litter", "FLOAT", "POINT")
         attribute.data.foreach_set("value", data)
     if smooth:
         mesh.polygons.foreach_set("use_smooth", np.ones(len(mesh.polygons), dtype=bool))
@@ -554,7 +555,7 @@ def render(place, config, args):
             verts,
             faces,
             collection=geometry,
-            trail_litter=world.trail_litter(name, verts),
+            ground_litter=world.ground_litter(name, verts),
         )
     if material := bpy.data.materials.get("distant terrain"):
         apply_distant_cover(material, world.terrain_cover)
