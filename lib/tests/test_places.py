@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.places import (
+from outshine.places import (
     Elevation,
     PlaceCamera,
     acquire,
@@ -198,13 +198,13 @@ class PlaceSourceTests(unittest.TestCase):
         source = "vector", (1, 1, 1), "https://example.test/1/1/1.pbf"
         with tempfile.TemporaryDirectory(prefix="outshine-tests.places.") as root:
             with patch(
-                "outshine_ref.places.sources.subprocess.check_output",
+                "outshine.places.sources.subprocess.check_output",
                 return_value=b"source\n200",
             ) as network:
                 first = acquire(source, root, fetch=True)
                 self.assertEqual(network.call_count, 1)
             with patch(
-                "outshine_ref.places.sources.subprocess.check_output"
+                "outshine.places.sources.subprocess.check_output"
             ) as network:
                 second = acquire(source, root, fetch=True)
                 network.assert_not_called()
@@ -216,7 +216,7 @@ class PlaceSourceTests(unittest.TestCase):
     def test_explicit_404_and_failure_budget_leave_no_payload(self):
         with tempfile.TemporaryDirectory(prefix="outshine-tests.places.") as root:
             with patch(
-                "outshine_ref.places.sources.subprocess.check_output",
+                "outshine.places.sources.subprocess.check_output",
                 return_value=b"absent\n404",
             ):
                 result = acquire(
@@ -233,7 +233,7 @@ class PlaceSourceTests(unittest.TestCase):
                     )
             with (
                 patch(
-                    "outshine_ref.places.sources.subprocess.check_output",
+                    "outshine.places.sources.subprocess.check_output",
                     return_value=b"long source\n200",
                 ),
                 self.assertRaises(ValueError),

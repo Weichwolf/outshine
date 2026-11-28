@@ -5,7 +5,7 @@ from dataclasses import replace
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.vegetation import DistancePattern, Profile
+from outshine.vegetation import DistancePattern, Profile
 
 
 class DistancePatternTests(unittest.TestCase):
@@ -42,7 +42,7 @@ class DistancePatternTests(unittest.TestCase):
     def test_preflight_rejects_a_budget_before_allocating_sites(self):
         pattern = DistancePattern()
         with patch(
-            "outshine_ref.vegetation.placement_patterns.np.full",
+            "outshine.vegetation.placement_patterns.np.full",
             side_effect=AssertionError("site buffer allocated before budget refusal"),
         ):
             self.assertIsNone(pattern.tables([1, 2], 0, 1, max_sites=0))

@@ -4,14 +4,14 @@ import json
 import unittest
 
 import numpy as np
-from outshine_ref.vegetation import (
+from outshine.vegetation import (
     AxisLevel,
     AxisState,
     Blade,
     NeedlePattern,
     PlantPlan,
 )
-from outshine_ref.vegetation.curve_frame import arc_frame
+from outshine.vegetation.curve_frame import arc_frame
 
 
 def twig(length=0.18, bend=0.4):

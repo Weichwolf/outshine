@@ -5,10 +5,10 @@ import unittest
 import numpy as np
 from shapely.geometry import LineString, box
 
-from outshine_ref import buildings, transport, vegetation
-from outshine_ref.contracts import BuildingFootprint, HeightInterval, LocalFrame, Mesh, Reservation, SourceFeature, SourceInputs
-from outshine_ref.pipeline import prepare
-from outshine_ref.transport.surface import close_surface, _sorted_boundary
+from outshine import buildings, transport, vegetation
+from outshine.contracts import BuildingFootprint, HeightInterval, LocalFrame, Mesh, Reservation, SourceFeature, SourceInputs
+from outshine.pipeline import prepare
+from outshine.transport.surface import close_surface, _sorted_boundary
 
 
 def audit_closed(mesh):

@@ -1,0 +1,558 @@
+# Vienna pedestrian references
+
+Run from the repository root with Blender 5.3 on the development Mac.
+Install the reference library with the Python shipped with Blender so binary wheels match.
+
+```sh
+/Applications/Blender.app/Contents/Resources/5.3/python/bin/python3.13 -m venv --system-site-packages build/blender-python
+build/blender-python/bin/python -m pip install -e './lib[render]'
+build/blender-python/bin/python -m lib.tests.render_places --place Adlerhof
+```
+
+The measured interval includes rendering and PNG output. Source acquisition, scene construction and
+Blender startup are separate. Run with `--engine cycles --output /tmp/outshine-vienna-light` for
+an independent lighting comparison. Cycles uses adaptive sampling with GPU denoising and a
+128-sample ceiling. Use `--cycles-samples` to change that ceiling for a paired comparison.
+Use EEVEE for rapid scene iteration and Cycles for light transport that needs off-screen
+occluders or multiple bounces. Inputs are genuine ZXY tiles pinned in sources.json.
+The seed, camera, clear sky and UTC are in places.json. The final eye position follows a vertical
+intersection with the rendered support mesh.
+
+Omit `--place Adlerhof` to render the twelve pedestrian views in catalog order. Use
+`--place Wien` for the historical reference. Each camera produces one PNG.
+Report timing with the image and profile so workstation cost can be compared across runs.
+`--sky-dir` supplies the matching sky-only image for aerial compositing.
+
+`Hauptallee-Fork` turns the pedestrian view from the avenue towards the closest
+chestnut. Use it alongside `Hauptallee-Avenue` and `Dechantlacke-Stem-Oblique` to
+inspect limb collars and the outline of the joined wood. Manifold builds the shared
+surface of broadleaf stems and their main limbs within the 32 m detailed stem range. Fillet
+displacement fades with distance from the joins. The low-forked oak, beech and horse
+chestnut forms send their first substantial limb upward. Higher-forked forms retain a
+longer clear bole.
+
+Managed horse chestnuts carry opposite leaves on wider-reaching limbs. Each
+detailed leaf has an 11 cm stalk and five or seven leaflets joined at its tip.
+The grouped representations use the compound leaf's one-sided area and centre.
+Full compound detail starts when the small outer leaflets, about half as wide as
+the central leaflet, reach a pixel in the reference projection.
+Where mapped side paths follow the shared park road, tree rows follow the
+grass strips between the paths and their outer verges. Adjacent rows stagger
+their 7.6 m stations. The tree register supplies a spacing and layout check for
+this section of the Hauptallee. [Data source: Stadt Wien, tree register](https://www.wien.gv.at/umwelt/stadtbaeume)
+
+Check the canopy above the verge at `Hauptallee-Fork` and along the path at
+`Hauptallee-Avenue`. [Thomas et al., horse chestnut morphology](https://doi.org/10.1111/1365-2745.13116)
+· [Hauptallee, 9 August 2022](https://commons.wikimedia.org/wiki/File:Hauptallee_Prater_Wien_2022-08-09_15.jpg)
+
+The broadleaf levels grouping 16 or 32 leaves keep up to two folded sheets per
+group. Each sheet carries its share of the original one-sided area and sits at
+the centre of its half of the group. Use `Dechantlacke-Woodland`,
+`Dechantlacke-Stem-Oblique` and `Hauptallee-Avenue` to check gaps between
+crowns, backlit foliage and the shoreline reflection.
+
+Blender uses the same mean solar diameter as the shared atmosphere, about 0.533°.
+EEVEE uses six temporal samples and jittered sun shadows. The render report records
+these settings. [NASA Sun Fact Sheet](https://nssdc.gsfc.nasa.gov/planetary/factsheet/sunfact.html)
+
+The EEVEE directional shadow map uses a minimum 16 mm texel. The default 1 mm texel
+produced false shadows on sunlit roads with the full terrain horizon. The 16 mm limit
+keeps the terrain and directional shadows in the reference.
+
+EEVEE bakes diffuse irradiance volumes around nearby source-derived covered walks.
+The volumes follow the generated passages and join around neighbouring portals.
+Shading inside them includes world visibility and diffuse bounce. The render report
+records the bake separately from the PNG interval.
+
+Use `--street-bounce` with EEVEE for the one-bounce street-light reference in
+[#1965](https://github.com/Weichwolf/outshine/issues/1965). It bakes sky visibility,
+traces sunlight reflected by the generated geometry, and interpolates it on nearby
+opaque surfaces. Under clouds it uses the mean solar transmission for the reflected term.
+Compare it at the same camera and time with `--engine cycles --sky-dir …`.
+With the shared sky isolated at Adlerhof, the EEVEE volume delivers about 7% of Cycles'
+direct-sky luminance on a shaded paving patch. Cosine-weighted visibility against the generated
+geometry yields 92% on that patch and 99% on the adjoining façade. Use the Cycles image to judge
+those shadows. The one-bounce EEVEE image remains a fast comparison for reflected sunlight.
+
+Use `--street-sky` with an archived `--sky-dir` to compare direct diffuse skylight
+at nearby street surfaces. Cast 256 cosine-weighted rays from each sampled receiver
+against the same scene as the sunlight bounce. Radiance from the unblocked directions
+is filtered into the existing receiver mesh. The 100 m ray reach and the 38 m receiver
+range bound this reference.
+A sun-off EEVEE capture supplies the probe contribution to replace in the primary
+view. The full image retains its direct sunlight and specular lighting. Use
+`--street-bounce` as well to include the estimated first reflection of sunlight.
+
+```sh
+build/blender-python/bin/python -m lib.tests.render_places --backend glsl --export-sky \
+  --place Adlerhof-Near --place Adlerhof-Near-Afternoon --output build/shots/1965/sky
+build/blender-python/bin/python -m lib.tests.render_places \
+  --place Adlerhof-Near --place Adlerhof-Near-Afternoon --street-bounce --street-sky \
+  --sky-dir build/shots/1965/sky --output build/shots/1965/traced-street
+```
+
+At a mapped route beneath a solved transport deck, the receiver mesh also covers
+the deck underside and nearby ground. The sky term includes its first diffuse
+reflection off the actual surfaces at the crossing. The sky and sun terms share one ray index.
+Repeated trees keep their original meshes and placement transforms in that index.
+Use the Prater crossing and its adjacent viewpoint to compare the same archive,
+camera, and plant placements with and without the two switches.
+
+```sh
+build/blender-python/bin/python -m lib.tests.render_places --backend glsl --export-sky \
+  --place PraterHochstrasse --place PraterHochstrasse-Side --output build/shots/1965/prater-sky
+build/blender-python/bin/python -m lib.tests.render_places \
+  --place PraterHochstrasse --place PraterHochstrasse-Side --street-bounce --street-sky \
+  --sky-dir build/shots/1965/prater-sky --output build/shots/1965/prater-crossing
+```
+
+Near mapped woodland, `--street-sky` also covers the forest floor, trails and
+nearby trunks. A 100 × 100 × 40 m EEVEE irradiance volume extends into the
+visible canopy. It captures the shared sky and its indirect light with the sun
+disabled during baking. Leaf materials use this directional light through their
+existing reflection and transmission shaders. The volume extends about 90 m
+along a near-horizontal view. Beyond its bounds EEVEE uses the world light.
+After capturing the sky term for the traced receivers, the daytime render
+rebakes the volume with the sun so those receivers retain reflected sunlight.
+This second bake applies when there is direct sun without the spatial cloud
+filter or `--street-bounce`.
+The bark uses smoothed normals and fades to the standard shading
+between 7 and 9 m. The first diffuse scattering samples sky on the same side of a
+surface for reflection and on the opposite side of a translucent leaf for
+transmission. The color and transmission fraction come from the scene materials.
+Use the same archived sky at `Dechantlacke-Woodland` and `Wienerwald-Woodland`
+with and without the flag.
+
+Standalone GLSL uses 16 m and 96 m camera-centred shadow footprints with 2048 texels
+per axis. They resolve close sills, leaf shadows and root contact. Visibility blends
+into the coarser maps at their footprint edges. The 16 m footprint moves in whole
+shadow texels. Both share a depth interval, and the
+4.8 km regional map also retains sunward casters beyond it. The GLSL command prints
+the combined GPU time for the depth passes.
+
+## Footpath replay
+
+Use the mapped Vienna Woods path or the steep meadow edge at Körbersee for movement
+checks. `Wienerwald-Footpath` starts at the woodland camera and moves along the path.
+`Koerbersee-Footpath` approaches its tree-line camera while looking uphill. Both keep the
+anchor's view direction and scenario time. The path centreline snaps the anchor to the
+mapped path. The eye stays 1.70 m above the solved path mesh. The planner tests coverage
+over the entire segment and samples support height at intervals of at most 10 cm.
+
+The walking fixtures check the solved support along each path. To review images over a
+route, supply its camera stations as separate calls to `outshine.render_png`.
+
+[Anninger Süd, 1 May 2014](https://commons.wikimedia.org/wiki/File:Wienerwald_Weg.jpg) ·
+[Körbersee, 17 October 2017](https://commons.wikimedia.org/wiki/File:Schr%C3%B6cken_K%C3%B6rbersee_Schr%C3%A4gluftbild.jpg)
+
+## Matched sky radiance
+
+Export the GLSL atmosphere for a fixed view and pass the directory to both renderers.
+Each archive stores a scene-linear 512 × 256 equirectangular image, solar direction,
+rendered eye altitude and aerosol extinction. Direct sunlight comes from the
+separate sun in each renderer.
+Blender uses the image as its world environment. GLSL integrates the same image with a
+Lambert cosine kernel and evaluates unoccluded diffuse light from nine spherical harmonics.
+For opaque materials, GLSL also filters the shared sky into the native renderer's
+bordered octahedral roughness atlas and integrates a GGX reflectance table.
+This profile controls the incident environment for diffuse and reflected light.
+The renderers retain their respective local transport.
+Water in this profile mixes a lit body with the reflected radiance using the
+air–water Fresnel response. The reflection uses the planar capture where covered
+and the same archived sky through its gaps. Coverage is applied once at filtered
+capture edges. Sunlight on the visible water affects its body term, and objects
+in the reflection carry their own lighting.
+
+```sh
+build/blender-python/bin/python -m lib.tests.render_places --backend glsl --export-sky \
+  --place Dechantlacke-Path-Near-Afternoon --output build/shots/1965/sky
+build/blender-python/bin/python -m lib.tests.render_places --backend glsl \
+  --place Dechantlacke-Path-Near-Afternoon --sky-dir build/shots/1965/sky \
+  --output build/shots/1965/sky-glsl
+build/blender-python/bin/python -m lib.tests.render_places \
+  --place Dechantlacke-Path-Near-Afternoon --sky-dir build/shots/1965/sky \
+  --output build/shots/1965/sky-eevee
+```
+
+## Matched display
+
+Standalone GLSL can export the view as top-down scene-linear Rec. 709 RGB float32
+in an NPY file. It averages the four supersamples in linear light. Use Blender to
+apply its reference AgX transform at +1.5 EV to those pixels and write a 16-bit PNG.
+This makes the display transform identical to the EEVEE reference. Omit `--sky-dir`
+to use the GLSL renderer's own sky.
+
+```sh
+build/blender-python/bin/python -m lib.tests.render_places --backend glsl --linear \
+  --place Dechantlacke-Path-Near-Afternoon --sky-dir build/shots/1965/sky \
+  --output build/shots/1965/linear
+build/blender-python/bin/python -m lib.tests.render_places \
+  --display-linear build/shots/1965/linear/Dechantlacke-Path-Near-Afternoon.npy \
+  --output build/shots/1965/glsl-agx
+```
+
+## Clear and hazy distance
+
+FranzKarlFernsicht and FranzKarlFernsicht-Haze retain the same mapped trail support,
+heading, pitch, eye height, and 21 June 2026 10:00 UTC solar time. Clear air retains
+Rayleigh and ozone. The haze adds grey aerosol extinction of 0.04 km⁻¹ at sea level,
+with a 1.2 km exponential scale height and 0.9 scattering albedo. GLSL samples the
+atmospheric lookup tables for the camera-to-surface segment. Blender integrates the
+Rayleigh and aerosol columns along each camera ray using its Mist distance pass and
+the altitude above the curved Earth. Rayleigh transmission is evaluated per RGB band
+and aerosol extinction is grey. Both renderers attenuate direct sunlight through the
+aerosol column. Use separate sky archives for the two weather profiles.
+[Hillaire, Scalable Atmosphere Rendering](https://doi.org/10.1111/cgf.14050)
+
+FranzKarlFernsicht-Adjacent looks through a wider gap in the crowns from the
+same mapped trail, roughly 20 m north-northwest. Both cameras are 1.70 m above
+the solved path and use the same heading. Use the elevated Wien scenario as a
+horizon control.
+
+```sh
+build/blender-python/bin/python -m lib.tests.render_places --backend glsl --export-sky \
+  --place FranzKarlFernsicht --place FranzKarlFernsicht-Haze --output build/shots/2052/sky
+build/blender-python/bin/python -m lib.tests.render_places \
+  --place FranzKarlFernsicht --place FranzKarlFernsicht-Haze \
+  --sky-dir build/shots/2052/sky --output build/shots/2052/eevee
+```
+
+## Cloud reference
+
+FranzKarlFernsicht and Wien each have `-BrokenCloud` and `-Overcast` variants.
+Each triplet shares a camera, ground geometry, seed and solar time. The trail view
+uses 21 June 2026 at 10:00 UTC. Wien keeps the elevated scenario and 7 September 2026
+at 10:40 UTC. The broken layer spans 1.45–2.95 km altitude and the overcast layer
+0.90–1.36 km. The shared seeded density field moves east at 7 m/s and north at
+3.5 m/s from the catalog clock. GLSL integrates opacity and estimates directional
+light through the layer. Both renderers use its 2048 × 1024 sky archive. The archive
+contains direct solar transmission at the observer and a 64 × 64 km transmission map
+from the same cloud volume. Standalone GLSL projects surfaces below the layer top
+along the solar direction onto the map, including during reflection captures. The
+map fades to the observer's value near its edge. EEVEE captures a scene-linear
+ambient image at the fixed camera and uses the Position pass to attenuate the
+direct Sun in the surface image. Water reflection captures use the same projection.
+The render report measures the ambient capture separately and repeats reuse it at
+the same pose. Older archives and the independent Cycles path use the observer's
+value for the Sun. The archive pins the profile, wind-advected origin, seed, eye
+altitude and solar direction.
+
+The `-Backlit` trail and Wien variants use the Sun of 15 October 2026 at
+12:24 UTC. Both show the broken layer with the Sun near the direction of view.
+Revision 2 weights direct cloud scattering with forward and backward
+Henyey–Greenstein lobes. The forward lobe brightens sun-facing edges and gaps,
+and a weaker diffuse term lights the cloud interiors. Replay retains the stored
+radiance of revision 1 archives with matching field, altitude and Sun.
+[Schneider and Vos, Volumetric Cloudscapes](https://www.guerrilla-games.com/read/the-real-time-volumetric-cloudscapes-of-horizon-zero-dawn) ·
+[Clouds with the Sun behind, Tyrol, 4 August 2010](https://commons.wikimedia.org/wiki/File:Clouds_with_sun_behind.jpg)
+
+Use the Wiener Blick afternoon panorama for spaced cumulus, sunlit tops and soft
+undersides. The Neue Donau photo shows a closed deck, diffuse illumination and a
+brighter horizon under the deck. Michaelerplatz shows diffuse light on an urban
+façade below a textured overcast sky. [Wiener Blick, 29 August 2010](https://commons.wikimedia.org/wiki/File:Wiener_Blick_Panorama.jpg) ·
+[Neue Donau, 5 May 2014](https://commons.wikimedia.org/wiki/File:Cloudy_day_on_Neue_Donau_-_panoramio.jpg) ·
+[Michaelerplatz, 28 October 2017](https://commons.wikimedia.org/wiki/File:Vienna,_Austria_(38308253026).jpg)
+
+```sh
+build/blender-python/bin/python -m lib.tests.render_places --backend glsl --export-sky \
+  --place FranzKarlFernsicht --place FranzKarlFernsicht-BrokenCloud \
+  --place FranzKarlFernsicht-Overcast --output build/shots/2086/sky
+build/blender-python/bin/python -m lib.tests.render_places \
+  --place FranzKarlFernsicht --place FranzKarlFernsicht-BrokenCloud \
+  --place FranzKarlFernsicht-Overcast --sky-dir build/shots/2086/sky
+```
+
+## Near material comparisons
+
+Adlerhof faces the passage from the street. Adlerhof-Courtyard and Adlerhof-Reverse
+show the adjoining arches in both directions. Adlerhof-Near keeps the oblique
+paving and facade view. The Dechantlacke path views look past the same exposed
+roots. Select these extra views explicitly to keep the twelve-view run in order.
+
+KarlMarxHof faces the east façade from a mapped sidewalk. Its taller sections share
+a street-storey band and shallow stone belt; KarlMarxHof-Street inspects a separate
+entrance nearby from its paved connection. The solved terrain keeps recesses and
+sills clear on sloped lots. The source's light
+and rose finishes stay distinct on separately modelled building parts.
+KarlMarxHof-Courtyard retains the longer view for window rows. Nevillebruecke
+checks the same window grid as the streetscape recedes. Near openings have
+recesses, frames and projecting sills. Smaller visible openings keep the same
+spacing in a flat wall mesh. Where building parts overlap, only exposed walls
+receive windows. Openings and sills fit entirely on those walls.
+
+```sh
+build/blender-python/bin/python -m lib.tests.render_places \
+  --place Adlerhof --place Adlerhof-Near --place Dechantlacke-Path --place Dechantlacke-Path-Near \
+  --output build/shots/1962/eevee
+build/blender-python/bin/python -m lib.tests.render_places \
+  --place Adlerhof --place Adlerhof-Near --place Dechantlacke-Path --place Dechantlacke-Path-Near \
+  --engine cycles --output build/shots/1962/cycles
+build/blender-python/bin/python -m lib.tests.render_places --backend glsl \
+  --place Adlerhof --place Adlerhof-Near --place Dechantlacke-Path --place Dechantlacke-Path-Near \
+  --output build/shots/1962/glsl
+```
+
+Both paths take scene-linear colours from materials.py and call ground_detail.py to bake
+the same seeded RGBA table. Red stores half the reflectance multiplier, green stores
+perceptual roughness, and blue stores relief as `0.5 + height_m / 0.024`. Alpha carries the
+macro variation and tints the beech bark with its lichen coverage at detail scale.
+The detail covers 2.56 m at 5 mm per texel. The leaf map is filtered to
+10 mm per texel over the same span. Macro tint uses a 23 m period. The nominal stone face
+spacing is 213 × 128 mm. Glazing uses a 1.52 IOR over a dark opaque backing to stand in
+for unmodelled interiors.
+
+The Adlerhof photo guides the plaster and rectangular paving. The Dechantlacke photo
+guides the soil, bark and leaf palette. The renderer infers material for paths without
+surface tags. [Adlerhof, 21 August 2008](https://presse.wien.gv.at/bilder/2008/08/21/adlerhof-innenhof) · [Lobau near Dechantlacke, 9 August 2022](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg)
+
+The compacted trail detail has patches of worn soil and exposed grit. Where an
+unpaved path borders rendered woodland floor, its inner 42 cm blends into the
+same leaf-litter reflectance, roughness and relief. A contour inside the path
+resolves the blend in the existing terrain triangles. Paved crossings, water and
+meadows keep their assigned surfaces. Compare the trail shoulders at
+Wienerwald-Woodland and Dechantlacke-Path-Near-Afternoon.
+[Wienerwald at Anninger Süd, 1 May 2014](https://commons.wikimedia.org/wiki/File:Wienerwald_Weg.jpg)
+
+The Vienna stand varies clear bole length and scaffold height across its two forms each for
+oak and beech. Close boles vary their girth, cross section and branch scars with their
+tile-seeded placements. Separate low root ridges spread along the soil beside the bole,
+with unequal directions and reach. The root surface follows the terrain and blends into
+the original bole over six trunk radii. Root spread contracts at path and water boundaries.
+A lower-resolution mesh retains the stem profile and branch attachments beyond 32 m.
+Oak has fissures between elongated plates, beech has fine grain and lichen patches,
+and spruce has smaller bark scales. The horse chestnuts in the park rows have darker bark
+with fine longitudinal fissures and shorter cross-breaks. Compare roots at Wienerwald-Woodland,
+branch unions at Dechantlacke-Stem-Oblique, and the steep spruce margin at Koerbersee-TreeLine.
+[Weber and Penn, Creation and Rendering of Realistic Trees](https://doi.org/10.1145/218380.218427) ·
+[Hauptallee, 9 August 2022](https://commons.wikimedia.org/wiki/File:Hauptallee_Prater_Wien_2022-08-09_15.jpg) ·
+[Hochbruckenberg, 25 November 2012](https://commons.wikimedia.org/wiki/File:Hochbruckenberg_Wald_02.jpg) ·
+[Anninger Süd, 1 May 2014](https://commons.wikimedia.org/wiki/File:Wienerwald_Weg.jpg)
+
+The summer crown recipes include a spreading form and an upright form for both oak
+and beech. On spreading trees, the lower limbs extend sideways, the upper limbs fill
+above them, and staggered shoots spread foliage across fewer supporting twigs.
+Seeded blade roll keeps the midrib attached to its shoot.
+The lower foliage stays flatter, and oak blades have a wider range of inclinations
+than beech blades. The same leaf orientations feed the near meshes and the grouped
+distance meshes. Compare leaf area and blade inclination against measured broadleaf
+crowns. [Fleck, mature beech and oak crowns](https://epub.uni-bayreuth.de/id/eprint/264/1/FleckDiss.pdf) ·
+[Chianucci et al., leaf inclination data](https://doi.org/10.17632/4rmc7r8zvy.2)
+
+Koerbersee-TreeLine and Koerbersee-TreeLine-Oblique extend the comparison to a
+mapped alpine trail. Where the provider includes `leaf_type`, that value guides
+stand composition. In the central European reference, the spruce share for
+untyped forest rises with DEM elevation from 1,200 to 1,570 m. The two spruce
+forms use whorled branches, tapered crowns and grouped needle sprays sampled
+along curved twigs. At distance, the parent twigs represent finer shoots. The
+solved soil supplies the root heights and the mapped margins guide planting.
+[Körbersee webcam](https://www.foto-webcam.eu/webcam/koerbersee/) ·
+[European Atlas of Forest Tree Species, Norway spruce](https://forest.jrc.ec.europa.eu/media/atlas/Picea_abies.pdf)
+
+## Photographic targets at eye level
+
+The street, water and woodland references use the pinned Vienna catalog at 1.70 m.
+The photo dates and locations identify the construction, surface scale and light
+relationships to compare. The photographs and generated views use different camera poses.
+The first review used 1280×720 EEVEE on Iris Xe Vulkan at `f65afb793`.
+
+| View | Target from the site photograph | Gap in the generated view |
+|---|---|---|
+| Adlerhof | Close-set stone blocks lead through a deep sequence of plaster arches. A short stair links the courtyard levels. The bright exit and shaded recess remain legible together. [Hans Strunz, 21 August 2008](https://presse.wien.gv.at/bilder/2008/08/21/adlerhof-innenhof) | Mapped footways connect through vaulted openings with projecting stone surrounds and grounded plinths. Courtyard steps and the reflected daylight inside the vaults remain open. [#2055](https://github.com/Weichwolf/outshine/issues/2055) |
+| Schemerlbruecke-Downstream | Retaining faces and the bridge enclose the channel. The drop interrupts the reflectivity of the upper reach and aerated water brightens the lower pool. [C. Stadler/Bwag, 29 May 2018](https://commons.wikimedia.org/wiki/File:Wien_-_Nu%C3%9Fdorfer_Wehr_(1).JPG) | The mapped crest, lower pool and reflected structure read from the east bank. Angular earthworks and the smooth lower pool leave less separation between spill and calm water than in the photograph. [#1966](https://github.com/Weichwolf/outshine/issues/1966) |
+| Dechantlacke-Bank | Leaves at several heights interrupt the gaps between oak-sized trunks. Small sunlit patches break up trunks and woodland floor. [Leonhard Lenz, 9 August 2022](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg) | The shore shows rooted shrubs, distinct stems and a reflected second layer of crowns. The opposite bank and canopy gaps remain more open than the photographed interior stand. [#1961](https://github.com/Weichwolf/outshine/issues/1961) · [#2063](https://github.com/Weichwolf/outshine/issues/2063) |
+
+The site data supplies Adlerhof's building and route footprints, the canal and mapped
+weir crest, and the Lobau water, paths and woodland boundary. Building openings and
+setts use repeat recipes. The weir head and sediment at the bank are model estimates.
+The woodland recipe chooses species, age variation and undergrowth within the mapped
+habitat. The photographs guide those choices at pedestrian scale.
+
+The clear-day pairs use the same pin set, pose, geometry, material recipes and AgX
+exposure. Their clocks are 10:00 and 16:30 UTC on 21 June 2026. Adlerhof turns from
+sunlit plaster and setts to façade shade. Dechantlacke turns from backlit stems and
+dappled path shade toward more directly lit bark and path. In shade, look for
+readable surface texture, local contrast and recognizable material colours.
+
+```sh
+build/blender-python/bin/python -m lib.tests.render_places \
+  --place Adlerhof-Near --place Adlerhof-Near-Afternoon --place Dechantlacke-Path-Near \
+  --place Dechantlacke-Path-Near-Afternoon --output build/shots/2044/light/eevee
+```
+
+The 1280×720 Iris Xe Vulkan captures show the same joints, window recesses, root
+collars and path edges at both times. A ray probe selected fixed pixels that cross
+the geometric sun/shade boundary between frames. Median PNG luma on a 0–255 scale
+changes from 163 to 43 on Adlerhof plaster and from 171 to 22 on the setts. At
+Dechantlacke it changes from 23 to 104 on oak bark, 31 to 136 on beech bark and
+17 to 86 on the unpaved path. The afternoon sun makes the bark contrast and stem
+curvature clearer. In shade the paving and path lose much of their fine relief.
+The diffuse-light comparison belongs to [#1965](https://github.com/Weichwolf/outshine/issues/1965).
+
+The twelve-view review covers the catalog anchors. At Wienerblick, the dated
+panorama shows a wooded middle distance, a distinct city band and scattered clouds.
+The generated view resolves the foreground slope and urban massing. The tree belts,
+distance contrast and sky need further comparison under the photographed conditions.
+[Doris Antony, 29 August 2010](https://commons.wikimedia.org/wiki/File:Wiener_Blick_Panorama.jpg) ·
+[Review and remaining differences](https://github.com/Weichwolf/outshine/issues/2083)
+
+## Reference geometry
+
+The initial integration covers the local DEM, mapped building shells, near recessed facade cells
+and ground-level road surfaces. Separate water meshes fill the mapped polygons cut from the
+terrain. Each mapped reach uses a shared DEM-inferred WGS84 level in the local and regional meshes.
+Real DEM rings extend the terrain from the 250 m local square to 100 km along
+each axis. The reference uses 240 rings with 128 intervals per side to retain Alpine
+ridgelines in both renderers. Subdivision of the inner edges matches the original local
+terrain. The far terrain currently has a uniform material.
+
+The first twelve-image review shows missing steps at Strudlhofstiege, a missing passage at
+Adlerhof and striping at Prater Hochstraße. The Schemerlbrücke camera looks from a mapped
+bank path across the channel: the first integrated bank-to-bank recipe spans the water with a closed slab and edge guards.
+Its steel truss, piers and graded approach tie-ins still need work.
+Hauptallee and Dechantlacke show layered woodland. Hauptallee-Avenue looks along the
+mapped bridleway and shows managed trees rooted in the grass verges of the shared
+parallel route. Hauptallee-Entry shows the paved footway connection and recessed
+entrance of an isolated low building. Dechantlacke adds sedges and reed
+groups on the low natural bank, while the Asperner See park and access edges stay open.
+Compare the patchy shoreline with the [Lobau photograph, 16 May 2015](https://commons.wikimedia.org/wiki/File:Lobau_Dechantlacke.JPG).
+Franz-Karl-Fernsicht looks southwest from the mapped footpath over low spreading
+grass, taller stems and patches of wildflowers on the OSM meadow. The camera is
+1.70 m above the solved path. Both heights use tile-stable roots. Wider leaves and
+flowerheads stay inside the meadow footprint. Leaf sheets keep their silhouette
+with half as many faces once the measured fold projects below 0.5–0.75 px.
+Smaller clumps follow the field edge. Sparse groups beyond the detailed blades
+fade as their height approaches two pixels. Blender and GLSL share a tile baked
+from the tuft leaves so the ground between clumps retains grass relief.
+Where a meadow meets mapped woodland, the outer 2.4 m of the meadow blends into
+the neighbouring leaf litter. The same distance tapers the grass and flowers.
+Footpaths and other reserved surfaces keep their existing grade and material.
+Use the [Sophienalpe summer photograph, 15 August 2006](https://commons.wikimedia.org/wiki/File:Wien_Sophienalpe.jpg)
+to assess the ground cover and plant height.
+Shore levels, road profiles, ground materials and light still need comparison with real scenes.
+
+The November 2023 night photograph anchors the stair geometry. The paired flights,
+landings and retaining walls remain legible around the fountain. The June 2017 bridge
+photograph shows clearance below the painted truss, piers in the channel and the scale
+of the stone pylons at the banks.
+
+- [Strudlhofstiege, 23 November 2023](https://commons.wikimedia.org/wiki/File:Strudlhofstiege_2023-11-23_01.jpg)
+- [Schemerlbrücke, 1 June 2017](https://commons.wikimedia.org/wiki/File:2017-06-01_AT_Wien_19_D%C3%B6bling_%26_Wien_20_Brigittenau,_Donaukanal,_Nussdorfer_Wehr,_Schemerlbr%C3%BCcke_(50699212833).jpg)
+
+Mapped woodland uses the oak and beech stand recipes from the original biome study
+(`9492ed2f7^`, `biome_recipes.py`). Shared mesh instances are rooted in canonical tile
+coordinates. Road, water and building exclusion precedes placement. Established trees
+take priority over smaller recruitment in the same stand. Recruitment varies in patches
+and thins at paths, banks and clearings. Local source features and planting use the same
+square extent as the solved terrain. Nearby stems still compete across the placement
+edge. The distant templates group leaves by branch and retain their represented leaf
+area. From groups of sixteen leaves, a four-triangle blade uses the same placement
+frame and one-sided area as the detailed representative. Dechantlacke-Woodland
+looks into the stand from a mapped path. Compare crown gaps and woodland layers with the
+[August 2022 Lobau woodland](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg).
+Wienerwald-Woodland follows a mapped trail by Franz-Karl-Fernsicht. This hillside
+stand tests crown overlap, younger stems and terrain contact away from riverbank woodland.
+Mapped woodland soil carries baked leaves, exposed humus and moss. Ground-level leaf
+patches use the solved soil and reserve their full width along paths and water.
+
+
+The thirteenth reference, Wien, reads the elevated camera and clock directly from
+`test/outshine/data/places/Wien.scenario`. The native comparison image is
+[`doc/images/wien.png`](../../../doc/images/wien.png) (commit `ab335a928`).
+The current reference series enables vegetation for every camera, including Wien.
+Wienerblick remains an independent, eye-level site.
+
+The regional reference samples the mapped building heights, water, woods, grass and deck
+footprints around each camera. Its height field extends to the distance at which a 12 m
+building occupies one pixel (6–15 km range). Closer tiles retain mapped building outlines and facade openings.
+Mapped woodland in the regional mesh uses a filtered canopy material. A shared
+512 m tile describes overlapping crowns and their shaded gaps. Slower colour
+variation across the stand helps distinguish wooded slopes from meadows. Both
+renderers project the material horizontally. In the middle distance, oak and beech
+use the leaf positions, orientations and material from the near recipes. Leaf groups
+share a main limb and use two-sided folded sheets fitted to their area and spread.
+The regional folds maintain projected leaf cover at shallow angles, including the
+view of the Danube banks from elevated `Wien`. Check the same coverage from the
+pedestrian view at `FranzKarlFernsicht`.
+Spruce uses a tiered silhouette. Both distances use the same tile-seeded mature stems,
+scales and rotations.
+Mapped woodland reserves buildings, water and transport corridors. The ground mesh
+determines root height and mapped leaf type informs the species. The middle distance
+thins crowns between sixteen and twelve pixels of projected tree height, leaving the
+baked canopy relief beyond. Both renderers instance templates for oak, beech and
+spruce. Younger stems remain a near-field detail.
+At regional distance, the vector tile classifications give fields, grassland, rock
+and built-up ground distinct materials on the solved terrain. The same palette
+extends across the regional boundary. Parcel faces are combined by material after
+shore grading so their draw count does not grow with the number of tiles.
+Beyond the regional tiles, pinned OpenFreeMap zoom 10 land cover and land use follow
+the geodetic height field out to 100 km in the camera sector. Forest, meadow, fields,
+vineyards, orchards, exposed rock and settlement use a shared 2048² material map in
+linear RGB and roughness. Polygon holes retain the material below them. Field tones
+are plausible proxies and remain stable across tile fragments of the same source ID.
+Area filtering mixes the material values while keeping the terrain triangle count.
+Compact buildings can use a pitched roof within their mapped top height. The near and
+regional generators share the same gable recipe, including the closing wall faces.
+Courtyards, conflicting parts and incomplete tile footprints use the flat envelope.
+Wienerblick also selects a pinned skyline sector out to 16 km. Its additional tiles
+contribute height-bearing building shells above a two-pixel angular estimate. The
+shells use the same geodetic ENU frame as the horizon terrain. The regional tiles
+retain ownership of the buildings they already cover.
+Mapped water crossings use a raised slab and piers where both banks can be resolved.
+Local and regional shorelines, roads and paths partition the same terrain triangles. The planar
+arrangement cuts triangles at material boundaries and grade contours. Terrain heights are interpolated
+within the original faces before grading. At a natural shore, the terrain blends to the
+water level within a 14 m band. Roads, footpaths, buildings and solved bridge approaches
+constrain the grade. Trees take their root heights from the finished bank surface.
+Water takes precedence over ground routes. Mapped footpaths
+retain their footprint where an inferred road width overlaps them. Tunnels and elevated
+links are excluded from the ground network.
+The outer height field still quantizes roofs.
+
+The native Wien capture is a historical diagnostic comparison. Visual acceptance uses the
+twelve pedestrian cameras. Compare the historical view in
+`build/shots/places/Wien.png` (Blender) and `build/shots/glsl/Wien.png` (standalone GPU).
+Both consume the same camera, source products, material values, sun direction and tree
+instances. GLSL uses Outshine's metal/rough BRDF and atmospheric lookup kernels. Aerial
+perspective uses the ratio of transmittance at the eye and surface along each ray,
+as in `src/render/shaders/aerialPerspective.frag`. Blender combines the Principled
+BSDF render and the same direction of the sky-only layer in scene-linear light.
+The sky-only layer is its approximation for airlight. RGB Beer–Lambert transmission
+uses the height-dependent molecular and aerosol densities independently of the GLSL
+tables.
+
+The reference cameras select up to two water levels for 640×360 planar reflection captures.
+Clipped scene geometry supplies the reflected forms and the sky fills the uncovered rays.
+GLSL captures the mirrors on the GPU. EEVEE prepares them once per camera pose.
+The reported capture seconds are part of scene setup.
+The clear-sky compositing layer works in scene-linear
+precision. The sky capture time is reported separately from PNG generation.
+For a graded reach, the capture plane is fitted to the visible water samples.
+
+Both paths sample the same 0.75 m nearshore transmission raster. In the first 10 m from
+a mapped natural bank, a reference bed slope and RGB extinction approximate the fading
+return from underwater sediment. Roads and quay contacts suppress the sediment response.
+The band fades before the regional seam. The slopes and optical coefficients are estimates
+for these comparisons. [Rendering Natural Waters](https://doi.org/10.1111/1467-8659.00548)
+
+The Nußdorf entry in `water_controls.json` cuts the pinned Donaukanal polygon at the
+mapped weir crest downstream of Schemerlbrücke. The upper reach runs beneath the
+bridge. The two plateaus use Mapterhorn estimates. The canal below the weir uses the
+relative drops from the KWD 2020 160 m³/s profile along the simplified OpenFreeMap
+`Donaukanal` centreline. The curve is stationed
+between the cut and the canal mouth. The gate face, shore grade and pedestrian clearance
+use this same water model. A stationary overflow sheet joins the crest to the lower
+reach in the reference. `Schemerlbruecke-Downstream` observes the crest from the lower bank.
+The retaining reach uses the mapped water edges for the wall faces. Its inferred crest
+follows Mapterhorn ground 9 m inland. The retained grade blends into the natural bank
+at the ends of the reach and preserves the fitted transport surfaces.
+[Nußdorfer Wehr, 29 May 2018](https://commons.wikimedia.org/wiki/File:Wien_-_Nu%C3%9Fdorfer_Wehr_(1).JPG)
+
+```sh
+build/blender-python/bin/python -m pip install moderngl
+build/blender-python/bin/python -m lib.tests.render_places --backend glsl --place Wien
+build/blender-python/bin/python -m lib.tests.fixtures.vienna.compare_wien
+```
+
+The comparison writes all three views at the same scale to `build/shots/comparison/Wien.png`.
+Check the bridgehead and approaches, riverbanks, city silhouette and mountain ridge before
+judging material and lighting differences. Vegetation stays enabled in both generated views.

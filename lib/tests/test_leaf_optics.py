@@ -6,9 +6,9 @@ import sys
 import unittest
 
 import numpy as np
-from outshine_ref.vegetation import LeafOpticsTable, leaf_diffuse_response
-from outshine_ref.vegetation.leaf_optics import gamut_map, optical_mixture
-from outshine_ref.vegetation.leaf_pigments import patch_field, pigment_coordinates
+from outshine.vegetation import LeafOpticsTable, leaf_diffuse_response
+from outshine.vegetation.leaf_optics import gamut_map, optical_mixture
+from outshine.vegetation.leaf_pigments import patch_field, pigment_coordinates
 
 
 def table_values():
@@ -90,7 +90,7 @@ class LeafOpticsTests(unittest.TestCase):
         recipe = json.loads(json.dumps(table.recipe()))
         restored = LeafOpticsTable.from_recipe(recipe)
         np.testing.assert_array_equal(restored.values, table.values)
-        program = "import sys,json; from outshine_ref.vegetation import LeafOpticsTable; t=LeafOpticsTable.from_recipe(json.load(sys.stdin)); assert not any(n in sys.modules for n in ('prosail','colour','scipy','bpy')); print(t.sample([[45,.2]]).tolist())"
+        program = "import sys,json; from outshine.vegetation import LeafOpticsTable; t=LeafOpticsTable.from_recipe(json.load(sys.stdin)); assert not any(n in sys.modules for n in ('prosail','colour','scipy','bpy')); print(t.sample([[45,.2]]).tolist())"
         result = subprocess.run(
             [sys.executable, "-c", program],
             input=json.dumps(recipe),

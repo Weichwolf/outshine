@@ -4,7 +4,7 @@ import importlib.util
 import unittest
 
 import numpy as np
-from outshine_ref.rendering.blender_light import configure_daylight
+from outshine.rendering.blender_light import configure_daylight
 
 
 @unittest.skipUnless(

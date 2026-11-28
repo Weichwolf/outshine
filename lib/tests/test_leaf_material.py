@@ -3,8 +3,8 @@
 import unittest
 
 import numpy as np
-from outshine_ref.vegetation import LeafMaterialLevel, leaf_material_mips
-from outshine_ref.vegetation.leaf_normals import slope_moments
+from outshine.vegetation import LeafMaterialLevel, leaf_material_mips
+from outshine.vegetation.leaf_normals import slope_moments
 
 
 class LeafMaterialTests(unittest.TestCase):

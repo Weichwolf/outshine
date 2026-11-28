@@ -4,7 +4,7 @@ import unittest
 from fractions import Fraction
 
 import shapely
-from outshine_ref.contracts import BuildingFootprint, HeightInterval, Reservation
+from outshine.contracts import BuildingFootprint, HeightInterval, Reservation
 
 
 class ReservationQueries(unittest.TestCase):

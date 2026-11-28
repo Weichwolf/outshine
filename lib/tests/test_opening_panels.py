@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.buildings.opening_panels import OpeningPanel, panel_surface
+from outshine.buildings.opening_panels import OpeningPanel, panel_surface
 
 
 def hits(mesh, point):
@@ -98,7 +98,7 @@ class OpeningPanels(unittest.TestCase):
         plan = OpeningPanel(3.2, 3.0, (1.05, 0.16, 2.15, 2.31))
         with (
             patch(
-                "outshine_ref.buildings.opening_panels.np.array",
+                "outshine.buildings.opening_panels.np.array",
                 side_effect=AssertionError("expanded"),
             ),
             self.assertRaisesRegex(ValueError, "capacity"),

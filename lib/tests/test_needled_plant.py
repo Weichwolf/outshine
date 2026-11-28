@@ -2,7 +2,7 @@ import json
 import unittest
 
 import numpy as np
-from outshine_ref.vegetation import (
+from outshine.vegetation import (
     AxisLevel,
     Needle,
     NeedledPlant,

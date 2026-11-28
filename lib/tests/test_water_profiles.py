@@ -7,10 +7,10 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.contracts import Mesh
-from outshine_ref.water import fit_physical_surface
-from outshine_ref.water.frame import model_height_targets
-from outshine_ref.water.geodetic import query_facet
+from outshine.contracts import Mesh
+from outshine.water import fit_physical_surface
+from outshine.water.frame import model_height_targets
+from outshine.water.geodetic import query_facet
 
 
 class WaterProfileLibraryTests(unittest.TestCase):
@@ -22,7 +22,7 @@ class WaterProfileLibraryTests(unittest.TestCase):
         return mesh, np.array([[0, 1, 0, 0, -0.1, 0], [0, 0, 1, 0, -0.005, 0.005]])
 
     def test_water_import_does_not_load_optional_solver_or_geodesy(self):
-        script = "import sys,json,outshine_ref; before=set(sys.modules); import outshine_ref.water; print(json.dumps(sorted(set(sys.modules)-before)))"
+        script = "import sys,json,outshine; before=set(sys.modules); import outshine.water; print(json.dumps(sorted(set(sys.modules)-before)))"
         modules = json.loads(
             subprocess.check_output([sys.executable, "-c", script], text=True)
         )
@@ -55,7 +55,7 @@ class WaterProfileLibraryTests(unittest.TestCase):
     def test_zero_budget_does_not_construct_a_solver(self):
         mesh, rows = self.inputs()
         with patch(
-            "outshine_ref.water._program.clarabel.DefaultSolver",
+            "outshine.water._program.clarabel.DefaultSolver",
             side_effect=AssertionError,
         ):
             fit = fit_physical_surface(

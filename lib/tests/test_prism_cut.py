@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 import shapely
 
-from outshine_ref.buildings.modelling import heightfield_envelope,PrismVolume,subtract_prisms
+from outshine.buildings.modelling import heightfield_envelope,PrismVolume,subtract_prisms
 
 
 def box():

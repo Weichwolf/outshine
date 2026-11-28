@@ -17,7 +17,7 @@ void CheckOwnedTable() {
   using namespace outshine::Generators;
   using namespace outshine::Test;
   const auto source =
-      ReadTextFile("lib/src/outshine_ref/vegetation/data/leaf-optics-table-1.json", 1024u * 1024u);
+      ReadTextFile("lib/outshine/vegetation/data/leaf-optics-table-1.json", 1024u * 1024u);
   CHECK(source.has_value(), "the runtime table has one owned canonical reference input");
   if (!source) { return; }
   Json document;

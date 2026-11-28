@@ -5,9 +5,9 @@ from fractions import Fraction
 
 import numpy as np
 import shapely
-from outshine_ref.buildings.modelling import PrismVolume
-from outshine_ref.buildings.modelling.cut_normals import triangle_normals
-from outshine_ref.buildings.rooflight_panels import triangle_surface
+from outshine.buildings.modelling import PrismVolume
+from outshine.buildings.modelling.cut_normals import triangle_normals
+from outshine.buildings.rooflight_panels import triangle_surface
 
 
 class CutNormals(unittest.TestCase):

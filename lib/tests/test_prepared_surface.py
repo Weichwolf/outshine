@@ -10,9 +10,9 @@ from unittest.mock import patch
 
 import numpy as np
 import test_surface_patches
-from outshine_ref.contracts import LocalFrame
-from outshine_ref.geometry.surface_patches import SurfacePatch, SurfacePatches
-from outshine_ref.geometry.surface_patches.prepared import pack_surface, restore_surface
+from outshine.contracts import LocalFrame
+from outshine.geometry.surface_patches import SurfacePatch, SurfacePatches
+from outshine.geometry.surface_patches.prepared import pack_surface, restore_surface
 
 
 def sha(payload):
@@ -198,7 +198,7 @@ class PreparedSurface(unittest.TestCase):
                 )
                 with (
                     patch(
-                        "outshine_ref.geometry.surface_patches._restore.np.load",
+                        "outshine.geometry.surface_patches._restore.np.load",
                         side_effect=AssertionError(
                             "array decoded before size admission"
                         ),
@@ -252,7 +252,7 @@ class PreparedSurface(unittest.TestCase):
         changed = output.getvalue()
         with (
             patch(
-                "outshine_ref.geometry.surface_patches._restore.np.load",
+                "outshine.geometry.surface_patches._restore.np.load",
                 side_effect=AssertionError("unbounded allocation"),
             ),
             self.assertRaises(ValueError),

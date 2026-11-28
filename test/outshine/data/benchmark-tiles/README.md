@@ -12,7 +12,7 @@ Set `fixture_dir=test/outshine/data/benchmark-tiles`. Create `products` and choo
 jq -r '.[] | [.scenario, .source_asset_key, (.page[] | tostring)] | @tsv' \
   "$fixture_dir/fixtures.json" |
 while read -r scenario key zoom x y; do
-  PYTHONPATH=lib/src python3 -B test/experiments/render/export_surface_tile.py \
+  PYTHONPATH=lib python3 -B lib/experiments/render/export_surface_tile.py \
     --cache build/assets/assets.sqlite --key "$key" --tile "$zoom" "$x" "$y" \
     --output "$products/${scenario%.scenario}.json"
 done

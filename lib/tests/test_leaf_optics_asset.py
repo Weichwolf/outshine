@@ -4,12 +4,12 @@ import unittest
 from importlib.resources import files
 
 import numpy as np
-from outshine_ref.vegetation import LeafOpticsTable
+from outshine.vegetation import LeafOpticsTable
 
 
 class LeafOpticsAssetTests(unittest.TestCase):
     def test_packaged_table_preserves_source_values_and_spectral_checkpoints(self):
-        directory = files("outshine_ref.vegetation") / "data"
+        directory = files("outshine.vegetation") / "data"
         provenance = json.loads(
             (directory / "leaf-optics-provenance-1.json").read_text()
         )

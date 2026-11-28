@@ -3,7 +3,7 @@
 import unittest
 
 import numpy as np
-from outshine_ref.vegetation import Bellflower
+from outshine.vegetation import Bellflower
 
 
 class BellflowerChecks(unittest.TestCase):

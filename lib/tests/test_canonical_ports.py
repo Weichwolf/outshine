@@ -5,7 +5,7 @@ import unittest
 from dataclasses import replace
 
 import numpy as np
-from outshine_ref.transport.canonical_ports import (
+from outshine.transport.canonical_ports import (
     PortBudget,
     PortDemand,
     PortNode,
@@ -13,13 +13,13 @@ from outshine_ref.transport.canonical_ports import (
     PortSpan,
     derive_canonical_ports,
 )
-from outshine_ref.transport.canonical_ports._geodesy import (
+from outshine.transport.canonical_ports._geodesy import (
     frame,
     ground_geographic_at,
     positions_in_frame,
 )
-from outshine_ref.transport.canonical_ports._ground import fit_ground
-from outshine_ref.transport.canonical_ports._queries import canonical_port
+from outshine.transport.canonical_ports._ground import fit_ground
+from outshine.transport.canonical_ports._queries import canonical_port
 from test_port_affine import terminal
 
 TERRAIN_BINDING = {

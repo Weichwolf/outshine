@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.buildings.balconies import (
+from outshine.buildings.balconies import (
     BalconyPlan,
     balcony_plates,
     balcony_surface,
@@ -43,7 +43,7 @@ class Balconies(unittest.TestCase):
     def test_closed_oriented_union_volume_and_analytic_sections(self):
         import manifold3d as manifold
         import shapely
-        from outshine_ref.buildings.modelling.mesh_fans import connected_fans
+        from outshine.buildings.modelling.mesh_fans import connected_fans
 
         for width in (1.8, 2.8, 4.0):
             plan = BalconyPlan(width)
@@ -79,7 +79,7 @@ class Balconies(unittest.TestCase):
                 BalconyPlan(*args)
         with (
             patch(
-                "outshine_ref.buildings.balconies.volumes",
+                "outshine.buildings.balconies.volumes",
                 side_effect=AssertionError("expanded"),
             ),
             self.assertRaisesRegex(ValueError, "capacity"),

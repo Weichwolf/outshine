@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from outshine_ref.buildings.modelling import Frame, Relative, Scope, cga_to_enu, enu_to_cga
+from outshine.buildings.modelling import Frame, Relative, Scope, cga_to_enu, enu_to_cga
 
 
 class BuildingScope(unittest.TestCase):

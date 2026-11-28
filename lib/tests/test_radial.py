@@ -5,8 +5,8 @@ from collections import Counter,defaultdict
 
 import numpy as np
 
-from outshine_ref.buildings.modelling.radial_profile import RadialProfile
-from outshine_ref.buildings.modelling.radial_mesh import radial_mesh
+from outshine.buildings.modelling.radial_profile import RadialProfile
+from outshine.buildings.modelling.radial_mesh import radial_mesh
 
 
 def closed(result):

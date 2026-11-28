@@ -5,7 +5,7 @@ from dataclasses import FrozenInstanceError
 
 import numpy as np
 import shapely
-from outshine_ref.transport.rail_hardware import (
+from outshine.transport.rail_hardware import (
     RailBudget,
     RailRecipe,
     bake_rail_sleepers,

@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 import numpy as np
 import shapely
-from outshine_ref.buildings._rectangle import minimum_rectangle
-from outshine_ref.buildings.structures import footprint_metrics
+from outshine.buildings._rectangle import minimum_rectangle
+from outshine.buildings.structures import footprint_metrics
 from shapely import affinity
 
 

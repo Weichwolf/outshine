@@ -1,7 +1,7 @@
 import unittest
 
 import numpy as np
-from outshine_ref.vegetation import AxisState, NeedlePattern
+from outshine.vegetation import AxisState, NeedlePattern
 
 
 def axis(path, **options):

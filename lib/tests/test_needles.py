@@ -3,8 +3,8 @@
 import unittest
 
 import numpy as np
-from outshine_ref.vegetation import Needle
-from outshine_ref.vegetation.curve_frame import arc_frame
+from outshine.vegetation import Needle
+from outshine.vegetation.curve_frame import arc_frame
 
 
 class NeedleTests(unittest.TestCase):

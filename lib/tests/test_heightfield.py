@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import shapely
 
-from outshine_ref.buildings.modelling import heightfield_envelope
+from outshine.buildings.modelling import heightfield_envelope
 
 
 def rectangle():

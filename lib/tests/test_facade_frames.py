@@ -6,7 +6,7 @@ from itertools import pairwise
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.buildings.facade_frames import FacadeFrame, frame_surface, region
+from outshine.buildings.facade_frames import FacadeFrame, frame_surface, region
 from test_opening_panels import hits
 
 
@@ -110,7 +110,7 @@ class FacadeFrames(unittest.TestCase):
     def test_capacity_and_binding_fail_before_front_triangulation(self):
         plan = FacadeFrame(8, 6, (0.12, 4, 7.88), (0.11, 3, 5.89))
         with patch(
-            "outshine_ref.buildings.facade_frames.compile_faces",
+            "outshine.buildings.facade_frames.compile_faces",
             side_effect=AssertionError("expanded"),
         ):
             for options in (

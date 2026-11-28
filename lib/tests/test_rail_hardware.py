@@ -4,7 +4,7 @@ import unittest
 
 import numpy as np
 import shapely
-from outshine_ref.transport.rail_hardware import (
+from outshine.transport.rail_hardware import (
     RailBudget,
     RailHardware,
     RailRecipe,

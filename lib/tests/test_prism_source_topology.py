@@ -6,12 +6,12 @@ from unittest.mock import patch
 import manifold3d
 import numpy as np
 import shapely
-from outshine_ref.buildings.modelling import PrismVolume, prism_cut
-from outshine_ref.buildings.modelling.prism_source_topology import (
+from outshine.buildings.modelling import PrismVolume, prism_cut
+from outshine.buildings.modelling.prism_source_topology import (
     fan_topology,
     topology,
 )
-from outshine_ref.buildings.modelling.prism_union import primitive_mesh
+from outshine.buildings.modelling.prism_union import primitive_mesh
 from shapely.affinity import rotate, translate
 
 

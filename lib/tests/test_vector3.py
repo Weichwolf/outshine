@@ -3,8 +3,8 @@
 import unittest
 
 import numpy as np
-from outshine_ref.vegetation.shoot_plan import normal_frame
-from outshine_ref.vegetation.vector3 import cross3
+from outshine.vegetation.shoot_plan import normal_frame
+from outshine.vegetation.vector3 import cross3
 
 
 class VectorProducts(unittest.TestCase):

@@ -4,7 +4,7 @@ import unittest
 
 import numpy as np
 
-from outshine_ref.buildings.modelling.scope import scalar
+from outshine.buildings.modelling.scope import scalar
 
 
 class ModellingNumbers(unittest.TestCase):

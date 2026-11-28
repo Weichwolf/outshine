@@ -3,7 +3,7 @@
 import copy
 import unittest
 
-from outshine_ref.vegetation import SpeciesCatalog, load_species_catalog
+from outshine.vegetation import SpeciesCatalog, load_species_catalog
 
 
 def document():

@@ -4,7 +4,7 @@ import unittest
 
 import numpy as np
 import shapely
-from outshine_ref.buildings.interiors import Furnishing, access, layout, placed
+from outshine.buildings.interiors import Furnishing, access, layout, placed
 from shapely.affinity import rotate, translate
 
 DESK = Furnishing("workstation", 1.5, 1.15, 1.35, 0.8)

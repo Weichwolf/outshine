@@ -4,8 +4,8 @@ from io import BytesIO
 import shapely
 from PIL import Image
 
-from outshine_ref.buildings.modelling import Material, Shape, Texture
-from outshine_ref.buildings.modelling.material import resolved_materials
+from outshine.buildings.modelling import Material, Shape, Texture
+from outshine.buildings.modelling.material import resolved_materials
 
 
 def prepared_source():

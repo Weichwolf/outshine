@@ -6,7 +6,7 @@ from dataclasses import replace
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.vegetation import Blade, LeafletShape, PinnatePattern, Profile
+from outshine.vegetation import Blade, LeafletShape, PinnatePattern, Profile
 
 
 def shaped(seed=17):

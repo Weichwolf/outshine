@@ -6,7 +6,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.vegetation import FrondCurl, FrondGuide, PinnatePattern
+from outshine.vegetation import FrondCurl, FrondGuide, PinnatePattern
 
 
 class FrondTests(unittest.TestCase):

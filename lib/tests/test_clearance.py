@@ -4,8 +4,8 @@ import unittest
 
 import numpy as np
 import shapely
-from outshine_ref.contracts import Mesh
-from outshine_ref.geometry import vertical_clearance
+from outshine.contracts import Mesh
+from outshine.geometry import vertical_clearance
 
 
 def triangle(xy, plane):

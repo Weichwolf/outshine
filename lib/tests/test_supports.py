@@ -8,9 +8,9 @@ from unittest.mock import patch
 
 import numpy as np
 import shapely
-from outshine_ref.contracts import Mesh
-from outshine_ref.transport.supports import SupportBudget, SupportVolumeBuilder
-from outshine_ref.transport.supports._geometry import preflight_noding
+from outshine.contracts import Mesh
+from outshine.transport.supports import SupportBudget, SupportVolumeBuilder
+from outshine.transport.supports._geometry import preflight_noding
 
 
 def grid(height):

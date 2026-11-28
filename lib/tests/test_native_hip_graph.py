@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import shapely
 
-from outshine_ref.buildings.modelling import SkeletonBudgetExceeded,SkeletonLimits,prepare_hip
+from outshine.buildings.modelling import SkeletonBudgetExceeded,SkeletonLimits,prepare_hip
 
 
 def courtyard():

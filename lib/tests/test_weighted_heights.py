@@ -4,9 +4,9 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.contracts import Mesh
-from outshine_ref.transport.heights import HeightBudget, HeightFit
-from outshine_ref.transport.weighted_heights import fit_weighted_heights
+from outshine.contracts import Mesh
+from outshine.transport.heights import HeightBudget, HeightFit
+from outshine.transport.weighted_heights import fit_weighted_heights
 
 
 class WeightedHeights(unittest.TestCase):
@@ -61,7 +61,7 @@ class WeightedHeights(unittest.TestCase):
     def test_feasible_affine_prior_returns_same_owned_mesh_without_solver(self):
         surface = Mesh([[0, 0, 5], [20, 0, 5.1], [0, 20, 5.2]], [[0, 1, 2]])
         with patch(
-            "outshine_ref.transport.weighted_heights._fit.solve",
+            "outshine.transport.weighted_heights._fit.solve",
             side_effect=AssertionError,
         ):
             result = fit_weighted_heights(
@@ -79,7 +79,7 @@ class WeightedHeights(unittest.TestCase):
     def test_invalid_solver_output_never_becomes_a_surface(self):
         for output in (None, np.array([np.nan, 1, 2]), np.array([1.0, 2.0])):
             with patch(
-                "outshine_ref.transport.weighted_heights._fit.solve",
+                "outshine.transport.weighted_heights._fit.solve",
                 return_value=(output, {"solver_status": "Failed"}),
             ):
                 result = self.fit()
@@ -89,7 +89,7 @@ class WeightedHeights(unittest.TestCase):
 
     def test_feasible_but_worse_than_flat_reference_is_absent(self):
         with patch(
-            "outshine_ref.transport.weighted_heights._fit.solve",
+            "outshine.transport.weighted_heights._fit.solve",
             return_value=(np.full(3, 10.0), {"solver_status": "MaxTime"}),
         ):
             result = self.fit()
@@ -101,7 +101,7 @@ class WeightedHeights(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.fit(weights=np.full(3, 1e308))
         with patch(
-            "outshine_ref.transport.weighted_heights._fit.solve",
+            "outshine.transport.weighted_heights._fit.solve",
             return_value=(np.array([0.0, 1e308, -1e308]), {"solver_status": "Failed"}),
         ):
             result = self.fit()
@@ -110,7 +110,7 @@ class WeightedHeights(unittest.TestCase):
 
     def test_overslope_and_wrong_contact_candidate_is_contracted_not_exempted(self):
         with patch(
-            "outshine_ref.transport.weighted_heights._fit.solve",
+            "outshine.transport.weighted_heights._fit.solve",
             return_value=(np.array([1.0, 9.0, 9.0]), {"solver_status": "MaxTime"}),
         ):
             result = self.fit(fixed_vertices=[0])
@@ -147,7 +147,7 @@ class WeightedHeights(unittest.TestCase):
             (HeightBudget(max_faces=1, time_limit_s=0), "time_budget_exhausted"),
         ):
             with patch(
-                "outshine_ref.transport.weighted_heights._fit.solve",
+                "outshine.transport.weighted_heights._fit.solve",
                 side_effect=AssertionError,
             ):
                 result = self.fit(budget=budget)

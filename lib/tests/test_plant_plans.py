@@ -6,9 +6,9 @@ from dataclasses import replace
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.vegetation import AxisLevel, Blade, PlantPlan, Shoot
-from outshine_ref.vegetation.axis_surface import axis_mesh
-from outshine_ref.vegetation.shoot_plan import normal_frame
+from outshine.vegetation import AxisLevel, Blade, PlantPlan, Shoot
+from outshine.vegetation.axis_surface import axis_mesh
+from outshine.vegetation.shoot_plan import normal_frame
 
 
 def plant(seed=17):

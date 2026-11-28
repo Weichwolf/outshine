@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 import shapely
-from outshine_ref.buildings.interiors.entrances import entrance
+from outshine.buildings.interiors.entrances import entrance
 
 
 class Entrances(unittest.TestCase):
@@ -39,7 +39,7 @@ class Entrances(unittest.TestCase):
     def test_capacity_and_invalid_candidates_before_geometry(self):
         with (
             patch(
-                "outshine_ref.buildings.interiors.entrances.rectangle",
+                "outshine.buildings.interiors.entrances.rectangle",
                 side_effect=AssertionError("expanded"),
             ),
             self.assertRaisesRegex(ValueError, "capacity"),

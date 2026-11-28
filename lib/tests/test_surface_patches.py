@@ -4,9 +4,9 @@ import unittest
 
 import numpy as np
 import shapely
-from outshine_ref.contracts import LocalFrame, Mesh
-from outshine_ref.geometry import SurfaceSampler
-from outshine_ref.geometry.surface_patches import SurfacePatch, SurfacePatches
+from outshine.contracts import LocalFrame, Mesh
+from outshine.geometry import SurfaceSampler
+from outshine.geometry.surface_patches import SurfacePatch, SurfacePatches
 
 FRAME = LocalFrame("test-ENU-up-zero-m")
 

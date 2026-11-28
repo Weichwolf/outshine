@@ -4,7 +4,7 @@ import importlib.util
 import unittest
 
 import numpy as np
-from outshine_ref.rendering.blender_mesh import mesh_object
+from outshine.rendering.blender_mesh import mesh_object
 
 
 @unittest.skipUnless(
