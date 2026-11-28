@@ -1,5 +1,6 @@
 """Local metric source layers and elevation for a pedestrian reference scene."""
 
+from functools import cached_property
 from pathlib import Path
 
 import numpy as np
@@ -14,6 +15,11 @@ from outshine.places.sources import (
     decode_vector,
     tile_geography,
 )
+from outshine.terrain.ground_surface import ROAD_WIDTH, at_grade_width
+from outshine.transport.route_graph import route_graph
+from outshine.transport.route_tiles import geography, grid_point
+
+LOCAL_LAYERS = ("building", "transportation", "water", "landcover")
 
 
 class LocalScene:
@@ -28,7 +34,9 @@ class LocalScene:
         )
         self.receipts = []
         self.features = []
+        self._radius = radius
         self.dem = Elevation([])
+        transport_tiles = {}
         extent = box(-radius, -radius, radius, radius)
         shapely.prepare(extent)
         for kind, zoom in (("elevation", 12), ("vector", 14)):
@@ -42,18 +50,27 @@ class LocalScene:
                 receipt = acquire((kind, tile, url), Path(cache), fetch=True)
                 self.receipts.append(receipt)
                 if kind == "vector":
-                    self.add_features(receipt, extent)
+                    data = decode_vector(receipt, layers=LOCAL_LAYERS)
+                    if "transportation" in data:
+                        transport_tiles[tile] = data["transportation"]
+                    self.add_features(receipt, extent, data)
             if kind == "elevation":
                 self.dem = Elevation(self.receipts)
         self.datum = float(self.dem.sample(self.lat, self.lon))
+        east, north = (radius + max(ROAD_WIDTH.values()) / 2) / self.metres
+        bounds = (
+            *grid_point(self.lon - east, self.lat + north),
+            *grid_point(self.lon + east, self.lat - north),
+        )
+        self.transport_graph = route_graph(transport_tiles, bounds=bounds)
 
     def height(self, xy):
         lon, lat = (np.asarray(xy) / self.metres + [self.lon, self.lat]).T
         return self.dem.sample(lat, lon) - self.datum
 
-    def add_features(self, receipt, extent):
+    def add_features(self, receipt, extent, data=None):
         for name, geometry, properties in self.metric_features(
-            receipt, ("building", "transportation", "water", "landcover")
+            receipt, LOCAL_LAYERS, data
         ):
             if not extent.intersects(geometry):
                 continue
@@ -66,6 +83,41 @@ class LocalScene:
             else:
                 self.features.append((name, geometry, properties))
 
+    @cached_property
+    def ground_tile_joins(self):
+        graph = self.transport_graph
+        joined = []
+        for first, second in graph.seam_pairs:
+            a, b = graph.paths[first], graph.paths[second]
+            if a.attributes.domain != ("land", 0, "", "", False):
+                continue
+            tags = dict(a.attributes.tags)
+            width = at_grade_width(tags)
+            if width is None:
+                continue
+            ports = {a.nodes[0], a.nodes[-1]} & {b.nodes[0], b.nodes[-1]}
+            if not any(
+                np.abs(self.metric(*geography(port.point))).max()
+                <= self._radius + width / 2
+                for port in ports
+            ):
+                continue
+            coords = [
+                self.metric(
+                    *np.asarray([geography(node.point) for node in path.nodes]).T
+                )
+                for path in (a, b)
+            ]
+            axis = shapely.line_merge(shapely.MultiLineString(coords))
+            if axis.geom_type == "LineString":
+                joined.append((axis, tags))
+        return tuple(joined)
+
+    def metric(self, longitude, latitude):
+        east = longitude - self.lon
+        east = np.where(np.abs(east) > 180, east - np.sign(east) * 360, east)
+        return np.column_stack((east, latitude - self.lat)) * self.metres
+
     def metric_features(self, receipt, names, data=None):
         tile = receipt["tile"]
         if data is None:
@@ -77,7 +129,7 @@ class LocalScene:
 
             def local(points, extent=layer["extent"]):
                 lat, lon = tile_geography(points, extent, tile)
-                return np.column_stack((lon - self.lon, lat - self.lat)) * self.metres
+                return self.metric(lon, lat)
 
             for feature in layer["features"]:
                 geom = shapely.transform(shape(feature["geometry"]), local)
