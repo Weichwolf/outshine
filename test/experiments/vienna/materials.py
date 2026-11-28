@@ -54,6 +54,8 @@ SURFACES = {
     "portal stone": ((0.40, 0.36, 0.30), 0.76),
     "window sill": ((0.39, 0.35, 0.28), 0.77),
     "wall": ((0.48, 0.40, 0.30), 0.82),
+    "street base": ((0.35, 0.30, 0.24), 0.87),
+    "street trim": ((0.34, 0.30, 0.25), 0.78),
     "frame": ((0.21, 0.18, 0.14), 0.65),
     "glass": ((0.018, 0.024, 0.028), 0.13),
     "entrance door": ((0.072, 0.048, 0.030), 0.54),
@@ -80,4 +82,6 @@ def surface_properties(name):
     rgb, roughness = SURFACES[base]
     if separator:
         rgb = tuple(srgb_to_linear(colour(("#" + encoded,))))
+        if base == "street base":
+            rgb = tuple(0.72 * channel + 0.025 for channel in rgb)
     return base, rgb, roughness

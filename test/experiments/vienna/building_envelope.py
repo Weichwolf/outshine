@@ -4,9 +4,11 @@ from dataclasses import dataclass
 
 import numpy as np
 import shapely
+from outshine_ref.buildings.structures import suppressed
 from shapely.geometry import LineString, box
 
 FACE_EPSILON_M = 1e-6
+MIN_PARENT_COVERAGE = 0.9
 
 
 @dataclass(frozen=True)
@@ -29,6 +31,47 @@ def building_neighbours(footprints, volumes):
         if i != owner:
             result[i].append((volume, rank[owner] < rank[i]))
     return result
+
+
+def outline_matches(geometries, parents, children):
+    if not parents or not children:
+        return
+    shapes = np.asarray(geometries, dtype=object)
+    index = shapely.STRtree(shapes[parents])
+    child_ids, parent_ids = index.query(shapes[children], predicate="intersects")
+    child_ids = np.asarray(children)[child_ids]
+    parent_ids = np.asarray(parents)[parent_ids]
+    child_shapes = shapes[child_ids]
+    parent_shapes = shapes[parent_ids]
+    child_area = shapely.area(child_shapes)
+    overlap = shapely.area(shapely.intersection(child_shapes, parent_shapes))
+    coverage = np.divide(
+        overlap, child_area, out=np.zeros_like(overlap), where=child_area > 0
+    )
+    eligible = coverage >= MIN_PARENT_COVERAGE
+    child_ids, parent_ids = child_ids[eligible], parent_ids[eligible]
+    coverage = coverage[eligible]
+    parent_area = shapely.area(shapes[parent_ids])
+    for child, parent, fraction, area in zip(
+        child_ids, parent_ids, coverage, parent_area, strict=True
+    ):
+        yield child, parent, (-fraction, area)
+
+
+def building_groups(geometries, properties):
+    parents = [
+        i
+        for i, p in enumerate(properties)
+        if suppressed(p) and p.get("render_height", 0) >= 6.4
+    ]
+    children = [i for i, p in enumerate(properties) if not suppressed(p)]
+    groups = {}
+    for child, parent, rank in sorted(
+        outline_matches(geometries, parents, children),
+        key=lambda match: (match[2], match[1]),
+    ):
+        groups.setdefault(child, int(parent))
+    return groups
 
 
 def obstructed_spans(line, footprint, origin, axis, outward, length, owns_face):
