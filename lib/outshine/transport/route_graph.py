@@ -211,7 +211,7 @@ def route_graph(tiles, *, bounds=None):
             tile_fragments(tile, layer, bounds),
             key=lambda f: (
                 f.feature,
-                tuple((v.point, v.observed) for v in f.vertices),
+                tuple((v.point, v.support or ()) for v in f.vertices),
                 repr(f.tags),
             ),
         )
