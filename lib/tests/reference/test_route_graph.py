@@ -83,6 +83,34 @@ class RouteGraphTest(unittest.TestCase):
         without_vertex = way(2, [(8, 2), (8, 14)], RAIL)
         self.assertEqual(route_graph({WEST: layer(road, without_vertex)}).contacts, ())
 
+    def test_tunnel_portals_keep_direction_and_leave_the_overhead_road_separate(self):
+        one_way = ROAD | {"oneway": 1}
+        a = way(1, [(2, 8), (5, 8)], one_way)
+        tunnel = way(2, [(5, 8), (8, 8), (11, 8)], one_way | {"brunnel": "tunnel"})
+        b = way(3, [(11, 8), (14, 8)], one_way)
+        overhead = way(4, [(8, 3), (8, 8), (8, 13)], ROAD)
+        graph = route_graph({WEST: layer(a, tunnel, b, overhead)})
+        self.assertEqual(len(graph.portals), 2)
+        first, last = graph.portals
+        self.assertEqual(first.enter_modes & {"motor"}, {"motor"})
+        self.assertNotIn("motor", first.exit_modes)
+        self.assertEqual(last.exit_modes & {"motor"}, {"motor"})
+        self.assertNotIn("motor", last.enter_modes)
+        edges = set(graph.connections("motor"))
+        self.assertIn((first.ground, first.structure), edges)
+        self.assertIn((last.structure, last.ground), edges)
+        self.assertNotIn((first.structure, first.ground), edges)
+        self.assertNotIn((graph.paths[1].nodes[1], graph.paths[3].nodes[1]), edges)
+
+    def test_bridge_mouth_with_ambiguous_or_blocked_approaches_stays_open(self):
+        bridge = way(1, [(7, 8), (14, 8)], ROAD | {"brunnel": "bridge", "layer": 1})
+        a = way(2, [(2, 4), (7, 8)], ROAD)
+        b = way(3, [(2, 12), (7, 8)], ROAD)
+        self.assertEqual(route_graph({WEST: layer(bridge, a, b)}).portals, ())
+        blocked = a | {"properties": ROAD | {"access": "private"}}
+        self.assertEqual(route_graph({WEST: layer(bridge, blocked)}).portals, ())
+        self.assertEqual(len(route_graph({WEST: layer(bridge, a)}).portals), 1)
+
     def test_access_and_construction_keep_source_evidence(self):
         tags = ROAD | {"access": "private", "foot": "yes", "horse": "no"}
         private = way(1, [(2, 8), (8, 8)], tags)

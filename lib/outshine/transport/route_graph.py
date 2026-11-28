@@ -4,6 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from functools import cache
 
+from .route_portals import RoutePortal, route_portals
 from .route_seams import match_seams
 from .route_tiles import WORLD_CELLS, tile_fragments
 
@@ -40,6 +41,11 @@ class RouteAttributes:
     public_modes: frozenset[str]
     tags: tuple
 
+    def modes_in(self, direction):
+        if direction in self.directions:
+            return self.public_modes
+        return self.public_modes & {"walk", "horse"}
+
 
 @dataclass(frozen=True, slots=True)
 class RouteNode:
@@ -74,22 +80,26 @@ class RouteGraph:
     contacts: tuple[RouteContact, ...]
     frontiers: tuple[RouteFrontier, ...]
     seam_pairs: tuple[tuple[int, int], ...]
+    portals: tuple[RoutePortal, ...]
 
     def connections(self, mode):
-        """Yield directed traversals. Mode changes need a separate site recipe."""
+        """Yield directed source links. Structures still require a feasible height fit."""
         emitted = set()
         for path in self.paths:
             if mode not in path.attributes.public_modes:
                 continue
-            directions = (
-                (1, -1) if mode in {"walk", "horse"} else path.attributes.directions
-            )
+            directions = [d for d in (1, -1) if mode in path.attributes.modes_in(d)]
             for a, b in zip(path.nodes[:-1], path.nodes[1:], strict=True):
                 for direction in directions:
                     edge = (a, b) if direction > 0 else (b, a)
                     if edge not in emitted:
                         emitted.add(edge)
                         yield edge
+        for portal in self.portals:
+            if mode in portal.enter_modes:
+                yield portal.ground, portal.structure
+            if mode in portal.exit_modes:
+                yield portal.structure, portal.ground
 
 
 def _mode_defaults(kind, subclass):
@@ -237,4 +247,10 @@ def route_graph(tiles, *, bounds=None):
             {(path, peer) for (path, _), (_, _, peer) in seams.items() if path < peer}
         )
     )
-    return RouteGraph(tuple(paths), _level_crossings(paths), frontiers, seam_pairs)
+    return RouteGraph(
+        tuple(paths),
+        _level_crossings(paths),
+        frontiers,
+        seam_pairs,
+        route_portals(paths),
+    )
