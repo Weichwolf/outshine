@@ -82,7 +82,12 @@ from outshine.transport.stair_guards import draw_stair_guards
 from outshine.transport.stair_landings import local_landings
 from outshine.transport.stairs import local_stairways
 from outshine.transport.surface_rail import plan_surface_rail
-from outshine.transport.tram_rails import draw_tram_rails, tram_routes
+from outshine.transport.tram_rails import (
+    TRAM_SURFACE_OFFSETS,
+    draw_tram_rails,
+    street_tram_surfaces,
+    tram_routes,
+)
 from outshine.transport.viaducts import draw_viaduct
 from outshine.water.shore_grade import SHORE_REACH_M, shore_grade
 from outshine.water.water_surface import clipped_water, water_bodies
@@ -871,6 +876,32 @@ def ground_surfaces(
         {i: work.footprint.intersection(extent) for i, (work, _) in graded.items()}
     )
     footprints.update({i: roads[name] for i, name in enumerate(ROUTE_MATERIALS, 2)})
+    surface, indices = compound_ground(vertices, quads, junctions, junction_area)
+    tram = street_tram_surfaces(
+        getattr(source, "street_tram_lines", ()),
+        extent,
+        roads["road"],
+        [
+            bodies,
+            openings,
+            track_paving,
+            cuts if tunnels else shapely.Polygon(),
+            *structures,
+            *(crossing.footprint for crossing in crossings),
+            *(deck.footprint for deck in rail_decks),
+            *(stair.footprint for stair in stairs),
+            *(work.footprint for work, _ in earthworks),
+        ],
+        viaducts,
+        surface,
+        indices,
+    )
+    first_tram = first_stair + len(pieces) + len(earthworks)
+    tram_footprints = {}
+    for label, (name, area) in enumerate(tram.items(), first_tram):
+        names[label] = name
+        tram_footprints[label] = area
+    footprints = tram_footprints | footprints
     protected = shapely.Polygon()
     if water_plan:
         margin = bodies.buffer(SHORE_REACH_M, quad_segs=2)
@@ -900,7 +931,6 @@ def ground_surfaces(
         body.control is not None and body.control.retaining_limits_m is not None
         for body in shore.bodies
     )
-    surface, indices = compound_ground(vertices, quads, junctions, junction_area)
     building_stamps = None
     breaks = [
         *shore.breaks(bodies, extent),
@@ -940,7 +970,7 @@ def ground_surfaces(
                 breaks.append(
                     edges.buffer(width, quad_segs=4).boundary.intersection(dirt)
                 )
-    cover_start = first_stair + len(pieces) + len(earthworks)
+    cover_start = first_tram + len(tram)
     vegetation = ground_cover(
         meshes,
         source.features,
@@ -986,6 +1016,19 @@ def ground_surfaces(
         breaks=breaks,
     ):
         if name in {"tunnel opening", "outside local terrain"}:
+            continue
+        if name in TRAM_SURFACE_OFFSETS:
+            rise = TRAM_SURFACE_OFFSETS[name]
+            rail_material = "rail head" if name == "tram rail" else name
+            edges = points[faces[:, [[0, 1], [1, 2], [2, 0]]]].reshape(-1, 2, 3)
+            rims = boundary_edges(edges, tram[name].boundary)
+            if rise < 0:
+                rims = rims[:, ::-1]
+            vertical_faces(meshes, rail_material, rims, rims[:, :, 2] + rise)
+            used, inverse = np.unique(faces, return_inverse=True)
+            xyz = points[used]
+            xyz[:, 2] += rise
+            meshes.add(rail_material, xyz, inverse.reshape(-1, 3))
             continue
         if name in graded:
             earthwork, ground_material = graded[name]

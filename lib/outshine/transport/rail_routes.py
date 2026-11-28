@@ -12,15 +12,17 @@ def _node_key(node):
     return node.point, node.domain, node.cut or ()
 
 
-def surface_rail_lines(graph, project):
+def surface_rail_lines(graph, project, *, kind="rail", mode=None):
     links = defaultdict(set)
     for path in graph.paths:
-        if path.attributes.kind != "rail" or path.attributes.domain[1:] != (
+        if path.attributes.kind != kind or path.attributes.domain[1:] != (
             0,
             "",
             "",
             False,
         ):
+            continue
+        if mode is not None and path.attributes.domain[0] != mode:
             continue
         for a, b in zip(path.nodes[:-1], path.nodes[1:], strict=True):
             links[a].add(b)
