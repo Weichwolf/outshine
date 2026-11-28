@@ -125,3 +125,23 @@ def diffuse_coefficients(radiance):
     kernel = np.array([1, 2 / 3, 2 / 3, 2 / 3, 1 / 4, 1 / 4, 1 / 4, 1 / 4, 1 / 4])
     coefficients = basis.reshape(-1, 9).T @ weighted.reshape(-1, 3)
     return (coefficients * kernel[:, None]).astype("f4")
+
+
+def sample_radiance(radiance, directions):
+    """Bilinear lookup in the shared east/north/up equirectangular archive."""
+    height, width, _ = radiance.shape
+    east, north, up = np.asarray(directions).T
+    longitude = np.where(east**2 + north**2 > 1e-10, np.arctan2(north, east), 0)
+    u = (0.5 - longitude / (2 * np.pi)) * width - 0.5
+    v = np.clip(
+        (0.5 + np.arcsin(np.clip(up, -1, 1)) / np.pi) * height - 0.5,
+        0,
+        height - 1,
+    )
+    x, y = np.floor(u).astype(int), np.floor(v).astype(int)
+    s, t = (u - x)[:, None], (v - y)[:, None]
+    left, right = x % width, (x + 1) % width
+    upper = np.minimum(y + 1, height - 1)
+    bottom = (1 - s) * radiance[y, left] + s * radiance[y, right]
+    top = (1 - s) * radiance[upper, left] + s * radiance[upper, right]
+    return (1 - t) * bottom + t * top

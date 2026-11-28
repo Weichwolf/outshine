@@ -186,14 +186,18 @@ def hemisphere_directions(count):
     )
 
 
-def reflected_rgb(index, point, normal, sunlight, directions):
-    tree, reflectance = index
+def hemisphere_rays(point, normal, directions):
     normal = Vector(normal).normalized()
     origin = Vector(point) + normal * SURFACE_BIAS_M
     axis = Vector((0, 0, 1)) if abs(normal.z) < 0.95 else Vector((1, 0, 0))
     tangent = normal.cross(axis).normalized()
     bitangent = normal.cross(tangent)
-    world_directions = directions @ np.asarray((tangent, bitangent, normal))
+    return origin, directions @ np.asarray((tangent, bitangent, normal))
+
+
+def reflected_rgb(index, point, normal, sunlight, directions):
+    tree, reflectance = index
+    origin, world_directions = hemisphere_rays(point, normal, directions)
     radiance = np.zeros(3)
     for direction in world_directions:
         hit, surface, face, _ = tree.ray_cast(origin, direction, REFLECTION_REACH_M)
@@ -227,48 +231,75 @@ def apply_bounce_material(material):
     bsdf.inputs["Emission Strength"].default_value = 1
 
 
-def bake_sun_bounce(scene, sun, batches):
-    start = perf_counter()
-    eye = np.asarray(scene.camera.matrix_world.translation)
-    graph = bpy.context.evaluated_depsgraph_get()
-    sunlight = -(sun.matrix_world.to_3x3() @ Vector((0, 0, -1))).normalized()
-    directions = hemisphere_directions(128)
+@dataclass(frozen=True)
+class ReceiverSamples:
+    positions: np.ndarray
+    normals: np.ndarray
+    fade: np.ndarray
+    active: np.ndarray
+    first: np.ndarray
+    lookup: np.ndarray
+
+    def expand(self, values):
+        irradiance = np.zeros_like(self.positions)
+        irradiance[self.active] = values[self.lookup] * self.fade[self.active, None]
+        return irradiance
+
+
+def receiver_samples(batches, eye):
     positions = np.concatenate([batch.positions for batch in batches])
     normals = np.concatenate([batch.normals for batch in batches])
     fade = np.clip(
         (RECEIVER_REACH_M - np.linalg.norm(positions - eye, axis=1)) / 8, 0, 1
     )
     active = np.flatnonzero(fade)
-    if not len(active):
-        return 0, perf_counter() - start
     keys = np.c_[
         np.floor(positions[active] / RECEIVER_SPACING_M), np.round(normals[active] * 12)
     ]
     _, first, lookup = np.unique(keys, axis=0, return_index=True, return_inverse=True)
-    index = reflection_index(graph, eye, sunlight)
-    strength = sun.data.energy / (np.pi * len(directions))
-    values = strength * np.array(
-        [
-            reflected_rgb(index, positions[i], normals[i], sunlight, directions)
-            for i in active[first]
-        ]
-    )
-    irradiance = np.zeros_like(positions)
-    irradiance[active] = values[lookup] * fade[active, None]
+    return ReceiverSamples(positions, normals, fade, active, active[first], lookup)
+
+
+def write_irradiance(batches, irradiance, name, *, fade=None):
     start_loop = 0
     materials = set()
     for batch in batches:
         stop = start_loop + len(batch.loops)
         pixels = np.zeros((len(batch.mesh.loops), 4), dtype=np.float32)
-        pixels[:, 3] = 1
         np.maximum.at(pixels[:, :3], batch.loops, irradiance[start_loop:stop])
+        if fade is None:
+            pixels[:, 3] = 1
+        else:
+            np.maximum.at(pixels[:, 3], batch.loops, fade[start_loop:stop])
         attr = batch.mesh.color_attributes.new(
-            name=ATTRIBUTE, type="FLOAT_COLOR", domain="CORNER"
+            name=name, type="FLOAT_COLOR", domain="CORNER"
         )
         attr.data.foreach_set("color", pixels.ravel())
         materials.add(batch.mesh.materials[0])
         start_loop = stop
-    for material in materials:
+    return materials
+
+
+def bake_sun_bounce(scene, sun, batches):
+    start = perf_counter()
+    eye = np.asarray(scene.camera.matrix_world.translation)
+    samples = receiver_samples(batches, eye)
+    if not len(samples.first):
+        return 0, perf_counter() - start
+    graph = bpy.context.evaluated_depsgraph_get()
+    sunlight = -(sun.matrix_world.to_3x3() @ Vector((0, 0, -1))).normalized()
+    directions = hemisphere_directions(128)
+    index = reflection_index(graph, eye, sunlight)
+    strength = sun.data.energy / (np.pi * len(directions))
+    values = strength * np.array(
+        [
+            reflected_rgb(
+                index, samples.positions[i], samples.normals[i], sunlight, directions
+            )
+            for i in samples.first
+        ]
+    )
+    for material in write_irradiance(batches, samples.expand(values), ATTRIBUTE):
         apply_bounce_material(material)
     bpy.context.view_layer.update()
     return len(values), perf_counter() - start

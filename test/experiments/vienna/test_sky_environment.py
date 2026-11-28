@@ -10,11 +10,27 @@ from sky_environment import (
     SKY_ENVIRONMENT_SIZE,
     diffuse_coefficients,
     load_environment,
+    sample_radiance,
     save_environment,
 )
 
 
 class SkyEnvironmentTest(unittest.TestCase):
+    def test_sky_lookup_wraps_longitude_and_clamps_both_poles(self):
+        width, height = SKY_ENVIRONMENT_SIZE
+        longitude = np.pi * (1 - 2 * (np.arange(width) + 0.5) / width)
+        latitude = np.pi * ((np.arange(height) + 0.5) / height - 0.5)
+        x = np.cos(latitude)[:, None] * np.cos(longitude)
+        y = np.cos(latitude)[:, None] * np.sin(longitude)
+        z = np.broadcast_to(np.sin(latitude)[:, None], (height, width))
+        radiance = 0.3 + 0.2 * np.stack((x, y, z), axis=-1)
+        directions = np.array(
+            [(1, 0, 0), (0, 1, 0), (-1, 1e-8, 0), (-1, -1e-8, 0), (0, 0, 1), (0, 0, -1)]
+        )
+        np.testing.assert_allclose(
+            sample_radiance(radiance, directions), 0.3 + 0.2 * directions, atol=0.0013
+        )
+
     def test_diffuse_kernel_preserves_uniform_light_and_orients_the_sky(self):
         width, height = SKY_ENVIRONMENT_SIZE
         latitude = np.pi * ((np.arange(height) + 0.5) / height - 0.5)
