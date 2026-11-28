@@ -1,0 +1,37 @@
+{
+  "seed": 2083,
+  "utc": "2026-04-07T02:25:00Z",
+  "weather": "clear",
+  "eye_height_m": 1.7,
+  "vertical_fov_deg": 54,
+  "source_snapshot": "20260927_080001_pt",
+  "source_pins": "chitwan-sources.json",
+  "places": [
+    {
+      "id": "Chitwan-Near",
+      "latitude": 27.57375446,
+      "longitude": 84.49446559,
+      "heading_deg": 202,
+      "pitch_deg": -8,
+      "support": "unpaved path"
+    },
+    {
+      "id": "Chitwan-Stand",
+      "latitude": 27.57343633,
+      "longitude": 84.49277552,
+      "heading_deg": 165,
+      "pitch_deg": -3,
+      "support": "road"
+    }
+  ],
+  "walks": {
+    "Chitwan-Footpath": {
+      "origin": "Chitwan-Near",
+      "station_offsets_m": [
+        0,
+        7.2
+      ],
+      "step_m": 0.45
+    }
+  }
+}

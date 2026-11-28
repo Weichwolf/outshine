@@ -122,6 +122,16 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
   aus der jeweiligen Ortsrecherche.
   [UNESCO World Heritage List](https://data.unesco.org/explore/assets/whc001/)
 
+- **Lokale Habitate mit ähnlicher Satellitenbedeckung**. Nepals
+  Nationalparkbehörde kartiert Grasflächen und ihre Entstehung in der
+  Rapti-Aue. Der Cajas-Managementplan unterscheidet Páramo-Grasland und
+  weitere Höhenhabitate. Die Pflanzenliste von Zealandia hilft bei der
+  Auswahl der Wuchsformen im regenerierenden Wald. Outshine nutzt diese
+  Belege für die Standortabnahme und zur Einordnung der Atlasdaten.
+  [Chitwan-Graslandkartierung](https://dnpwc.gov.np/media/publication/GRASSLAND_HABITAT_MAPPING_CNP.pdf) ·
+  [Cajas-Managementplan](https://www.ambiente.gob.ec/wp-content/uploads/downloads/2018/03/ACUERDO-001-ANEXO-PAQUE-NACIONAL-CAJAS.pdf) ·
+  [Zealandia-Pflanzenliste](https://www.visitzealandia.com/learn/nature-and-wildlife/plants/)
+
 - **Küstenmammutbäume und Schwertfarne am Prairie Creek**. Die Parkkartierung
   grenzt alten Küstenmammutbaumwald und alte Sitkafichtenbestände räumlich ab.
   Messungen an Waldbeständen stützen die Größenordnung der Stämme, die hoch

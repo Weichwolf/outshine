@@ -2,7 +2,9 @@
 
 `pilot.json` and `development.json` record the development sites, cameras,
 photographic references and habitat checks. Use the Python image driver with
-`--vegetation-site` to render a site's camera set.
+`--vegetation-site` to render a site's camera set. A reference photo's
+`sha256` refers to the original image linked from its source page. Its
+`camera` records the photographer's pose where available.
 
 `holdouts.json` reserves ten independent site anchors per continent. The
 coordinates are the World Heritage property reference points published by
@@ -30,15 +32,12 @@ The builder retains inputs under `build/vegetation-atlas/sources/`. Run the
 second command without `--fetch` to rebuild from the retained inputs. Use
 `--output` to write a separate atlas and `--at LAT LON` to build around a
 different location. Repeated `--at` values build all selected windows in one
-manifest. To build around pinned development cameras, pass their site IDs
-with one `--site` per location.
+manifest. Use `--site` to select individual captures by ID. Use
+`--development` to build all captures from `development.json`.
 
 ```sh
 nice -n 10 build/blender-python/bin/python -m lib.tests.fixtures.vegetation.build_atlas \
-  --site na-namib-dune45 --site in-keoladeo-bharatpur \
-  --site de-lueneburg-totengrund --site us-everglades-anhinga \
-  --site au-wilsons-promontory-squeaky-beach --site br-lencois-barreirinhas-dunes \
-  --output build/vegetation-atlas/development \
+  --development \
   --check-pins lib/tests/fixtures/vegetation/atlas-development-pins.json
 ```
 

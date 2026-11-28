@@ -189,6 +189,221 @@
         "Exact photo pose and changing seasonal lagoon outlines and water levels"
       ],
       "walk": "Lencois-Footpath"
+    },
+    {
+      "id": "ke-aberdare-karuru",
+      "continent": "Africa",
+      "stratum": "East African montane forest on a steep waterfall gorge and rocky footpath",
+      "latitude": -0.52629565,
+      "longitude": 36.72204852,
+      "partition": "development",
+      "capture": "development/karuru.json",
+      "views": [
+        "Karuru-Near",
+        "Karuru-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2019-08-23",
+          "url": "https://commons.wikimedia.org/wiki/File:Gura_Giant_Falls_view_from_the_top_of_Karuru_Falls.jpg",
+          "use": "Gura gorge canopy, moss-covered boles and exposed rock at the Karuru lookout",
+          "sha256": "ef393b2e01dba613726c642dc71e50c3911474f89af0288c1c49059c739c86b5"
+        }
+      ],
+      "habitat_references": [
+        "https://kws.go.ke/wp-content/uploads/2026/02/Aberdare-National-Park.pdf"
+      ],
+      "checks": [
+        "Compare cliff exposure with the opposite wooded slope",
+        "Check roots on steep ground and preserve the footpath"
+      ],
+      "evidence_gaps": [
+        "The lookout is identified by place name without surveyed camera coordinates",
+        "Local tree composition and gorge-scale canopy heights need field evidence"
+      ],
+      "walk": "Karuru-Footpath"
+    },
+    {
+      "id": "np-chitwan-sauraha-rapti",
+      "continent": "Asia",
+      "stratum": "Subtropical alluvial grassland and seasonally wet Rapti floodplain with wooded margins",
+      "latitude": 27.57375446,
+      "longitude": 84.49446559,
+      "partition": "development",
+      "capture": "development/chitwan.json",
+      "views": [
+        "Chitwan-Near",
+        "Chitwan-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2019-04-07",
+          "url": "https://commons.wikimedia.org/wiki/File:Chitwan_National_Park_(Rapti_River).jpg",
+          "use": "Spring water, emergent cover and wooded banks at the photographed Rapti reach near the fixed cameras",
+          "camera": {
+            "latitude": 27.574167,
+            "longitude": 84.493111,
+            "heading_deg": 173.58
+          },
+          "sha256": "4a0e77539737ac737eb92af5783d99442e5622b9451c4fa020cfde9bbc5c8f00"
+        }
+      ],
+      "habitat_references": [
+        "https://dnpwc.gov.np/media/publication/GRASSLAND_HABITAT_MAPPING_CNP.pdf"
+      ],
+      "checks": [
+        "Distinguish floodplain grasses, wooded cover and exposed alluvium",
+        "Keep emergents and wet ground consistent with mapped and solved water contacts"
+      ],
+      "evidence_gaps": [
+        "The recorded photo is within 145 m of both cameras and has a different eye position and shoreline water level",
+        "Exact inundation, alluvial texture and management history of the capture are unknown"
+      ],
+      "walk": "Chitwan-Footpath"
+    },
+    {
+      "id": "se-abisko-kungsleden",
+      "continent": "Europe",
+      "stratum": "Subarctic mountain birch woods with damp forest floor near the lower Kungsleden",
+      "latitude": 68.35676345,
+      "longitude": 18.77846503,
+      "partition": "development",
+      "capture": "development/abisko.json",
+      "views": [
+        "Abisko-Near",
+        "Abisko-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2012-07-13",
+          "url": "https://commons.wikimedia.org/wiki/File:Abisko_national_park_birch_forest.jpg",
+          "use": "Summer mountain birch habit, low green undergrowth and moist path margins in Abisko",
+          "sha256": "07ba0dd3d374f06108d5d62d9271fa7bde7490e363e8c5488eb2ee6aee381acb"
+        }
+      ],
+      "habitat_references": [
+        "https://www.lansstyrelsen.se/norrbotten/besoksmal/nationalparker/abisko.html",
+        "https://www.stationlinne.se/sv/forskning-research/the-swedish-malaise-trap-project-smtp/traps/trap-id-50-abisko-birch-forest/"
+      ],
+      "checks": [
+        "Check low, irregular birches and summer understory density",
+        "Keep footpath support continuous at the sloping woodland edge"
+      ],
+      "evidence_gaps": [
+        "The birch reference is dated by camera metadata and lacks a precise pose",
+        "Board or litter coverage and local soil wetness are unresolved"
+      ],
+      "walk": "Abisko-Footpath"
+    },
+    {
+      "id": "us-weedon-island-mangroves",
+      "continent": "North America",
+      "stratum": "Tidal mangrove scrub, pine flatwoods margin and coastal footpaths in Tampa Bay",
+      "latitude": 27.84691617,
+      "longitude": -82.60800257,
+      "partition": "development",
+      "capture": "development/weedon.json",
+      "views": [
+        "Weedon-Near",
+        "Weedon-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2016-10-11",
+          "url": "https://commons.wikimedia.org/wiki/File:Mangrove_Hammock.jpg",
+          "use": "Low mangrove canopy, open sandy patches and vegetation structure in the preserve",
+          "sha256": "c2c224e6aae37ad0909e8d14c23ad29c7878c858086c3cd37c4bbdc1e5d3a66a"
+        }
+      ],
+      "habitat_references": [
+        "https://www.weedonislandpreserve.org/boardwalks-trails.htm"
+      ],
+      "checks": [
+        "Check low tidal woodland next to dry ground and open water",
+        "Reserve walkable paths and distinguish aerial roots from dry woodland roots"
+      ],
+      "evidence_gaps": [
+        "The dated photograph has no exact pose or recording of tide level",
+        "The mapped raised boardwalk does not provide a solved deck at the test stations; the fixed cameras use at-grade paths"
+      ],
+      "walk": "Weedon-Footpath"
+    },
+    {
+      "id": "nz-wellington-zealandia-karori",
+      "continent": "Oceania",
+      "stratum": "Restored temperate valley forest at an urban reservoir and maintained paths",
+      "latitude": -41.29125618,
+      "longitude": 174.75303145,
+      "partition": "development",
+      "capture": "development/zealandia.json",
+      "views": [
+        "Zealandia-Near",
+        "Zealandia-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2026-05-05",
+          "url": "https://commons.wikimedia.org/wiki/File:Dam_at_Zealandia_in_Wellington.jpg",
+          "use": "Autumn lower dam, regenerating canopy and the edge between planted and maintained ground",
+          "camera": {
+            "latitude": -41.291031,
+            "longitude": 174.753372,
+            "heading_deg": 220.64
+          },
+          "sha256": "22425ce9595a78850bd3f2eb6269fca844c3b660c6e079263a14336bf9f5965a"
+        }
+      ],
+      "habitat_references": [
+        "https://www.visitzealandia.com/learn/nature-and-wildlife/plants/",
+        "https://teara.govt.nz/en/photograph/13190/zealandia"
+      ],
+      "checks": [
+        "Compare the restored canopy with the managed dam margin",
+        "Check fern and shrub layering while keeping the mapped route clear"
+      ],
+      "evidence_gaps": [
+        "Species distribution and planting dates within the visible stand have not been established",
+        "The photo is a nearby dam view and the fixed cameras remain on solved at-grade footpaths"
+      ],
+      "walk": "Zealandia-Footpath"
+    },
+    {
+      "id": "ec-cajas-laguna-toreadora",
+      "continent": "South America",
+      "stratum": "High Andean bunchgrass páramo with volcanic terrain and glacial lake margins",
+      "latitude": -2.78295442,
+      "longitude": -79.22314363,
+      "partition": "development",
+      "capture": "development/toreadora.json",
+      "views": [
+        "Toreadora-Near",
+        "Toreadora-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2023-08-21",
+          "url": "https://commons.wikimedia.org/wiki/File:El_Cajas_National_Park_Laguna_Toreadora_in_rainy_weather_seen_from_the_viewpoint_1.jpg",
+          "use": "Rain-darkened páramo, low cover, bare rock and lake margins in overcast light",
+          "camera": {
+            "latitude": -2.783027,
+            "longitude": -79.222584
+          },
+          "sha256": "bfea1bbc8060d67af47dedbb9a82e2c520f9aab289663409415bd82923f3ae5d"
+        }
+      ],
+      "habitat_references": [
+        "https://www.etapa.net.ec/gestion-ambiental/parque-nacional-cajas/visitar-el-pnc/informacion/",
+        "https://www.ambiente.gob.ec/wp-content/uploads/downloads/2018/03/ACUERDO-001-ANEXO-PAQUE-NACIONAL-CAJAS.pdf"
+      ],
+      "checks": [
+        "Keep bunchgrass, low shrubs, exposed bedrock and standing water distinct",
+        "Check slopes and ground transitions from the mapped footpath"
+      ],
+      "evidence_gaps": [
+        "The comparison records rain on one day, with ground wetness and long-term water level unresolved",
+        "Local species cover and mineral surface colour need closer evidence"
+      ],
+      "walk": "Toreadora-Footpath"
     }
   ]
 }

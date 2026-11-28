@@ -1,0 +1,37 @@
+{
+  "seed": 2083,
+  "utc": "2026-08-21T20:20:00Z",
+  "weather": "overcast",
+  "eye_height_m": 1.7,
+  "vertical_fov_deg": 54,
+  "source_snapshot": "20260927_080001_pt",
+  "source_pins": "toreadora-sources.json",
+  "places": [
+    {
+      "id": "Toreadora-Near",
+      "latitude": -2.78295442,
+      "longitude": -79.22314363,
+      "heading_deg": 260,
+      "pitch_deg": -6,
+      "support": "unpaved path"
+    },
+    {
+      "id": "Toreadora-Stand",
+      "latitude": -2.7827814,
+      "longitude": -79.22244778,
+      "heading_deg": 244,
+      "pitch_deg": -1,
+      "support": "unpaved path"
+    }
+  ],
+  "walks": {
+    "Toreadora-Footpath": {
+      "origin": "Toreadora-Near",
+      "station_offsets_m": [
+        0,
+        7.2
+      ],
+      "step_m": 0.45
+    }
+  }
+}

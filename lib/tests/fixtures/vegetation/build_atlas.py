@@ -652,6 +652,13 @@ def pilot_keys():
     return site_keys(load_sites(pilot_only=True).values())
 
 
+def development_keys():
+    pilot = load_sites(pilot_only=True)
+    return site_keys(
+        site for site_id, site in load_sites().items() if site_id not in pilot
+    )
+
+
 def build_atlas(cache, output, keys, *, fetch, pinned=None):
     cache.mkdir(parents=True, exist_ok=True)
     output.mkdir(parents=True, exist_ok=True)
@@ -776,19 +783,27 @@ def main():
     selection.add_argument(
         "--at", type=float, nargs=2, action="append", metavar=("LAT", "LON")
     )
+    selection.add_argument(
+        "--development",
+        action="store_true",
+        help="build every capture outside the pilot",
+    )
     sites = load_sites()
     selection.add_argument("--site", action="append", choices=sites)
     args = parser.parse_args()
     pinned = json.loads(args.check_pins.read_text()) if args.check_pins else None
+    default_output = "selection"
     if args.site:
         keys = site_keys(sites[site_id] for site_id in dict.fromkeys(args.site))
     elif args.at:
         keys = covering_keys(args.at)
+    elif args.development:
+        keys = development_keys()
+        default_output = "development"
     else:
         keys = pilot_keys()
-    output = args.output or ROOT / "build/vegetation-atlas" / (
-        "selection" if args.site or args.at else "pilot"
-    )
+        default_output = "pilot"
+    output = args.output or ROOT / "build/vegetation-atlas" / default_output
     manifest = build_atlas(args.cache, output, keys, fetch=args.fetch, pinned=pinned)
     print(f"Built {len(manifest['tiles'])} atlas tiles")
 
