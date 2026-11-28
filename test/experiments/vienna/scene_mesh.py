@@ -26,7 +26,7 @@ from building_foundations import (
     building_foundations,
 )
 from building_passages import building_passages, vault_panels
-from building_roofs import Gable, compile_gable, gable_plan
+from building_roofs import plan_roofs
 from deck_walk_links import DeckWalkLink, deck_walk_links
 from entrances import STREET_STOREY_M, frontages, has_street_storey, pave_entrances
 from facade import FacadeView, draw_facade
@@ -91,21 +91,18 @@ class BuildingForm:
     piers: tuple
     soffit: float
     group: int | None
-    gable: Gable | None
 
-    def volumes(self):
+    def volumes(self, top):
         foot = self.foundation.sole_m if self.foundation else self.bottom
         if self.passages:
             return [
                 *(BuildingVolume(pier, foot, self.soffit) for pier in self.piers),
-                BuildingVolume(self.polygon, self.soffit, self.top),
+                BuildingVolume(self.polygon, self.soffit, top),
             ]
-        return [BuildingVolume(self.polygon, foot, self.top)]
+        return [BuildingVolume(self.polygon, foot, top)]
 
 
-def building_form(
-    polygon, floor, roof, source, foundation, passages, wall, group, tags
-):
+def building_form(polygon, floor, roof, source, foundation, passages, wall, group):
     base = (
         foundation.seat_m
         if foundation
@@ -126,34 +123,15 @@ def building_form(
         piers,
         soffit,
         group,
-        gable_plan(polygon, base, base + roof, tags)
-        if foundation and not passages
-        else None,
     )
 
 
 def building(
-    meshes, form, grade, facade_view, neighbours, front=None, wall_ground=None
+    meshes, form, wall_top, grade, facade_view, neighbours, front=None, wall_ground=None
 ):
-    gable = form.gable
-    pitched = (
-        compile_gable(form.polygon, gable)
-        if gable is not None
-        and not any(v.top > gable.eave and v.bottom < form.top for v, _ in neighbours)
-        else None
-    )
-    wall_top = form.top
-    if pitched is None:
+    if wall_top == form.top:
         for roof in polygons(exposed_cap(form.polygon, form.top, neighbours)):
             cap(meshes, "roof", roof, lambda xy: form.top)
-    else:
-        roof_vertices, ends = pitched
-        meshes.add(
-            "roof tile", roof_vertices, np.arange(len(roof_vertices)).reshape(-1, 3)
-        )
-        if len(ends):
-            meshes.add(form.wall, ends, np.arange(len(ends)).reshape(-1, 3))
-        wall_top = gable.eave
     if form.minimum_height > 0:
         for underside in polygons(
             exposed_cap(form.polygon, form.bottom, neighbours, underside=True)
@@ -887,6 +865,7 @@ def assemble(
     for viaduct in viaducts:
         draw_viaduct(meshes, viaduct, source.height, approaches)
     forms = []
+    form_tags = []
     for polygon, properties, wall in buildings:
         floor = properties.get("render_min_height", 0)
         roof = properties.get("render_height", 0)
@@ -901,17 +880,41 @@ def assemble(
                     passages.get(polygon, ()),
                     wall,
                     groups.get(polygon),
-                    properties,
                 )
             )
+            form_tags.append(properties)
+    footprints = [form.polygon for form in forms]
+    eaves, roofs = plan_roofs(
+        footprints,
+        [form.bottom for form in forms],
+        [form.top for form in forms],
+        form_tags,
+        np.array([form.foundation is not None and not form.passages for form in forms]),
+    )
+    for index, roof in roofs:
+        meshes.add(
+            "roof tile", roof.surface, np.arange(len(roof.surface)).reshape(-1, 3)
+        )
+        if len(roof.ends):
+            meshes.add(
+                forms[index].wall, roof.ends, np.arange(len(roof.ends)).reshape(-1, 3)
+            )
     neighbours = building_neighbours(
-        [form.polygon for form in forms], [form.volumes() for form in forms]
+        footprints,
+        [form.volumes(eave) for form, eave in zip(forms, eaves, strict=True)],
     )
     fronts = frontages(forms, neighbours, source.features, bodies, meshes, wall_ground)
     pave_entrances(meshes, fronts)
     for index, (form, adjacent) in enumerate(zip(forms, neighbours, strict=True)):
         building(
-            meshes, form, grade, facade_view, adjacent, fronts.get(index), wall_ground
+            meshes,
+            form,
+            eaves[index],
+            grade,
+            facade_view,
+            adjacent,
+            fronts.get(index),
+            wall_ground,
         )
     for name, geom, prop in source.features:
         if name == "transportation" and prop.get("brunnel") != "tunnel":

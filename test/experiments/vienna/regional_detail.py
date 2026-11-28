@@ -4,7 +4,7 @@ import numpy as np
 import shapely
 from building_colours import facade_colours, wall_material
 from building_footprints import building_footprints
-from building_roofs import compile_gable, gable_plan
+from building_roofs import plan_roofs
 from outshine_ref.buildings.structures import suppressed
 from outshine_ref.places.camera import axes, ecef
 from shapely.geometry import box, shape
@@ -104,7 +104,7 @@ def building_shells(data, nw, se, source, dem, radius, focal, *, distant=False):
     high = base[remap] + heights[index, 1]
     names = np.asarray([wall_material("regional walls", c) for c in colours])
     products, pitched, eaves = (
-        regional_gables(
+        regional_pitched_roofs(
             polys, index, low, high, heights, partial, properties, names, focal
         )
         if not distant
@@ -162,37 +162,31 @@ def building_shells(data, nw, se, source, dem, radius, focal, *, distant=False):
     return products
 
 
-def regional_gables(polys, owners, low, tops, heights, partial, props, names, focal):
+def regional_pitched_roofs(
+    polys, owners, low, tops, heights, partial, props, names, focal
+):
     distance = shapely.distance(polys, shapely.Point(0, 0))
     eligible = (heights[owners, 0] == 0) & ~partial[owners]
     eligible &= np.minimum(4.5, (tops - low) * 0.27) * focal >= 1.4 * distance
-    pitched = np.zeros(len(polys), dtype=bool)
-    if not eligible.any():
-        return [], pitched, tops
-    tree = shapely.STRtree(polys)
-    eaves = tops.copy()
+    eaves, roofs = plan_roofs(
+        polys,
+        low,
+        tops,
+        props[owners],
+        eligible,
+        minimum_rise=1.4 * distance / focal,
+        infer_hip=False,
+    )
     batches = {}
-    for i in np.flatnonzero(eligible):
-        plan = gable_plan(polys[i], low[i], tops[i], props[owners[i]])
-        if plan is None or (tops[i] - plan.eave) * focal < 1.4 * distance[i]:
-            continue
-        neighbours = tree.query(polys[i], "intersects")
-        others = neighbours[neighbours != i]
-        if np.any((tops[others] > plan.eave) & (low[others] < tops[i])):
-            continue
-        mesh = compile_gable(polys[i], plan)
-        if mesh is None:
-            continue
-        roof, ends = mesh
-        batches.setdefault("roof tile", []).append(roof)
-        if len(ends):
-            batches.setdefault(names[owners[i]], []).append(ends)
-        pitched[i], eaves[i] = True, plan.eave
+    for i, roof in roofs:
+        batches.setdefault("roof tile", []).append(roof.surface)
+        if len(roof.ends):
+            batches.setdefault(names[owners[i]], []).append(roof.ends)
     result = []
     for material, chunks in batches.items():
         points = np.concatenate(chunks)
         result.append((str(material), points, np.arange(len(points)).reshape(-1, 3)))
-    return result, pitched, eaves
+    return result, eaves < tops, eaves
 
 
 def visible_windows(a, b, bottom, top, area, footprint_height, focal):
