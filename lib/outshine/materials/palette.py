@@ -25,6 +25,10 @@ SURFACES = {
     "yucca dead leaves": ((0.242, 0.169, 0.087), 0.93),
     "blackbrush wood": ((0.091, 0.084, 0.075), 0.93),
     "blackbrush leaves": ((0.103, 0.123, 0.074), 0.86),
+    "pinyon bark": ((0.126, 0.101, 0.076), 0.93),
+    "pinyon needles": ((0.098, 0.144, 0.060), 0.76),
+    "muller oak bark": ((0.110, 0.101, 0.085), 0.90),
+    "muller oak leaves": ((0.112, 0.154, 0.083), 0.82),
     "foliage": ((0.095, 0.205, 0.044), 0.52),
     "spruce foliage": ((0.049, 0.121, 0.032), 0.60),
     "regional soil": ((0.19, 0.16, 0.105), 0.95),
@@ -101,6 +105,7 @@ SURFACES = {
 }
 
 METALLIC = {"rail head": 1.0}
+BACKFACE_REFLECTANCE = {"muller oak leaves": (0.289, 0.322, 0.261)}
 GROUND_BLENDS = {
     "meadow": "forest floor",
     "unpaved path": "forest floor",
@@ -119,6 +124,8 @@ DIFFUSE_TRANSMISSION = {
     "mojave yucca leaves": 0.16,
     "yucca dead leaves": 0.13,
     "blackbrush leaves": 0.19,
+    "pinyon needles": 0.16,
+    "muller oak leaves": 0.13,
     "grass blades": 0.34,
     "grass pale blades": 0.34,
     "savanna grass blades": 0.34,

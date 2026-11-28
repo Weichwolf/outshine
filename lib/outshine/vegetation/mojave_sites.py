@@ -1,19 +1,39 @@
 """Place Mojave woody plants where the flora, cover and solved terrain agree."""
 
+from collections.abc import Callable
+from dataclasses import dataclass
+
 import numpy as np
 import shapely
 
-from outshine.terrain.ground_surface import ROUTE_MATERIALS, surface_elevations
+from outshine.terrain.ground_surface import (
+    ROUTE_MATERIALS,
+    SOIL_MATERIALS,
+    surface_elevations,
+)
 from outshine.vegetation.blackbrush import (
     BLACKBRUSH_PROFILE,
     BLACKBRUSH_TAXON,
     BLACKBRUSH_UNITS,
     blackbrush,
 )
+from outshine.vegetation.muller_oak import (
+    MULLER_OAK_PROFILE,
+    MULLER_OAK_TAXON,
+    MULLER_OAK_UNITS,
+    muller_oak,
+)
 from outshine.vegetation.open_cover import (
     MOJAVE_DESERT,
+    OPEN_SURFACES,
     mesh_footprint,
     planting_surface,
+)
+from outshine.vegetation.pinyon import (
+    PINYON_PROFILE,
+    PINYON_TAXON,
+    PINYON_UNITS,
+    pinyon,
 )
 from outshine.vegetation.plant_sites import patch_density, tile_sites
 from outshine.vegetation.woodland_sites import spaced_sites
@@ -32,6 +52,66 @@ YUCCA_POPULATIONS = (
 VARIANTS = 4
 BLACKBRUSH_REACH_M = 122.0
 BLACKBRUSH_SPACING_M = 0.86
+
+
+@dataclass(frozen=True)
+class ObservedPlant:
+    taxon: str
+    profile: str
+    units: frozenset[str]
+    geometry: Callable
+    reach: float
+    spacing: float
+    candidates_m2: float
+    patch_m: float
+    fine_reach: float
+    salt: int
+    scale: tuple[float, float] = (0.65, 1.32)
+    burial_m: float = 0.03
+
+
+BLACKBRUSH = ObservedPlant(
+    BLACKBRUSH_TAXON,
+    BLACKBRUSH_PROFILE,
+    BLACKBRUSH_UNITS,
+    blackbrush,
+    BLACKBRUSH_REACH_M,
+    BLACKBRUSH_SPACING_M,
+    0.26,
+    4.7,
+    22,
+    0x396E,
+)
+WOODLAND = (
+    ObservedPlant(
+        PINYON_TAXON,
+        PINYON_PROFILE,
+        PINYON_UNITS,
+        pinyon,
+        reach=214,
+        spacing=4.8,
+        candidates_m2=0.0145,
+        patch_m=10,
+        fine_reach=34,
+        salt=0x1BA4,
+        scale=(0.69, 1.15),
+        burial_m=0.0,
+    ),
+    ObservedPlant(
+        MULLER_OAK_TAXON,
+        MULLER_OAK_PROFILE,
+        MULLER_OAK_UNITS,
+        muller_oak,
+        reach=150,
+        spacing=1.9,
+        candidates_m2=0.035,
+        patch_m=6.2,
+        fine_reach=24,
+        salt=0x852A,
+        scale=(0.67, 1.23),
+        burial_m=0.065,
+    ),
+)
 
 
 def habitat_sites(cover, eye_xy, seed, reach, density, taxon):
@@ -80,10 +160,10 @@ def mojave_yuccas(cover, surfaces, eye_xy, seed):
             yield from yucca_batches(taxon, profile, *supported, eye_xy, reach, spacing)
 
 
-def rooted_sites(cover, surfaces, eye_xy, halo, xy, marks):
+def rooted_sites(cover, surfaces, eye_xy, halo, xy, marks, *, materials=OPEN_SURFACES):
     if not len(xy):
         return None
-    ground = planting_surface(surfaces, eye_xy, reach=halo + 4)
+    ground = planting_surface(surfaces, eye_xy, materials, reach=halo + 4)
     if ground is None:
         return None
     domain = mesh_footprint(ground)
@@ -135,25 +215,27 @@ def yucca_batches(
                 yield profile, int(2 * cohort + detail), meshes, rows[draw]
 
 
-def blackbrush_sites(cover, eye_xy, halo, seed):
+def observed_sites(cover, plant, eye_xy, halo, seed):
     candidates = list(
-        tile_sites(cover.source, eye_xy, halo, seed, density=0.26, cell_size=8)
+        tile_sites(
+            cover.source, eye_xy, halo, seed, density=plant.candidates_m2, cell_size=8
+        )
     )
     if not candidates:
         return np.empty((0, 2)), np.empty((0, 3))
     xy, marks = (np.concatenate(rows) for rows in zip(*candidates, strict=True))
-    land, ecoregions = cover.land_cells(xy)
+    land, ecoregions = cover.land_cells(xy, include_wood=True)
     lon, lat = cover.coordinates(xy)
     indices, density = cover.atlas.observed_cells(lat, lon)
     suitable = (
         (ecoregions == MOJAVE_DESERT)
         & np.isin(land, (10, 20, 30, 60))
-        & cover.atlas.observation_mask(indices, BLACKBRUSH_UNITS)
+        & cover.atlas.observation_mask(indices, plant.units)
     )
     xy, marks, density = (values[suitable] for values in (xy, marks, density))
     if not len(xy):
         return xy, marks
-    patch = patch_density(cover.source, xy, seed ^ 0x6B11, scale=4.7)
+    patch = patch_density(cover.source, xy, seed ^ 0x6B11, scale=plant.patch_m)
     # Source classes describe total vegetation cover, with 5 denoting 2–10%.
     # Convert the category to a prior for this shrub's share.
     weight = np.select(
@@ -165,7 +247,7 @@ def blackbrush_sites(cover, eye_xy, halo, seed):
     lon, lat = cover.coordinates(xy)
     native = np.fromiter(
         (
-            BLACKBRUSH_TAXON in cover.atlas.sample(y, x).native_candidates
+            plant.taxon in cover.atlas.sample(y, x).native_candidates
             for y, x in zip(lat, lon, strict=True)
         ),
         dtype=bool,
@@ -174,42 +256,61 @@ def blackbrush_sites(cover, eye_xy, halo, seed):
     return xy[native], marks[native]
 
 
-def mojave_blackbrush(cover, surfaces, eye_xy, seed):
-    halo = BLACKBRUSH_REACH_M + BLACKBRUSH_SPACING_M
+def observed_plants(cover, plant, surfaces, eye_xy, seed):
+    halo = plant.reach + plant.spacing
     lon, lat = cover.coordinates(np.array([eye_xy - halo, eye_xy + halo]))
     bounds = (lon[0], lat[0], lon[1], lat[1])
     if not any(cover.atlas.evidence_windows(bounds, "observed_vegetation")):
         return
-    xy, marks = blackbrush_sites(cover, eye_xy, halo, seed ^ 0x396E)
-    supported = rooted_sites(cover, surfaces, eye_xy, halo, xy, marks)
+    xy, marks = observed_sites(cover, plant, eye_xy, halo, seed ^ plant.salt)
+    supported = rooted_sites(
+        cover, surfaces, eye_xy, halo, xy, marks, materials=SOIL_MATERIALS
+    )
     if supported is None:
         return
     xy, marks, heights, clearance = supported
     distance = np.linalg.norm(xy - eye_xy, axis=1)
     variant = np.floor(VARIANTS * np.mod(17 * marks[:, 0], 1)).astype(int)
-    scale = 0.65 + 0.67 * np.mod(11 * marks[:, 0], 1)
+    lo, hi = plant.scale
+    scale = lo + (hi - lo) * np.mod(11 * marks[:, 0], 1)
     angles = 2 * np.pi * marks[:, 1]
-    fine = distance < 22 * scale
-    geometries = [
-        tuple(blackbrush(v, high) for high in (False, True)) for v in range(VARIANTS)
-    ]
-    radii = np.array([max(radius for _, radius in lods) for lods in geometries])
-    fits = clearance > radii[variant] * scale + 0.09
+    fine = distance < plant.fine_reach * scale
+    geometries = {
+        v: tuple(plant.geometry(int(v), high) for high in (False, True))
+        for v in np.unique(variant)
+    }
+    radii = {v: max(radius for _, radius in lods) for v, lods in geometries.items()}
+    bounds = np.array([radii[v] for v in variant]) * scale
+    fits = clearance > bounds + 0.09
     candidates = np.flatnonzero(fits)
     chosen = candidates[
-        spaced_sites(xy[candidates], marks[candidates, 0], BLACKBRUSH_SPACING_M)
+        spaced_sites(xy[candidates], marks[candidates, 0], plant.spacing)
     ]
     visible = np.zeros(len(xy), dtype=bool)
-    visible[chosen] = distance[chosen] < BLACKBRUSH_REACH_M
-    for v, lods in enumerate(geometries):
+    visible[chosen] = distance[chosen] < plant.reach
+    for v, lods in geometries.items():
         for lod, (meshes, _) in enumerate(lods):
             group = visible & (variant == v) & (fine == bool(lod))
             if group.any():
                 yield (
-                    BLACKBRUSH_PROFILE,
-                    2 * v + lod,
+                    plant.profile,
+                    int(2 * v + lod),
                     meshes,
                     np.column_stack(
-                        (xy[group], heights[group] - 0.03, angles[group], scale[group])
+                        (
+                            xy[group],
+                            heights[group] - plant.burial_m,
+                            angles[group],
+                            scale[group],
+                        )
                     ),
                 )
+
+
+def mojave_blackbrush(cover, surfaces, eye_xy, seed):
+    yield from observed_plants(cover, BLACKBRUSH, surfaces, eye_xy, seed)
+
+
+def mojave_woodland(cover, surfaces, eye_xy, seed):
+    for plant in WOODLAND:
+        yield from observed_plants(cover, plant, surfaces, eye_xy, seed)

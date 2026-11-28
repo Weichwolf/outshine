@@ -173,6 +173,17 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
   [Kartendatensatz und Klassen](https://filelib.wildlife.ca.gov/public/BDB/GIS/BIOS/metadata/DS0730.html) ·
   [USDA-Artenprofil](https://research.fs.usda.gov/feis/species-reviews/colram)
 
+- **Einblättrige Kiefern und Muller-Eichen in der Mojave**. Die NPS-Klasse
+  10161 beschreibt die Kiefern in der Baumschicht und die immergrüne
+  Muller-Eiche in der Strauchschicht. Die Bestandsbeschreibung stützt ihre
+  Mischung. Das USDA-Artenprofil belegt kurze Einzelnadeln, ausladende
+  Äste und abgerundete Kronen. Die helle, behaarte Blattunterseite der Eiche
+  begründet die beidseitige Reflexion im gemeinsamen Materialrezept.
+  [NPS-Bestandsbeschreibung](https://pubs.nps.gov/eTIC/INTE-LACL/JOTR_156_120323_0002_of_0839.pdf) ·
+  [USDA-Kiefernprofil](https://research.fs.usda.gov/feis/species-reviews/pinmon) ·
+  [Kiefernfoto aus Hidden Valley](https://commons.wikimedia.org/wiki/File:Pinyon_Pine_at_Hidden_Valley_(37449978012).jpg) ·
+  [Eichenfoto vom Barker Dam Trail](https://commons.wikimedia.org/wiki/File:Muller_oak_(Quercus_cornelius-mulleri);_Barker_Dam_Trail.jpg)
+
 - **Hierarchical Image Caching for Accelerated Walkthroughs of Complex Environments**,
   Shade / Lischinski / Salesin / DeRose / Snyder, SIGGRAPH 1996.
   [Autorenprojekt](https://pages.cs.huji.ac.il/danix-lab/cglab/research/wa/) ·
