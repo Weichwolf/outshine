@@ -11,14 +11,15 @@ The C++ realtime application lives in `src/` and its tests live in `test/`.
 | `experiments/` | Standalone Python research probes |
 
 Install from the checkout. For Blender, use a virtual environment with the same
-Python major and minor as Blender. The GLSL backend uses the shared native shader
-includes from the checkout. It uses a hardware OpenGL 4.1 context, via EGL on
-headless Linux.
+Python major and minor as Blender. The reference launches Blender with Metal on
+macOS and Vulkan on Linux and Windows. The GLSL backend uses the shared native
+shader includes from the checkout. It uses a hardware OpenGL 4.1 context, via
+EGL on headless Linux.
 
 ```sh
-python -m pip install -e './lib[render,assets,roofs]'
-python -m unittest discover -s lib/tests
-python -m outshine --latitude 48.13737 --longitude 11.57574 --heading 290 \
+nice -n 10 python -m pip install -e './lib[render,assets,roofs]'
+nice -n 10 python -m unittest discover -s lib/tests
+nice -n 10 python -m outshine --latitude 48.13737 --longitude 11.57574 --heading 290 \
   --absolute-height --height 565 --pitch -14 --time 2026-06-21T10:00:00Z --backend blender --output build/shots/Munich.png
 ```
 
@@ -36,9 +37,9 @@ render_png(Camera(48.13737, 11.57574, 290, -14, 565, above_ground=False),
 ```
 
 Run the [pinned pedestrian comparisons](tests/fixtures/vienna/) with
-`python -m lib.tests.render_places --place Adlerhof`. These fixtures own their
-camera catalog, source receipts and survey controls. The camera API uses the
-requested position and source snapshot directly.
+`nice -n 10 python -m lib.tests.render_places --place Adlerhof`. These fixtures
+own their camera catalog, source receipts and survey controls. The camera API
+uses the requested position and source snapshot directly.
 
 Use the smallest fixture that exposes the change. Open the renders and compare
 with dated photos and earlier results. See the

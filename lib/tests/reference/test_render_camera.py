@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from outshine import Camera, render_png
+from outshine.rendering.image import blender_run
 
 
 class RenderCameraTest(unittest.TestCase):
@@ -28,3 +29,18 @@ class RenderCameraTest(unittest.TestCase):
         self.assertNotIn("source_pins", config)
         self.assertEqual(render.call_args.kwargs["backend"], "glsl")
         self.assertEqual(destination, output)
+
+    def test_blender_launch_selects_the_platform_gpu_backend(self):
+        for platform, backend in (
+            ("darwin", "metal"),
+            ("linux", "vulkan"),
+            ("win32", "vulkan"),
+        ):
+            with (
+                self.subTest(platform=platform),
+                patch("outshine.rendering.image.sys.platform", platform),
+                patch("outshine.rendering.image.subprocess.run") as run,
+            ):
+                blender_run("pass", [], binary="blender")
+                command = run.call_args.args[0]
+                self.assertEqual(command[:3], ["blender", "--gpu-backend", backend])
