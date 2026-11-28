@@ -1,17 +1,12 @@
 # Forschungsgrundlage für Outshine
 
-Literaturbewertung: 2026-10-27; Methoden-/Quellenabgleich aktualisiert am 19.11.2026.
-Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
-Papers, Kurse und Produktdokumentation sind als solche bezeichnet; Links und lokale PDFs bleiben erhalten.
-Die Einträge dokumentieren die damalige Relevanzbewertung, keine Machbarkeitsbestätigung.
-Historische Issue-Verweise und Architekturentscheidungen hier sind keine Arbeitsaufträge.
+Dieses Verzeichnis führt Primärquellen mit ihrer Relevanz, dem konkreten
+Anwendungsfall in Outshine und den Grenzen des Verfahrens. Papers, Kurse und
+Produktdokumentation sind als solche bezeichnet.
 Maßgeblich sind [AGENTS.md](../../AGENTS.md), die aktuellen Issues und
 [Roadmap #1972](https://github.com/Weichwolf/outshine/issues/1972).
 
-**Historischer Prüfstand: 70 von 71 damaligen Einträgen bewertet.** Neue Ergänzungen
-und ihre Prüfgrenzen sind unten separat ausgewiesen. Der Normalenartikel unter
-„Bewertung ausstehend“ erhält weiterhin kein unbelegtes Relevanzurteil.
-Bewertete Einträge folgen absteigend dem aktuellen Nutzen innerhalb jeder Stufe:
+Bewertete Einträge folgen absteigend dem aktuellen Nutzen innerhalb jeder Stufe.
 
 | Relevanz | Bedeutung |
 |---|---|
@@ -86,8 +81,8 @@ Die Umsetzung folgt den aktuellen Meilensteinen in #1972; Sandbox gehört zu #19
 
 Alle vorhandenen PDFs liegen nach Bereich/Konferenz direkt unter `doc/references/` und sind versioniert.
 Die kanonischen Downloadlinks stehen bei jeder Quelle. Fehlende Volltexte sind im Eintrag benannt.
-Kein Fremdcode, Texturpaket oder Trainingsdatensatz wird übernommen. Optisch geprüfte Seiten und
-terminale Doc-Prüfungen stehen beim jeweiligen Bewertungs-PR; Diagnosebilder bleiben lokal.
+Kein Fremdcode, Texturpaket oder Trainingsdatensatz wird übernommen.
+Versuche und Messergebnisse stehen in den zugehörigen GitHub-Issues.
 
 Fachbesitz: [Vegetation #1](https://github.com/Weichwolf/outshine/issues/1),
 [Transport #11](https://github.com/Weichwolf/outshine/issues/11),
@@ -106,7 +101,7 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
 
   - **Einsatz:** Hierarchische Gruppenbilder; bildabhängige Wiederverwendung; amortisierte Erzeugungs-/Darstellungskosten.
   - **Grenzen:** Statische Geometrie, historischer BSP-/Hardwarepfad; aktuelle Bewegungs-/Licht-/Speicherkosten messen.
-  - **Prüfung:** Algorithmus/Fehlermodell und Abbildungen auf PDF-Seiten 3, 4, 6–8 gelesen/geöffnet; [Übertragung](geometry/image-based-distance.md), #1958/#1975/#1976.
+  - **Bezüge:** [Übertragung](geometry/image-based-distance.md), #1958/#1975/#1976.
 
 - **GigaVoxels: Ray-Guided Streaming for Efficient and Detailed Voxel Rendering**,
   Crassin et al., I3D 2009.
@@ -220,9 +215,8 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
     Flug, Orbit; vorhandene SkyStage; physikalisch begrenzte Fernsicht.
   - **Anwendungsfall im Lichtvergleich #1965.** Blender und GLSL nutzen für das
     direkte Sonnenlicht dieselbe RGB-Transmission aus Rayleigh-Streuung,
-    Ozonabsorption und Aerosol-Extinktion. Am Adlerhof wird die besonnte Fassade
-    bei 21,6° Sonnenhöhe wärmer. Auf Iris Xe stimmte die Integration je Kanal
-    bis auf rund 0,000004 mit der dicht abgetasteten GLSL-Atmosphäre überein.
+    Ozonabsorption und Aerosol-Extinktion. Das liefert für beide Renderer
+    dieselbe Sonnenfarbe bei wechselndem Sonnenstand.
     [#1965](https://github.com/Weichwolf/outshine/issues/1965)
   - **Grenzen:** LUT-Auflösung/Updates und Sonnen-/Geländeschatten gegen Referenz; approximierte
     Streuung; Wetterparameter weder gemessene Aerosole noch Wolkenlösung.
@@ -363,7 +357,7 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
 
   - **Relevanz: Mittel — Exakte Terrain-Strahlreferenz / #1237, #515.**
   - **Einsatz:** Maximum-Hierarchie; leere Höhenbereiche überspringen; dynamischer Aufbau;
-    Referenz für selektive exakte Abfragen. PDF-Seiten 3/5 optisch geprüft.
+    Referenz für selektive exakte Abfragen.
   - **Grenzen:** Bilineare Paperfläche statt nativer Dreiecke; LOD-Heuristik keine eigene
     0,5px-Schranke. Lokaler #1237-Gewinn gegen Vollscan kein Renderergewinn: unabhängiger
     Raster billiger; kein direkter nativer Port empfohlen. Hierarchiebytes/Traversal extra;
@@ -467,15 +461,12 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
 
   - **Relevanz mittel.** Die GLSL-Lichtreferenz nutzt die Blockertiefe, um die
     Breite des Halbschattens auf den beiden lokalen Sonnenkarten zu bestimmen.
-    Die Kosten für einen späteren nativen Einsatz gehören in die Geräteabnahme.
-    [#1965](https://github.com/Weichwolf/outshine/issues/1965)
   - **Anwendungsfall.** In der Lobau verbreitern sich Kronenschatten mit dem
     Abstand zum Pfad. Stammkontakt und nahe Gebäudekanten am Adlerhof bleiben
     scharf. Die Winkelgröße der Sonne bestimmt die Filterbreite.
-  - **Prüfstand.** Am 28.11.2026 gegen eine analytische Kante und zwölf
-    Sonnenrichtungen auf Iris Xe geprüft. Der mittlere lineare Helligkeitsfehler
-    der betroffenen Pixel sank am Adlerhof um 60 Prozent und in der Lobau um
-    53 Prozent. Der Blockerabstand ist auf 64 m begrenzt.
+  - **Grenzen.** Der Blockerabstand ist auf 64 m begrenzt. Der Filter
+    beschreibt direkte Sonnenschatten. Diffuses Himmelslicht braucht eine
+    eigene Sichtbarkeitsberechnung. [#1965](https://github.com/Weichwolf/outshine/issues/1965)
 
 - **Moment Shadow Mapping**, Peters / Klein, ACM SIGGRAPH I3D 2015.
   [Autoren/Errata](https://momentsingraphics.de/I3D2015.html) ·
@@ -657,7 +648,7 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
 
   - **Relevanz: Mittel — Botanisches Referenzwerk / #1, #131.**
   - **Einsatz:** Vier Artenkapitel; Wuchsform, Nadeln, Rinde, Habitat; geteilte Artenrezepte:
-    Einzel-/Zweier-/Fünfernadeln, Lärchen-Kurztriebe; Schweizer Namen/IDs am 14.10.2026 geprüft.
+    Einzel-/Zweier-/Fünfernadeln, Lärchen-Kurztriebe.
   - **Grenzen:** Fotos nur Vergleich; europäische Kapitel ohne Weltabdeckungs-/Allometrienachweis;
     Bestandsverteilung, Formfehler, Fernprodukte separat.
   - **Bezüge:** [#131](https://github.com/Weichwolf/outshine/issues/131) · [Fichte](https://www.infoflora.ch/de/flora/picea-abies.html) · [Wald-Föhre](https://www.infoflora.ch/de/flora/pinus-sylvestris.html) · [Arve](https://www.infoflora.ch/de/flora/pinus-cembra.html) · [Europäische Lärche](https://www.infoflora.ch/de/flora/larix-decidua.html).
@@ -936,17 +927,12 @@ Implementierungswissen ersetzen.
 - **Computing Vertex Normals from Polygonal Facets**, Thürmer / Wüthrich, JGT 1998.
   [Primärabstract](https://doi.org/10.1080/10867651.1998.10487487).
 
-  - **Relevanz:** unbekannt; kein Urteil.
-  - **Prüfstand:** Volltext-/Abbildungsprüfung offen; Verlags-PDF 403; nur Primärabstract
-    zur Eckwinkelgewichtung.
-  - **Grenzen:** eigene Differentialnormalenmittelung kein Volltextbeleg; Max 1999 nur
-    textlich gelesen, lokaler PDF-Abruf ohne Dokumentdaten, optische Prüfung offen;
-    Oberflächenapproximation versus Unterteilungserhaltung noch zu prüfen.
+  - **Relevanz:** offen. Der Volltext zur Eckwinkelgewichtung fehlt.
   - **Bezüge:** [#40](https://github.com/Weichwolf/outshine/issues/40) · [Autorenpreprint](https://escholarship.org/uc/item/7657d8h3) · [#919](https://github.com/Weichwolf/outshine/issues/919).
 
 ## Weitere Primärquellen und Fachnotizen
 
-### Ergänzungen vom 19.11.2026
+### Methodenübersicht
 
 - **Hoch — Bildbasierte Distanzdarstellung:** [Methodenvergleich](geometry/image-based-distance.md), mit Epic Impostor Baker und NVIDIA *True Impostors* als Produkt-/Buchreferenzen; das 1996-Paper steht oben.
 - **Hoch — Asset-DB:** [DDC/Zen, räumlicher Index, WAL und physische Rückgewinnung](engine/asset-database.md); offizielle Epic-/SQLite-Dokumentation, kein neues PDF-Paper behauptet.
@@ -954,7 +940,7 @@ Implementierungswissen ersetzen.
 - **Hoch — Messverfahren:** [Vulkan-/Metal-Zeitstempel, Python/GLSL-Vergleich](engine/profiling.md); offizielle API-Dokumentation.
 - **Hoch — Eigene Generierung:** [Benannte Transport-/Gebäude-/Vegetations-/Wasserverfahren und Forschungslücken](procedural/outshine-generation.md); aktuelle Code-/PR-Artefakte statt gelöschter Experimentpfade.
 - **Mittel — Wasserpräsentation:** [GPU Gems: Effective Water Simulation from Physical Models](water/game-water-rendering.md); analytische/Gerstner-Wellen als etablierter Einstieg, Wasserstand/Geometrie bleiben Generierung.
-- **Später — NPCs:** Reynolds, GDC 1999, [Steering Behaviors for Autonomous Characters](animation/gdc/1999-steering-autonomous-characters.pdf); [Autor](https://www.red3d.com/cwr/steer/gdc99/). Zusammen mit [Recast/Detour und vorhandener Physikliteratur](animation/autonomous-actors.md); PDF-Seiten 2–3 zur Trennung von Zielwahl/Steering/Locomotion geöffnet.
+- **Später — NPCs:** Reynolds, GDC 1999, [Steering Behaviors for Autonomous Characters](animation/gdc/1999-steering-autonomous-characters.pdf). Zielwahl, Steering und Locomotion ergänzen die [Navigation und Physik](animation/autonomous-actors.md). [Autor](https://www.red3d.com/cwr/steer/gdc99/)
 
 ### Assets und Sichtbedarf — WI [#10](https://github.com/Weichwolf/outshine/issues/10) / [#12](https://github.com/Weichwolf/outshine/issues/12)
 
@@ -970,9 +956,9 @@ Cesium-Native-Originalprüfung samt Fallback-/Ladegrenzen.
 
 ### Gebäudeeingaben — WI [#8](https://github.com/Weichwolf/outshine/issues/8) / [#17](https://github.com/Weichwolf/outshine/issues/17)
 
-[OSM-Lieferinventur und Rezeptplan](data/osm/inventory.md), WI [#17](https://github.com/Weichwolf/outshine/issues/17):
-32 gezielte Standorte, alle gelieferten Layer, vollständiger beobachteter Klassenkatalog.
-Lieferlücken von Rezept-/Integrationslücken unterscheiden; keine globale Vollständigkeitsbehauptung.
+Das [OSM-Lieferinventar](data/osm/inventory.md) katalogisiert die gelieferten Layer
+und beobachteten Klassen. Die Stichprobe hilft, Lieferlücken von Rezept- und
+Integrationslücken zu unterscheiden. [#17](https://github.com/Weichwolf/outshine/issues/17)
 
 ### Klang — WI [#2](https://github.com/Weichwolf/outshine/issues/2)
 

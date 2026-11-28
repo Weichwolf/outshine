@@ -69,4 +69,5 @@ Zusammenspiel, Bewegung und Fernwirkung.
   rund 30 % der SSD frei.
 - Ich lege Papers unter `doc/references/` nach Thema ab und verlinke die
   Primärquelle. Im [Referenzverzeichnis](doc/references/README.md) halte ich
-  Relevanz und konkreten Anwendungsfall fest und aktualisiere sie nach Prüfungen.
+  Relevanz, Anwendungsfall und Grenzen fest. Versuche und Messergebnisse
+  dokumentiere ich im zugehörigen GitHub-Issue.
