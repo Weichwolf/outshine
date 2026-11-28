@@ -44,6 +44,22 @@
       "pitch_deg": 0
     },
     {
+      "id": "KarlMarxHof-Roofs",
+      "origin": "KarlMarxHof",
+      "offset_east_north_m": [-65, -36],
+      "heading_deg": 55,
+      "pitch_deg": 8,
+      "support": "ground"
+    },
+    {
+      "id": "KarlMarxHof-Roofs-Nearby",
+      "origin": "KarlMarxHof",
+      "offset_east_north_m": [-66, -22],
+      "heading_deg": 62,
+      "pitch_deg": 8,
+      "support": "ground"
+    },
+    {
       "id": "Adlerhof-Courtyard",
       "origin": "Adlerhof",
       "offset_east_north_m": [15.6, 20.1],
