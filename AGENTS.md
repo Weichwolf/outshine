@@ -67,3 +67,6 @@ Zusammenspiel, Bewegung und Fernwirkung.
 - Ich halte Dokumentation und Code kompakt. Builds und Bilder liegen unter
   `build/`, Logs und temporäre Versuche im System-Tempverzeichnis. Ich halte
   rund 30 % der SSD frei.
+- Ich lege Papers unter `doc/references/` nach Thema ab und verlinke die
+  Primärquelle. Im [Referenzverzeichnis](doc/references/README.md) halte ich
+  Relevanz und konkreten Anwendungsfall fest und aktualisiere sie nach Prüfungen.

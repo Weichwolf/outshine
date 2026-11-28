@@ -35,7 +35,7 @@ Den geprüften Kern anschließend nativ wiederverwenden und optimieren.
 | Bedarf / Assets #1958 / #1968 / #1977 | [Cesium/MapLibre-Auswahl](engine/visibility-driven-demand.md), [DDC/Zen/R*Tree/WAL](engine/asset-database.md) |
 | Gruppen-Impostor / Fernpanorama #1975 / #1976 | [Hierarchical Image Caching, LDI, Impostor Baker](geometry/image-based-distance.md) |
 | Terrain #1957 | [Geometry Clipmaps 2004](terrain/siggraph/2004-geometry-clipmaps.pdf); eigene Kontakt-/Höhenrekonstruktion [separat](procedural/outshine-generation.md) |
-| Material / Licht #1962 / #1965 | [Frostbite PBR](lighting/siggraph/2014-frostbite-pbr-course-notes.pdf), [Surface Gradients](materials/jcgt/2020-surface-gradient-bump-mapping.pdf), [Clustered Shading](lighting/hpg/2012-clustered-shading.pdf) |
+| Material / Licht #1962 / #1965 | [Frostbite PBR](lighting/siggraph/2014-frostbite-pbr-course-notes.pdf), [Surface Gradients](materials/jcgt/2020-surface-gradient-bump-mapping.pdf), [Clustered Shading](lighting/hpg/2012-clustered-shading.pdf), [Sonnen- und Kontaktschatten](lighting/established-lighting.md) |
 | Transport / Gebäude / Vegetation #1964 / #1963 / #1961 | [Eigene Python-/native Verfahren und offene Generierungsfragen](procedural/outshine-generation.md), [Transportvorbilder](transport/README.md) |
 | Wasser / Wetter #1966 / #1967 | [Wellenverfahren](water/game-water-rendering.md), [Atmosphäre](atmosphere/egsr/2020-production-ready-atmosphere.pdf), [Wolken](clouds/siggraph/2015-horizon-volumetric-cloudscapes.pdf) |
 | Messung / Geräte #1956 / #1960 | [GPU-Zeitstempel und Python/GLSL-Vergleiche](engine/profiling.md) |
@@ -454,6 +454,20 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
     GGX-Kernvergleich nutzt nur Randintegration und scheitert an Resttermen: weder Gesamt-LTC
     verwerfen noch Shaderport ableiten.
   - **Bezüge:** [Archivierter GGX-Kernvergleich](https://github.com/Weichwolf/outshine/blob/d1fbec4fe/test/experiments/render/relief_finite.md).
+
+- **Percentage-Closer Soft Shadows**, Randima Fernando, SIGGRAPH 2005.
+  [Lokales PDF](lighting/siggraph/2005-percentage-closer-soft-shadows.pdf) ·
+  [Autorenfassung bei NVIDIA](https://download.nvidia.com/developer/presentations/2005/SIGGRAPH/PCSS.pdf).
+
+  - **Relevanz mittel.** Die Methode schätzt aus der Blockertiefe die Breite des
+    Halbschattens und passt den Filter daran an. Sie ist eine Vergleichsmethode
+    für den GLSL-Referenzrenderer. [#1965](https://github.com/Weichwolf/outshine/issues/1965)
+  - **Anwendungsfall.** In der Lobau die Schattenkanten von Stamm und Krone auf
+    demselben Pfad vergleichen und am Adlerhof den Kontakt an der Fensterlaibung
+    prüfen. Für die Sonne die Winkelgröße einsetzen und dünne Blocker, Übergänge
+    zwischen Schattenkarten und GPU-Kosten am Bild prüfen.
+  - **Prüfstand.** Blockersuche, Schätzung und Filterung am 28.11.2026 auf
+    PDF-Seite 1 geprüft. Bild- und Kostenvergleich in Outshine sind offen.
 
 - **Moment Shadow Mapping**, Peters / Klein, ACM SIGGRAPH I3D 2015.
   [Autoren/Errata](https://momentsingraphics.de/I3D2015.html) ·
