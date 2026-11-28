@@ -37,6 +37,7 @@ uniform sampler2D waterBedMap;
 uniform vec4 waterBedTransform;
 uniform vec3 bedAlbedo;
 uniform bool shadowPass;
+uniform bool blendDetailAxes;
 uniform bool reflectionCapture;
 uniform vec4 reflectionClip;
 uniform vec4 reflectionPlane0;
@@ -220,8 +221,7 @@ void main(){
   vec3 n=normalize(cross(dx,dy));
   if(dot(n,view)<0.) n=-n;
   vec3 geometricNormal=n;
-  bool bark=dot(smoothNormal,smoothNormal)>.01;
-  if(bark) {
+  if(dot(smoothNormal,smoothNormal)>.01) {
     n=normalize(smoothNormal);
     if(dot(n,view)<0.) n=-n;
   }
@@ -236,8 +236,8 @@ void main(){
         dot(vec2(rotation.x,rotation.y),n.xy),
         dot(vec2(-rotation.y,rotation.x),n.xy),n.z);
     vec2 uv=planarDetail ? vec2(-point.y,point.x) : detailCoordinates(objectNormal);
-    vec4 fine=bark ? barkDetail(objectNormal,detailScale.x) : texture(detailMap,uv/detailScale.x);
-    float macro=bark ? barkDetail(objectNormal,detailScale.y).a : texture(detailMap,uv/detailScale.y).a;
+    vec4 fine=blendDetailAxes ? barkDetail(objectNormal,detailScale.x) : texture(detailMap,uv/detailScale.x);
+    float macro=blendDetailAxes ? barkDetail(objectNormal,detailScale.y).a : texture(detailMap,uv/detailScale.y).a;
     material.rgb*=fine.r*(1.68+.64*macro)*mix(vec3(1.),detailTint,fine.a);
     material.a=fine.g;
     float height = fine.b * detailScale.z;
