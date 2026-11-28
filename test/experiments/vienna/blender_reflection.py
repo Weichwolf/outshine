@@ -1,6 +1,6 @@
 """Capture scene-linear mirrors once per EEVEE reference camera."""
 
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import perf_counter
@@ -72,7 +72,7 @@ def mirrored_camera(scene, plane, pose):
     scene.camera.matrix_world = mirror @ pose @ flip_up
 
 
-def capture_images(scene, geometry, planes):
+def capture_images(scene, geometry, planes, *, cloud_lighting=None):
     start = perf_counter()
     settings = scene.render
     format_before = settings.image_settings.file_format
@@ -113,11 +113,16 @@ def capture_images(scene, geometry, planes):
                 for normal, threshold in clips:
                     normal.default_value = plane.normal
                     threshold.default_value = -plane.offset - LEVEL_TOLERANCE_M / 2
-                settings.filepath = str(Path(tmp) / f"plane-{i}.exr")
-                if "FINISHED" not in bpy.ops.render.render(
-                    write_still=True, scene=scene.name
+                with (
+                    cloud_lighting.reflection(scene)
+                    if cloud_lighting
+                    else nullcontext()
                 ):
-                    raise RuntimeError("EEVEE water capture did not finish")
+                    settings.filepath = str(Path(tmp) / f"plane-{i}.exr")
+                    if "FINISHED" not in bpy.ops.render.render(
+                        write_still=True, scene=scene.name
+                    ):
+                        raise RuntimeError("EEVEE water capture did not finish")
                 image = bpy.data.images.load(settings.filepath)
                 image.alpha_mode = "PREMUL"
                 image.pack()

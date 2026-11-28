@@ -36,7 +36,8 @@ records the bake separately from the warm PNG interval.
 Use `--street-bounce` with EEVEE for the one-bounce street-light reference in
 [#1965](https://github.com/Weichwolf/outshine/issues/1965). It bakes sky visibility,
 traces sunlight reflected by the generated geometry, and interpolates it on nearby
-opaque surfaces. Compare it at the same camera and time with `--engine cycles`.
+opaque surfaces. Under clouds it uses the mean solar transmission for the reflected term.
+Compare it at the same camera and time with `--engine cycles`.
 
 Standalone GLSL uses 16 m and 96 m camera-centred shadow footprints with 2048 texels
 per axis. They resolve close sills, leaf shadows and root contact. Visibility blends
@@ -126,9 +127,13 @@ light through the layer. Both renderers use its 2048 × 1024 sky archive. The ar
 contains direct solar transmission at the observer and a 64 × 64 km transmission map
 from the same cloud volume. Standalone GLSL projects surfaces below the layer top
 along the solar direction onto the map, including during reflection captures. The
-map fades to the observer's value near its edge. Blender uses the observer's value
-for the Sun. Older archives use that value in both renderers. The archive pins the
-profile, wind-advected origin, seed, eye altitude and solar direction.
+map fades to the observer's value near its edge. EEVEE captures a scene-linear
+ambient image at the fixed camera and uses the Position pass to attenuate the
+direct Sun in the surface image. Water reflection captures use the same projection.
+The render report measures the ambient capture separately and repeats reuse it at
+the same pose. Older archives and the independent Cycles path use the observer's
+value for the Sun. The archive pins the profile, wind-advected origin, seed, eye
+altitude and solar direction.
 
 Use the Wiener Blick afternoon panorama for spaced cumulus, sunlit tops and soft
 undersides. The Neue Donau photo shows a closed deck, diffuse illumination and a
