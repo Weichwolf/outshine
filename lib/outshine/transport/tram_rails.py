@@ -11,6 +11,7 @@ from outshine.transport.rail_hardware import RailRecipe
 from outshine.transport.viaducts import LOWER_CLEARANCE, SLAB_DEPTH
 
 RAIL_HEAD_WIDTH_M = 0.072
+RAIL_HEAD_SPACING_M = RailRecipe().gauge_m + RAIL_HEAD_WIDTH_M
 RAIL_HEAD_RISE_M = 0.007
 FLANGEWAY_WIDTH_M = 0.046
 FLANGEWAY_DEPTH_M = 0.029
@@ -94,7 +95,7 @@ def track_strips(lines, centre, width):
 
 
 def rail_head_footprints(routes):
-    centre = (RailRecipe().gauge_m + RAIL_HEAD_WIDTH_M) / 2
+    centre = RAIL_HEAD_SPACING_M / 2
     return track_strips([line for _, line in routes], centre, RAIL_HEAD_WIDTH_M)
 
 
@@ -145,7 +146,7 @@ def street_tram_surfaces(lines, extent, pavement, blocked, decks, vertices, face
     if not routes:
         return {}
     gauge = RailRecipe().gauge_m
-    heads = track_strips(routes, (gauge + RAIL_HEAD_WIDTH_M) / 2, RAIL_HEAD_WIDTH_M)
+    heads = track_strips(routes, RAIL_HEAD_SPACING_M / 2, RAIL_HEAD_WIDTH_M)
     grooves = track_strips(routes, (gauge - FLANGEWAY_WIDTH_M) / 2, FLANGEWAY_WIDTH_M)
     bed = clip_route_areas(
         shapely.buffer(routes, half, cap_style="flat", join_style="round"), domain

@@ -7,6 +7,28 @@ import numpy as np
 from ..heights import _gradient_matrix
 
 
+def _height_cost(faces, weights, smoothing):
+    from scipy import sparse
+
+    cost = sparse.diags(weights, format="csc")
+    if smoothing is None:
+        return cost
+    xy, length = smoothing
+    edges = np.unique(
+        np.sort(faces[:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2), axis=1), axis=0
+    )
+    start, end = edges.T
+    scale = length / np.linalg.norm(xy[end] - xy[start], axis=1)
+    difference = sparse.coo_matrix(
+        (
+            np.column_stack((-scale, scale)).ravel(),
+            (np.repeat(np.arange(len(edges)), 2), edges.ravel()),
+        ),
+        shape=(len(edges), len(weights)),
+    ).tocsc()
+    return cost + difference.T @ difference
+
+
 def solve(
     faces,
     target,
@@ -18,6 +40,7 @@ def solve(
     budget,
     *,
     excess_limits=None,
+    smoothing=None,
 ):
     import clarabel
     from scipy import sparse
@@ -39,8 +62,8 @@ def solve(
     cones = [clarabel.SecondOrderConeT(3) for _ in faces]
     if len(fixed):
         cones.append(clarabel.ZeroConeT(len(fixed)))
-    diagonal = np.asarray(weights)
-    objective = -weights * (target - centre)
+    cost = _height_cost(faces, weights, smoothing)
+    objective = -cost @ (target - centre)
     if excess_limits is not None:
         softened = np.flatnonzero(excess_limits > 0)
         slack_count = len(softened)
@@ -60,7 +83,9 @@ def solve(
         rhs = np.r_[rhs, np.zeros(slack_count), excess_limits[softened]]
         if slack_count:
             cones.append(clarabel.NonnegativeConeT(2 * slack_count))
-        diagonal = np.r_[diagonal, np.zeros(slack_count)]
+        cost = sparse.block_diag(
+            (cost, sparse.csc_matrix((slack_count, slack_count))), format="csc"
+        )
         objective = np.r_[objective, np.ones(slack_count)]
     settings = clarabel.DefaultSettings()
     settings.verbose = False
@@ -70,7 +95,7 @@ def solve(
     settings.tol_feas = settings.tol_gap_abs = settings.tol_gap_rel = 1e-9
     setup_ms = (time.perf_counter() - began) * 1000
     solver = clarabel.DefaultSolver(
-        sparse.diags(diagonal, format="csc"),
+        sparse.triu(cost, format="csc"),
         objective,
         matrix,
         rhs,
@@ -86,6 +111,10 @@ def solve(
         "solver_ms": result.solve_time * 1000,
         "matrix_shape": list(matrix.shape),
         "matrix_nonzeros": matrix.nnz,
-        "hessian_nonzeros": count,
-        "objective": "weighted vertex least squares",
+        "hessian_nonzeros": cost.nnz,
+        "objective": (
+            "weighted vertex least squares"
+            if smoothing is None
+            else "weighted vertex and displacement-gradient least squares"
+        ),
     }
