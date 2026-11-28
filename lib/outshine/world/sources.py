@@ -63,7 +63,12 @@ class LocalScene:
                 )
                 if tile not in local and pins is not None and url not in pins:
                     continue
-                receipt = acquire((kind, tile, url), Path(cache), fetch=True)
+                receipt = acquire(
+                    (kind, tile, url),
+                    Path(cache),
+                    fetch=True,
+                    optional=tile not in local,
+                )
                 self.receipts.append(receipt)
                 if kind == "vector":
                     if tile not in local and receipt.get("missing"):

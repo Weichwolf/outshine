@@ -256,12 +256,12 @@ class PlaceSourceTests(unittest.TestCase):
                     fetch=True,
                 )
                 self.assertTrue(result["missing"])
+                vector = ("vector", (0, 0, 0), "https://example.test/map")
+                result = acquire(vector, root, fetch=True, optional=True)
+                self.assertTrue(result["missing"])
+                self.assertEqual(result["tile"], [0, 0, 0])
                 with self.assertRaises(ValueError):
-                    acquire(
-                        ("vector", (0, 0, 0), "https://example.test/map"),
-                        root,
-                        fetch=True,
-                    )
+                    acquire(vector, root, fetch=True)
             with (
                 patch(
                     "outshine.places.sources.subprocess.check_output",
