@@ -91,4 +91,4 @@ def woodland_sites(source, domain, centre, half_extent, seed, *, mature=None):
     rank[len(canopy) :] += 1
     keep = spaced_sites(xy, rank, MIN_STEM_SPACING_M)
     keep &= np.all(np.abs(xy - centre) < half_extent, axis=1)
-    return xy[keep], marks[keep]
+    return xy[keep], marks[keep], np.flatnonzero(keep) < len(canopy)

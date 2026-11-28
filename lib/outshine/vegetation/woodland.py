@@ -388,8 +388,9 @@ def tree_batches(
     lawn, avenue, avenue_marks = avenue_sites(source, radius, seed)
     if domain is None or domain.is_empty:
         positions, marks = np.empty((0, 2)), np.empty((0, 3))
+        canopy = np.empty(0, dtype=bool)
     else:
-        positions, marks = woodland_sites(
+        positions, marks, canopy = woodland_sites(
             source, domain, np.zeros(2), radius, seed, mature=mature
         )
     if riverside is not None:
@@ -397,6 +398,7 @@ def tree_batches(
         inside = np.all(abs(sites) < radius, axis=1)
         positions = np.concatenate((positions, sites[inside]))
         marks = np.concatenate((marks, values[inside]))
+        canopy = np.r_[canopy, np.ones(inside.sum(), dtype=bool)]
     stand_count = len(positions)
     positions = np.concatenate((positions, avenue))
     marks = np.concatenate((marks, avenue_marks))
@@ -439,7 +441,7 @@ def tree_batches(
             species = "spruce"
         else:
             species = "oak" if family < 0.5 else "beech"
-        form = int(family * 4) % 2
+        form = int(canopy[index]) if species == "spruce" else int(family * 4) % 2
         key = species, form
         if key not in plans:
             if managed:
