@@ -84,6 +84,16 @@ def place_exterior_sky(scene, *, woodland):
     scene.collection.objects.link(volume)
 
 
+def bake_light_probes():
+    import bpy
+
+    start = perf_counter()
+    bpy.context.view_layer.update()
+    if "FINISHED" not in bpy.ops.object.lightprobe_cache_bake(subset="ALL"):
+        raise RuntimeError("Reference irradiance bake did not finish")
+    return perf_counter() - start
+
+
 def bake_reference_irradiance(
     scene, passages, eye_xy, sun, *, street_sky=False, woodland=False
 ):
@@ -111,13 +121,11 @@ def bake_reference_irradiance(
         volume.rotation_euler.z = angle
         volume.scale = radii
         scene.collection.objects.link(volume)
-    bpy.context.view_layer.update()
     sun_energy = sun.energy
     try:
         if woodland:
             sun.energy = 0
-        if "FINISHED" not in bpy.ops.object.lightprobe_cache_bake(subset="ALL"):
-            raise RuntimeError("Reference irradiance bake did not finish")
+        bake_light_probes()
     finally:
         if woodland:
             sun.energy = sun_energy
