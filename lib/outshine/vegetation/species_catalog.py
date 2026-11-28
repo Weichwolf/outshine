@@ -1,14 +1,16 @@
 """Fixed pilot taxonomy and regional occurrence candidates, without ecology claims."""
 
+import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from importlib.resources import files
 from types import MappingProxyType
-from typing import Mapping
 
 from ..contracts import immutable
 
 FIELDS = ("region", "introduced", "extinct", "doubtful", "source_ids")
+PILOT_CATALOG = files(__package__) / "data" / "species-pilot-1.json"
 
 
 def region_code(code):
@@ -120,5 +122,8 @@ class SpeciesCatalog:
 
 def load_species_catalog() -> SpeciesCatalog:
     """Read the pinned packaged pilot once; caller owns/reuses the result."""
-    source = files(__package__) / "data" / "species-pilot-1.json"
-    return SpeciesCatalog(json.loads(source.read_text(encoding="utf-8")))
+    return SpeciesCatalog(json.loads(PILOT_CATALOG.read_text(encoding="utf-8")))
+
+
+def species_catalog_digest() -> str:
+    return hashlib.sha256(PILOT_CATALOG.read_bytes()).hexdigest()
