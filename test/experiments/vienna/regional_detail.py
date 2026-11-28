@@ -4,6 +4,7 @@ import numpy as np
 import shapely
 from building_colours import facade_colours, wall_material
 from building_footprints import building_footprints
+from building_roofs import compile_gable, gable_plan
 from outshine_ref.buildings.structures import suppressed
 from outshine_ref.places.camera import axes, ecef
 from shapely.geometry import box, shape
@@ -62,10 +63,11 @@ def building_shells(data, nw, se, source, dem, radius, focal, *, distant=False):
     if distant:
         distance = shapely.distance(geoms, shapely.Point(0, 0))
         renderable &= heights[:, 1] * focal >= SKYLINE_MIN_PIXEL_HEIGHT * distance
-    geoms, heights, colours = (
+    geoms, heights, colours, properties = (
         geoms[renderable],
         heights[renderable],
         colours[renderable],
+        properties[renderable],
     )
     if not len(geoms):
         return []
@@ -100,10 +102,19 @@ def building_shells(data, nw, se, source, dem, radius, focal, *, distant=False):
         base -= source.datum + np.sum(xy * xy, axis=1) / (2 * 6371000.0)
     low = base[remap] + heights[index, 0]
     high = base[remap] + heights[index, 1]
+    names = np.asarray([wall_material("regional walls", c) for c in colours])
+    products, pitched, eaves = (
+        regional_gables(
+            polys, index, low, high, heights, partial, properties, names, focal
+        )
+        if not distant
+        else ([], np.zeros(len(polys), dtype=bool), high)
+    )
     # Batches preserve courtyards, recessed corners and actual roof silhouettes.
     tris, parent = shapely.get_parts(
-        shapely.constrained_delaunay_triangles(polys), return_index=True
+        shapely.constrained_delaunay_triangles(polys[~pitched]), return_index=True
     )
+    parent = np.flatnonzero(~pitched)[parent]
     coords = shapely.get_coordinates(shapely.orient_polygons(tris)).reshape(-1, 4, 2)[
         :, :3
     ]
@@ -119,13 +130,12 @@ def building_shells(data, nw, se, source, dem, radius, focal, *, distant=False):
         (
             np.c_[a, low[parent]],
             np.c_[b, low[parent]],
-            np.c_[b, high[parent]],
-            np.c_[a, high[parent]],
+            np.c_[b, eaves[parent]],
+            np.c_[a, eaves[parent]],
         ),
         axis=1,
     )
-    products = [("regional roofs", roofs, np.arange(len(roofs)).reshape(-1, 3))]
-    names = np.asarray([wall_material("regional walls", c) for c in colours])
+    products.insert(0, ("regional roofs", roofs, np.arange(len(roofs)).reshape(-1, 3)))
     edge_material = names[index[parent]]
     for name in np.unique(edge_material):
         vertices = walls[edge_material == name].reshape(-1, 3)
@@ -142,7 +152,7 @@ def building_shells(data, nw, se, source, dem, radius, focal, *, distant=False):
         a,
         b,
         low[parent],
-        high[parent],
+        eaves[parent],
         shapely.area(polys)[parent],
         (high - low)[parent],
         focal,
@@ -150,6 +160,39 @@ def building_shells(data, nw, se, source, dem, radius, focal, *, distant=False):
     if windows is not None:
         products.append(windows)
     return products
+
+
+def regional_gables(polys, owners, low, tops, heights, partial, props, names, focal):
+    distance = shapely.distance(polys, shapely.Point(0, 0))
+    eligible = (heights[owners, 0] == 0) & ~partial[owners]
+    eligible &= np.minimum(4.5, (tops - low) * 0.27) * focal >= 1.4 * distance
+    pitched = np.zeros(len(polys), dtype=bool)
+    if not eligible.any():
+        return [], pitched, tops
+    tree = shapely.STRtree(polys)
+    eaves = tops.copy()
+    batches = {}
+    for i in np.flatnonzero(eligible):
+        plan = gable_plan(polys[i], low[i], tops[i], props[owners[i]])
+        if plan is None or (tops[i] - plan.eave) * focal < 1.4 * distance[i]:
+            continue
+        neighbours = tree.query(polys[i], "intersects")
+        others = neighbours[neighbours != i]
+        if np.any((tops[others] > plan.eave) & (low[others] < tops[i])):
+            continue
+        mesh = compile_gable(polys[i], plan)
+        if mesh is None:
+            continue
+        roof, ends = mesh
+        batches.setdefault("roof tile", []).append(roof)
+        if len(ends):
+            batches.setdefault(names[owners[i]], []).append(ends)
+        pitched[i], eaves[i] = True, plan.eave
+    result = []
+    for material, chunks in batches.items():
+        points = np.concatenate(chunks)
+        result.append((str(material), points, np.arange(len(points)).reshape(-1, 3)))
+    return result, pitched, eaves
 
 
 def visible_windows(a, b, bottom, top, area, footprint_height, focal):
