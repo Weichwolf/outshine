@@ -106,6 +106,7 @@ def blender_run(expression, request, binary=None):
             binary = app
     if binary is None:
         raise FileNotFoundError("Blender is required. Set --blender or put it on PATH.")
+    gpu_backend = "metal" if sys.platform == "darwin" else "vulkan"
     python_paths = dict.fromkeys(
         [
             str(Path(__file__).resolve().parents[2]),
@@ -118,6 +119,8 @@ def blender_run(expression, request, binary=None):
         subprocess.run(
             [
                 str(binary),
+                "--gpu-backend",
+                gpu_backend,
                 "-b",
                 "--factory-startup",
                 "--python-use-system-env",
