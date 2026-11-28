@@ -15,7 +15,7 @@ from outshine_ref.vegetation.axis_surface import axis_mesh
 from park_avenue import avenue_sites
 from scene_mesh import Meshes, terrain_grid, terrain_height
 from woodland_sites import woodland_sites
-from woodland_stem import lean_tree, rooted_stem, template_stem
+from woodland_stem import lean_tree, rooted_stem, scaffold_mesh, template_stem
 
 DISTANT_LEAF_STEP = 32
 
@@ -111,11 +111,26 @@ def habitat(source, *, stems=True):
 
 
 def avenue_plan(form):
-    beech = stand_plan("beech", form)
-    stem, limbs, *outer = beech.levels
-    stem = replace(stem, length=stem.length + 2.1, bend=stem.bend * 0.55)
-    limbs = replace(limbs, first=0.43 + 0.06 * form, upward_bias=0.12)
-    return PlantPlan(beech.seed + 821, (stem, limbs, *outer), beech.blades)
+    broadleaf = stand_plan("oak", form)
+    stem, limbs, *outer = broadleaf.levels
+    stem = replace(
+        stem,
+        length=(8.6, 10.1)[form],
+        base_radius=(0.35, 0.25)[form],
+        bend=(0.23, 0.14)[form],
+    )
+    limbs = replace(
+        limbs,
+        length=(5.3, 4.5)[form],
+        base_radius=(0.30, 0.23)[form],
+        radius_parent_ratio=(0.84, 0.77)[form],
+        first=(0.19, 0.35)[form],
+        last=0.87,
+        angle=(0.57, 0.81)[form],
+        angle_tip=0.72,
+        upward_bias=0.28,
+    )
+    return PlantPlan(broadleaf.seed + 821, (stem, limbs, *outer), broadleaf.blades)
 
 
 def represented_leaves(rows, areas, step):
@@ -165,10 +180,11 @@ def crown_leaf_frames(rows, seed, *, oak):
     return frames
 
 
-def geometry(plan, step, *, has_stem, oak):
+def geometry(plan, step, *, has_stem, species):
     rows = plan.tables(sum(plan.axis_counts), sum(plan.leaf_counts))
     meshes = Meshes()
-    bark = "oak bark" if oak else "beech bark"
+    bark = f"{species} bark"
+    oak = species == "oak"
     if has_stem:
         part = template_stem(plan, oak=oak)
         meshes.add(bark, part["vertices"], part["faces"])
@@ -188,7 +204,8 @@ def geometry(plan, step, *, has_stem, oak):
             rings, sides = 3, 3
         else:
             rings, sides = 4, 6
-        part = axis_mesh(
+        branch_mesh = scaffold_mesh if main_limb else axis_mesh
+        part = branch_mesh(
             rows["axis_lengths"][i],
             rows["axis_bends"][i],
             *rows["axis_radii"][i],
@@ -288,9 +305,9 @@ def tree_batches(
         zip(positions, heights, marks, distances, strict=True)
     ):
         managed = index >= stand_count
-        species = "oak" if family < 0.5 and not managed else "beech"
+        species = "chestnut" if managed else ("oak" if family < 0.5 else "beech")
         form = int(family * 4) % 2
-        key = species, form, managed
+        key = species, form
         if key not in plans:
             plans[key] = avenue_plan(form) if managed else stand_plan(species, form)
         plan = plans[key]
@@ -319,17 +336,17 @@ def tree_batches(
                 seed=int(rotation * 2**32),
             )
             stems.add(f"{species} bark", stem["vertices"], stem["faces"])
-        key = species, form, managed, group, near_stem
+        key = species, form, group, near_stem
         templates.setdefault(key, []).append((*xy, z - 0.08, angle, scale))
-    for (species, form, managed, group, near_stem), placements in templates.items():
+    for (species, form, group, near_stem), placements in templates.items():
         meshes = geometry(
-            plans[species, form, managed],
+            plans[species, form],
             group,
             has_stem=not near_stem,
-            oak=species == "oak",
+            species=species,
         )
         yield (
-            f"avenue {species}" if managed else species,
+            "avenue chestnut" if species == "chestnut" else species,
             group,
             meshes,
             np.asarray(placements),

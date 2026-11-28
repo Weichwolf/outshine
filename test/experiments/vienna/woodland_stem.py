@@ -2,10 +2,24 @@
 
 import numpy as np
 import shapely
+from outshine_ref.vegetation.axis_surface import tube_mesh
 from outshine_ref.vegetation.curve_frame import arc_frame
 from outshine_ref.vegetation.tube_topology import close_rings
 
 ROOT_COLLAR_RADII = 5.2
+
+
+def scaffold_mesh(length, bend, base_radius, tip_radius, segments, sides):
+    """Broaden the visible branch collar while keeping its buried cap the same size."""
+    t = np.linspace(0, 1, segments + 1)
+    distance = t * length / base_radius
+    collar = distance * np.exp(1 - distance)
+    taper = t * (1.55 - 0.55 * t)
+    radius = base_radius + (tip_radius - base_radius) * taper
+    radius += 0.40 * base_radius * collar
+    slope = (tip_radius - base_radius) * (1.55 - 1.1 * t)
+    slope += 0.40 * length * (1 - distance) * np.exp(1 - distance)
+    return tube_mesh(length, bend, radius, slope, sides)
 
 
 def lean_tree(plan, vertices, *, oak, scale=1):
@@ -15,14 +29,14 @@ def lean_tree(plan, vertices, *, oak, scale=1):
     height = np.clip(vertices[..., 2] / length, 0, 1)
     bend = axis.bend * height
     arc_sweep = 0.5 * bend * height * np.sinc(bend / (2 * np.pi)) ** 2
-    lean = height**2 * (0.025 + 0.055 * np.cos(axis.phase))
-    lower = (1.24 if oak else 1.43) * axis.bend * height * (1 - height) ** 2
+    lean = height**1.4 * (0.047 + 0.081 * np.cos(axis.phase))
+    lower = (1.67 if oak else 1.35) * axis.bend * height * (1 - height) ** 2
     upper = np.sin(np.pi * height) ** 2
     bearing = axis.phase + 0.7 + 3.8 * height
     lean += lower * np.sin(bearing)
     sweep = upper * (0.045 if oak else 0.024)
     sweep += lower * np.cos(bearing)
-    sweep -= (0.44 if oak else 0.54) * arc_sweep
+    sweep -= (0.16 if oak else 0.35) * arc_sweep
     drift = lean[..., None] * axis.frame[:, 0] + sweep[..., None] * axis.frame[:, 2]
     return vertices + length * drift
 
@@ -30,7 +44,7 @@ def lean_tree(plan, vertices, *, oak, scale=1):
 def root_flare(azimuth, phase, radius, height, oak, rng):
     bearings = phase + np.array([0.0, 1.5, 3.12, 4.82, 5.56])
     bearings += rng.uniform(-0.28, 0.28, len(bearings))
-    reaches = rng.permutation([2.65, 1.70, 1.17, 0.65, 0.35]) * (1 if oak else 0.84)
+    reaches = rng.permutation([2.42, 1.62, 1.04, 0.72, 0.40]) * (1 if oak else 0.84)
     widths = rng.uniform(8.0, 16.0, len(bearings))
     shoulders = radius * rng.uniform(2.1, ROOT_COLLAR_RADII, len(bearings))
     fraction = height[:, None] / shoulders
@@ -38,7 +52,7 @@ def root_flare(azimuth, phase, radius, height, oak, rng):
     angle = azimuth[None, :, None] - (bearings + bend)[:, None, :]
     lobes = np.exp((np.cos(angle) - 1) * widths)
     remaining = np.maximum(1 - fraction, 0)
-    decay = remaining**1.8 + 0.16 * remaining * np.exp(-2.3 * fraction)
+    decay = remaining**2.35 + 0.10 * remaining * np.exp(-2.3 * fraction)
     return radius * np.sum(decay[:, None, :] * reaches * lobes, axis=2)
 
 
@@ -96,7 +110,7 @@ def stem_profile(plan, scale, *, oak, grounded, seed):
         np.cos(azimuth)[None, :, None] * lateral[:, None, :]
         + np.sin(azimuth)[None, :, None] * normal[:, None, :]
     )
-    taper = np.expm1(0.58 * np.log1p(24 * t)) / np.expm1(0.58 * np.log(25))
+    taper = np.expm1(0.53 * np.log1p(31 * t)) / np.expm1(0.53 * np.log(32))
     body = radius + (tip - radius) * taper
     if len(joints):
         # Distribute part of the trunk section to the scaffolds at their takeoff heights.
@@ -112,7 +126,7 @@ def stem_profile(plan, scale, *, oak, grounded, seed):
     waist = np.sin(np.pi * t) * np.sin(5 * np.pi * t + bearings[0])
     body *= 1 + (0.14 if oak else 0.10) * waist
     below_crown = np.maximum(1 - t / max(joints.min(initial=1), 0.1), 0)
-    body *= 1 + (0.25 if oak else 0.21) * np.expm1(-t / 0.065) * below_crown
+    body *= 1 + (0.17 if oak else 0.12) * np.expm1(-t / 0.095) * below_crown
     twist = 0.88 * np.sin(6 * along + phase) + 1.3 * along
     sections = body[:, None] * (
         1
@@ -125,9 +139,14 @@ def stem_profile(plan, scale, *, oak, grounded, seed):
         _, _, side, up = arc_frame(length, axis.bend, 0, at)
         growth = axis.frame.T @ branch.frame[:, 1]
         bearing = np.arctan2(up @ growth, side @ growth)
-        axial = np.exp(-(((t - at) / max(4 * limb_radius / length, 0.042)) ** 2))
-        around = np.exp(3 * (np.cos(azimuth - bearing) - 1))
-        sections += limb_radius * axial[:, None] * (0.19 + 0.49 * around)
+        rise = (t - at) * length / max(limb_radius, 0.015 * length)
+        shoulder = (rise + 0.65) / 3.3
+        axial = np.exp(-(shoulder**2))
+        around = np.exp(2.6 * (np.cos(azimuth - bearing) - 1))
+        sections += limb_radius * axial[:, None] * (0.11 + 0.68 * around)
+        joint = np.searchsorted(t, np.round(at, 10))
+        support = np.maximum(1.04 * limb_radius - sections[joint], 0)
+        sections += np.exp(-((rise / 2.8) ** 2))[:, None] * support
     flare = root_flare(azimuth, phase, radius, t * length, oak, rng)
     collar = np.maximum(1 - t * length / (ROOT_COLLAR_RADII * radius), 0) ** 2
     return t, centre, tangent, radial, sections, flare, collar
