@@ -10,15 +10,21 @@ from outshine.places.sources import covering_tiles, tile_geography
 from outshine.terrain.ground_surface import ROAD_WIDTH, route_area
 from outshine.terrain.lattice import lattice
 from outshine.transport.elevated_rail import BALLAST_WIDTH
+from outshine.transport.rail_routes import surface_rail_lines
 from outshine.transport.road_crossfall import (
     WORLD_METRES,
     MercatorTile,
     geodetic,
     grade_crossfall,
 )
-from outshine.transport.road_grades import fit_road_grades, ground_carriageways
+from outshine.transport.road_grades import (
+    carriageway_axes,
+    fit_road_grades,
+    ground_carriageways,
+)
 from outshine.transport.route_graph import route_graph
 from outshine.transport.route_tiles import WORLD_CELLS
+from outshine.transport.tram_grades import fit_tram_grades
 
 from .crown_surface import CrownPatch, CrownSurface
 
@@ -105,7 +111,7 @@ def _enclosing(axis, radius):
     return slice(left, right)
 
 
-def _reservations(features, *, mercator=False):
+def _reservations(features, *, mercator=False, fit_tram=False):
     for name, geometry, tags in features:
         if name == "building":
             yield from building_footprints(geometry)[0]
@@ -116,6 +122,20 @@ def _reservations(features, *, mercator=False):
             or tags.get("layer")
             or tags.get("class") in {"rail", "transit"}
         ):
+            street_tram = (
+                tags.get("class") == "transit"
+                and tags.get("subclass") == "tram"
+                and not any(
+                    tags.get(key) for key in ("brunnel", "layer", "indoor", "level")
+                )
+            )
+            road_tunnel = (
+                tags.get("brunnel") == "tunnel"
+                and tags.get("class") in ROAD_WIDTH
+                and tags.get("class") != "path"
+            )
+            if fit_tram and (street_tram or road_tunnel):
+                continue
             width = ROAD_WIDTH.get(tags.get("class"), BALLAST_WIDTH)
             if mercator and not geometry.is_empty:
                 _, lo, _, hi = geometry.bounds
@@ -245,13 +265,24 @@ class RoadTerrain:
             transport,
             bounds=(x * stride, y * stride, (x + 1) * stride, (y + 1) * stride),
         )
-        roads = ground_carriageways(graph.paths, project, bounds, local)
-        if roads:
+        trams = tuple(surface_rail_lines(graph, project, kind="transit", mode="tram"))
+        carriageways = tuple(carriageway_axes(graph.paths, project, bounds))
+        roads = ground_carriageways(carriageways, bounds, local)
+        if roads or trams:
             vertices, quads = lattice(axes[:, 0], axes[:, 1], heights)
-            product = fit_road_grades(
-                vertices, quads, roads, tuple(_reservations(local))
-            )
-            heights = product.vertices[:, 2].reshape(heights.shape)
+            if roads:
+                vertices = fit_road_grades(
+                    vertices, quads, roads, tuple(_reservations(local))
+                ).vertices
+            if trams:
+                vertices = fit_tram_grades(
+                    vertices,
+                    quads,
+                    trams,
+                    carriageways,
+                    tuple(_reservations(local, fit_tram=True)),
+                )
+            heights = vertices[:, 2].reshape(heights.shape)
         target, constraints = self._crossfall(tile, latitude, heights)
         return (longitude, latitude, CrownPatch(heights, target, constraints))
 
