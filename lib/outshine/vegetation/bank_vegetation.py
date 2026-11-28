@@ -101,12 +101,14 @@ def bank_habitat(source, shore, window):
     ), mapped_wetland
 
 
-def bank_plants(surfaces, source, shore, eye, seed):
+def bank_plants(surfaces, source, shore, eye, seed, *, exclusion=None):
     if not shore.contacts:
         return
     centre = eye[:2]
     window = shapely.Point(centre).buffer(BANK_REACH_M + 2)
     domain, mapped_wetland = bank_habitat(source, shore, window)
+    if exclusion is not None:
+        domain = domain.difference(exclusion)
     if domain.is_empty:
         return
     sites = list(

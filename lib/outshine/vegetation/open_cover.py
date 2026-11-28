@@ -27,9 +27,10 @@ TUFT_FORMS = {
 
 
 class RegionalOpenCover:
-    def __init__(self, atlas, source, time):
+    def __init__(self, atlas, source, time, *, exclusion=None):
         self.atlas = atlas
         self.source = source
+        self.exclusion = exclusion
         self.dry_savanna = time.month in (2, 6, 7, 8, 9, 10)
         covers = {}
         for layer, geometry, properties in source.features:
@@ -50,6 +51,8 @@ class RegionalOpenCover:
                 ),
             )
         )
+        if exclusion is not None:
+            self.overrides += ((False, exclusion),)
         for _, geometry in self.overrides:
             shapely.prepare(geometry)
 
@@ -142,6 +145,8 @@ class RegionalOpenCover:
         routes = planting_surface(surfaces, eye[:2], ROUTE_MATERIALS)
         if routes is not None:
             footprint = footprint.difference(mesh_footprint(routes))
+        if self.exclusion is not None:
+            footprint = footprint.difference(self.exclusion)
         supported = np.isfinite(heights) & shapely.contains_xy(
             footprint, xy[:, 0], xy[:, 1]
         )

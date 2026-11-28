@@ -46,6 +46,13 @@ from outshine.rendering.water_reflection import (
 )
 from outshine.vegetation.landscape_cover import LANDSCAPE_MATERIALS
 from outshine.vegetation.regional_canopy import crown_batches
+from outshine.water.shore_substrate import (
+    CRUST_GRAIN,
+    MINERAL_CRUST,
+    MINERAL_GRAVEL,
+    MINERAL_WET,
+    SHORE_MATERIALS,
+)
 from outshine.water.water_bed import BED_ALBEDO
 from outshine.weather.air_profile import EARTH_RADIUS_KM
 from outshine.weather.cloud_profile import SUN_MAP_RADIUS_KM, SUN_MAP_SIZE, cloud_noise
@@ -66,6 +73,7 @@ SKYLIGHT_TEXTURE_UNIT = 5
 TERRAIN_TEXTURE_UNIT = 13
 HORIZON_COVER = 1
 LANDSCAPE_COVER = 2
+SHORE_SUBSTRATE = 3
 
 SCREEN = """#version 410 core
 out vec2 ndc;
@@ -633,6 +641,8 @@ def draw_surfaces(ctx, prog, draws, textures, terrain, *, capture=False, bed_map
         prog["glassIor"].value = GLASS_IOR if name == "glass" else 1.0
         detail = SURFACE_DETAIL.get(base)
         target = GROUND_BLENDS.get(base)
+        shore = SHORE_SUBSTRATE in terrain and base in SHORE_MATERIALS
+        prog["hasShoreSubstrate"].value = shore
         prog["hasGroundBlend"].value = target is not None
         prog["hasDetail"].value = detail is not None
         prog["blendDetailAxes"].value = base.endswith(" bark")
@@ -649,6 +659,10 @@ def draw_surfaces(ctx, prog, draws, textures, terrain, *, capture=False, bed_map
             prog["overlayColour"].value = SURFACES[target][0]
             prog["overlayTint"].value = DETAIL_TINTS.get(overlay, (1, 1, 1))
             detail_texture(ctx, textures, overlay).use(12)
+        if shore:
+            texture, transform = terrain[SHORE_SUBSTRATE]
+            texture.use(12)
+            prog["shoreTransform"].value = transform
         batch.vao.render(instances=len(batch.placements))
 
 
@@ -827,8 +841,17 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False, street_sky
     terrain_maps = {HORIZON_COVER: cover_texture(ctx, world.terrain_cover)}
     if cover := world.landscape_cover:
         terrain_maps[LANDSCAPE_COVER] = cover_texture(ctx, cover)
+    if shore := world.shore_appearance:
+        terrain_maps[SHORE_SUBSTRATE] = cover_texture(ctx, shore)
     terrain_maps[HORIZON_COVER][0].use(TERRAIN_TEXTURE_UNIT)
     prog["terrainCover"].value = TERRAIN_TEXTURE_UNIT
+    for name, (colour, roughness) in (
+        ("wetMineral", MINERAL_WET),
+        ("crustMineral", MINERAL_CRUST),
+        ("gravelMineral", MINERAL_GRAVEL),
+    ):
+        prog[name].value = (*colour, roughness)
+    prog["crustGrain"].value = CRUST_GRAIN
     prog["waterBedTransform"].value = bed.transform if bed is not None else (0, 0, 1, 1)
     prog["bedAlbedo"].value = BED_ALBEDO
     prog["waterIor"].value = WATER_IOR

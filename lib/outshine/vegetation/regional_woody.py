@@ -55,6 +55,8 @@ def savanna_woody(cover, surfaces, eye_xy, seed):
     routes = planting_surface(surfaces, eye_xy, ROUTE_MATERIALS, reach=reach + 6)
     if routes is not None:
         footprint = footprint.difference(mesh_footprint(routes).buffer(4.0))
+    if cover.exclusion is not None:
+        footprint = footprint.difference(cover.exclusion)
     points = shapely.points(xy)
     heights = surface_elevations(ground, xy)
     supported = np.isfinite(heights) & shapely.contains(footprint, points)
@@ -119,6 +121,8 @@ def steppe_shrubs(cover, surfaces, eye_xy, seed):
     routes = planting_surface(surfaces, eye_xy, ROUTE_MATERIALS, reach=reach + 2)
     if routes is not None:
         footprint = footprint.difference(mesh_footprint(routes))
+    if cover.exclusion is not None:
+        footprint = footprint.difference(cover.exclusion)
     points = shapely.points(xy)
     heights = surface_elevations(ground, xy)
     scale = 0.45 + 0.90 * np.mod(marks[:, 0] * 7, 1)

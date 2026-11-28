@@ -22,6 +22,14 @@
       "heading_deg": 67,
       "pitch_deg": 2,
       "support": "street"
+    },
+    {
+      "id": "LagunaAmarga-Shore",
+      "latitude": -50.97410728,
+      "longitude": -72.75756864,
+      "heading_deg": 218,
+      "pitch_deg": -9,
+      "support": "ground"
     }
   ],
   "walks": {
