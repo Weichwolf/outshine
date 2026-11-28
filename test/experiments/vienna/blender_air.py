@@ -16,7 +16,7 @@ from air_profile import (
 from water_reflection import camera_axes
 
 
-def capture_linear(scene, name):
+def capture_linear(scene, name, *, composite=False):
     settings = scene.render
     image_settings = settings.image_settings
     original = (
@@ -28,7 +28,7 @@ def capture_linear(scene, name):
         image_settings.exr_codec,
     )
     try:
-        settings.use_compositing = False
+        settings.use_compositing = composite
         image_settings.file_format = "OPEN_EXR"
         image_settings.color_mode = "RGBA"
         image_settings.color_depth = "32"

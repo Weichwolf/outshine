@@ -48,6 +48,23 @@ direct-sky luminance on a shaded paving patch. Cosine-weighted visibility agains
 geometry yields 92% on that patch and 99% on the adjoining façade. Use the Cycles image to judge
 those shadows. The one-bounce EEVEE image remains a fast comparison for reflected sunlight.
 
+Use `--street-sky` with an archived `--sky-dir` to compare direct diffuse skylight
+at nearby street surfaces. Cast 256 cosine-weighted rays from each sampled receiver
+against the same scene as the sunlight bounce. Radiance from the unblocked directions
+is filtered into the existing receiver mesh. The 100 m ray reach and the 38 m receiver
+range bound this reference.
+A sun-off EEVEE capture supplies the probe contribution to replace in the primary
+view. The full image retains its direct sunlight and specular lighting. Use
+`--street-bounce` as well to include the estimated first reflection of sunlight.
+
+```sh
+build/blender-python/bin/python test/experiments/vienna/glsl_render.py --export-sky \
+  --place Adlerhof-Near --place Adlerhof-Near-Afternoon --output build/shots/1965/sky
+blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/render.py -- \
+  --place Adlerhof-Near --place Adlerhof-Near-Afternoon --street-bounce --street-sky \
+  --sky-dir build/shots/1965/sky --repeat --output build/shots/1965/traced-street
+```
+
 Standalone GLSL uses 16 m and 96 m camera-centred shadow footprints with 2048 texels
 per axis. They resolve close sills, leaf shadows and root contact. Visibility blends
 into the coarser maps at their footprint edges. The 16 m footprint moves in whole

@@ -52,6 +52,7 @@ from passage_light import bake_reference_irradiance
 from PIL import Image
 from reference_scene import ReferenceScene
 from sky_environment import environment_path, load_environment
+from street_sky import bake_street_sky, capture_probe_diffuse, replace_probe_diffuse
 from walk_reference import plan_walk
 from water_bed import BED_ALBEDO
 from water_reflection import reflection_planes
@@ -531,22 +532,29 @@ def render(place, config, args):
         apply_water_bed(world.water_bed)
     scene.eevee.taa_render_samples = 6
     receiver_start = perf_counter()
-    bounce = (
+    trace_sky = getattr(args, "street_sky", False)
+    bounce = getattr(args, "street_bounce", False) and sun.data.energy > 0
+    receivers = (
         street_receivers(scene)
-        if args.engine == "eevee"
-        and getattr(args, "street_bounce", False)
-        and sun.data.energy > 0
+        if args.engine == "eevee" and (trace_sky or bounce)
         else []
     )
     receiver_s = perf_counter() - receiver_start
     probes, bake_s = (
         bake_reference_irradiance(
-            scene, world.local.covered_walks, world.eye[:2], street_sky=bool(bounce)
+            scene, world.local.covered_walks, world.eye[:2], street_sky=bool(receivers)
         )
         if args.engine == "eevee"
         else (0, 0.0)
     )
-    bounce_count, bounce_s = bake_sun_bounce(scene, sun, bounce) if bounce else (0, 0.0)
+    bounce_count, bounce_s = (
+        bake_sun_bounce(scene, sun, receivers) if bounce and receivers else (0, 0.0)
+    )
+    trace_count, trace_s = (
+        bake_street_sky(scene, receivers, environment.radiance)
+        if trace_sky and receivers
+        else (0, 0.0)
+    )
     if cloud_lighting is not None:
         sun.data.energy = sun_energy
     planes = reflection_planes(world) if args.engine == "eevee" and walk is None else ()
@@ -569,6 +577,14 @@ def render(place, config, args):
         ambient = cloud_lighting.capture_ambient(scene)
         cloud_ambient_s = perf_counter() - start
         surface_filter = partial(cloud_lighting.mix, ambient=ambient)
+    diffuse_capture_s = 0.0
+    if trace_count:
+        start = perf_counter()
+        captured = capture_probe_diffuse(scene, sun.data)
+        diffuse_capture_s = perf_counter() - start
+        surface_filter = partial(
+            replace_probe_diffuse, captured=captured, surface_filter=surface_filter
+        )
     sky_s = configure_aerial(
         scene,
         geometry,
@@ -647,6 +663,13 @@ def render(place, config, args):
                     "seconds": round(receiver_s + bounce_s, 3),
                 }
                 if bounce_count
+                else None,
+                "street_sky": {
+                    "samples": trace_count,
+                    "seconds": round(receiver_s + trace_s, 3),
+                    "probe_diffuse_capture_s": round(diffuse_capture_s, 3),
+                }
+                if trace_count
                 else None,
                 "reflection_levels_m": [round(plane.height, 3) for plane in planes],
                 "reflection_capture_s": round(capture_s, 3),
@@ -736,11 +759,22 @@ if __name__ == "__main__":
         action="store_true",
         help="trace direct sunlight reflected onto nearby streets",
     )
+    p.add_argument(
+        "--street-sky",
+        action="store_true",
+        help="trace diffuse sky visibility for nearby street surfaces in EEVEE",
+    )
     args = p.parse_args(
         sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     )
     if args.street_bounce and args.engine != "eevee":
         p.error("--street-bounce requires EEVEE")
+    if args.street_sky and (
+        args.engine != "eevee"
+        or args.sky_dir is None
+        or args.display_linear is not None
+    ):
+        p.error("--street-sky requires an EEVEE render and --sky-dir")
     if args.cycles_samples is not None and (
         args.display_linear is not None
         or args.engine != "cycles"
