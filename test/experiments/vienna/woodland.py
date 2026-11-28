@@ -16,6 +16,7 @@ from outshine_ref.vegetation.axis_surface import axis_mesh
 from park_avenue import avenue_sites
 from scene_mesh import Meshes, terrain_grid, terrain_height
 from woodland_fork import joined_wood
+from woodland_leaves import grouped_blades, leaf_group_ranges
 from woodland_sites import woodland_sites
 from woodland_stem import lean_tree, rooted_stem, scaffold_mesh, template_stem
 
@@ -166,33 +167,16 @@ def avenue_plan(form):
 
 
 def represented_leaves(rows, areas, step):
-    axes = rows["leaf_axis_ids"]
-    order = np.arange(len(axes))
+    order = np.arange(len(rows["leaf_axis_ids"]))
     if step == 1 or not len(order):
         return order, np.ones(len(order)), rows["leaf_origins"]
-    if step >= DISTANT_LEAF_STEP:
-        parents = rows["axis_parent_ids"][axes]
-        axes = np.where(parents >= 0, parents, axes)
-        order = np.argsort(axes, kind="stable")
-    _, starts, counts = np.unique(axes[order], return_index=True, return_counts=True)
-    first = np.concatenate(
-        [np.arange(i, i + n, step) for i, n in zip(starts, counts, strict=True)]
-    )
-    ends = starts + counts
-    stop = np.minimum(
-        first + step, ends[np.searchsorted(starts, first, side="right") - 1]
-    )
+    order, first, stop = leaf_group_ranges(rows, step, merge_shoots=False)
     # A fixed midpoint at even strides repeatedly selects the same side of a shoot.
     selected = order[first + np.random.default_rng(0).integers(stop - first)]
     variants = rows["leaf_variants"]
     prefix = np.r_[0, np.cumsum(areas[variants[order]])]
     size = np.sqrt((prefix[stop] - prefix[first]) / areas[variants[selected]])
-    origins = rows["leaf_origins"][selected]
-    if step >= DISTANT_LEAF_STEP:
-        ordered = rows["leaf_origins"][order]
-        sums = np.vstack((np.zeros(3), np.cumsum(ordered, axis=0)))
-        origins = (sums[stop] - sums[first]) / (stop - first)[:, None]
-    return selected, size, origins
+    return selected, size, rows["leaf_origins"][selected]
 
 
 def crown_leaf_frames(rows, seed, *, oak):
@@ -263,17 +247,27 @@ def geometry(plant, step, *, has_stem, species):
         vertices, faces = needle_sprays(plant, step)
         meshes.add("spruce foliage", lean_tree(plan, vertices, oak=False), faces)
         return meshes
-    # One representative spans the one-sided leaf area of its contiguous twig group.
     variants = rows["leaf_variants"]
     areas = np.array([blade.area() for blade in plan.blades])
+    frames = crown_leaf_frames(rows, plan.seed, oak=oak)
+    if step >= COARSE_LEAF_STEP:
+        vertices, faces = grouped_blades(
+            rows,
+            plan.blades,
+            frames,
+            areas,
+            step,
+            merge_shoots=step >= DISTANT_LEAF_STEP,
+        )
+        meshes.add("foliage", lean_tree(plan, vertices, oak=oak), faces)
+        return meshes
+
     selected, size, origins = represented_leaves(rows, areas, step)
-    frames = crown_leaf_frames(rows, plan.seed, oak=oak)[selected]
+    frames = frames[selected]
     for variant, blade in enumerate(plan.blades):
         where = variants[selected] == variant
         if not where.any():
             continue
-        if step >= COARSE_LEAF_STEP:
-            blade = replace(blade, petiole=0, base_fill=0)
         part = blade.mesh(4 if step == 1 else 2)
         leaf_scale = size[where]
         if step > 1:

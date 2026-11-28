@@ -31,6 +31,12 @@ inspect limb collars and the outline of the joined wood. Manifold builds the sha
 surface of broadleaf stems and their main limbs within the 32 m detailed stem range. Fillet
 displacement fades with distance from the joins.
 
+The broadleaf levels grouping 16 or 32 leaves keep up to two folded sheets per
+group. Each sheet carries its share of the original one-sided area and sits at
+the centre of its half of the group. Use `Dechantlacke-Woodland`,
+`Dechantlacke-Stem-Oblique` and `Hauptallee-Avenue` to check gaps between
+crowns, backlit foliage and the shoreline reflection.
+
 Blender uses the same mean solar diameter as the shared atmosphere, about 0.533°.
 EEVEE uses six temporal samples and jittered sun shadows. The render report records
 these settings. [NASA Sun Fact Sheet](https://nssdc.gsfc.nasa.gov/planetary/factsheet/sunfact.html)
