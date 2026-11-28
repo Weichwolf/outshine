@@ -21,7 +21,7 @@ second interval measures the warm image, including PNG encoding and writing. Rep
 with the image and profile so workstation cost can be compared across reference runs.
 
 Blender uses the same mean solar diameter as the shared atmosphere, about 0.533°.
-EEVEE uses eight temporal samples and jittered sun shadows. The render report records
+EEVEE uses six temporal samples and jittered sun shadows. The render report records
 these settings. [NASA Sun Fact Sheet](https://nssdc.gsfc.nasa.gov/planetary/factsheet/sunfact.html)
 
 The EEVEE directional shadow map uses a minimum 16 mm texel. The default 1 mm texel

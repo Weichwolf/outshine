@@ -315,7 +315,7 @@ def render(place, config, args):
     woody_instances = place_woody_plants(world, config["seed"], geometry)
     if world.water_bed is not None:
         apply_water_bed(world.water_bed)
-    scene.eevee.taa_render_samples = 8
+    scene.eevee.taa_render_samples = 6
     probes, bake_s = (
         bake_passage_lighting(scene, world.local.covered_walks, world.eye[:2])
         if args.engine == "eevee"
