@@ -59,6 +59,10 @@ from outshine.rendering.street_sky import (
     replace_probe_diffuse,
 )
 from outshine.rendering.water_reflection import reflection_planes
+from outshine.rendering.woody_visibility import (
+    reference_visibility_test,
+    visible_woody_placements,
+)
 from outshine.vegetation.regional_canopy import crown_batches
 from outshine.water.water_bed import BED_ALBEDO
 from outshine.world.scene import ReferenceScene
@@ -309,7 +313,7 @@ def upload(name, vertices, faces, *, collection, smooth=False, ground_litter=Non
     return obj
 
 
-def place_woody_plants(world, seed, geometry, *, eye_route=None):
+def place_woody_plants(world, seed, geometry, *, eye_route=None, may_contribute=None):
     count = 0
     for species, group, meshes, placements in world.woody_plants(
         seed, eye_route=eye_route
@@ -318,6 +322,10 @@ def place_woody_plants(world, seed, geometry, *, eye_route=None):
             for name, (vertices, faces) in meshes.items():
                 upload(name, vertices, faces, collection=geometry, smooth=True)
             continue
+        if may_contribute is not None:
+            placements = visible_woody_placements(meshes, placements, may_contribute)
+            if not len(placements):
+                continue
         collection = bpy.data.collections.new(f"{species} group {group}")
         for name, (vertices, faces) in meshes.items():
             upload(
@@ -504,14 +512,31 @@ def render(place, config, args):
     scene.render.resolution_x, scene.render.resolution_y = 1280, 720
     scene.render.resolution_percentage = 100
     scene.render.image_settings.compression = 0
-    woody_instances = place_woody_plants(world, config["seed"], geometry)
+    trace_sky = getattr(args, "street_sky", False)
+    bounce = getattr(args, "street_bounce", False) and sun.data.energy > 0
+    planes = reflection_planes(world) if args.engine == "eevee" else ()
+    may_contribute = None
+    # Probe, bounce and cloud captures can sample geometry outside the camera views.
+    if (
+        args.engine == "eevee"
+        and sun.data.energy > 0
+        and not (trace_sky or bounce or world.clouds or world.local.covered_walks)
+    ):
+        may_contribute = reference_visibility_test(
+            world,
+            planes,
+            scene.render.resolution_x,
+            scene.render.resolution_y,
+            sun.data.angle,
+        )
+    woody_instances = place_woody_plants(
+        world, config["seed"], geometry, may_contribute=may_contribute
+    )
     place_regional_crowns(crown_sites, geometry)
     if world.water_bed is not None:
         apply_water_bed(world.water_bed)
     scene.eevee.taa_render_samples = 6
     receiver_start = perf_counter()
-    trace_sky = getattr(args, "street_sky", False)
-    bounce = getattr(args, "street_bounce", False) and sun.data.energy > 0
     below_deck = (trace_sky or bounce) and near_lower_deck(
         world.viaducts, world.eye, RECEIVER_REACH_M
     )
@@ -568,7 +593,6 @@ def render(place, config, args):
     )
     if cloud_lighting is not None:
         sun.data.energy = sun_energy
-    planes = reflection_planes(world) if args.engine == "eevee" else ()
     images = ()
     capture_s = 0.0
     if planes:
