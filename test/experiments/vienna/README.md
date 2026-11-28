@@ -461,12 +461,12 @@ variation across the stand helps distinguish wooded slopes from meadows. Both
 renderers project the material horizontally. In the middle distance, oak and beech
 canopies follow twig positions from the near tree recipes. Three overlapping leaf
 volumes retain the upper crown and separate lateral sprays. Spruce uses a tiered
-silhouette. A separate material shades the foliage at branch scale. Roots sample the solved forest
-surface, reserve building footprints, and use the mapped leaf type. An eight-metre
-jittered grid is anchored to each source tile. The rooted geometry thins between
-twelve and eight pixels of projected tree height, leaving the baked canopy relief
-for the rest of the regional terrain. Both renderers instance shared templates
-for oak, beech and spruce.
+silhouette. Both distances use the same tile-seeded mature stems, scales and rotations.
+Mapped woodland reserves buildings, water and transport corridors. The ground mesh
+determines root height and mapped leaf type informs the species. The middle distance
+thins crowns between sixteen and twelve pixels of projected tree height, leaving the
+baked canopy relief beyond. Both renderers instance templates for oak, beech and
+spruce. Younger stems remain a near-field detail.
 At regional distance, the vector tile classifications give fields, grassland, rock
 and built-up ground distinct materials on the solved terrain. The same palette
 extends across the regional boundary. Parcel faces are combined by material after

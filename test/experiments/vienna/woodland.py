@@ -129,9 +129,9 @@ def stand_plan(species, form):
     return PlantPlan(base.seed + 19 * form, (stem, limbs, twigs, shoots), base.blades)
 
 
-def habitat(source, *, stems=True):
+def habitat(source, *, stems=True, features=None):
     woods, excluded = [], []
-    for layer, geom, props in source.features:
+    for layer, geom, props in source.features if features is None else features:
         if layer == "landcover" and props.get("class") == "wood":
             woods.append(shapely.make_valid(geom))
         elif layer in ("building", "water"):
@@ -354,13 +354,16 @@ def tree_batches(
     eye_xy=(0, 0),
     soil=None,
     eye_route=None,
+    mature=None,
 ):
     domain = habitat(source)
     lawn, avenue, avenue_marks = avenue_sites(source, radius, seed)
     if domain is None or domain.is_empty:
         positions, marks = np.empty((0, 2)), np.empty((0, 3))
     else:
-        positions, marks = woodland_sites(source, domain, np.zeros(2), radius, seed)
+        positions, marks = woodland_sites(
+            source, domain, np.zeros(2), radius, seed, mature=mature
+        )
     stand_count = len(positions)
     positions = np.concatenate((positions, avenue))
     marks = np.concatenate((marks, avenue_marks))

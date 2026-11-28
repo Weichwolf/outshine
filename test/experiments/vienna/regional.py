@@ -39,6 +39,8 @@ from shapely.geometry import Polygon, box, shape
 from shore_grade import SHORE_REACH_M, shore_grade
 from viaducts import elevated_outline
 from water_surface import clipped_water
+from woodland import habitat
+from woodland_sites import MIN_STEM_SPACING_M, mature_stand
 
 
 @dataclass
@@ -540,6 +542,35 @@ def regional_transport(
     )
 
 
+def regional_stand(source, transport, focal, radius, seed):
+    reach = max(radius, crown_reach(focal)) + MIN_STEM_SPACING_M
+    extent = box(-reach, -reach, reach, reach)
+    shapely.prepare(extent)
+    sources = {
+        tuple(row["tile"]): row
+        for row in (*source.receipts, *transport.receipts)
+        if row["kind"] == "vector"
+    }
+    layers = ("landcover", "building", "water", "transportation")
+    receipts, features = [], []
+    for tile, receipt in sources.items():
+        nw, se = tile_rect(source, tile)
+        if not extent.intersects(box(nw[0], se[1], se[0], nw[1])):
+            continue
+        receipts.append(receipt)
+        data = transport.nearby.get(receipt["url"])
+        if data is None:
+            data = decode_vector(receipt, layers=layers)
+        features.extend(
+            (layer, geometry, tags)
+            for layer, geometry, tags in source.metric_features(receipt, layers, data)
+            if extent.intersects(geometry)
+        )
+    return mature_stand(
+        source, habitat(source, features=features), reach, seed, receipts
+    )
+
+
 def regional_meshes(
     source,
     transport,
@@ -550,6 +581,7 @@ def regional_meshes(
     seed,
     local_shore=None,
     crown_sites=None,
+    stand=None,
 ):
     boundary = box(-radius, -radius, radius, radius).boundary
     align_seam = any(
@@ -585,7 +617,16 @@ def regional_meshes(
                 ]
                 if forest:
                     crown_sites.extend(
-                        rooted_crowns(source, receipt, data, forest, focal, seed)
+                        rooted_crowns(
+                            source,
+                            receipt,
+                            data,
+                            forest,
+                            focal,
+                            seed,
+                            stand,
+                            tile.bounds,
+                        )
                     )
             tile_products = []
             for name, vertices, faces in products:
