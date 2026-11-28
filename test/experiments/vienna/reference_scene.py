@@ -163,6 +163,7 @@ class ReferenceScene:
         ]
         self.fov = place.get("vertical_fov_deg", config["vertical_fov_deg"])
         self.focal = 360 / math.tan(math.radians(self.fov) / 2)
+        self.canopy_seed = config["seed"]
         pins = json.loads((HERE / "sources.json").read_text())
         self.bridgeheads = partial(
             bridgehead_sources,
@@ -272,7 +273,7 @@ class ReferenceScene:
             z + self.source.datum, self.sun[2], self.aerosol_extinction
         )
 
-    def surfaces(self):
+    def surfaces(self, *, crown_sites=None):
         for name, (verts, faces) in self.local.items():
             yield name, verts, faces
         yield from control_surfaces(self.source, self.water_plan)
@@ -283,6 +284,8 @@ class ReferenceScene:
             self.focal,
             250,
             self.water_plan,
+            crown_sites=crown_sites,
+            seed=self.canopy_seed,
             local_shore=self.local.shore.protection,
         ):
             yield from products

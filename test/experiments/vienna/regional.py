@@ -25,6 +25,7 @@ from outshine_ref.places.sources import (
     tile_geography,
 )
 from PIL import Image, ImageDraw
+from regional_canopy import crown_reach, rooted_crowns
 from regional_detail import building_shells, metric_polygons
 from scene_mesh import Meshes, shore_walls, terrain_grid, terrain_height
 from shapely.geometry import Polygon, box, shape
@@ -534,29 +535,53 @@ def regional_transport(
     )
 
 
-def regional_meshes(source, transport, focal, radius, water_plan, *, local_shore=None):
+def regional_meshes(
+    source,
+    transport,
+    focal,
+    radius,
+    water_plan,
+    *,
+    seed,
+    local_shore=None,
+    crown_sites=None,
+):
     boundary = box(-radius, -radius, radius, radius).boundary
     align_seam = any(
         a.footprint.intersects(boundary) for a in transport.approaches
     ) or any(body.footprint.distance(boundary) <= SHORE_REACH_M for body in water_plan)
     seam = terrain_grid(source, radius)[0] if align_seam else None
+    reach = crown_reach(focal)
+    origin = shapely.Point(0, 0)
     for receipt in transport.receipts:
         if receipt["kind"] == "vector":
-            data = transport.nearby.get(receipt["url"])
-            yield tile_surface(
+            nearby = transport.nearby.get(receipt["url"])
+            data = nearby if nearby is not None else decode_vector(receipt)
+            products, tile = tile_surface(
                 source,
                 receipt,
                 transport.dem,
                 focal,
                 radius,
-                data if data is not None else decode_vector(receipt),
-                transport.elevated if data is not None else (),
+                data,
+                transport.elevated if nearby is not None else (),
                 transport.approaches,
                 seam,
                 transport.crossings,
                 water_plan=water_plan,
                 local_shore=local_shore,
             )
+            if crown_sites is not None and tile.distance(origin) < reach:
+                forest = [
+                    (vertices, faces)
+                    for name, vertices, faces in products
+                    if name == "regional wood"
+                ]
+                if forest:
+                    crown_sites.extend(
+                        rooted_crowns(source, receipt, data, forest, focal, seed)
+                    )
+            yield products, tile
     yield [(n, *mesh) for n, mesh in transport.bridges.items()], shapely.Polygon()
 
 
