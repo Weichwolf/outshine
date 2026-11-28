@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "sites": [
+    {
+      "id": "at-lobau-dechantlacke",
+      "continent": "Europe",
+      "stratum": "Temperate floodplain woodland and lake edge",
+      "latitude": 48.19055452,
+      "longitude": 16.47657737,
+      "partition": "development",
+      "views": ["Dechantlacke-Stem-Oblique", "Dechantlacke-Woodland", "Dechantlacke-Bank"],
+      "reference_photos": [
+        {
+          "date": "2022-08-09",
+          "url": "https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg",
+          "use": "Summer crown gaps, trunks, understory and the patchy woodland floor"
+        },
+        {
+          "date": "2017-01-02",
+          "url": "https://commons.wikimedia.org/wiki/File:Dechantlacke_-_Lobau_Wien-2443.jpg",
+          "use": "Shoreline structure and exposed margins in winter"
+        }
+      ],
+      "checks": [
+        "Ground contact of roots and trunks",
+        "Crown shape and coverage at close and stand distance",
+        "Shoreline succession from wet ground to understory and canopy"
+      ],
+      "evidence_gaps": ["Atlas soil inputs and measured local stand density"]
+    },
+    {
+      "id": "at-koerbersee-treeline",
+      "continent": "Europe",
+      "stratum": "Montane spruce and subalpine meadow on a steep trail",
+      "latitude": 47.25574433,
+      "longitude": 10.10500994,
+      "partition": "development",
+      "views": ["Koerbersee-TreeLine", "Koerbersee-TreeLine-Oblique"],
+      "walk": "Koerbersee-Footpath",
+      "reference_photos": [
+        {
+          "date": "2017-10-17",
+          "url": "https://commons.wikimedia.org/wiki/File:Schr%C3%B6cken_K%C3%B6rbersee_Schr%C3%A4gluftbild.jpg",
+          "use": "Stand shape and meadow edge in autumn from above"
+        }
+      ],
+      "checks": [
+        "Ground contact on slopes and path support along the walk",
+        "Crown scale and lower foliage across young and mature spruce",
+        "Meadow gaps and exposed trail surface at the stand edge"
+      ],
+      "evidence_gaps": ["Atlas soil inputs and a season-matched close ground photograph"]
+    },
+    {
+      "id": "us-joshua-tree-hidden-valley",
+      "continent": "North America",
+      "stratum": "Mojave desert scrub and granite outcrops",
+      "latitude": 34.01348287,
+      "longitude": -116.16867665,
+      "partition": "development",
+      "capture": "hidden-valley.json",
+      "views": ["HiddenValley-Trail", "HiddenValley-Stand"],
+      "walk": "HiddenValley-Footpath",
+      "reference_photos": [
+        {
+          "date": "2023-11-14",
+          "url": "https://commons.wikimedia.org/wiki/File:Hidden_Valley_Landscape_(53333022118).jpg",
+          "use": "Joshua tree crowns, Mojave yucca rosettes and bare ground beside granite"
+        },
+        {
+          "date": "2014-12-11",
+          "url": "https://commons.wikimedia.org/wiki/File:Hidden_Valley_Trail_-_Joshua_Tree_National_Park_Landscape_(24919273373).jpg",
+          "use": "Sparse stand structure and exposed substrate at landscape scale"
+        }
+      ],
+      "checks": [
+        "Sparse cover and exposed ground in both views",
+        "Scale and form of Joshua trees and low plants",
+        "Trail clearance and dry mineral surface continuity"
+      ],
+      "evidence_gaps": ["Atlas soil inputs and local measurements of plant density"]
+    }
+  ]
+}
