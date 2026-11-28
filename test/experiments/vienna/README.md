@@ -149,10 +149,11 @@ heading, pitch, eye height, and 21 June 2026 10:00 UTC solar time. Clear air ret
 Rayleigh and ozone. The haze adds grey aerosol extinction of 0.04 km⁻¹ at sea level,
 with a 1.2 km exponential scale height and 0.9 scattering albedo. GLSL samples the
 atmospheric lookup tables for the camera-to-surface segment. Blender integrates the
-aerosol column along each camera ray using its Mist distance pass and a curved height
-profile. Blender's compositor uses scalar transmission for the image mix. Both renderers
-attenuate direct sunlight through the aerosol column. Use separate sky archives for the
-two weather profiles. [Hillaire, Scalable Atmosphere Rendering](https://doi.org/10.1111/cgf.14050)
+Rayleigh and aerosol columns along each camera ray using its Mist distance pass and
+the altitude above the curved Earth. Rayleigh transmission is evaluated per RGB band
+and aerosol extinction is grey. Both renderers attenuate direct sunlight through the
+aerosol column. Use separate sky archives for the two weather profiles.
+[Hillaire, Scalable Atmosphere Rendering](https://doi.org/10.1111/cgf.14050)
 
 FranzKarlFernsicht-Adjacent follows the same mapped trail by four metres.
 Use the elevated Wien scenario for historical horizon comparison.
@@ -440,10 +441,11 @@ twelve pedestrian cameras. Compare the historical view in
 Both consume the same camera, source products, material values, sun direction and tree
 instances. GLSL uses Outshine's metal/rough BRDF and atmospheric lookup kernels. Aerial
 perspective uses the ratio of transmittance at the eye and surface along each ray,
-as in `src/render/shaders/aerialPerspective.frag`. Blender combines its own sky-only
-layer and Principled BSDF render in scene-linear light. It uses Beer–Lambert attenuation
-at the green-band Rayleigh coefficient and the camera-altitude density for clear-air
-depth, independently of the GLSL tables.
+as in `src/render/shaders/aerialPerspective.frag`. Blender combines the Principled
+BSDF render and the same direction of the sky-only layer in scene-linear light.
+The sky-only layer is its approximation for airlight. RGB Beer–Lambert transmission
+uses the height-dependent molecular and aerosol densities independently of the GLSL
+tables.
 
 The reference cameras select up to two water levels for 640×360 planar reflection captures.
 Clipped scene geometry supplies the reflected forms and the sky fills the uncovered rays.

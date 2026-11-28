@@ -1,6 +1,5 @@
 """Composite atmospheric extinction and airlight using the render's distance pass."""
 
-import math
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import perf_counter
@@ -10,8 +9,10 @@ import numpy as np
 from air_profile import (
     AEROSOL_COLUMN_HEIGHT_KM,
     AEROSOL_HEIGHT_KM,
-    AEROSOL_SAMPLES,
+    COLUMN_SAMPLES,
     EARTH_RADIUS_KM,
+    RAYLEIGH_HEIGHT_KM,
+    RAYLEIGH_SCATTERING_PER_KM,
 )
 from water_reflection import camera_axes
 
@@ -74,10 +75,16 @@ def math_node(tree, op, *inputs):
 
 
 def zenith_rays(tree, scene, world):
-    width, height = scene.render.resolution_x, scene.render.resolution_y
+    settings = scene.render
+    scale = settings.resolution_percentage / 100
+    width, height = (
+        int(settings.resolution_x * scale),
+        int(settings.resolution_y * scale),
+    )
     right, up = camera_axes(world.look)
-    x = (np.arange(width) + 0.5 - width / 2) / world.focal
-    y = (np.arange(height) + 0.5 - height / 2)[:, None] / world.focal
+    focal = world.focal * scale
+    x = (np.arange(width) + 0.5 - width / 2) / focal
+    y = (np.arange(height) + 0.5 - height / 2)[:, None] / focal
     vertical = (world.look[2] + x * right[2] + y * up[2]) / np.sqrt(1 + x * x + y * y)
     image = bpy.data.images.new("Ray zenith", width, height, float_buffer=True)
     image.colorspace_settings.name = "Non-Color"
@@ -89,40 +96,65 @@ def zenith_rays(tree, scene, world):
     return math_node(tree, "MULTIPLY_ADD", rays.outputs["Image"], 2, -1)
 
 
-def aerosol_depth(tree, scene, world, eye_m, distance):
-    vertical = zenith_rays(tree, scene, world)
-    above = math_node(tree, "MAXIMUM", vertical, 1e-5)
-    cutoff = math_node(tree, "DIVIDE", AEROSOL_COLUMN_HEIGHT_KM, above)
-    distance = math_node(tree, "MINIMUM", distance, cutoff)
-    # Radial rise to second order in path length over the atmosphere's radius.
-    horizontal_squared = math_node(
-        tree, "MULTIPLY_ADD", vertical, math_node(tree, "MULTIPLY", vertical, -1), 1
-    )
-    curvature = math_node(
-        tree, "MULTIPLY", horizontal_squared, 0.5 / (EARTH_RADIUS_KM + eye_m * 0.001)
-    )
+def density_column(tree, vertical, curvature, eye_km, distance, scale_height):
     column = 0.0
-    for fraction, weight in AEROSOL_SAMPLES:
+    for fraction, weight in COLUMN_SAMPLES:
         s = math_node(tree, "MULTIPLY", distance, fraction)
         slope = math_node(tree, "MULTIPLY_ADD", s, curvature, vertical)
-        altitude = math_node(tree, "MULTIPLY_ADD", s, slope, eye_m * 0.001)
+        altitude = math_node(tree, "MULTIPLY_ADD", s, slope, eye_km)
         height = math_node(tree, "MAXIMUM", altitude, 0)
         density = math_node(
             tree,
             "EXPONENT",
-            math_node(tree, "MULTIPLY", height, -1 / AEROSOL_HEIGHT_KM),
+            math_node(tree, "MULTIPLY", height, -1 / scale_height),
         )
         column = math_node(tree, "MULTIPLY_ADD", density, weight, column)
-    return math_node(
-        tree,
-        "MULTIPLY",
-        math_node(tree, "MULTIPLY", distance, column),
-        -world.aerosol_extinction,
+    return math_node(tree, "MULTIPLY", distance, column)
+
+
+def atmospheric_columns(tree, scene, world, eye_m, distance):
+    vertical = zenith_rays(tree, scene, world)
+    eye_km = tree.nodes.new("ShaderNodeValue")
+    eye_km.name = "Observer altitude km"
+    eye_km = eye_km.outputs[0]
+    eye_km.default_value = eye_m * 0.001
+    horizontal_squared = math_node(
+        tree, "MULTIPLY_ADD", vertical, math_node(tree, "MULTIPLY", vertical, -1), 1
     )
+    diameter = math_node(tree, "MULTIPLY_ADD", eye_km, 2, 2 * EARTH_RADIUS_KM)
+    curvature = math_node(tree, "DIVIDE", horizontal_squared, diameter)
+    molecular = density_column(
+        tree, vertical, curvature, eye_km, distance, RAYLEIGH_HEIGHT_KM
+    )
+    aerosol_depth = 0.0
+    if world.aerosol_extinction:
+        above = math_node(tree, "MAXIMUM", vertical, 1e-5)
+        cutoff = math_node(tree, "DIVIDE", AEROSOL_COLUMN_HEIGHT_KM, above)
+        aerosol_distance = math_node(tree, "MINIMUM", distance, cutoff)
+        aerosol = density_column(
+            tree, vertical, curvature, eye_km, aerosol_distance, AEROSOL_HEIGHT_KM
+        )
+        aerosol_depth = math_node(tree, "MULTIPLY", aerosol, -world.aerosol_extinction)
+    return molecular, aerosol_depth
 
 
-def clear_air_depth(eye_m, distance_m):
-    return -0.013558 * math.exp(-max(0, eye_m) / 8000) * distance_m * 0.001
+def attenuate_colour(tree, surface, airlight, molecular, aerosol_depth):
+    foreground = tree.nodes.new("CompositorNodeSeparateColor")
+    background = tree.nodes.new("CompositorNodeSeparateColor")
+    result = tree.nodes.new("CompositorNodeCombineColor")
+    tree.links.new(surface, foreground.inputs["Image"])
+    tree.links.new(airlight, background.inputs["Image"])
+    for channel, scattering in zip(
+        ("Red", "Green", "Blue"), RAYLEIGH_SCATTERING_PER_KM, strict=True
+    ):
+        air = background.outputs[channel]
+        depth = math_node(tree, "MULTIPLY_ADD", molecular, -scattering, aerosol_depth)
+        transmission = math_node(tree, "EXPONENT", depth)
+        contrast = math_node(tree, "SUBTRACT", foreground.outputs[channel], air)
+        colour = math_node(tree, "MULTIPLY_ADD", transmission, contrast, air)
+        tree.links.new(colour, result.inputs[channel])
+    tree.links.new(foreground.outputs["Alpha"], result.inputs["Alpha"])
+    return result.outputs["Image"]
 
 
 def configure_aerial(
@@ -162,21 +194,12 @@ def configure_aerial(
         airlight = tree.nodes.new("CompositorNodeImage")
         airlight.image = sky_image
 
-    mist_distance = surface.outputs["Mist"]
-    optical_depth = math_node(
-        tree, "MULTIPLY", mist_distance, clear_air_depth(eye_altitude_m, mist.depth)
+    distance = math_node(tree, "MULTIPLY", surface.outputs["Mist"], mist.depth * 0.001)
+    molecular, aerosol_depth = atmospheric_columns(
+        tree, scene, world, eye_altitude_m, distance
     )
-    optical_depth.node.name = "Clear-air optical depth"
-    if world.aerosol_extinction:
-        distance = math_node(tree, "MULTIPLY", mist_distance, mist.depth * 0.001)
-        aerosol = aerosol_depth(tree, scene, world, eye_altitude_m, distance)
-        optical_depth = math_node(tree, "ADD", optical_depth, aerosol)
-    transmission = math_node(tree, "EXPONENT", optical_depth)
-
-    mix = tree.nodes.new("ShaderNodeMix")
-    mix.data_type = "RGBA"
-    tree.links.new(transmission, mix.inputs[0])
-    tree.links.new(airlight.outputs["Image"], mix.inputs[6])
-    tree.links.new(colour, mix.inputs[7])
-    tree.links.new(mix.outputs[2], tree.nodes.new("NodeGroupOutput").inputs["Image"])
+    composed = attenuate_colour(
+        tree, colour, airlight.outputs["Image"], molecular, aerosol_depth
+    )
+    tree.links.new(composed, tree.nodes.new("NodeGroupOutput").inputs["Image"])
     return sky_seconds

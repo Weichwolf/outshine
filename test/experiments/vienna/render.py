@@ -20,7 +20,7 @@ sys.path.extend(
     map(str, (ROOT / "build/blender-python/lib").glob("python*/site-packages"))
 )
 
-from blender_air import clear_air_depth, configure_aerial
+from blender_air import configure_aerial
 from blender_cloud import CloudLighting
 from blender_reflection import apply_reflection, capture_images
 from catalog import available_views, load_catalog, selected_views
@@ -434,16 +434,16 @@ def configure_cycles_reference(scene, samples, repeat):
 def render_walk(scene, world, walk, output, metadata):
     output.mkdir(parents=True, exist_ok=True)
     camera = scene.camera
-    optical_depth = scene.compositing_node_group.nodes["Clear-air optical depth"]
+    observer_altitude = scene.compositing_node_group.nodes[
+        "Observer altitude km"
+    ].outputs[0]
     frames = []
     with TemporaryDirectory(prefix=".frames-", dir=output) as directory:
         pending = Path(directory)
         for index, eye in enumerate(walk.eyes):
             camera.location = eye
             eye_m = eye[2] + world.source.datum
-            optical_depth.inputs[1].default_value = clear_air_depth(
-                eye_m, scene.world.mist_settings.depth
-            )
+            observer_altitude.default_value = eye_m * 0.001
             filename = f"{index:04}.png"
             seconds = render_png(scene, pending / filename)
             frames.append(

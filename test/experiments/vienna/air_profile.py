@@ -1,14 +1,16 @@
-"""Aerosol parameters for matched clear and hazy views."""
+"""Atmospheric density and extinction for matched clear and hazy views."""
 
 import math
 
 import numpy as np
 
 EARTH_RADIUS_KM = 6360.0
+RAYLEIGH_HEIGHT_KM = 8.0
+RAYLEIGH_SCATTERING_PER_KM = (0.005802, 0.013558, 0.033100)
 AEROSOL_HEIGHT_KM = 1.2
 AEROSOL_COLUMN_HEIGHT_KM = 12 * AEROSOL_HEIGHT_KM
 nodes, weights = np.polynomial.legendre.leggauss(6)
-AEROSOL_SAMPLES = tuple(zip(0.5 * (1 + nodes), 0.5 * weights, strict=True))
+COLUMN_SAMPLES = tuple(zip(0.5 * (1 + nodes), 0.5 * weights, strict=True))
 
 
 def aerosol_extinction(weather):
@@ -32,7 +34,7 @@ def direct_sun_fraction(eye_m, sun_vertical, extinction):
     vertical = radius * sun_vertical
     distance = radial / (math.sqrt(vertical**2 + radial) + vertical)
     column = 0.0
-    for fraction, weight in AEROSOL_SAMPLES:
+    for fraction, weight in COLUMN_SAMPLES:
         step = distance * fraction
         delta = step * (2 * vertical + step)
         altitude = height + delta / (math.sqrt(radius**2 + delta) + radius)
