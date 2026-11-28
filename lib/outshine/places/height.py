@@ -111,6 +111,35 @@ class Elevation:
                 total[hit] += weight[hit]
         return np.divide(values, total, out=fallback, where=total > 0)
 
+    def _sample_covered_boundaries(self, world, zooms, result, used_zoom):
+        for zoom in zooms:
+            pending = np.flatnonzero(~np.isfinite(result))
+            if not len(pending):
+                break
+            side = 1 << zoom
+            xy = world[pending] * side
+            boundary = np.rint(xy)
+            tolerance = 4 * np.finfo(xy.dtype).eps * side
+            shared = np.abs(xy - boundary) <= tolerance
+            xy = np.where(shared, boundary, xy)
+            base = np.floor(xy).astype(int)
+            on_boundary = shared.any(axis=1)
+            for offset in np.array(((0, 0), (-1, 0), (0, -1), (-1, -1))):
+                eligible = on_boundary & ~np.isfinite(result[pending])
+                eligible &= (shared | (offset == 0)).all(axis=1)
+                positions = np.flatnonzero(eligible)
+                cells, groups = np.unique(
+                    base[positions] + offset, axis=0, return_inverse=True
+                )
+                for i, cell in enumerate(cells):
+                    tile = zoom, int(cell[0]) % side, int(cell[1])
+                    if tile in self.receipts:
+                        selected = positions[groups == i]
+                        result[pending[selected]] = self._tile_heights(
+                            tile, xy[selected] - cell
+                        )
+                        used_zoom[pending[selected]] = zoom
+
     def sample_with_zoom(self, latitude, longitude, *, allow_missing=False):
         """Return the finest available height and zoom, with NaN and -1 for allowed misses."""
         latitude, longitude = np.broadcast_arrays(latitude, longitude)
@@ -133,7 +162,8 @@ class Elevation:
         )
         result = np.full(len(latitude), np.nan)
         used_zoom = np.full(len(latitude), -1, dtype=np.int16)
-        for zoom in sorted({tile[0] for tile in self.receipts}, reverse=True):
+        zooms = sorted({tile[0] for tile in self.receipts}, reverse=True)
+        for zoom in zooms:
             unresolved = np.flatnonzero(~np.isfinite(result))
             if not len(unresolved):
                 break
@@ -161,6 +191,7 @@ class Elevation:
                     tile, coordinates[selected] - cell
                 )
                 used_zoom[unresolved[selected]] = zoom
+        self._sample_covered_boundaries(world, zooms, result, used_zoom)
         if not allow_missing and not np.isfinite(result).all():
             raise ValueError(
                 f"DEM does not cover {int(np.count_nonzero(~np.isfinite(result)))} requested samples"

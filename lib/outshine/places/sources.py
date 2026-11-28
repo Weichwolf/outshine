@@ -112,7 +112,9 @@ def _retain(path, data):
             temporary.unlink(missing_ok=True)
 
 
-def acquire(source, root, *, fetch=False, max_bytes=16 * 1024**2, timeout_s=60):
+def acquire(
+    source, root, *, fetch=False, optional=False, max_bytes=16 * 1024**2, timeout_s=60
+):
     kind, tile, url = source
     tile = tile_tuple(tile)
     if kind not in ("vector", "elevation") or not isinstance(url, str) or not url:
@@ -152,13 +154,13 @@ def acquire(source, root, *, fetch=False, max_bytes=16 * 1024**2, timeout_s=60):
         data, separator, status = encoded.rpartition(b"\n")
         if not separator:
             raise ValueError("provider did not return an HTTP status")
-        if status == b"404" and kind == "elevation":
+        if status == b"404" and (kind == "elevation" or optional):
             return {
                 "kind": kind,
                 "tile": list(tile),
                 "url": url,
                 "missing": True,
-                "reason": "Preferred elevation provider returns HTTP 404",
+                "reason": f"Preferred {kind} provider returns HTTP 404",
             }
         if status != b"200" or not 0 < len(data) <= max_bytes:
             raise ValueError(

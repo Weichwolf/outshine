@@ -162,6 +162,17 @@ class PlaceHeightTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 Elevation([record]).sample(0, 0)
 
+    def test_retained_tile_supplies_exact_boundary_without_missing_interior(self):
+        with tempfile.TemporaryDirectory(prefix="outshine-tests.places.") as root:
+            northwest = stored(root, ((10, 20), (30, 40)), (1, 0, 0), "northwest")
+            elevation = Elevation([northwest])
+            lat = np.array((0, 40, 0, -1e-6, 40))
+            lon = np.array((-90, 0, 0, -90, 1e-6))
+            height, zoom = elevation.sample_with_zoom(lat, lon, allow_missing=True)
+            at_east = elevation.sample(40, -1e-6)
+            np.testing.assert_allclose(height, (35, at_east, 40, np.nan, np.nan))
+            np.testing.assert_array_equal(zoom, (1, 1, 1, -1, -1))
+
     def test_single_tile_broadcast_repeated_positions_and_empty_shape(self):
         with tempfile.TemporaryDirectory(prefix="outshine-tests.places.") as root:
             fine = stored(root, ((100, 110), (120, 130)), (1, 1, 1))
@@ -256,12 +267,12 @@ class PlaceSourceTests(unittest.TestCase):
                     fetch=True,
                 )
                 self.assertTrue(result["missing"])
+                vector = ("vector", (0, 0, 0), "https://example.test/map")
+                result = acquire(vector, root, fetch=True, optional=True)
+                self.assertTrue(result["missing"])
+                self.assertEqual(result["tile"], [0, 0, 0])
                 with self.assertRaises(ValueError):
-                    acquire(
-                        ("vector", (0, 0, 0), "https://example.test/map"),
-                        root,
-                        fetch=True,
-                    )
+                    acquire(vector, root, fetch=True)
             with (
                 patch(
                     "outshine.places.sources.subprocess.check_output",

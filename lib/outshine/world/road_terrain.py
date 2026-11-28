@@ -5,15 +5,25 @@ from dataclasses import dataclass
 import numpy as np
 import shapely
 
+from outshine.buildings.building_footprints import building_footprints
 from outshine.places.sources import covering_tiles, tile_geography
 from outshine.terrain.ground_surface import ROAD_WIDTH, route_area
 from outshine.terrain.lattice import lattice
 from outshine.transport.elevated_rail import BALLAST_WIDTH
+from outshine.transport.road_crossfall import (
+    WORLD_METRES,
+    MercatorTile,
+    geodetic,
+    grade_crossfall,
+)
 from outshine.transport.road_grades import fit_road_grades, ground_carriageways
 from outshine.transport.route_graph import route_graph
 from outshine.transport.route_tiles import WORLD_CELLS
 
+from .crown_surface import CrownPatch, CrownSurface
+
 TERRAIN_ZOOM = 16
+VECTOR_ZOOM = 14
 CELLS_PER_TILE = 128
 ROAD_LAYERS = ("building", "transportation", "water")
 
@@ -42,6 +52,21 @@ def dem_longitude(longitude):
 
 def terrain_tiles(latitude, longitude, radius):
     return covering_tiles(latitude, longitude, radius, TERRAIN_ZOOM)
+
+
+def terrain_halo(tiles):
+    side = 1 << TERRAIN_ZOOM
+    return {
+        (TERRAIN_ZOOM, xx % side, yy)
+        for _, x, y in tiles
+        for xx in range(x - 1, x + 2)
+        for yy in range(max(0, y - 1), min(side, y + 2))
+    }
+
+
+def crossfall_tiles(tiles):
+    shift = TERRAIN_ZOOM - VECTOR_ZOOM
+    return {(VECTOR_ZOOM, x >> shift, y >> shift) for _, x, y in terrain_halo(tiles)}
 
 
 def elevation_tiles(tiles, zoom):
@@ -80,16 +105,23 @@ def _enclosing(axis, radius):
     return slice(left, right)
 
 
-def _reservations(features):
+def _reservations(features, *, mercator=False):
     for name, geometry, tags in features:
-        if name in {"building", "water"}:
+        if name == "building":
+            yield from building_footprints(geometry)[0]
+        elif name == "water":
             yield shapely.make_valid(geometry)
         elif name == "transportation" and (
             tags.get("brunnel")
             or tags.get("layer")
             or tags.get("class") in {"rail", "transit"}
         ):
-            yield route_area(geometry, ROAD_WIDTH.get(tags.get("class"), BALLAST_WIDTH))
+            width = ROAD_WIDTH.get(tags.get("class"), BALLAST_WIDTH)
+            if mercator and not geometry.is_empty:
+                _, lo, _, hi = geometry.bounds
+                _, latitude = geodetic([(0, lo), (0, hi)])
+                width /= np.cos(np.deg2rad(latitude)).min()
+            yield route_area(geometry, width)
 
 
 class RoadTerrain:
@@ -98,6 +130,9 @@ class RoadTerrain:
         self.vectors = vectors
         self.tiles = {}
         self.parents = {}
+        self.reservations = {}
+        self.prepared = {}
+        self.crowns = CrownSurface(1 << TERRAIN_ZOOM, CELLS_PER_TILE, self._patch)
 
     def _parent(self, parent):
         if parent not in self.parents:
@@ -121,9 +156,72 @@ class RoadTerrain:
             self.parents[parent] = project, features, index, transport
         return self.parents[parent]
 
-    def _fit_tile(self, tile):
+    def _crossfall_reservations(self, parent, tile):
+        frame = MercatorTile(parent)
+        if parent not in self.reservations:
+            features = self.source.metric_features(
+                {"tile": parent},
+                ROAD_LAYERS,
+                self.vectors[parent],
+                project=frame.project,
+            )
+            self.reservations[parent] = tuple(
+                geom
+                for geom in _reservations(features, mercator=True)
+                if not geom.is_empty
+            )
+        geometries = self.reservations[parent]
+        turn = round((tile.west - frame.west) / WORLD_METRES)
+        return (
+            shapely.transform(geometries, lambda xy: xy + [turn * WORLD_METRES, 0])
+            if turn and geometries
+            else geometries
+        )
+
+    def _crossfall(self, tile, latitude, heights):
         _, x, y = tile
-        parent = (14, x >> (TERRAIN_ZOOM - 14), y >> (TERRAIN_ZOOM - 14))
+        frame = MercatorTile(tile)
+        parents = crossfall_tiles((tile,))
+        present = sorted(parents & self.vectors.keys())
+        transport = {
+            key: self.vectors[key]["transportation"]
+            for key in present
+            if "transportation" in self.vectors[key]
+        }
+        if not transport:
+            return heights, None
+        stride = WORLD_CELLS >> TERRAIN_ZOOM
+        graph = route_graph(
+            transport,
+            bounds=(
+                ((x - 1) * stride) % WORLD_CELLS,
+                (y - 1) * stride,
+                ((x + 2) * stride) % WORLD_CELLS,
+                (y + 2) * stride,
+            ),
+        )
+        reserved = [
+            geom for key in present for geom in self._crossfall_reservations(key, frame)
+        ]
+        absent = [frame.box(key) for key in sorted(parents - self.vectors.keys())]
+
+        def elevation(xy):
+            lon, lat = geodetic(xy)
+            values, _ = self.source.dem.sample_with_zoom(
+                np.clip(lat, -85.051128779, 85.051128779),
+                dem_longitude(lon),
+                allow_missing=True,
+            )
+            return values
+
+        return grade_crossfall(
+            frame, latitude, heights, graph, elevation, reserved, absent
+        )
+
+    def _prepare_tile(self, tile):
+        _, x, y = tile
+        shift = TERRAIN_ZOOM - VECTOR_ZOOM
+        parent = (VECTOR_ZOOM, x >> shift, y >> shift)
         if parent not in self.vectors:
             return None
         longitude, latitude = _geography(tile)
@@ -154,11 +252,25 @@ class RoadTerrain:
                 vertices, quads, roads, tuple(_reservations(local))
             )
             heights = product.vertices[:, 2].reshape(heights.shape)
-        return TerrainTile(longitude, latitude, heights)
+        target, constraints = self._crossfall(tile, latitude, heights)
+        return (longitude, latitude, CrownPatch(heights, target, constraints))
+
+    def _patch(self, tile):
+        if tile not in self.prepared:
+            self.prepared[tile] = self._prepare_tile(tile)
+        data = self.prepared[tile]
+        return data[2] if data is not None else None
 
     def _tile(self, tile):
         if tile not in self.tiles:
-            self.tiles[tile] = self._fit_tile(tile)
+            patch = self._patch(tile)
+            if patch is None:
+                self.tiles[tile] = None
+            else:
+                longitude, latitude, _ = self.prepared[tile]
+                self.tiles[tile] = TerrainTile(
+                    longitude, latitude, self.crowns.fit(tile, patch)
+                )
         return self.tiles[tile]
 
     def grid(self, radius):
