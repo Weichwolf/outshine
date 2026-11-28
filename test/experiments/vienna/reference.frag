@@ -15,6 +15,7 @@ uniform vec3 detailTint;
 uniform float barkBoxBlend;
 uniform bool hasDetail;
 uniform float eyeKm;
+uniform float directSunFraction;
 uniform float glassIor;
 uniform bool waterSurface;
 uniform float waterIor;
@@ -244,7 +245,8 @@ void main(){
     }
     environment = mix(front, diffuseColour * diffuseSky(-n), diffuseTransmission);
   }
-  vec3 light = mix(reflected, transmitted, diffuseTransmission) * 2.5 * visibility + environment;
+  float directSun = 2.5 * directSunFraction;
+  vec3 light = mix(reflected, transmitted, diffuseTransmission) * directSun * visibility + environment;
   gl_FragDepth=log2(1.+1./gl_FragCoord.w)/log2(240001.);
   if (reflectionCapture) { colour=vec4(light,1.); return; }
   if (waterSurface) {
@@ -253,7 +255,7 @@ void main(){
     vec3 transmission=texture(waterBedMap,bedUV).rgb;
     vec3 bodyColour=mix(surface.rgb,bedAlbedo,transmission);
     vec3 bodyLight = useSkyIrradiance
-      ? bodyColour * (diffuseSky(n) + (2.5 / kPi) * nl * visibility)
+      ? bodyColour * (diffuseSky(n) + (directSun / kPi) * nl * visibility)
       : bodyColour * .28 * mix(.58, 1., visibility);
     light = mix(bodyLight, reflectedEnvironment(ray), waterFresnel(dot(n, view)));
   } else if (glassIor>1.) {
@@ -262,7 +264,8 @@ void main(){
     vec3 environment=mix(vec3(.07,.065,.057),sky,smoothstep(-.23,.07,ray.z));
     light+=environment*brdfFresnel(f0,1.,nv);
   }
-  Medium air = clearAir();
+  // The veil carries extinction. The mapping uses only the shared planet geometry.
+  Medium air = referenceAir(0.);
   vec3 ray = -view;
   vec3 transmission = segmentTransmission(veil, air, eyeKm, ray.z, length(point - eye) * .001);
   ivec2 skySize = textureSize(skyView, 0);

@@ -9,12 +9,12 @@ def environment_path(directory, place):
     return directory / f"{place['id']}-sky.npz"
 
 
-def save_environment(path, radiance, sun, eye_m):
+def save_environment(path, radiance, sun, eye_m, *, aerosol=0.0):
     path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(path, radiance=radiance, sun_enu=sun, eye_m=eye_m)
+    np.savez(path, radiance=radiance, sun_enu=sun, eye_m=eye_m, aerosol=aerosol)
 
 
-def load_environment(path, sun, eye_m):
+def load_environment(path, sun, eye_m, *, aerosol=0.0):
     with np.load(path, allow_pickle=False) as sky:
         radiance = sky["radiance"]
         saved_sun = sky["sun_enu"]
@@ -24,6 +24,11 @@ def load_environment(path, sun, eye_m):
             or not np.isclose(sky["eye_m"].item(), eye_m, rtol=0, atol=0.01)
         ):
             raise ValueError(f"{path}: sky sun or eye altitude differs from this view")
+        saved_aerosol = np.asarray(sky.get("aerosol", 0.0))
+        if saved_aerosol.shape or not np.isclose(
+            saved_aerosol, aerosol, rtol=0, atol=1e-7
+        ):
+            raise ValueError(f"{path}: sky aerosol extinction differs from this view")
     if (
         radiance.shape != (*SKY_ENVIRONMENT_SIZE[::-1], 3)
         or radiance.dtype != np.float32

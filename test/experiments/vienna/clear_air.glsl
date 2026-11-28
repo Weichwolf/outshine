@@ -1,6 +1,6 @@
-Medium clearAir() {
-  return Medium(6360.0, 6460.0, 8.0, 1.2, vec3(.005802, .013558, .033100), 0.0,
-      vec3(.000650, .001881, .000085), 0.0, 25.0, 15.0, .8, 0.0, vec3(.10, .13, .07), 0.0);
+Medium referenceAir(float aerosolExtinction) {
+  return Medium(6360.0, 6460.0, 8.0, 1.2, vec3(.005802, .013558, .033100), .9 * aerosolExtinction,
+      vec3(.000650, .001881, .000085), aerosolExtinction, 25.0, 15.0, .8, 0.0, vec3(.10, .13, .07), 0.0);
 }
 
 vec3 segmentTransmission(sampler2D veil, Medium air, float startKm, float vertical, float distanceKm) {

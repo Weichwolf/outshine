@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 import numpy as np
+from air_profile import AEROSOL_HEIGHT_KM, aerosol_extinction, direct_sun_fraction
 from sky_environment import (
     SKY_ENVIRONMENT_SIZE,
     diffuse_coefficients,
@@ -38,6 +39,31 @@ class SkyEnvironmentTest(unittest.TestCase):
                 load_environment(path, (0.6, 0.0, 0.8), 156.25)
             with self.assertRaisesRegex(ValueError, "sun or eye altitude"):
                 load_environment(path, sun, 157.25)
+
+    def test_legacy_clear_and_current_hazy_archives_are_distinct(self):
+        radiance = np.full((*SKY_ENVIRONMENT_SIZE[::-1], 3), 0.125, dtype="f4")
+        sun, eye = (0.0, 0.6, 0.8), 477.25
+        haze = aerosol_extinction("haze")
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "sky.npz"
+            np.savez(path, radiance=radiance, sun_enu=sun, eye_m=eye)
+            np.testing.assert_array_equal(load_environment(path, sun, eye), radiance)
+            with self.assertRaisesRegex(ValueError, "aerosol extinction"):
+                load_environment(path, sun, eye, aerosol=haze)
+            save_environment(path, radiance, sun, eye, aerosol=haze)
+            np.testing.assert_array_equal(
+                load_environment(path, sun, eye, aerosol=haze), radiance
+            )
+            with self.assertRaisesRegex(ValueError, "aerosol extinction"):
+                load_environment(path, sun, eye)
+
+    def test_haze_attenuates_low_elevation_sun_more_than_zenith(self):
+        haze = aerosol_extinction("haze")
+        above = direct_sun_fraction(0.0, 1.0, haze)
+        self.assertAlmostEqual(above, np.exp(-haze * AEROSOL_HEIGHT_KM), places=5)
+        self.assertLess(direct_sun_fraction(0.0, 0.2, haze), above)
+        self.assertGreater(direct_sun_fraction(1500.0, 1.0, haze), above)
+        self.assertEqual(direct_sun_fraction(0.0, 0.2, aerosol_extinction("clear")), 1)
 
 
 if __name__ == "__main__":

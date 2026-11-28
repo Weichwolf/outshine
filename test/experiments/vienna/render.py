@@ -227,7 +227,7 @@ def place_woody_plants(world, seed, geometry):
     return count
 
 
-def configure_world_sky(scene, sunlight, radiance):
+def configure_world_sky(scene, sunlight, radiance, *, haze=False):
     nodes = scene.world.node_tree.nodes
     background = nodes["Background"]
     image = None
@@ -235,7 +235,7 @@ def configure_world_sky(scene, sunlight, radiance):
         sky = nodes.new("ShaderNodeTexSky")
         sky.sky_type = "HOSEK_WILKIE"
         sky.sun_direction = sunlight
-        sky.turbidity = 2.2
+        sky.turbidity = 4.0 if haze else 2.2
         background.inputs["Strength"].default_value = 0.25
     else:
         height, width, _ = radiance.shape
@@ -264,14 +264,19 @@ def render(place, config, args):
     sunlight = Vector(world.sun)
     sun = next(o for o in scene.objects if o.type == "LIGHT" and o.data.type == "SUN")
     sun.rotation_euler = (-sunlight).to_track_quat("-Z", "Y").to_euler()
+    sun.data.energy *= world.direct_sun_fraction
     sun.data.shadow_maximum_resolution = SUN_SHADOW_MIN_TEXEL_M
     sky_dir = getattr(args, "sky_dir", None)
     sky_path = environment_path(sky_dir, place) if sky_dir is not None else None
     eye_m = world.eye[2] + world.source.datum
     radiance = (
-        load_environment(sky_path, world.sun, eye_m) if sky_path is not None else None
+        load_environment(sky_path, world.sun, eye_m, aerosol=world.aerosol_extinction)
+        if sky_path is not None
+        else None
     )
-    sky_image = configure_world_sky(scene, sunlight, radiance)
+    sky_image = configure_world_sky(
+        scene, sunlight, radiance, haze=bool(world.aerosol_extinction)
+    )
     scene.cycles.seed = config["seed"]
     geometry = bpy.data.collections.new("World geometry")
     scene.collection.children.link(geometry)
@@ -316,6 +321,7 @@ def render(place, config, args):
     sky_s = configure_aerial(
         scene,
         geometry,
+        world,
         eye_m,
         cache_sky=args.engine == "eevee" and args.repeat,
     )
@@ -328,6 +334,7 @@ def render(place, config, args):
         json.dumps(
             {
                 "place": place["id"],
+                "weather": world.weather,
                 "surface": world.support,
                 "woody_instances": woody_instances,
                 "eye_m": eye_m,
