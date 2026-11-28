@@ -150,6 +150,18 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
   [Solari et al.](https://doi.org/10.1016/j.palaeo.2010.07.016) ·
   [Uferfoto vom 29. Dezember 2012](https://commons.wikimedia.org/wiki/File:Torres_del_Paine,_Laguna_Amarga.jpg)
 
+- **Joshua Trees und Mojave-Yuccas in Hidden Valley**. Der U.S. Fish and
+  Wildlife Service beschreibt Wuchsform und Blattmaße des westlichen Joshua
+  Tree. Der National Park Service zeigt die längeren, breiteren Blätter der
+  Mojave-Yucca sowie beide Arten am selben Standort. Outshine leitet daraus
+  die verzweigte Form mit endständigen Rosetten und die niedrige Form mit
+  breiten Schwertblättern ab. Das Ortsfoto stützt die Wahl der sichtbaren
+  Körnung und Farbe. Die USGS-Karte ordnet die granitischen Aufschlüsse ein.
+  [USFWS](https://www.fws.gov/sites/default/files/documents/2023%20Final%20Revised%20Joshua%20Tree%20SSA_0.pdf) ·
+  [National Park Service](https://home.nps.gov/jotr/learn/nature/jtrees.htm) ·
+  [Aufnahme vom 14. November 2023](https://commons.wikimedia.org/wiki/File:Hidden_Valley_Landscape_(53333022118).jpg) ·
+  [USGS-Geologie](https://www.usgs.gov/publications/geology-joshua-tree-national-park-geodatabase)
+
 - **Hierarchical Image Caching for Accelerated Walkthroughs of Complex Environments**,
   Shade / Lischinski / Salesin / DeRose / Snyder, SIGGRAPH 1996.
   [Autorenprojekt](https://pages.cs.huji.ac.il/danix-lab/cglab/research/wa/) ·

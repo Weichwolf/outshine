@@ -39,6 +39,7 @@ from outshine.terrain.ground_surface import (
     DIRT_ROAD_CENTRE_M,
     DIRT_ROAD_SHOULDER_M,
     MEADOW_MARGIN_M,
+    MINERAL_TRAIL_SHOULDER_M,
     ROUTE_MATERIALS,
     SOIL_MATERIALS,
     TRAIL_SHOULDER_M,
@@ -92,6 +93,7 @@ class Meshes(dict):
     terrain_lattice = None
     covered_walks = ()
     trail_litter_edges = None
+    mineral_trail_edges = None
     dirt_road_edges = None
     meadow_woodland_edges = None
     skylight_foliage = None
@@ -609,6 +611,7 @@ def ground_surfaces(
     track_wall_ground=False,
     structures=(),
     viaducts=(),
+    blend_mineral_trails=False,
 ):
     transport = [(g, p) for layer, g, p in source.features if layer == "transportation"]
     paved = [
@@ -946,6 +949,29 @@ def ground_surfaces(
         roads["unpaved path"],
         breaks,
     )
+    if blend_mineral_trails:
+        trail = roads["unpaved path"]
+        occupied = shapely.union_all(
+            [
+                extent.boundary,
+                *(
+                    area
+                    for label, area in footprints.items()
+                    if names[label] != "unpaved path"
+                ),
+                vegetation["forest floor"],
+                vegetation["meadow"],
+                bodies,
+            ]
+        )
+        edges = trail.boundary.difference(occupied.buffer(1e-4))
+        if not edges.is_empty:
+            meshes.mineral_trail_edges = edges
+            breaks.append(
+                edges.buffer(
+                    MINERAL_TRAIL_SHOULDER_M, quad_segs=4
+                ).boundary.intersection(trail)
+            )
     for label, (material, cover) in enumerate(vegetation.items(), cover_start):
         if not cover.is_empty:
             names[label] = material
@@ -1045,6 +1071,7 @@ def assemble(
     crossings=None,
     water_plan=None,
     facade_view=None,
+    blend_mineral_trails=False,
 ):
     facade_view = facade_view or FacadeView()
     meshes = Meshes()
@@ -1142,6 +1169,7 @@ def assemble(
         track_wall_ground=bool(buildings),
         structures=geometries,
         viaducts=viaducts,
+        blend_mineral_trails=blend_mineral_trails,
     )
     if not track_paving.is_empty:
         crossings = [
