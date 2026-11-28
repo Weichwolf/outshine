@@ -398,6 +398,10 @@ def render_shadows(ctx, prog, draws, world):
         placeholder.use(unit)
         prog[sampler].value = unit
         prog[matrix].write(projection.T.astype("f4").tobytes())
+    blocker_units = (("localDepthMap", 14), ("nearDepthMap", 15))
+    for name, unit in blocker_units:
+        placeholder.use(unit)
+        prog[name].value = unit
     prog["shadowPass"].value = True
     query = ctx.query(time=True)
     with query:
@@ -408,8 +412,18 @@ def render_shadows(ctx, prog, draws, world):
     prog["shadowPass"].value = False
     for (_, _, unit, _, _), texture in zip(passes, textures, strict=True):
         texture.use(unit)
+    depth_samplers = []
+    for (_, unit), texture in zip(blocker_units, textures[1:], strict=True):
+        sampler = ctx.sampler(
+            texture=texture,
+            repeat_x=False,
+            repeat_y=False,
+            filter=(moderngl.NEAREST, moderngl.NEAREST),
+        )
+        sampler.use(unit)
+        depth_samplers.append(sampler)
     placeholder.release()
-    return textures, query
+    return (*textures, *depth_samplers), query
 
 
 def detail_texture(ctx, textures, detail):

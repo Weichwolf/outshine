@@ -52,6 +52,8 @@ uniform mat4 nearShadowMatrix;
 uniform sampler2DShadow shadowMap;
 uniform sampler2DShadow localShadowMap;
 uniform sampler2DShadow nearShadowMap;
+uniform sampler2D localDepthMap;
+uniform sampler2D nearDepthMap;
 uniform vec2 regionalShadowSpan;
 uniform vec2 localShadowSpan;
 uniform float nearShadowWidth;
@@ -121,10 +123,57 @@ float shadowWeight(vec3 uv) {
   return uv.z > 0. && uv.z < 1. ? 1. - smoothstep(.84, 1., edge) : 0.;
 }
 
-float localDepthVisibility(sampler2DShadow depthMap, vec3 uv, vec2 span, float slope) {
+const float kLocalBlockerReachM = 64.;
+const vec2 penumbraSamples[16] = vec2[16](
+  vec2(0.1767767, 0.0000000), vec2(-0.2257722, 0.2068258),
+  vec2(0.0345581, -0.3937712), vec2(0.2845712, 0.3711728),
+  vec2(-0.5222232, -0.0923739), vec2(0.4946954, -0.3146847),
+  vec2(-0.1654659, 0.6155250), vec2(-0.3155615, -0.6075944),
+  vec2(0.6846422, 0.2500302), vec2(-0.7122561, 0.2940090),
+  vec2(0.3433545, -0.7337286), vec2(0.2537302, 0.8089320),
+  vec2(-0.7647459, -0.4431859), vec2(0.8971340, -0.1972324),
+  vec2(-0.5475069, 0.7787722), vec2(-0.1264868, -0.9760897));
+
+float localDepthVisibility(sampler2DShadow depthMap, sampler2D rawDepth, vec3 uv,
+                           vec2 span, mat4 projection, vec3 normal, float slope) {
   float texel = span.x / float(textureSize(depthMap, 0).x);
   float bias = texel * (.5 + .8 * slope) / span.y;
-  return texture(depthMap, vec3(uv.xy, uv.z - bias));
+  float base = texture(depthMap, vec3(uv.xy, uv.z - bias));
+  float facing = dot(normal, sun);
+  if (abs(facing) < .1)
+    return base;
+
+  // Compare neighboring samples against the receiver plane at each offset.
+  vec3 right = normalize(vec3(projection[0][0], projection[1][0], projection[2][0]));
+  vec3 up = normalize(vec3(projection[0][1], projection[1][1], projection[2][1]));
+  vec2 receiverPlane = vec2(dot(normal, right), dot(normal, up)) *
+                       (span.x / (facing * span.y));
+  float angularRadius = tan(kSunHalfAngleRad);
+  float searchRadius = angularRadius * kLocalBlockerReachM / span.x;
+  float totalGap = 0.;
+  int blockers = 0;
+  for (int i = -1; i < penumbraSamples.length(); ++i) {
+    vec2 offset = i < 0 ? vec2(0.) : penumbraSamples[i] * searchRadius;
+    float receiver = uv.z + dot(receiverPlane, offset);
+    float gap = receiver - texture(rawDepth, uv.xy + offset).r;
+    if (gap > bias) {
+      totalGap += min(kLocalBlockerReachM, gap * span.y);
+      ++blockers;
+    }
+  }
+  if (blockers == 0)
+    return base;
+
+  float radius = angularRadius * (totalGap / float(blockers));
+  if (radius <= .5 * texel)
+    return base;
+  float visibility = 0.;
+  for (int i = 0; i < penumbraSamples.length(); ++i) {
+    vec2 offset = penumbraSamples[i] * (radius / span.x);
+    float receiver = uv.z + dot(receiverPlane, offset) - bias;
+    visibility += texture(depthMap, vec3(uv.xy + offset, receiver));
+  }
+  return visibility / float(penumbraSamples.length());
 }
 
 float sunVisibility(vec3 position, vec3 normal) {
@@ -154,10 +203,12 @@ float sunVisibility(vec3 position, vec3 normal) {
   vec3 nearUV = (nearShadowMatrix * worldPoint).xyz * .5 + .5;
   float nearWeight = shadowWeight(nearUV);
   float localVisibility = nearWeight < 1.
-    ? localDepthVisibility(localShadowMap, localUV, localShadowSpan, slope) : 1.;
+    ? localDepthVisibility(localShadowMap, localDepthMap, localUV, localShadowSpan,
+                           localShadowMatrix, normal, slope) : 1.;
   if (nearWeight > 0.) {
     vec2 nearSpan = vec2(nearShadowWidth, localShadowSpan.y);
-    float nearVisibility = localDepthVisibility(nearShadowMap, nearUV, nearSpan, slope);
+    float nearVisibility = localDepthVisibility(nearShadowMap, nearDepthMap, nearUV,
+                                                nearSpan, nearShadowMatrix, normal, slope);
     localVisibility = mix(localVisibility, nearVisibility, nearWeight);
   }
   return mix(regionalVisibility, localVisibility * outsideVisibility, localWeight);
