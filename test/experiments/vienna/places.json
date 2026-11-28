@@ -5,6 +5,18 @@
   "seed": 2083,
   "utc": "2026-06-21T10:00:00Z",
   "weather": "clear",
+  "walks": {
+    "Wienerwald-Footpath": {
+      "origin": "Wienerwald-Woodland",
+      "station_offsets_m": [0, -7.2],
+      "step_m": 0.45
+    },
+    "Koerbersee-Footpath": {
+      "origin": "Koerbersee-TreeLine",
+      "station_offsets_m": [6.3, 0],
+      "step_m": 0.45
+    }
+  },
   "comparison_views": [
     {
       "id": "Koerbersee-TreeLine",

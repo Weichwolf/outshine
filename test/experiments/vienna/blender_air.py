@@ -121,6 +121,10 @@ def aerosol_depth(tree, scene, world, eye_m, distance):
     )
 
 
+def clear_air_depth(eye_m, distance_m):
+    return -0.013558 * math.exp(-max(0, eye_m) / 8000) * distance_m * 0.001
+
+
 def configure_aerial(
     scene, geometry, world, eye_altitude_m, *, cache_sky=False, surface_filter=None
 ):
@@ -158,11 +162,11 @@ def configure_aerial(
         airlight = tree.nodes.new("CompositorNodeImage")
         airlight.image = sky_image
 
-    density = math.exp(-max(0, eye_altitude_m) / 8000)
     mist_distance = surface.outputs["Mist"]
     optical_depth = math_node(
-        tree, "MULTIPLY", mist_distance, -0.013558 * density * mist.depth * 0.001
+        tree, "MULTIPLY", mist_distance, clear_air_depth(eye_altitude_m, mist.depth)
     )
+    optical_depth.node.name = "Clear-air optical depth"
     if world.aerosol_extinction:
         distance = math_node(tree, "MULTIPLY", mist_distance, mist.depth * 0.001)
         aerosol = aerosol_depth(tree, scene, world, eye_altitude_m, distance)
