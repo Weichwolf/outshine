@@ -12,7 +12,7 @@ import moderngl
 import numpy as np
 from air_profile import EARTH_RADIUS_KM
 from catalog import HERE, ROOT, available_views, load_catalog, selected_views
-from cloud_profile import cloud_noise
+from cloud_profile import SUN_MAP_RADIUS_KM, SUN_MAP_SIZE, cloud_noise
 from PIL import Image
 
 sys.path.insert(0, str(ROOT / "lib/src"))
@@ -150,7 +150,7 @@ def atmosphere(
     prog["stage"].value = 4 if environment else 3
     prog["extent"].value = target.size
     quad.render(vertices=3)
-    cloud_sun = 1.0
+    cloud_sun, sun_map = 1.0, None
     if environment and clouds:
         probe = ctx.simple_framebuffer((1, 1), components=4, dtype="f4")
         probe.use()
@@ -160,13 +160,30 @@ def atmosphere(
             np.frombuffer(probe.read(components=1, dtype="f4"), dtype="f4")[0]
         )
         probe.release()
+        sun_map_target = ctx.simple_framebuffer(
+            (SUN_MAP_SIZE, SUN_MAP_SIZE), 1, dtype="f4"
+        )
+        sun_map_target.use()
+        prog["stage"].value = 6
+        prog["extent"].value = sun_map_target.size
+        prog["cloudSunMapRadiusKm"].value = SUN_MAP_RADIUS_KM
+        origin_m = (
+            clouds.sun_map_origin(world.eye, world.source.datum)[2] + world.source.datum
+        )
+        prog["cloudSunMapOriginKm"].value = EARTH_RADIUS_KM + origin_m * 0.001
+        prog["cloudObserverSun"].value = cloud_sun
+        quad.render(vertices=3)
+        sun_map = np.frombuffer(
+            sun_map_target.read(components=1, dtype="f4"), dtype="f4"
+        ).reshape(SUN_MAP_SIZE, SUN_MAP_SIZE)
+        sun_map_target.release()
     shape_texture.release()
     placeholder.release()
     quad.release()
     prog.release()
     veil, multi_scatter, sky_view = textures
     multi_scatter.release()
-    return veil, sky_view, cloud_sun
+    return veil, sky_view, cloud_sun, sun_map
 
 
 def export_sky(ctx, place, config, out):
@@ -175,7 +192,9 @@ def export_sky(ctx, place, config, out):
     size = CLOUD_ENVIRONMENT_SIZE if world.clouds else SKY_ENVIRONMENT_SIZE
     target = ctx.simple_framebuffer(size, components=4, dtype="f4")
     ctx.disable(moderngl.DEPTH_TEST)
-    veil, sky, cloud_sun = atmosphere(ctx, target, world, right, up, environment=True)
+    veil, sky, cloud_sun, sun_map = atmosphere(
+        ctx, target, world, right, up, environment=True
+    )
     width, height = target.size
     rgba = np.frombuffer(target.read(components=4, dtype="f4"), dtype="f4").reshape(
         height, width, 4
@@ -195,6 +214,7 @@ def export_sky(ctx, place, config, out):
         aerosol=world.aerosol_extinction,
         clouds=world.clouds,
         cloud_sun=cloud_sun,
+        cloud_sun_map=sun_map,
     )
     for resource in (veil, sky, target):
         resource.release()
@@ -478,7 +498,7 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
     target.clear(depth=1)
     ctx.disable(moderngl.DEPTH_TEST)
     m, right, up = projection(world)
-    veil, sky, _ = atmosphere(
+    veil, sky, _, _ = atmosphere(
         ctx, target, world, right, up, linear=linear, archive=source
     )
     prog = ctx.program(
@@ -489,7 +509,32 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
     prog["eye"].value = tuple(world.eye)
     prog["sun"].value = tuple(world.sun)
     cloud_sun = environment.cloud_sun if environment else 1.0
-    prog["directSunFraction"].value = world.direct_sun_fraction * cloud_sun
+    cloud_map = environment.cloud_sun_map if environment and world.sun[2] > 0 else None
+    prog["directSunFraction"].value = world.direct_sun_fraction * (
+        cloud_sun if cloud_map is None else 1.0
+    )
+    prog["cloudSunMapScale"].value = (
+        0 if cloud_map is None else 1e-3 / (2 * SUN_MAP_RADIUS_KM)
+    )
+    prog["cloudSunMapTopM"].value = (
+        world.clouds.layer[1] * 1000 - world.source.datum
+        if cloud_map is not None
+        else 0
+    )
+    prog["cloudSunMapOrigin"].value = (
+        tuple(world.clouds.sun_map_origin(world.eye, world.source.datum))
+        if cloud_map is not None
+        else (0, 0, 0)
+    )
+    prog["cloudSunMap"].value = 11
+    sun_map_texture = None
+    if cloud_map is not None:
+        sun_map_texture = ctx.texture(
+            cloud_map.shape[::-1], 1, cloud_map.tobytes(), dtype="f4"
+        )
+        sun_map_texture.filter = (moderngl.LINEAR, moderngl.LINEAR)
+        sun_map_texture.repeat_x = sun_map_texture.repeat_y = False
+    (sun_map_texture or sky).use(11)
     prog["linearOutput"].value = linear
     prog["useSkyIrradiance"].value = environment is not None
     sky_tables = ()
@@ -554,6 +599,8 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
         shadow.release()
     reflection.release()
     bed_map.release()
+    if sun_map_texture is not None:
+        sun_map_texture.release()
     save_view(target, out / place["id"], linear=linear)
     target.release()
     prog.release()
@@ -568,6 +615,7 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
                 "weather": world.weather,
                 "device": ctx.info["GL_RENDERER"],
                 "cloud_sun": cloud_sun,
+                "spatial_cloud_sun": cloud_map is not None,
                 "sky_radiance": str(sky_path) if sky_path is not None else None,
                 "shadow_gpu_ms": round(shadow_time.elapsed * 1e-6, 2),
                 "reflection_levels_m": [round(plane.height, 3) for plane in planes],

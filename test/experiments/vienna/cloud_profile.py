@@ -9,6 +9,8 @@ from scipy.ndimage import gaussian_filter
 RECIPE_VERSION = 1
 WIND_KM_S = np.array((0.007, 0.0035))
 KM_PER_DEGREE = (74.55, 111.18)
+SUN_MAP_SIZE = 1024
+SUN_MAP_RADIUS_KM = 32.0
 
 
 @dataclass(frozen=True)
@@ -21,6 +23,12 @@ class CloudProfile:
     @property
     def archive_key(self):
         return (RECIPE_VERSION, self.kind, self.seed, *self.layer, *self.origin_km)
+
+    def sun_map_origin(self, eye, datum_m):
+        origin = np.array(eye, dtype=float)
+        # The corners of the tangent plane also need to start below the layer.
+        origin[2] = min(origin[2], self.layer[0] * 1000 - datum_m - 250)
+        return origin
 
 
 def cloud_profile(weather, longitude, latitude, eye_xy, elapsed_s, seed):

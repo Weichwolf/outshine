@@ -21,6 +21,9 @@ uniform sampler2D transmittance;
 uniform sampler2D multiScatter;
 uniform sampler2D skyView;
 uniform sampler2D skyArchive;
+uniform float cloudSunMapRadiusKm;
+uniform float cloudSunMapOriginKm;
+uniform float cloudObserverSun;
 void main() {
   Medium air = referenceAir(aerosolExtinction);
   vec2 uv=gl_FragCoord.xy/extent;
@@ -40,6 +43,13 @@ void main() {
       kMediumLuminanceSegment,kMediumGroundLiftKm),1.);
   } else if (stage == 5) {
     colour = vec4(cloudSun(air, eyeKm, sun, vec2(0.), 32));
+  } else if (stage == 6) {
+    vec2 offset = 2. * uv - 1.;
+    vec2 start = offset * cloudSunMapRadiusKm;
+    float radius = length(vec3(start, cloudSunMapOriginKm));
+    float transmission = cloudSun(air, radius, sun, start, 32);
+    float edge = max(abs(offset.x), abs(offset.y));
+    colour = vec4(mix(transmission, cloudObserverSun, smoothstep(.85, 1., edge)));
   } else {
     vec3 dir;
     if (stage == 4) {

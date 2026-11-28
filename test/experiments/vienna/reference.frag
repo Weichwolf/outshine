@@ -16,6 +16,10 @@ uniform float barkBoxBlend;
 uniform bool hasDetail;
 uniform float eyeKm;
 uniform float directSunFraction;
+uniform sampler2D cloudSunMap;
+uniform float cloudSunMapScale;
+uniform float cloudSunMapTopM;
+uniform vec3 cloudSunMapOrigin;
 uniform float glassIor;
 uniform bool waterSurface;
 uniform float waterIor;
@@ -246,6 +250,11 @@ void main(){
     environment = mix(front, diffuseColour * diffuseSky(-n), diffuseTransmission);
   }
   float directSun = 2.5 * directSunFraction;
+  if (cloudSunMapScale > 0. && point.z < cloudSunMapTopM) {
+    vec3 offset = point - cloudSunMapOrigin;
+    vec2 projected = offset.xy - offset.z * sun.xy / max(sun.z, .01);
+    directSun *= texture(cloudSunMap, projected * cloudSunMapScale + .5).r;
+  }
   vec3 light = mix(reflected, transmitted, diffuseTransmission) * directSun * visibility + environment;
   gl_FragDepth=log2(1.+1./gl_FragCoord.w)/log2(240001.);
   if (reflectionCapture) { colour=vec4(light,1.); return; }

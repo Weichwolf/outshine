@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 import numpy as np
+from cloud_profile import SUN_MAP_SIZE
 
 SKY_ENVIRONMENT_SIZE = (512, 256)
 CLOUD_ENVIRONMENT_SIZE = (2048, 1024)
@@ -12,6 +13,7 @@ CLOUD_ENVIRONMENT_SIZE = (2048, 1024)
 class SkyEnvironment:
     radiance: np.ndarray
     cloud_sun: float
+    cloud_sun_map: np.ndarray | None = None
 
 
 def environment_path(directory, place):
@@ -19,7 +21,15 @@ def environment_path(directory, place):
 
 
 def save_environment(
-    path, radiance, sun, eye_m, *, aerosol=0.0, clouds=None, cloud_sun=1.0
+    path,
+    radiance,
+    sun,
+    eye_m,
+    *,
+    aerosol=0.0,
+    clouds=None,
+    cloud_sun=1.0,
+    cloud_sun_map=None,
 ):
     path.parent.mkdir(parents=True, exist_ok=True)
     np.savez(
@@ -30,6 +40,7 @@ def save_environment(
         aerosol=aerosol,
         clouds=clouds.archive_key if clouds else (),
         cloud_sun=cloud_sun,
+        **({"cloud_sun_map": cloud_sun_map} if cloud_sun_map is not None else {}),
     )
 
 
@@ -58,6 +69,16 @@ def load_environment(path, sun, eye_m, *, aerosol=0.0, clouds=None):
         if saved_sun_fraction.shape or not 0.0 <= saved_sun_fraction <= 1.0:
             raise ValueError(f"{path}: expected a finite solar transmission fraction")
         cloud_sun = saved_sun_fraction.item()
+        cloud_sun_map = sky.get("cloud_sun_map")
+        if cloud_sun_map is not None and (
+            clouds is None
+            or cloud_sun_map.shape != (SUN_MAP_SIZE, SUN_MAP_SIZE)
+            or cloud_sun_map.dtype != np.float32
+            or not np.isfinite(cloud_sun_map).all()
+            or (cloud_sun_map < 0).any()
+            or (cloud_sun_map > 1).any()
+        ):
+            raise ValueError(f"{path}: expected a finite cloud solar transmission map")
     size = CLOUD_ENVIRONMENT_SIZE if clouds else SKY_ENVIRONMENT_SIZE
     if (
         radiance.shape != (*size[::-1], 3)
@@ -66,7 +87,7 @@ def load_environment(path, sun, eye_m, *, aerosol=0.0, clouds=None):
         or (radiance < 0).any()
     ):
         raise ValueError(f"{path}: expected finite scene-linear RGB sky radiance")
-    return SkyEnvironment(radiance, cloud_sun)
+    return SkyEnvironment(radiance, cloud_sun, cloud_sun_map)
 
 
 def diffuse_coefficients(radiance):
