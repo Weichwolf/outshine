@@ -313,7 +313,13 @@ class ReferenceScene:
         if "grass" in self.local:
             yield from blades(self.local["grass"], self.source, self.eye, seed)
         if "meadow" in self.local:
-            yield from meadow_cover(self.local["meadow"], self.source, self.eye, seed)
+            yield from meadow_cover(
+                self.local["meadow"],
+                self.source,
+                self.eye,
+                seed,
+                focal_pixels=self.focal,
+            )
         if "forest floor" in self.local:
             yield from woodland_cover(
                 self.local["forest floor"],

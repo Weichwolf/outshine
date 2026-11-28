@@ -4,7 +4,6 @@ from functools import cache
 
 import numpy as np
 import shapely
-from grass_cover import tuft
 from ground_surface import surface_elevations
 from outshine_ref.vegetation import Bellflower, Blade
 from outshine_ref.vegetation.axis_surface import axis_mesh
@@ -14,20 +13,30 @@ from plant_sites import patch_density, scatter_mesh, tile_sites
 from scene_mesh import Meshes
 
 MEADOW_REACH_M = 28.0
+FULL_MEADOW_COVER_M = 11.0
 
 
 @cache
-def tall_tuft():
-    mesh = graminoid_tuft_mesh(557, blades=9, segments=3)
-    vertices = mesh["vertices"] * [1.65, 1.65, 0.87]
-    return vertices, mesh["faces"]
+def meadow_tuft(tall):
+    seed, count, shape = (
+        (557, 11, (2.0, 2.0, 1.0)) if tall else (585, 6, (2.15, 2.15, 0.56))
+    )
+    mesh = graminoid_tuft_mesh(seed, blades=count, segments=2)
+    vertices = mesh["vertices"] * shape
+    u, t = mesh["uv"].T
+    edges = (u != 0.5) | (t == 1)
+    flat = np.array(((0, 1, 3), (0, 3, 2), (2, 3, 4)), dtype=np.int32)
+    faces = (flat + 5 * np.arange(count, dtype=np.int32)[:, None, None]).reshape(-1, 3)
+    left, crease, right = vertices[t < 1].reshape(-1, 3, 3).transpose(1, 0, 2)
+    fold = float(np.linalg.norm(crease - (left + right) / 2, axis=1).max())
+    return (vertices, mesh["faces"]), (vertices[edges], faces), fold
 
 
 @cache
 def flowering_stalk():
     length, bend = 0.57, 0.49
-    stem = axis_mesh(length, bend, 0.0016, 0.00055, 5, 4)
-    grain = axis_mesh(0.044, 0.19, 0.005, 0.0012, 2, 5)
+    stem = axis_mesh(length, bend, 0.0016, 0.00055, 3, 3)
+    grain = axis_mesh(0.044, 0.19, 0.005, 0.0012, 2, 3)
     t = np.linspace(0.81, 0.98, 5)
     sites, tangent, lateral, normal = arc_frame(length, bend, 0, t)
     meshes = Meshes()
@@ -52,8 +61,8 @@ def upright_products(meshes):
 @cache
 def meadow_forb(cream):
     length, bend = (0.47, 0.21) if cream else (0.39, 0.32)
-    stem = axis_mesh(length, bend, 0.0021, 0.0008, 4, 4)
-    leaf = Blade(length=0.09, width=0.025, petiole=0, lobes=0).mesh(3)
+    stem = axis_mesh(length, bend, 0.0021, 0.0008, 3, 3)
+    leaf = Blade(length=0.09, width=0.025, petiole=0, lobes=0).mesh(2)
     positions, tangent, lateral, normal = arc_frame(
         length, bend, 0, [0.26, 0.46, 0.65, 1]
     )
@@ -66,27 +75,34 @@ def meadow_forb(cream):
         across = np.cross(side, tangent[i])
         frame = np.stack((across, along, np.cross(across, along)), axis=1)
         meshes.add("meadow blades", leaf["vertices"] @ frame.T + site, leaf["faces"])
-    radius = 0.007 if cream else 0.009
-    receptacle = axis_mesh(0.012, 0, 0.002, 1.16 * radius, 2, 7)
+    radius = 0.008 if cream else 0.011
+    receptacle = axis_mesh(0.012, 0, 0.002, 1.16 * radius, 2, 3)
     meshes.add(
         "meadow stems",
         receptacle["vertices"] + positions[-1] - [0, 0.009, 0],
         receptacle["faces"],
     )
-    flower = Bellflower(length=0.008, radius=radius, lobes=5).mesh(4, 15)
-    buds = flower["vertices"][:, [0, 2, 1]] * [1, -1, 1]
+    sides = np.arange(15)
+    rim = Bellflower(length=0.008, radius=radius, lobes=5).surface(
+        1, 2 * np.pi * sides / len(sides)
+    )[0]
+    rim[:, :2] *= 1.4
+    buds = np.vstack((rim, np.zeros(3)))[:, [0, 2, 1]] * [1, -1, 1]
+    petals = np.column_stack(
+        (np.full_like(sides, len(sides)), sides, (sides + 1) % len(sides))
+    )
     material = "meadow cream flowers" if cream else "meadow purple flowers"
     for i in range(5 if cream else 4):
         phase = i * 2.4
         offset = radius * np.array([np.sin(phase), 0.18 * (i % 2), np.cos(phase)])
-        meshes.add(material, buds + positions[-1] + offset, flower["faces"])
+        meshes.add(material, buds + positions[-1] + offset, petals)
     return upright_products(meshes)
 
 
-def meadow_cover(mesh, source, eye, seed):
+def meadow_cover(mesh, source, eye, seed, *, focal_pixels):
     batches = list(
         tile_sites(
-            source, eye[:2], MEADOW_REACH_M, seed ^ 1579, density=44, cell_size=3
+            source, eye[:2], MEADOW_REACH_M, seed ^ 1579, density=52, cell_size=3
         )
     )
     if not batches:
@@ -100,13 +116,14 @@ def meadow_cover(mesh, source, eye, seed):
     xy, marks = xy[grounded], marks[grounded]
     anchors = np.column_stack((xy, heights[grounded] - 0.014))
     distance = np.linalg.norm(anchors - eye, axis=1)
-    fade = np.clip((MEADOW_REACH_M - distance) / (MEADOW_REACH_M - 9), 0, 1)
+    fade = np.clip(
+        (MEADOW_REACH_M - distance) / (MEADOW_REACH_M - FULL_MEADOW_COVER_M), 0, 1
+    )
     patch = patch_density(source, xy, seed)
-    near = 0.5 + 0.5 * np.clip((15 - distance) / 10, 0, 1)
-    active = marks[:, 2] < near * fade**2 * (3 - 2 * fade) * (0.68 + 0.32 * patch)
+    active = marks[:, 2] < fade**2 * (3 - 2 * fade) * (0.68 + 0.32 * patch)
     tall = marks[:, 1] < 0.15 + 0.55 * patch**2
     scale = 0.58 + 0.90 * np.mod(7 * marks[:, 0], 1) + 0.37 * patch
-    angles = 2 * np.pi * marks[:, 0]
+    angles = 2 * np.pi * np.mod(13 * marks[:, 0], 1)
 
     vertices, faces = mesh
     triangles = np.asarray(vertices)[np.asarray(faces), :2]
@@ -116,22 +133,26 @@ def meadow_cover(mesh, source, eye, seed):
     ]
     floor = shapely.union_all(shapely.polygons(triangles))
     clearance = shapely.distance(floor.boundary, shapely.points(xy))
-    short_scale = scale * 1.52
-    for group, product, sizes in (
-        (active & ~tall, tuft, short_scale),
-        (active & tall, tall_tuft, scale),
-    ):
-        if group.any():
-            geometry = product()
-            radius = np.linalg.norm(geometry[0][:, :2], axis=1).max()
-            group &= clearance > radius * sizes
-            if not group.any():
-                continue
-            yield (
-                "meadow blades",
-                *scatter_mesh(geometry, anchors[group], angles[group], sizes[group]),
-            )
-    wildflowers = active & (marks[:, 0] > 0.90) & (marks[:, 1] > 0.59)
+    for stature in (False, True):
+        folded, flat, fold = meadow_tuft(stature)
+        radius = np.linalg.norm(folded[0][:, :2], axis=1).max()
+        group = active & (tall == stature) & (clearance > radius * scale)
+        fold_pixels = fold * scale * focal_pixels / np.maximum(distance, 0.05)
+        detailed = 0.5 + 0.25 * marks[:, 0] < fold_pixels
+        for selected, geometry in (
+            (group & detailed, folded),
+            (group & ~detailed, flat),
+        ):
+            if selected.any():
+                yield (
+                    "meadow blades",
+                    *scatter_mesh(
+                        geometry, anchors[selected], angles[selected], scale[selected]
+                    ),
+                )
+    flower_patch = patch_density(source, xy, seed ^ 0x4143, scale=0.65)
+    flower_cover = 0.07 + 0.26 * flower_patch**2
+    wildflowers = active & (marks[:, 0] > 1 - flower_cover) & (marks[:, 1] > 0.38)
     for group, products in (
         (active & tall & (marks[:, 0] < 0.16), flowering_stalk),
         (wildflowers & (marks[:, 1] < 0.86), lambda: meadow_forb(False)),

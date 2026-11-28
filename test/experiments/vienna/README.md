@@ -424,8 +424,11 @@ parallel route. Hauptallee-Entry shows the paved footway connection and recessed
 entrance of an isolated low building. Dechantlacke adds sedges and reed
 groups on the low natural bank, while the Asperner See park and access edges stay open.
 Compare the patchy shoreline with the [Lobau photograph, 16 May 2015](https://commons.wikimedia.org/wiki/File:Lobau_Dechantlacke.JPG).
-Franz-Karl-Fernsicht looks southwest from the mapped footpath over taller grass,
-seed heads and wildflowers on the OSM meadow. The camera retains its 1.70 m eye height.
+Franz-Karl-Fernsicht looks southwest from the mapped footpath over low spreading
+grass, taller stems and patches of wildflowers on the OSM meadow. The camera is
+1.70 m above the solved path. Both heights use tile-stable roots. Wider leaves and
+flowerheads stay inside the meadow footprint. Leaf sheets keep their silhouette
+with half as many faces once the measured fold projects below 0.5–0.75 px.
 Use the [Sophienalpe summer photograph, 15 August 2006](https://commons.wikimedia.org/wiki/File:Wien_Sophienalpe.jpg)
 to assess the ground cover and plant height.
 Shore levels, road profiles, ground materials and light still need comparison with real scenes.
