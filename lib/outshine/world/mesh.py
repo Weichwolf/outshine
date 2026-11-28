@@ -983,6 +983,10 @@ def assemble(
             fronts.get(index),
             wall_ground,
         )
+    deck_levels = (
+        *bridges.items(),
+        *((deck.outline_layer, deck.footprint) for deck in viaducts),
+    )
     for name, geom, prop in source.features:
         if name == "transportation" and prop.get("brunnel") != "tunnel":
             if at_grade_width(prop) is not None:
@@ -991,22 +995,28 @@ def assemble(
             if owned := carried.get(id(geom)):
                 geometry = geometry.difference(owned)
             material = "sidewalk" if prop.get("class") == "path" else "road"
+            bridge = prop.get("brunnel") == "bridge"
+            level = prop.get("layer", 1 if bridge else 0)
             clipped = geometry.intersection(extent)
             if "LineString" in clipped.geom_type:
                 width = {"sidewalk": 1.6, "road": 5.5}[material]
                 if prop.get("class") in ("transit", "rail"):
                     continue
                 clipped = clipped.buffer(width / 2, cap_style="flat")
-            if prop.get("brunnel") == "bridge" and prop.get("layer", 1) in bridges:
-                clipped = clipped.difference(bridges[prop.get("layer", 1)])
-            if prop.get("brunnel") == "bridge":
+            if bridge and level in bridges:
+                clipped = clipped.difference(bridges[level])
+            if bridge:
                 for viaduct in viaducts:
                     is_outline = (
-                        prop.get("class") == "bridge"
-                        and prop.get("layer", 1) == viaduct.outline_layer
+                        prop.get("class") == "bridge" and level == viaduct.outline_layer
                     )
                     if is_outline or id(geom) in viaduct.carriageways:
                         clipped = clipped.difference(viaduct.footprint)
+            if bridge or level:
+                # An unfitted DEM cap has no vertical clearance through a deck.
+                for upper, footprint in deck_levels:
+                    if upper > level and clipped.intersects(footprint):
+                        clipped = clipped.difference(footprint)
             if not openings.is_empty:
                 clipped = clipped.difference(openings)
             for poly in polygons(clipped):
