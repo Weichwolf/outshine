@@ -125,6 +125,7 @@ class VegetationObservation:
     label: str
     height_class: int
     density_class: int
+    map_year: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

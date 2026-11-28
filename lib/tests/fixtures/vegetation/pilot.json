@@ -216,7 +216,8 @@
       "capture": "kirigamine.json",
       "views": [
         "Kirigamine-Near",
-        "Kirigamine-Stand"
+        "Kirigamine-Stand",
+        "Kirigamine-Bog"
       ],
       "reference_photos": [
         {
@@ -226,7 +227,8 @@
         }
       ],
       "habitat_references": [
-        "https://www.env.go.jp/content/000062288.pdf"
+        "https://www.biodic.go.jp/kiso/vg/vg_kiso.html",
+        "https://www.env.go.jp/nature/important_wetland/wetland/w239.html"
       ],
       "checks": [
         "Low vegetation dominates the wetland interior",
@@ -234,8 +236,8 @@
         "Wet ground and drier trail differ without abrupt material seams"
       ],
       "evidence_gaps": [
-        "Atlas soil inputs and measured local cover",
-        "Seasonal water level and measured wetland community boundaries"
+        "Measured local peat moisture, moss cover and tussock density",
+        "Seasonal water level and changes since the vegetation survey"
       ],
       "walk": "Kirigamine-Footpath"
     },

@@ -42,21 +42,28 @@ class NaturalMaterialsTest(unittest.TestCase):
                 atol=2e-8,
             )
 
-    def test_neighbouring_detail_spans_do_not_copy_the_gravel_pattern(self):
-        frame = DetailFrame(np.array([-12930050.17, 3776200.53, 1231.31]), np.ones(3))
-        texture = ground_detail("gravelly soil")
-        for band, stretch in enumerate(WAVE_STRETCH):
-            span = detail_scale("gravelly soil")[band]
-            x, y = np.meshgrid(np.linspace(0, span, 120), np.linspace(0, span, 120))
-            xy = np.column_stack((x.ravel(), y.ravel(), np.zeros(x.size)))
-            channel = texture[:, :, 2 if band == 0 else 3]
-
-            positions = np.vstack((xy, xy + [span, 0, 0]))
-            uv = texture_position(frame, positions, span, stretch)
-            first, next_tile = map_coordinates(
-                channel, uv[:, :2].T * len(channel), order=1, mode="grid-wrap"
-            ).reshape(2, -1)
-            self.assertLess(abs(np.corrcoef(first, next_tile)[0, 1]), 0.35)
+    def test_neighbouring_detail_spans_do_not_copy_the_surface_pattern(self):
+        for recipe, origin in (
+            ("gravelly soil", [-12930050.17, 3776200.53, 1231.31]),
+            ("grass", [15380536.2, 4014154.0, 1633.0]),
+            ("leaf litter", [15380536.2, 4014154.0, 1633.0]),
+        ):
+            frame = DetailFrame(np.array(origin), np.ones(3))
+            texture = ground_detail(recipe)
+            for band, stretch in enumerate(WAVE_STRETCH):
+                with self.subTest(recipe=recipe, band=band):
+                    span = detail_scale(recipe)[band]
+                    x, y = np.meshgrid(
+                        np.linspace(0, span, 120), np.linspace(0, span, 120)
+                    )
+                    xy = np.column_stack((x.ravel(), y.ravel(), np.zeros(x.size)))
+                    channel = texture[:, :, 2 if band == 0 else 3]
+                    positions = np.vstack((xy, xy + [span, 0, 0], xy + [0, span, 0]))
+                    uv = texture_position(frame, positions, span, stretch)
+                    samples = map_coordinates(
+                        channel, uv[:, :2].T * len(channel), order=1, mode="grid-wrap"
+                    ).reshape(3, -1)
+                    self.assertLess(np.max(np.abs(np.corrcoef(samples)[0, 1:])), 0.35)
 
     def test_block_has_closed_outward_faces_and_never_occupies_the_route(self):
         vertices, faces = cube_surface(5)

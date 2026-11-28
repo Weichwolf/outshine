@@ -438,14 +438,27 @@ class ReferenceScene:
     @cached_property
     def woodland_floor(self):
         ground = habitat(self.source, stems=False)
-        if ground is not None and self.plant_exclusion is not None:
-            return ground.difference(self.plant_exclusion)
+        if ground is not None:
+            if self.plant_exclusion is not None:
+                ground = ground.difference(self.plant_exclusion)
+            if self.open_cover is not None and self.open_cover.has_japanese_open_ground:
+                ground = ground.difference(self.open_cover.japanese_open_ground)
         return ground
 
     @cached_property
     def stands(self):
         return regional_stands(
-            self.source, self.transport, self.focal, 250, self.canopy_seed
+            self.source,
+            self.transport,
+            self.focal,
+            250,
+            self.canopy_seed,
+            exclude=(
+                self.open_cover.japanese_woodland_exclusion
+                if self.open_cover is not None
+                and self.open_cover.has_japanese_open_ground
+                else None
+            ),
         )
 
     def grass_and_understory(self, seed):
@@ -537,6 +550,12 @@ class ReferenceScene:
             eye_route=eye_route,
             mature=self.stands.woodland,
             riverside=self.stands.riverside,
+            exclude=(
+                self.open_cover.japanese_open_ground
+                if self.open_cover is not None
+                and self.open_cover.has_japanese_open_ground
+                else None
+            ),
             skylight=skylight,
         )
         if "forest floor" in self.local:

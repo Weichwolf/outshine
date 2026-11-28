@@ -17,7 +17,7 @@ water = ["clarabel>=0.11,<1", "osqp>=1,<2", "pyproj>=3.8,<4"]
 roofs = ["py_straight_skeleton==0.1.0", "pysfcgal==2.3.0"]
 solids = ["manifold3d==3.5.4"]
 places = ["mapbox-vector-tile>=2.2,<3"]
-atlas = ["rasterio>=1.4.3,<2", "pyshp>=3.1.9,<4"]
+atlas = ["rasterio>=1.4.3,<2", "pyshp>=3.1.9,<4", "mapbox-vector-tile>=2.2,<3"]
 render = ["astral==3.2", "moderngl>=5.12,<6", "mapbox-vector-tile>=2.2,<3", "manifold3d==3.5.4", "clarabel>=0.11,<1", "osqp>=1,<2", "pyproj>=3.8,<4"]
 
 [tool.setuptools.packages.find]

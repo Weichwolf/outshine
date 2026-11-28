@@ -18,6 +18,8 @@ VARIED_DETAILS = frozenset(
         "compacted",
         "compacted road",
         "granodiorite",
+        "grass",
+        "leaf litter",
     )
 )
 
