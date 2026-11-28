@@ -54,9 +54,18 @@ def prepare(polygon, section, max_triangles):
     bound = 3 * (count + 2 * len(polygon.interiors) - 2) * (len(section.knots) - 1)
     if type(max_triangles) is not int or max_triangles < bound:
         raise ValueError("Roof section conservative triangle capacity exceeded")
-    local = shapely.transform(
-        polygon, lambda xy: (xy - section.origin_xy) @ section.axes.T
-    )
+
+    def to_section(xy):
+        east, north = (xy - section.origin_xy).T
+        along_east, along_north = section.axis_xy
+        return np.column_stack(
+            (
+                east * along_east + north * along_north,
+                north * along_east - east * along_north,
+            )
+        )
+
+    local = shapely.transform(polygon, to_section)
     lo, _, hi, _ = local.bounds
     knots = np.asarray(section.knots)
     tolerance = max(1e-8, max(abs(lo), abs(hi)) * 1e-12)
@@ -81,7 +90,13 @@ def pack(triangles, owners, section, material, max_triangles):
     heights = np.interp(xy[:, 0], knots[:, 0], knots[:, 1])
     developed = np.r_[0, np.cumsum(np.linalg.norm(np.diff(knots, axis=0), axis=1))]
     uv = np.c_[np.interp(xy[:, 0], knots[:, 0], developed), xy[:, 1]]
-    vertices = np.c_[xy @ section.axes + section.origin_xy, heights]
+    run, cross = xy.T
+    east, north = section.axis_xy
+    vertices = np.c_[
+        run * east - cross * north + section.origin_xy[0],
+        run * north + cross * east + section.origin_xy[1],
+        heights,
+    ]
     points = vertices.reshape(-1, 3, 3)
     normals = np.cross(points[:, 1] - points[:, 0], points[:, 2] - points[:, 0])
     normals /= np.linalg.norm(normals, axis=1, keepdims=True)
