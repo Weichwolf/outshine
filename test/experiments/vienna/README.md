@@ -417,8 +417,9 @@ Mapped woodland uses the oak and beech stand recipes from the original biome stu
 (`9492ed2f7^`, `biome_recipes.py`). Shared mesh instances are rooted in canonical tile
 coordinates. Road, water and building exclusion precedes placement. Established trees
 take priority over smaller recruitment in the same stand. Recruitment varies in patches
-and thins at paths, banks and clearings. Nearby stems compete regardless of the render
-crop. The distant templates group leaves by branch and retain their represented leaf
+and thins at paths, banks and clearings. Local source features and planting use the same
+square extent as the solved terrain. Nearby stems still compete across the placement
+edge. The distant templates group leaves by branch and retain their represented leaf
 area. From groups of sixteen leaves, a four-triangle blade uses the same placement
 frame and one-sided area as the detailed representative. Dechantlacke-Woodland
 looks into the stand from a mapped path. Compare crown gaps and woodland layers with the

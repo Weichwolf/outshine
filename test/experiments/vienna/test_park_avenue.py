@@ -43,6 +43,14 @@ class ParkAvenueTest(unittest.TestCase):
         self.assertTrue((shapely.distance(water, points) > 4.5).all())
         self.assertFalse(shapely.intersects(wood, points).any())
 
+        source.features = [
+            (name, shapely.transform(geometry, lambda xy: xy + [30, 56]), tags)
+            for name, geometry, tags in features
+        ]
+        _, corner_spots, _ = avenue_sites(source, 75, 99)
+        self.assertTrue(np.any(np.linalg.norm(corner_spots, axis=1) > 75))
+        self.assertTrue(np.all(np.abs(corner_spots) < 75))
+
         # An ordinary route through the same lawn is insufficient evidence.
         source.features = [
             (name, geometry, tags | {"horse": "no"})

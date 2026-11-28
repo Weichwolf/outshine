@@ -26,12 +26,12 @@ def spaced_sites(xy, rank, spacing):
     return keep
 
 
-def cohort_sites(source, domain, centre, radius, seed, *, canopy):
+def cohort_sites(source, domain, centre, half_extent, seed, *, canopy):
     candidates = list(
         tile_sites(
             source,
             centre,
-            radius + MIN_STEM_SPACING_M,
+            np.sqrt(2) * half_extent + MIN_STEM_SPACING_M,
             seed if canopy else seed ^ 0x54A7,
             density=CANOPY_CANDIDATES_PER_M2 if canopy else RECRUIT_CANDIDATES_PER_M2,
             cell_size=16,
@@ -40,6 +40,8 @@ def cohort_sites(source, domain, centre, radius, seed, *, canopy):
     if not candidates:
         return np.empty((0, 2)), np.empty((0, 3))
     xy, marks = (np.concatenate(rows) for rows in zip(*candidates, strict=True))
+    halo = np.all(np.abs(xy - centre) < half_extent + MIN_STEM_SPACING_M, axis=1)
+    xy, marks = xy[halo], marks[halo]
     habitat = shapely.contains_xy(domain, *xy.T)
     xy, marks = xy[habitat], marks[habitat]
     if canopy:
@@ -54,17 +56,17 @@ def cohort_sites(source, domain, centre, radius, seed, *, canopy):
     return xy[keep], marks[keep]
 
 
-def woodland_sites(source, domain, centre, radius, seed):
+def woodland_sites(source, domain, centre, half_extent, seed):
     canopy, canopy_marks = cohort_sites(
-        source, domain, centre, radius, seed, canopy=True
+        source, domain, centre, half_extent, seed, canopy=True
     )
     young, young_marks = cohort_sites(
-        source, domain, centre, radius, seed, canopy=False
+        source, domain, centre, half_extent, seed, canopy=False
     )
     xy = np.concatenate((canopy, young))
     marks = np.concatenate((canopy_marks, young_marks))
     rank = patch_density(source, xy, seed ^ 0xA91B, scale=0.125)
     rank[len(canopy) :] += 1
     keep = spaced_sites(xy, rank, MIN_STEM_SPACING_M)
-    keep &= np.sum((xy - centre) ** 2, axis=1) < radius**2
+    keep &= np.all(np.abs(xy - centre) < half_extent, axis=1)
     return xy[keep], marks[keep]
