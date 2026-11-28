@@ -49,7 +49,6 @@ from sky_environment import environment_path, load_environment
 from water_bed import BED_ALBEDO
 from water_reflection import reflection_planes
 
-SUN_ANGULAR_DIAMETER_RAD = np.deg2rad(0.53)
 SUN_SHADOW_MIN_TEXEL_M = 0.016
 
 
@@ -266,9 +265,8 @@ def render(place, config, args):
     sun = next(o for o in scene.objects if o.type == "LIGHT" and o.data.type == "SUN")
     sun.rotation_euler = (-sunlight).to_track_quat("-Z", "Y").to_euler()
     sun.data.energy *= world.direct_sun_fraction
-    sun.data.angle = SUN_ANGULAR_DIAMETER_RAD
-    sun.data.use_shadow_jitter = True
     sun.data.shadow_maximum_resolution = SUN_SHADOW_MIN_TEXEL_M
+    sun.data.use_shadow_jitter = True
     sky_dir = getattr(args, "sky_dir", None)
     sky_path = environment_path(sky_dir, place) if sky_dir is not None else None
     eye_m = world.eye[2] + world.source.datum
@@ -352,6 +350,13 @@ def render(place, config, args):
                 "place": place["id"],
                 "weather": world.weather,
                 "cloud_sun": environment.cloud_sun if environment else 1.0,
+                "sun_angle_rad": sun.data.angle,
+                "eevee_sun_jitter": sun.data.use_shadow_jitter
+                if args.engine == "eevee"
+                else None,
+                "eevee_samples": scene.eevee.taa_render_samples
+                if args.engine == "eevee"
+                else None,
                 "surface": world.support,
                 "woody_instances": woody_instances,
                 "eye_m": eye_m,
