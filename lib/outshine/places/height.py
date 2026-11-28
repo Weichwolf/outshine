@@ -67,6 +67,50 @@ class Elevation:
             self._rasters[tile] = decode_terrarium(receipt_bytes(self.receipts[tile]))
         return self._rasters[tile]
 
+    def _tile_heights(self, tile, fraction):
+        raster = self.raster(tile)
+        height, width = raster.shape
+        pixels = fraction * (width, height) - 0.5
+        clamped = np.clip(pixels, 0, (width - 1, height - 1))
+        base = np.minimum(np.floor(clamped).astype(int), (width - 2, height - 2))
+        u, v = (clamped - base).T
+        x, y = base.T
+        result = (1 - v) * ((1 - u) * raster[y, x] + u * raster[y, x + 1]) + v * (
+            (1 - u) * raster[y + 1, x] + u * raster[y + 1, x + 1]
+        )
+        edge = np.any(pixels != clamped, axis=1)
+        if edge.any():
+            result[edge] = self._edge_heights(
+                tile, raster.shape, pixels[edge], result[edge]
+            )
+        return result
+
+    def _edge_heights(self, tile, shape, pixels, fallback):
+        zoom, tile_x, tile_y = tile
+        side = 1 << zoom
+        height, width = shape
+        size = np.array((width, height))
+        base = np.floor(pixels).astype(int)
+        fraction = pixels - base
+        values = np.zeros(len(base))
+        total = np.zeros(len(base))
+        for dx, dy in ((0, 0), (1, 0), (0, 1), (1, 1)):
+            corner = np.array((dx, dy))
+            cell, pixel = np.divmod(base + corner, size)
+            weight = np.prod(np.where(corner, fraction, 1 - fraction), axis=1)
+            for east, south in np.unique(cell, axis=0):
+                neighbor = zoom, (tile_x + int(east)) % side, tile_y + int(south)
+                if neighbor not in self.receipts:
+                    continue
+                raster = self.raster(neighbor)
+                if raster.shape != shape:
+                    continue
+                hit = (cell[:, 0] == east) & (cell[:, 1] == south)
+                x, y = pixel[hit].T
+                values[hit] += raster[y, x] * weight[hit]
+                total[hit] += weight[hit]
+        return np.divide(values, total, out=fallback, where=total > 0)
+
     def sample_with_zoom(self, latitude, longitude, *, allow_missing=False):
         """Return the finest available height and zoom, with NaN and -1 for allowed misses."""
         latitude, longitude = np.broadcast_arrays(latitude, longitude)
@@ -93,7 +137,12 @@ class Elevation:
             unresolved = np.flatnonzero(~np.isfinite(result))
             if not len(unresolved):
                 break
-            coordinates = world[unresolved] * (1 << zoom)
+            side = 1 << zoom
+            coordinates = world[unresolved] * side
+            coordinates[:, 0] %= side
+            coordinates[:, 1] = np.clip(
+                coordinates[:, 1], 0, np.nextafter(float(side), 0)
+            )
             integer_cells = np.floor(coordinates).astype(int)
             if np.all(integer_cells == integer_cells[:1]):
                 cells, inverse = integer_cells[:1], None
@@ -103,25 +152,14 @@ class Elevation:
                 tile = zoom, int(cell[0]), int(cell[1])
                 if tile not in self.receipts:
                     continue
-                height = self.raster(tile)
                 selected = (
                     np.arange(len(coordinates))
                     if inverse is None
                     else np.flatnonzero(inverse == index)
                 )
-                pixels = (coordinates[selected] - cell) * (
-                    height.shape[1] - 1,
-                    height.shape[0] - 1,
+                result[unresolved[selected]] = self._tile_heights(
+                    tile, coordinates[selected] - cell
                 )
-                base = np.minimum(
-                    np.floor(pixels).astype(int),
-                    (height.shape[1] - 2, height.shape[0] - 2),
-                )
-                u, v = (pixels - base).T
-                x, y = base.T
-                result[unresolved[selected]] = (1 - v) * (
-                    (1 - u) * height[y, x] + u * height[y, x + 1]
-                ) + v * ((1 - u) * height[y + 1, x] + u * height[y + 1, x + 1])
                 used_zoom[unresolved[selected]] = zoom
         if not allow_missing and not np.isfinite(result).all():
             raise ValueError(

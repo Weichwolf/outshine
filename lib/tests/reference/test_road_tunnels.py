@@ -10,6 +10,48 @@ from outshine.world.scene import support_height
 
 
 class RoadTunnelTest(unittest.TestCase):
+    def test_fit_cover_and_floor_when_flat_ground_cannot_cover_the_tunnel(self):
+        road = {"class": "secondary"}
+        source = SimpleNamespace(
+            height=lambda xy: np.zeros(len(xy)),
+            features=[
+                ("transportation", shapely.LineString([(-56, 0), (-19, 0)]), road),
+                (
+                    "transportation",
+                    shapely.LineString([(-19, 0), (19, 0)]),
+                    road | {"brunnel": "tunnel", "layer": -1},
+                ),
+                ("transportation", shapely.LineString([(19, 0), (56, 0)]), road),
+                (
+                    "transportation",
+                    shapely.LineString([(0, -40), (0, 40)]),
+                    {"class": "rail", "subclass": "rail"},
+                ),
+            ],
+        )
+        terrain, quads = terrain_grid(source, 70)
+        [tunnel] = plan_road_tunnels(
+            source.features,
+            shapely.box(-70, -70, 70, 70),
+            [],
+            shapely.Polygon(),
+            [],
+            terrain,
+            quads,
+            partial(terrain_height, terrain),
+        )
+        self.assertIsNotNone(tunnel.lift)
+        self.assertGreater(max(tunnel.lift.displacement), 0.5)
+        self.assertTrue((terrain[:, 2] == 0).all())
+        meshes = assemble(source, 70)
+        floor = support_height(meshes["road"], (0, 0)).min()
+        ceiling = support_height(meshes["bridge deck"], (0, 0)).min()
+        ballast = support_height(meshes["rail ballast"], (0, 0)).max()
+        self.assertAlmostEqual(ceiling - floor, 4.0)
+        self.assertGreaterEqual(ballast - ceiling, 0.3)
+        for x in (-57.0, 57.0):
+            self.assertAlmostEqual(support_height(meshes["ground"], (x, 0)).max(), 0)
+
     def test_graph_mouth_approaches_fit_a_tunnel_across_road_class_changes(self):
         def way(points, tags):
             return "transportation", shapely.LineString(points), tags

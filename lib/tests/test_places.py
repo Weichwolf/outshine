@@ -143,12 +143,12 @@ class PlaceHeightTests(unittest.TestCase):
             missing = {"kind": "elevation", "tile": [2, 2, 2], "missing": True}
             elevation = Elevation([coarse, fine, missing])
             height, zoom = elevation.sample_with_zoom((0, 0), (0, -90))
-            np.testing.assert_allclose(height, (42, 12.5), atol=1e-14)
+            np.testing.assert_allclose(height, (42, 10), atol=1e-14)
             np.testing.assert_array_equal(zoom, (1, 0))
             values = Elevation([coarse]).sample(
                 np.array(((0,), (66.51326044311186,))), np.array((0, 90))
             )
-            np.testing.assert_allclose(values, ((15, 17.5), (10, 12.5)), atol=2e-14)
+            np.testing.assert_allclose(values, ((15, 20), (5, 10)), atol=2e-14)
 
     def test_absence_and_changed_source_never_become_zero(self):
         with self.assertRaises(ValueError):
@@ -189,8 +189,41 @@ class PlaceHeightTests(unittest.TestCase):
             latitude = np.array((0.001, -0.001, 0.001, -0.001, 0, 0))
             longitude = np.array((-0.001, 0.001, 0.001, -0.001, 0, -0.001))
             height, zoom = elevation.sample_with_zoom(latitude, longitude)
-            np.testing.assert_array_equal(height, (41, 44, 13, 13, 44, 13))
+            dx = 0.001 / 90
+            dy = 2 * np.arcsinh(np.tan(np.deg2rad(0.001))) / np.pi
+            near = (0.5 + dx) * (0.5 + dy)
+            far = (0.5 - dx) * (0.5 - dy)
+            corner = (41 * near + 44 * far) / (near + far)
+            np.testing.assert_allclose(height, (corner, 85 - corner, 13, 13, 42.5, 13))
             np.testing.assert_array_equal(zoom, (1, 1, 0, 0, 1, 0))
+            np.testing.assert_array_equal(
+                elevation.sample(latitude[::-1], longitude[::-1]), height[::-1]
+            )
+
+    def test_pixel_centres_form_one_bilinear_grid_across_four_tiles(self):
+        with tempfile.TemporaryDirectory(prefix="outshine-tests.places.") as root:
+            ramp = np.array(((0, 10), (20, 30)))
+            tiles = [
+                stored(root, ramp + 20 * x + 40 * y, (1, x, y), f"dem-{x}-{y}")
+                for x in (0, 1)
+                for y in (0, 1)
+            ]
+            abscissa = np.array((1.2, 1.499999, 1.5, 1.500001, 1.8))
+            ordinate = abscissa[::-1, None]
+            longitude = (abscissa + 0.5) * 90 - 180
+            latitude = np.rad2deg(
+                np.arctan(np.sinh(np.pi * (1 - (ordinate + 0.5) / 2)))
+            )
+            z, zoom = Elevation(tiles).sample_with_zoom(latitude, longitude)
+            np.testing.assert_allclose(z, 10 * abscissa + 20 * ordinate, atol=1e-12)
+            np.testing.assert_array_equal(zoom, np.ones((5, 5)))
+
+    def test_antimeridian_uses_the_opposite_tile_for_the_edge_taps(self):
+        with tempfile.TemporaryDirectory(prefix="outshine-tests.places.") as root:
+            west = stored(root, ((10, 20), (10, 20)), (1, 0, 1), "west")
+            east = stored(root, ((30, 40), (30, 40)), (1, 1, 1), "east")
+            values = Elevation([west, east]).sample(-45, (179.99999, -179.99999))
+            np.testing.assert_allclose(values, (25, 25), atol=4e-6)
 
 
 class PlaceSourceTests(unittest.TestCase):
@@ -203,9 +236,7 @@ class PlaceSourceTests(unittest.TestCase):
             ) as network:
                 first = acquire(source, root, fetch=True)
                 self.assertEqual(network.call_count, 1)
-            with patch(
-                "outshine.places.sources.subprocess.check_output"
-            ) as network:
+            with patch("outshine.places.sources.subprocess.check_output") as network:
                 second = acquire(source, root, fetch=True)
                 network.assert_not_called()
             self.assertEqual(first["sha256"], second["sha256"])
