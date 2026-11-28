@@ -1,9 +1,10 @@
 import unittest
+from types import SimpleNamespace
 
 import numpy as np
 import shapely
 from building_passages import PORTAL_WIDTH_M, BuildingPassage, building_passages
-from passage_light import PORTAL_MARGIN_M, passage_probe_regions
+from passage_light import PORTAL_MARGIN_M, near_lower_deck, passage_probe_regions
 from reference_scene import support_height
 from scene_mesh import assemble
 
@@ -32,6 +33,15 @@ class BuildingPassageTest(unittest.TestCase):
             (line((0, -9), (0, -5)), FOOTWAY),
             (line((0, 5), (0, 9)), FOOTWAY),
         ]
+
+    def test_lower_crossing_is_selected_below_a_nearby_sloping_deck(self):
+        deck = SimpleNamespace(
+            lower_routes=shapely.box(-1, -5, 1, 5),
+            height=lambda xy: 6.0 + 0.075 * xy[:, 1],
+        )
+        self.assertTrue(near_lower_deck([deck], (0.3, 4.0, 2.0), 38))
+        self.assertFalse(near_lower_deck([deck], (0.3, 4.0, 5.4), 38))
+        self.assertFalse(near_lower_deck([deck], (42.0, 4.0, 2.0), 38))
 
     def test_covered_walk_connects_at_grade_approaches(self):
         features = [(self.block, HOUSE), *self.walks, (self.tunnel, TUNNEL)]

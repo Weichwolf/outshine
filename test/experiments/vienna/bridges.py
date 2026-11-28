@@ -20,6 +20,7 @@ def cap_mesh(polygon, height):
 
 
 def slab(meshes, material, polygon, height, thickness, *, paved=None):
+    polygon = shapely.orient_polygons(polygon)
     top, faces = cap_mesh(polygon, height)
     if paved is None or paved.is_empty:
         meshes.add(material, top, faces)

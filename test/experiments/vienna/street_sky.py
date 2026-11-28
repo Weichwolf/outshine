@@ -7,6 +7,8 @@ import numpy as np
 from blender_air import capture_linear
 from diffuse_bounce import (
     REFLECTION_REACH_M,
+    SURFACE_BIAS_M,
+    hemisphere_basis,
     hemisphere_directions,
     hemisphere_rays,
     receiver_samples,
@@ -33,6 +35,32 @@ def visible_radiance(tree, radiance, point, normal, directions):
     return sample_radiance(radiance, rays[open_rays]).sum(axis=0) / len(rays)
 
 
+def reflected_skylight(index, radiance, point, normal, directions, secondary):
+    tree, reflectance = index
+    origin, rays = hemisphere_rays(point, normal, directions)
+    escaped, reflected, colours = [], [], []
+    for ray, (x, y, z) in zip(rays, secondary, strict=True):
+        hit, surface, face, _ = tree.ray_cast(origin, ray, REFLECTION_REACH_M)
+        if face is None:
+            escaped.append(ray)
+            continue
+        colour = reflectance[face]
+        if not colour.any():
+            continue
+        if np.dot(surface, ray) > 0:
+            surface = -surface
+        tangent, bitangent, surface = hemisphere_basis(surface)
+        bounce = tangent * x + bitangent * y + surface * z
+        start = hit + surface * SURFACE_BIAS_M
+        if tree.ray_cast(start, bounce, REFLECTION_REACH_M)[2] is None:
+            reflected.append(bounce)
+            colours.append(colour)
+    direct = sample_radiance(radiance, np.asarray(escaped).reshape(-1, 3))
+    indirect = sample_radiance(radiance, np.asarray(reflected).reshape(-1, 3))
+    reflected_radiance = indirect * np.asarray(colours).reshape(-1, 3)
+    return (direct.sum(axis=0) + reflected_radiance.sum(axis=0)) / len(rays)
+
+
 def add_sky_passes(material):
     tree = material.node_tree
     field = tree.nodes.new("ShaderNodeVertexColor")
@@ -45,25 +73,43 @@ def add_sky_passes(material):
     tree.links.new(field.outputs["Alpha"], weight.inputs["Value"])
 
 
-def bake_street_sky(scene, batches, radiance):
+def bake_street_sky(scene, batches, radiance, *, index=None, below_deck=False):
     start = perf_counter()
     eye = np.asarray(scene.camera.matrix_world.translation)
     samples = receiver_samples(batches, eye)
     if not len(samples.first):
         return 0, perf_counter() - start
-    graph = bpy.context.evaluated_depsgraph_get()
-    tree, _ = reflection_index(graph, eye, np.zeros(3))
+    if index is None:
+        index = reflection_index(
+            bpy.context.evaluated_depsgraph_get(),
+            eye,
+            np.zeros(3),
+            reflected_sky=below_deck,
+        )
     directions = hemisphere_directions(SAMPLES)
-    values = np.array(
-        [
-            visible_radiance(
-                tree, radiance, samples.positions[i], samples.normals[i], directions
+    if below_deck:
+        order = (73 * np.arange(SAMPLES) + 53) % SAMPLES
+        secondary = directions[order] * np.array([-1, -1, 1])
+        values = [
+            reflected_skylight(
+                index,
+                radiance,
+                samples.positions[i],
+                samples.normals[i],
+                directions,
+                secondary,
             )
             for i in samples.first
         ]
-    )
+    else:
+        values = [
+            visible_radiance(
+                index[0], radiance, samples.positions[i], samples.normals[i], directions
+            )
+            for i in samples.first
+        ]
     materials = write_irradiance(
-        batches, samples.expand(values), ATTRIBUTE, fade=samples.fade
+        batches, samples.expand(np.asarray(values)), ATTRIBUTE, fade=samples.fade
     )
     variants = {material: material.copy() for material in materials}
     for material in variants.values():

@@ -19,6 +19,11 @@
   },
   "comparison_views": [
     {
+      "id": "PraterHochstrasse-Side",
+      "origin": "PraterHochstrasse",
+      "offset_east_north_m": [0.31, 0.39]
+    },
+    {
       "id": "Koerbersee-TreeLine",
       "latitude": 47.25574433,
       "longitude": 10.10500994,

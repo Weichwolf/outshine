@@ -24,7 +24,12 @@ from blender_air import configure_aerial
 from blender_cloud import CloudLighting
 from blender_reflection import apply_reflection, capture_images
 from catalog import available_views, load_catalog, selected_views
-from diffuse_bounce import bake_sun_bounce, street_receivers
+from diffuse_bounce import (
+    RECEIVER_REACH_M,
+    bake_sun_bounce,
+    reflection_index,
+    street_receivers,
+)
 from ground_detail import (
     BARK_BOX_BLEND,
     CANOPY_DETAIL,
@@ -48,7 +53,7 @@ from outshine_ref.rendering.blender_light import (
     configure_research_view,
 )
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
-from passage_light import bake_reference_irradiance
+from passage_light import bake_reference_irradiance, near_lower_deck
 from PIL import Image
 from reference_scene import ReferenceScene
 from regional_canopy import crown_batches
@@ -583,24 +588,50 @@ def render(place, config, args):
     receiver_start = perf_counter()
     trace_sky = getattr(args, "street_sky", False)
     bounce = getattr(args, "street_bounce", False) and sun.data.energy > 0
+    below_deck = (trace_sky or bounce) and near_lower_deck(
+        world.viaducts, world.eye, RECEIVER_REACH_M
+    )
     receivers = (
-        street_receivers(scene)
+        street_receivers(scene, below_deck=below_deck)
         if args.engine == "eevee" and (trace_sky or bounce)
         else []
     )
     receiver_s = perf_counter() - receiver_start
     probes, bake_s = (
         bake_reference_irradiance(
-            scene, world.local.covered_walks, world.eye[:2], street_sky=bool(receivers)
+            scene,
+            world.local.covered_walks,
+            world.eye[:2],
+            street_sky=bool(receivers) and not below_deck,
         )
         if args.engine == "eevee"
         else (0, 0.0)
     )
+    ray_index = None
+    ray_index_s = 0.0
+    if trace_sky and bounce and receivers:
+        start = perf_counter()
+        graph = bpy.context.evaluated_depsgraph_get()
+        ray_index = reflection_index(
+            graph,
+            np.asarray(scene.camera.location),
+            world.sun,
+            reflected_sky=below_deck,
+        )
+        ray_index_s = perf_counter() - start
     bounce_count, bounce_s = (
-        bake_sun_bounce(scene, sun, receivers) if bounce and receivers else (0, 0.0)
+        bake_sun_bounce(scene, sun, receivers, index=ray_index)
+        if bounce and receivers
+        else (0, 0.0)
     )
     trace_count, trace_s = (
-        bake_street_sky(scene, receivers, environment.radiance)
+        bake_street_sky(
+            scene,
+            receivers,
+            environment.radiance,
+            index=ray_index,
+            below_deck=below_deck,
+        )
         if trace_sky and receivers
         else (0, 0.0)
     )
@@ -719,6 +750,11 @@ def render(place, config, args):
                     "samples": trace_count,
                     "seconds": round(receiver_s + trace_s, 3),
                     "probe_diffuse_capture_s": round(diffuse_capture_s, 3),
+                    "shared_index_s": round(ray_index_s, 3),
+                    "shared_index_faces": len(ray_index[1])
+                    if ray_index is not None
+                    else None,
+                    "below_deck": below_deck,
                 }
                 if trace_count
                 else None,

@@ -65,6 +65,21 @@ blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/ren
   --sky-dir build/shots/1965/sky --repeat --output build/shots/1965/traced-street
 ```
 
+At a mapped route beneath a solved transport deck, the receiver mesh also covers
+the deck underside and nearby ground. The sky term includes its first diffuse
+reflection off the actual surfaces at the crossing. The sky and sun terms share one ray index.
+Repeated trees keep their original meshes and placement transforms in that index.
+Use the Prater crossing and its adjacent viewpoint to compare the same archive,
+camera, and plant placements with and without the two switches.
+
+```sh
+build/blender-python/bin/python test/experiments/vienna/glsl_render.py --export-sky \
+  --place PraterHochstrasse --place PraterHochstrasse-Side --output build/shots/1965/prater-sky
+blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/render.py -- \
+  --place PraterHochstrasse --place PraterHochstrasse-Side --street-bounce --street-sky \
+  --sky-dir build/shots/1965/prater-sky --repeat --output build/shots/1965/prater-crossing
+```
+
 Standalone GLSL uses 16 m and 96 m camera-centred shadow footprints with 2048 texels
 per axis. They resolve close sills, leaf shadows and root contact. Visibility blends
 into the coarser maps at their footprint edges. The 16 m footprint moves in whole
