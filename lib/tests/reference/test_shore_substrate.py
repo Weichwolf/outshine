@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import numpy as np
 from outshine.materials.aeolian_sand import SAND_PROFILES
+from outshine.materials.palette import GROUND_BLENDS
 from outshine.vegetation.open_cover import RegionalOpenCover
 from outshine.water.shore_grade import shore_grade
 from outshine.water.shore_substrate import BARE_WIDTH_M, mineral_shore
@@ -32,6 +33,7 @@ class ShoreSubstrateTest(unittest.TestCase):
         )
         product = shore.appearance(source, np.array([0, 3, 1.7]), 2083)
         self.assertEqual(product.materials, {profile.sand})
+        self.assertTrue(product.materials.isdisjoint(GROUND_BLENDS))
         self.assertEqual(product.wet[0], profile.wet)
         self.assertTrue(shore.bare.is_empty)
         self.assertGreater(weights_at(product, (-15, 0.1))[0], 220)
@@ -57,6 +59,7 @@ class ShoreSubstrateTest(unittest.TestCase):
             features=[],
         )
         product = margin.appearance(source, np.array([0, 5, 1.7]), 2083)
+        self.assertTrue(product.materials.isdisjoint(GROUND_BLENDS))
         wet, crust, gravel = weights_at(product, (-15, 0.1))
         self.assertGreater(wet, 240)
         self.assertEqual(crust, 0)

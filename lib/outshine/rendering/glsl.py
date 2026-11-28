@@ -77,7 +77,6 @@ SKYLIGHT_TILE = 768
 SKYLIGHT_ATLAS_TILES = (4, 2)
 SKYLIGHT_TEXTURE_UNIT = 5
 TERRAIN_TEXTURE_UNIT = 13
-SHORE_TEXTURE_UNIT = 14
 HORIZON_COVER = 1
 LANDSCAPE_COVER = 2
 SHORE_SUBSTRATE = 3
@@ -683,7 +682,8 @@ def draw_surfaces(
             detail_texture(ctx, textures, overlay).use(12)
         if shore:
             texture, transform, _ = terrain[SHORE_SUBSTRATE]
-            texture.use(SHORE_TEXTURE_UNIT)
+            # Shore materials use the overlay slot without a ground blend.
+            texture.use(12)
             prog["shoreTransform"].value = transform
         batch.vao.render(instances=len(batch.placements))
 
@@ -876,7 +876,6 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False, street_sky
         terrain_maps[SHORE_SUBSTRATE] = (*cover_texture(ctx, shore), shore.materials)
     terrain_maps[HORIZON_COVER][0].use(TERRAIN_TEXTURE_UNIT)
     prog["terrainCover"].value = TERRAIN_TEXTURE_UNIT
-    prog["shoreMap"].value = SHORE_TEXTURE_UNIT
     for name, (colour, roughness) in (
         ("wetMineral", shore.wet if shore is not None else MINERAL_WET),
         ("crustMineral", MINERAL_CRUST),
