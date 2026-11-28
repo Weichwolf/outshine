@@ -86,6 +86,13 @@
       "offset_east_north_m": [-11.11, 17.08]
     },
     {
+      "id": "Nevillebruecke-Oblique",
+      "origin": "Nevillebruecke",
+      "offset_east_north_m": [4.0, 0.0],
+      "pitch_deg": -4,
+      "support": "street"
+    },
+    {
       "id": "KarlMarxHof-Courtyard",
       "origin": "KarlMarxHof",
       "offset_east_north_m": [0, 0],
