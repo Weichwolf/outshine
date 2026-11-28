@@ -68,6 +68,7 @@ RASTER_DTYPES = {
     **dict.fromkeys(SOIL_LAYERS, np.dtype("<i2")),
 }
 COMMUNITY_DTYPE = np.dtype("<u2")
+OBSERVATION_DTYPE = np.dtype("<u2")
 
 
 def tile_bounds(key):
@@ -118,6 +119,14 @@ class SoilPrior:
 
 
 @dataclass(frozen=True, slots=True)
+class VegetationObservation:
+    map_unit: str
+    label: str
+    height_class: int
+    density_class: int
+
+
+@dataclass(frozen=True, slots=True)
 class HabitatSample:
     cover: str | None
     cover_source: str | None
@@ -130,6 +139,7 @@ class HabitatSample:
     introduced_candidates: tuple[str, ...]
     soil: SoilPrior | None
     potential_community: str | None = None
+    observed_vegetation: VegetationObservation | None = None
 
 
 def soil_prior(values):
@@ -187,6 +197,19 @@ class VegetationAtlas:
         self.community_indices = {
             code: index for index, code in enumerate(self.communities) if code
         }
+        self.observations = (
+            None,
+            *(
+                VegetationObservation(**row)
+                for row in self.manifest.get("observations", ())
+            ),
+        )
+        self.observation_indices = {}
+        for index, record in enumerate(self.observations[1:], 1):
+            self.observation_indices.setdefault(record.map_unit, []).append(index)
+        self._density_classes = np.array(
+            [0, *(row.density_class for row in self.observations[1:])], dtype=np.uint8
+        )
         self.shore_substrates = {
             tuple(row["water_key"]): row["profile"]
             for row in self.manifest.get("shore_substrates", ())
@@ -204,6 +227,8 @@ class VegetationAtlas:
         dtypes = RASTER_DTYPES
         if record.get("potential_community"):
             dtypes = dtypes | {"community": COMMUNITY_DTYPE}
+        if record.get("observed_vegetation"):
+            dtypes = dtypes | {"observation": OBSERVATION_DTYPE}
         with np.load(io.BytesIO(data), allow_pickle=False) as archive:
             layers = {layer: archive[layer] for layer in dtypes}
         if any(
@@ -215,6 +240,10 @@ class VegetationAtlas:
             raise ValueError(
                 f"unknown potential community in vegetation atlas tile {name}"
             )
+        if "observation" in layers and layers["observation"].max() >= len(
+            self.observations
+        ):
+            raise ValueError(f"unknown observed vegetation in atlas tile {name}")
         return layers
 
     def land_cells(self, latitude, longitude):
@@ -233,11 +262,31 @@ class VegetationAtlas:
         (community,) = self._cells(latitude, longitude, {"community": COMMUNITY_DTYPE})
         return np.isin(community, accepted)
 
+    def observed_cells(self, latitude, longitude):
+        """Return indexed mapped observations and their source density classes."""
+        (indices,) = self._cells(
+            latitude, longitude, {"observation": OBSERVATION_DTYPE}
+        )
+        return indices, self._density_classes[indices]
+
+    def observation_mask(self, indices, codes):
+        return np.isin(
+            indices,
+            [
+                index
+                for code in codes
+                for index in self.observation_indices.get(code, ())
+            ],
+        )
+
     def community_windows(self, bounds):
         """Report available tiles without reading their raster payloads."""
+        return self.evidence_windows(bounds, "potential_community")
+
+    def evidence_windows(self, bounds, field):
         west, south, east, north = bounds
         for name, record in self.manifest["tiles"].items():
-            if not record.get("potential_community"):
+            if not record.get(field):
                 continue
             tile = tile_bounds(tuple(map(int, name.split("-"))))
             if (
@@ -275,7 +324,7 @@ class VegetationAtlas:
             raise ValueError(f"unknown mapped cover {mapped_cover!r}")
         key, cell = grid_cell(latitude, longitude)
         layers = self._tiles(tile_name(key))
-        code = ecoregion = region = soil = community = None
+        code = ecoregion = region = soil = community = observation = None
         if layers is not None:
             code = int(layers["cover"][cell]) or None
             ecoregion = int(layers["ecoregion"][cell]) or None
@@ -284,6 +333,8 @@ class VegetationAtlas:
             soil = soil_prior(int(layers[layer][cell]) for layer in SOIL_LAYERS)
             if "community" in layers:
                 community = self.communities[layers["community"][cell]] or None
+            if "observation" in layers:
+                observation = self.observations[layers["observation"][cell]]
         cover = mapped_cover or COVER_CLASSES.get(code)
         source = "mapped" if mapped_cover else "worldcover" if cover else None
         regions = (region,) if region else ()
@@ -304,6 +355,7 @@ class VegetationAtlas:
             self.species.candidate_ids(regions, introduced=True),
             soil,
             community,
+            observation,
         )
 
     def sample_local(self, source, xy):
