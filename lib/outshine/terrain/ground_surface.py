@@ -86,8 +86,10 @@ def forest_trail_edges(path, woodland, reserved):
 def shared_edges(area, neighbour, reserved):
     # The overlay may place an intersection a few ulps off the input edge.
     contact = neighbour.buffer(1e-4, quad_segs=2)
-    edge = area.boundary.intersection(contact).difference(reserved)
-    parts = shapely.get_parts(edge)
+    edge = area.boundary.intersection(contact)
+    if edge.is_empty:
+        return edge
+    parts = shapely.get_parts(edge.difference(reserved))
     return shapely.union_all(parts[(shapely.get_dimensions(parts) == 1)])
 
 

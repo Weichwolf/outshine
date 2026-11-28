@@ -51,6 +51,30 @@ class GroundSurfaceTest(unittest.TestCase):
             )
         self.assertEqual(len(support_height(meshes["meadow"], (1, 0))), 0)
 
+    def test_meadow_without_a_woodland_contact_has_no_litter_edge(self):
+        meadow = box(0, -6, 8, 6)
+        for woodland in (meadow, box(-8, -6, -3, 6)):
+            with self.subTest(woodland=woodland):
+                source = SimpleNamespace(
+                    height=lambda xy: np.zeros(len(xy)),
+                    features=[
+                        ("landcover", woodland, {"class": "wood"}),
+                        (
+                            "landcover",
+                            meadow,
+                            {"class": "grass", "subclass": "meadow"},
+                        ),
+                        (
+                            "transportation",
+                            LineString([(-9, 0), (9, 0)]),
+                            {"class": "path", "subclass": "path"},
+                        ),
+                    ],
+                )
+                meshes = assemble(source, 10)
+                self.assertIsNone(meshes.meadow_woodland_edges)
+                self.assertEqual(support_height(meshes["meadow"], (1, 3)).max(), 0)
+
     def test_forest_floor_keeps_the_walk_clear_and_supports_plants(self):
         source = SimpleNamespace(
             height=lambda xy: 0.15 * xy[:, 0] + 0.2 * xy[:, 1],
