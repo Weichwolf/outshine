@@ -56,6 +56,7 @@ from outshine_ref.rendering.blender_render import configure_gpu, render_png
 from passage_light import bake_reference_irradiance, near_lower_deck
 from PIL import Image
 from reference_scene import ReferenceScene
+from regional_canopy import crown_batches
 from sky_environment import environment_path, load_environment
 from street_sky import bake_street_sky, capture_probe_diffuse, replace_probe_diffuse
 from walk_reference import plan_walk
@@ -349,6 +350,52 @@ def place_woody_plants(world, seed, geometry, *, eye_route=None):
     return count
 
 
+def place_regional_crowns(sites, geometry):
+    for species, meshes, placements in crown_batches(sites):
+        template = bpy.data.collections.new(species)
+        for name, (vertices, faces) in meshes.items():
+            upload(name, vertices, faces, collection=template)
+
+        mesh = bpy.data.meshes.new(species)
+        mesh.vertices.add(len(placements))
+        mesh.vertices.foreach_set("co", placements[:, :3].ravel())
+        for name, values in (("yaw", placements[:, 3]), ("size", placements[:, 4])):
+            attribute = mesh.attributes.new(name, "FLOAT", "POINT")
+            attribute.data.foreach_set("value", values.copy())
+        mesh.update()
+        obj = bpy.data.objects.new(species, mesh)
+        geometry.objects.link(obj)
+
+        group = bpy.data.node_groups.new(species, "GeometryNodeTree")
+        for direction in ("INPUT", "OUTPUT"):
+            group.interface.new_socket(
+                name="Geometry", in_out=direction, socket_type="NodeSocketGeometry"
+            )
+        nodes, link = group.nodes, group.links.new
+        info = nodes.new("GeometryNodeCollectionInfo")
+        info.inputs["Collection"].default_value = template
+        instances = nodes.new("GeometryNodeInstanceOnPoints")
+        link(
+            nodes.new("NodeGroupInput").outputs["Geometry"], instances.inputs["Points"]
+        )
+        link(info.outputs["Instances"], instances.inputs["Instance"])
+        yaw = nodes.new("ShaderNodeCombineXYZ")
+        for name, socket in (
+            ("yaw", yaw.inputs["Z"]),
+            ("size", instances.inputs["Scale"]),
+        ):
+            attribute = nodes.new("GeometryNodeInputNamedAttribute")
+            attribute.data_type = "FLOAT"
+            attribute.inputs["Name"].default_value = name
+            link(attribute.outputs["Attribute"], socket)
+        link(yaw.outputs["Vector"], instances.inputs["Rotation"])
+        link(
+            instances.outputs["Instances"],
+            nodes.new("NodeGroupOutput").inputs["Geometry"],
+        )
+        obj.modifiers.new("Crown instances", "NODES").node_group = group
+
+
 def configure_world_sky(scene, sunlight, radiance, *, haze=False):
     nodes = scene.world.node_tree.nodes
     background = nodes["Background"]
@@ -504,7 +551,8 @@ def render(place, config, args):
     scene.cycles.seed = config["seed"]
     geometry = bpy.data.collections.new("World geometry")
     scene.collection.children.link(geometry)
-    for name, verts, faces in world.surfaces():
+    crown_sites = []
+    for name, verts, faces in world.surfaces(crown_sites=crown_sites):
         upload(
             name,
             verts,
@@ -533,6 +581,7 @@ def render(place, config, args):
     woody_instances = place_woody_plants(
         world, config["seed"], geometry, eye_route=walk.route if walk else None
     )
+    place_regional_crowns(crown_sites, geometry)
     if world.water_bed is not None:
         apply_water_bed(world.water_bed)
     scene.eevee.taa_render_samples = 6
@@ -654,6 +703,7 @@ def render(place, config, args):
                 "origin_wgs84": [world.source.lat, world.source.lon],
                 "vertical_fov_deg": world.fov,
                 "woody_instances": woody_instances,
+                "regional_crown_instances": sum(len(sites) for _, sites in crown_sites),
                 **device,
             },
         )
@@ -681,6 +731,7 @@ def render(place, config, args):
                 else None,
                 "surface": world.support,
                 "woody_instances": woody_instances,
+                "regional_crown_instances": sum(len(sites) for _, sites in crown_sites),
                 "eye_m": eye_m,
                 **device,
                 "sky_radiance": str(sky_path) if sky_path is not None else None,

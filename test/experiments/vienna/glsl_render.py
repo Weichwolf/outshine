@@ -34,6 +34,7 @@ from materials import (
     surface_properties,
 )
 from reference_scene import ReferenceScene
+from regional_canopy import crown_batches
 from sky_environment import (
     CLOUD_ENVIRONMENT_SIZE,
     SKY_ENVIRONMENT_SIZE,
@@ -601,15 +602,19 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
     prog["veil"].value = 1
     prog["eyeKm"].value = EARTH_RADIUS_KM + (world.eye[2] + world.source.datum) * 0.001
     ctx.enable(moderngl.DEPTH_TEST)
+    crown_sites = []
     draws = [
         upload(
             ctx, prog, n, v, f, [(0, 0, 0, 0, 1)], trail_litter=world.trail_litter(n, v)
         )
         for n, v, f in chain(
-            world.surfaces(), world.grass_and_understory(config["seed"])
+            world.surfaces(crown_sites=crown_sites),
+            world.grass_and_understory(config["seed"]),
         )
     ]
     for _, _, meshes, plants in world.woody_plants(config["seed"]):
+        draws.extend(upload(ctx, prog, n, v, f, plants) for n, (v, f) in meshes.items())
+    for _, meshes, plants in crown_batches(crown_sites):
         draws.extend(upload(ctx, prog, n, v, f, plants) for n, (v, f) in meshes.items())
     draws = [batch for batch in draws if batch is not None]
     shadow_maps, shadow_time = render_shadows(ctx, prog, draws, world)
@@ -647,6 +652,7 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
                 "place": place["id"],
                 "weather": world.weather,
                 "device": ctx.info["GL_RENDERER"],
+                "regional_crown_instances": sum(len(sites) for _, sites in crown_sites),
                 "cloud_sun": cloud_sun,
                 "spatial_cloud_sun": cloud_map is not None,
                 "sky_radiance": str(sky_path) if sky_path is not None else None,
