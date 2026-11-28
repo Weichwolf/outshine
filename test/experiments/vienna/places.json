@@ -30,6 +30,13 @@
       "weather": "broken-cloud"
     },
     {
+      "id": "FranzKarlFernsicht-Backlit",
+      "origin": "FranzKarlFernsicht",
+      "pitch_deg": 11,
+      "utc": "2026-10-15T12:24:00Z",
+      "weather": "broken-cloud"
+    },
+    {
       "id": "FranzKarlFernsicht-Overcast",
       "origin": "FranzKarlFernsicht",
       "weather": "overcast"
@@ -37,6 +44,13 @@
     {
       "id": "Wien-BrokenCloud",
       "origin": "Wien",
+      "weather": "broken-cloud"
+    },
+    {
+      "id": "Wien-Backlit",
+      "origin": "Wien",
+      "pitch_deg": 14,
+      "utc": "2026-10-15T12:24:00Z",
       "weather": "broken-cloud"
     },
     {

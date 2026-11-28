@@ -225,6 +225,9 @@ def export_sky(ctx, place, config, out):
                 "sky": str(path),
                 "cloud_sun": cloud_sun,
                 "cloud_cover": cloud_cover,
+                "cloud_recipe_version": world.clouds.archive_key[0]
+                if world.clouds
+                else None,
                 "eye_m": eye_m,
             }
         ),

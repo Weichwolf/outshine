@@ -6,7 +6,7 @@ from functools import cache
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
-RECIPE_VERSION = 1
+RECIPE_VERSION = 2
 WIND_KM_S = np.array((0.007, 0.0035))
 KM_PER_DEGREE = (74.55, 111.18)
 SUN_MAP_SIZE = 1024

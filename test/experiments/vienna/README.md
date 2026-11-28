@@ -135,6 +135,15 @@ the same pose. Older archives and the independent Cycles path use the observer's
 value for the Sun. The archive pins the profile, wind-advected origin, seed, eye
 altitude and solar direction.
 
+The `-Backlit` trail and Wien variants use the Sun of 15 October 2026 at
+12:24 UTC. Both show the broken layer with the Sun near the direction of view.
+Revision 2 weights direct cloud scattering with forward and backward
+Henyey–Greenstein lobes. The forward lobe brightens sun-facing edges and gaps,
+and a weaker diffuse term lights the cloud interiors. Replay retains the stored
+radiance of revision 1 archives with matching field, altitude and Sun.
+[Schneider and Vos, Volumetric Cloudscapes](https://www.guerrilla-games.com/read/the-real-time-volumetric-cloudscapes-of-horizon-zero-dawn) ·
+[Clouds with the Sun behind, Tyrol, 4 August 2010](https://commons.wikimedia.org/wiki/File:Clouds_with_sun_behind.jpg)
+
 Use the Wiener Blick afternoon panorama for spaced cumulus, sunlit tops and soft
 undersides. The Neue Donau photo shows a closed deck, diffuse illumination and a
 brighter horizon under the deck. Michaelerplatz shows diffuse light on an urban

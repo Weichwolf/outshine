@@ -61,6 +61,13 @@ def load_environment(path, sun, eye_m, *, aerosol=0.0, clouds=None):
             raise ValueError(f"{path}: sky aerosol extinction differs from this view")
         expected_clouds = np.array(clouds.archive_key if clouds else ())
         saved_clouds = np.asarray(sky.get("clouds", ()))
+        if (
+            clouds
+            and saved_clouds.shape == expected_clouds.shape
+            and saved_clouds[0] == 1
+        ):
+            # The first revision differs in cloud radiance and shares its density field.
+            expected_clouds[0] = 1
         if saved_clouds.shape != expected_clouds.shape or not np.allclose(
             saved_clouds, expected_clouds, rtol=0, atol=1e-7
         ):

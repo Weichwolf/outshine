@@ -124,6 +124,30 @@ class SkyEnvironmentTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "solar transmission map"):
                 load_environment(path, sun, eye, clouds=clouds)
 
+    def test_first_revision_cloud_radiance_replays_at_the_original_field(self):
+        sun, eye = (0.0, 0.6, 0.8), 477.25
+        clouds = cloud_profile("broken-cloud", 16.22, 48.24, (0, 0), 0, 2083)
+        old_key = (1, *clouds.archive_key[1:])
+        radiance = np.full((*CLOUD_ENVIRONMENT_SIZE[::-1], 3), 0.125, dtype="f4")
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "sky.npz"
+            for key in (old_key, (0, *old_key[1:]), (*old_key[:-1], old_key[-1] + 1)):
+                np.savez(
+                    path,
+                    radiance=radiance,
+                    sun_enu=sun,
+                    eye_m=eye,
+                    clouds=key,
+                    cloud_sun=0.37,
+                )
+                if key == old_key:
+                    restored = load_environment(path, sun, eye, clouds=clouds)
+                    np.testing.assert_array_equal(restored.radiance, radiance)
+                    self.assertEqual(restored.cloud_sun, 0.37)
+                else:
+                    with self.assertRaisesRegex(ValueError, "cloud recipe"):
+                        load_environment(path, sun, eye, clouds=clouds)
+
 
 if __name__ == "__main__":
     unittest.main()
