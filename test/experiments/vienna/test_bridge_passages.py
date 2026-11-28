@@ -3,17 +3,38 @@ from types import SimpleNamespace
 
 import numpy as np
 from bridge_passages import CLEARANCE_M, FLOOR_ABOVE_WATER_M, MAXIMUM_GRADE, Passage
-from bridges import WaterCrossing
+from bridges import WaterCrossing, slab
 from ground_surface import at_grade_routes
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry.sampling import SurfaceSampler
 from outshine_ref.transport.water_span import WaterSpan
 from reference_scene import support_height
-from scene_mesh import assemble, bank_protection
+from scene_mesh import Meshes, assemble, bank_protection
 from shapely.geometry import LineString, Point, Polygon, box
 
 
 class BridgePassageTest(unittest.TestCase):
+    def test_closed_slab_points_outward_with_reversed_rings(self):
+        polygon = Polygon(
+            [(0, 0), (0, 8), (8, 8), (8, 0)],
+            holes=[[(2, 2), (6, 2), (6, 6), (2, 6)]],
+        )
+        meshes = Meshes()
+        slab(meshes, "bridge deck", polygon, lambda xy: 5 + 0.03 * xy[:, 0], 1)
+        vertices, faces = meshes["bridge deck"]
+        triangles = np.asarray(vertices)[faces]
+        normals = np.cross(
+            triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0]
+        )
+        sides = abs(normals[:, 2]) < 1e-8
+        self.assertEqual(np.count_nonzero(sides), 16)
+        for centre, normal in zip(
+            triangles[sides].mean(axis=1), normals[sides], strict=True
+        ):
+            outward = 0.01 * normal[:2] / np.linalg.norm(normal[:2])
+            self.assertTrue(polygon.contains(Point(centre[:2] - outward)))
+            self.assertFalse(polygon.covers(Point(centre[:2] + outward)))
+
     def test_bank_grading_protects_an_unpaved_path_beside_the_opening(self):
         extent = box(-10, -10, 10, 10)
         opening = box(-1, -1, 1, 1)
