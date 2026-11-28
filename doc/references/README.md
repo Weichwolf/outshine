@@ -104,6 +104,15 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
   [WCVP](https://powo.science.kew.org/about-wcvp) ·
   [SoilGrids](https://docs.isric.org/globaldata/soilgrids/)
 
+- **Pflanzengesellschaften in japanischen Hochmooren**. Die Vegetationskarte
+  des japanischen Umweltministeriums liefert abgegrenzte Moor- und
+  Grasgesellschaften. Das Feuchtgebietsinventar beschreibt Pfeifengras und
+  Torfmoose für Yashimagahara. Outshine nutzt die Karte zur Platzierung
+  offener Vegetation und das Inventar für die prozedurale Moos- und Torfdecke.
+  [Vegetationskarte](https://www.biodic.go.jp/kiso/vg/vg_kiso.html) ·
+  [Feuchtgebietsinventar](https://www.env.go.jp/nature/important_wetland/wetland/w239.html) ·
+  [Lizenz und Namensnennung](https://www.biodic.go.jp/copyright/terms_of_service.html)
+
 - **Offene Grasvegetation in Seronera und Tongariro**. Die Feldstudie von de
   Jonge et al. beschreibt die Grasschicht und die Regenzeiten der zentralen
   Serengeti. Das neuseeländische Department of Conservation beschreibt

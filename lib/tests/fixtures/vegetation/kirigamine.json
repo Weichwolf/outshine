@@ -24,6 +24,14 @@
       "support": "unpaved path"
     }
   ],
+  "comparison_views": [
+    {
+      "id": "Kirigamine-Bog",
+      "origin": "Kirigamine-Near",
+      "heading_deg": 155,
+      "pitch_deg": -7
+    }
+  ],
   "walks": {
     "Kirigamine-Footpath": {
       "origin": "Kirigamine-Near",

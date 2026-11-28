@@ -1,6 +1,6 @@
 """Place regional herbs on the solved ground using mapped and satellite cover."""
 
-from functools import cache
+from functools import cache, cached_property
 
 import numpy as np
 import shapely
@@ -8,6 +8,11 @@ import shapely
 from outshine.terrain.ground_surface import ROUTE_MATERIALS, surface_elevations
 from outshine.terrain.land_cover import COVER_PRIORITY, cover_material
 from outshine.vegetation.graminoid import graminoid_tuft_mesh
+from outshine.vegetation.japanese_open_ground import (
+    OPEN_COMMUNITIES,
+    community_types,
+    open_ground_geometry,
+)
 from outshine.vegetation.patagonian_shrub import PATAGONIAN_COMMUNITIES
 from outshine.vegetation.plant_sites import patch_density, scatter_mesh, tile_sites
 
@@ -18,6 +23,8 @@ SAVANNA = 1
 TUSSOCK = 2
 PATAGONIAN = 3
 MOJAVE = 4
+BOG_GRASS = 5
+JAPANESE_SILVERGRASS = 6
 ACACIA_COMMIPHORA_BUSHLANDS = 57
 NORTH_ISLAND_TEMPERATE_FORESTS = 171
 MOJAVE_DESERT = 433
@@ -27,6 +34,8 @@ TUFT_FORMS = {
     TUSSOCK: (26, (1.95, 1.95, 1.55), 0.43, 0.31),
     PATAGONIAN: (24, (1.56, 1.56, 0.96), 0.24, 0.16),
     MOJAVE: (22, (1.20, 1.20, 0.58), 0.23, 0.09),
+    BOG_GRASS: (30, (1.77, 1.77, 1.08), 0.35, 0.20),
+    JAPANESE_SILVERGRASS: (32, (2.15, 2.15, 2.43), 0.52, 0.34),
 }
 
 
@@ -76,6 +85,8 @@ class RegionalOpenCover:
             inferred = (
                 10
                 if include_wood and name == "wood"
+                else 90
+                if include_wood and name == "wetland" and self.has_japanese_open_ground
                 else 30
                 if name in OPEN_COVER
                 else 0
@@ -93,6 +104,27 @@ class RegionalOpenCover:
         cover, ecoregion = self.land_cells(xy)
         return np.isin(cover, codes), ecoregion
 
+    @property
+    def has_japanese_open_ground(self):
+        return not self.japanese_open_ground.is_empty
+
+    @cached_property
+    def japanese_open_ground(self):
+        if OPEN_COMMUNITIES.intersection(
+            getattr(self.atlas, "observation_indices", {})
+        ):
+            return open_ground_geometry(self.atlas, self.source, 255)
+        return shapely.GeometryCollection()
+
+    def japanese_woodland_exclusion(self, xy):
+        bog, silvergrass = community_types(self.atlas, self.source, xy)
+        return bog | silvergrass
+
+    def japanese_communities(self, xy, cover):
+        bog, silvergrass = community_types(self.atlas, self.source, xy)
+        allowed = np.isin(cover, (10, 20, 30, 60, 90))
+        return bog & allowed, silvergrass & allowed
+
     def steppe(self, xy, cover=None):
         if cover is None:
             cover, _ = self.land_cells(xy)
@@ -108,7 +140,9 @@ class RegionalOpenCover:
         return np.zeros(len(xy), dtype=bool)
 
     def classify(self, xy):
-        return self.groups(xy, *self.land_cells(xy))
+        return self.groups(
+            xy, *self.land_cells(xy, include_wood=self.has_japanese_open_ground)
+        )
 
     def groups(self, xy, cover, ecoregion):
         open_land = np.isin(cover, (20, 30))
@@ -120,6 +154,10 @@ class RegionalOpenCover:
             elevation = self.source.height(xy[upslope]) + self.source.datum
             groups[upslope] = np.where(elevation >= 1000, TUSSOCK, 0)
         groups[self.steppe(xy, cover)] = PATAGONIAN
+        if self.has_japanese_open_ground:
+            bog, silvergrass = self.japanese_communities(xy, cover)
+            groups[bog] = BOG_GRASS
+            groups[silvergrass] = JAPANESE_SILVERGRASS
         return groups
 
     def replaces(self, xy):
@@ -134,7 +172,9 @@ class RegionalOpenCover:
         if not candidates:
             return
         xy, marks = (np.concatenate(rows) for rows in zip(*candidates, strict=True))
-        land, ecoregion = self.land_cells(xy)
+        land, ecoregion = self.land_cells(
+            xy, include_wood=self.has_japanese_open_ground
+        )
         groups = self.groups(xy, land, ecoregion)
         patch = patch_density(self.source, xy, seed, scale=6)
         distance = np.linalg.norm(xy - eye[:2], axis=1)
@@ -147,14 +187,25 @@ class RegionalOpenCover:
             land == 60, 0.018 + 0.30 * patch**3.2, 0.15 + 0.78 * patch**1.25
         )
         desert_cover = np.where(land == 60, 0.13, 0.38) * patch**1.68
+        bog_cover = 0.28 + 0.65 * patch**1.5
+        silvergrass = 0.22 + 0.74 * patch**1.7
         probability = np.select(
             (
                 groups == SAVANNA,
                 groups == TUSSOCK,
                 groups == PATAGONIAN,
                 groups == MOJAVE,
+                groups == BOG_GRASS,
+                groups == JAPANESE_SILVERGRASS,
             ),
-            (savanna_cover, tussock_cover, steppe_cover, desert_cover),
+            (
+                savanna_cover,
+                tussock_cover,
+                steppe_cover,
+                desert_cover,
+                bog_cover,
+                silvergrass,
+            ),
         )
         probability *= distance_density * outer
         selected = (groups != 0) & (marks[:, 2] < probability)
@@ -163,7 +214,10 @@ class RegionalOpenCover:
         xy, marks, groups, patch, distance = (
             values[selected] for values in (xy, marks, groups, patch, distance)
         )
-        mesh = planting_surface(surfaces, eye[:2])
+        materials = OPEN_SURFACES
+        if np.isin(groups, (BOG_GRASS, JAPANESE_SILVERGRASS)).any():
+            materials += ("wetland", "forest floor", "scrub")
+        mesh = planting_surface(surfaces, eye[:2], materials)
         if mesh is None:
             return
         heights = surface_elevations(mesh, xy)
@@ -235,7 +289,9 @@ def tuft_geometry(profile, detailed, variant):
 
 
 def draw_tufts(anchors, marks, groups, distance, scale, clearance, dry_savanna):
-    dry_share = np.choose(groups, (0, 0.82 if dry_savanna else 0.15, 0.77, 0.84, 0.82))
+    dry_share = np.choose(
+        groups, (0, 0.82 if dry_savanna else 0.15, 0.77, 0.84, 0.82, 0.25, 0.14)
+    )
     dry = marks[:, 1] < dry_share
     angles = 2 * np.pi * marks[:, 0]
     variants = np.floor(np.mod(marks[:, 0] * 11, 1) * 3).astype(int)
@@ -245,6 +301,8 @@ def draw_tufts(anchors, marks, groups, distance, scale, clearance, dry_savanna):
         (TUSSOCK, "tussock green blades", "tussock straw blades"),
         (PATAGONIAN, "patagonian grass blades", "patagonian straw blades"),
         (MOJAVE, "mojave grass blades", "mojave straw blades"),
+        (BOG_GRASS, "bog grass blades", "bog grass straw"),
+        (JAPANESE_SILVERGRASS, "silvergrass blades", "silvergrass straw"),
     ):
         for detailed in (False, True):
             for variant in range(3):

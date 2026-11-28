@@ -51,6 +51,7 @@ SURFACE_DETAIL = {
     "mojave footpath": "compacted",
     "granodiorite rock": "granodiorite",
     "forest floor": "leaf litter",
+    "wetland": "soil",
     "regional wood": CANOPY_DETAIL,
     "needle crown": CROWN_DETAIL,
     "grass": "grass",

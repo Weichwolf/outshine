@@ -52,7 +52,6 @@ from outshine.rendering.water_reflection import (
     camera_axes,
     reflection_planes,
 )
-from outshine.vegetation.landscape_cover import LANDSCAPE_MATERIALS
 from outshine.vegetation.regional_canopy import crown_batches
 from outshine.water.shore_substrate import (
     CRUST_GRAIN,
@@ -638,7 +637,7 @@ def draw_surfaces(
         prog["waterSurface"].value = water
         if base == "distant terrain":
             mode = HORIZON_COVER
-        elif LANDSCAPE_COVER in terrain and base in LANDSCAPE_MATERIALS:
+        elif LANDSCAPE_COVER in terrain and base in terrain[LANDSCAPE_COVER][2]:
             mode = LANDSCAPE_COVER
         else:
             mode = 0
@@ -646,7 +645,7 @@ def draw_surfaces(
             cover_mode = mode
             prog["terrainCoverMode"].value = mode
             if mode:
-                texture, transform = terrain[mode]
+                texture, transform = terrain[mode][:2]
                 texture.use(TERRAIN_TEXTURE_UNIT)
                 prog["terrainTransform"].value = transform
         prog["glassIor"].value = GLASS_IOR if name == "glass" else 1.0
@@ -872,7 +871,7 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False, street_sky
     bed_map.repeat_x = bed_map.repeat_y = False
     terrain_maps = {HORIZON_COVER: cover_texture(ctx, world.terrain_cover)}
     if cover := world.landscape_cover:
-        terrain_maps[LANDSCAPE_COVER] = cover_texture(ctx, cover)
+        terrain_maps[LANDSCAPE_COVER] = (*cover_texture(ctx, cover), cover.materials)
     if shore := world.shore_appearance:
         terrain_maps[SHORE_SUBSTRATE] = cover_texture(ctx, shore)
     terrain_maps[HORIZON_COVER][0].use(TERRAIN_TEXTURE_UNIT)
@@ -946,7 +945,7 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False, street_sky
         shadow.release()
     reflection.release()
     bed_map.release()
-    for texture, _ in terrain_maps.values():
+    for texture, *_ in terrain_maps.values():
         texture.release()
     if sun_map_texture is not None:
         sun_map_texture.release()

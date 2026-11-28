@@ -383,6 +383,7 @@ def tree_batches(
     eye_route=None,
     mature=None,
     riverside=None,
+    exclude=None,
     skylight=False,
 ):
     domain = habitat(source)
@@ -400,6 +401,13 @@ def tree_batches(
         positions = np.concatenate((positions, sites[inside]))
         marks = np.concatenate((marks, values[inside]))
         canopy = np.r_[canopy, np.ones(inside.sum(), dtype=bool)]
+    if exclude is not None:
+        eligible = ~shapely.intersects_xy(exclude, *positions.T)
+        positions, marks, canopy = (
+            positions[eligible],
+            marks[eligible],
+            canopy[eligible],
+        )
     stand_count = len(positions)
     positions = np.concatenate((positions, avenue))
     marks = np.concatenate((marks, avenue_marks))

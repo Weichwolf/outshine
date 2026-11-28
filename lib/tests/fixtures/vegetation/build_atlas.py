@@ -16,10 +16,12 @@ from urllib.request import urlopen
 from zipfile import ZipFile
 from zlib import crc32
 
+import mapbox_vector_tile
 import numpy as np
 import rasterio
 import shapefile
 import shapely
+from outshine.places.sources import tile_geography
 from outshine.vegetation.atlas import (
     CELLS_PER_DEGREE,
     NO_SOIL,
@@ -116,6 +118,14 @@ JOTR_GEOLOGY = {
     "bounds_wgs84": JOTR_EXTENT.bounds,
     "table": "JOTR_Geologic_Units",
     "crs": "EPSG:26911",
+}
+JAPAN_OBSERVATIONS = {
+    "url": "https://www.biodic.go.jp/kiso/vg/tile/veg2024vector/{z}/{x}/{y}.pbf",
+    "metadata_url": "https://www.biodic.go.jp/kiso/vg/vg_kiso.html",
+    "license_url": "https://www.biodic.go.jp/copyright/terms_of_service.html",
+    "release": "Actual Vegetation Map, veg2024",
+    "attribution": "Biodiversity Center of Japan, Ministry of the Environment",
+    "license": "Public Data License 1.0. Clipped and rasterized for the Outshine atlas.",
 }
 HOMOLOSINE = "+proj=igh +ellps=WGS84 +units=m"
 SOIL_CRS = "http://www.opengis.net/def/crs/EPSG/0/152160"
@@ -358,6 +368,80 @@ def jotr_observations(cache, keys, fetch):
     )
 
 
+def japan_vector_window(path, tile, window):
+    layer = mapbox_vector_tile.decode(
+        path.read_bytes(), default_options={"y_coord_down": True}
+    )["veg2024"]
+    for feature in layer["features"]:
+        geometry = shapely.make_valid(shape(feature["geometry"]))
+        lon_lat = shapely.transform(
+            geometry,
+            lambda xy: np.column_stack(tile_geography(xy, layer["extent"], tile)[::-1]),
+        )
+        clipped = lon_lat.intersection(window)
+        if clipped.is_empty or clipped.area == 0:
+            continue
+        props = feature["properties"]
+        year = props["作成年度"]
+        yield (
+            clipped,
+            (
+                f"JP-MOE-2024:{props['凡例コード']}",
+                props["凡例名"],
+                int(year) if year else 0,
+            ),
+        )
+
+
+def japan_observations(cache, keys, fetch, offset):
+    pins = json.loads(
+        Path(__file__).with_name("japan-vegetation-pins.json").read_text()
+    )
+    windows = [box(*tile_bounds(key)) for key in keys]
+    rows, used = [], {}
+    for name, digest in pins.items():
+        tile = tuple(map(int, name.split("-")))
+        lat, lon = tile_geography([[0, 1], [1, 0]], 1, tile)
+        footprint = box(lon[0], lat[0], lon[1], lat[1])
+        window = shapely.union_all(
+            [
+                extent.intersection(footprint)
+                for extent in windows
+                if extent.intersects(footprint)
+            ]
+        )
+        if window.is_empty or window.area == 0:
+            continue
+        z, x, y = tile
+        folder = cache / "jp-veg2024"
+        folder.mkdir(exist_ok=True)
+        source = {
+            "url": JAPAN_OBSERVATIONS["url"].format(z=z, x=x, y=y),
+            "sha256": digest,
+        }
+        path = pinned_source(folder, f"{name}.pbf", source, fetch)
+        used[name] = digest
+        rows.extend(japan_vector_window(path, tile, window))
+    records = sorted({row for _, row in rows})
+    indices = {row: index for index, row in enumerate(records, offset + 1)}
+    return (
+        [
+            {
+                "map_unit": unit,
+                "label": label,
+                "height_class": 0,
+                "density_class": 0,
+                "map_year": year or None,
+            }
+            for unit, label, year in records
+        ],
+        [(polygon, indices[row]) for polygon, row in rows],
+        {"japan_observed_vegetation": JAPAN_OBSERVATIONS | {"xyz_sha256": used}}
+        if used
+        else {},
+    )
+
+
 def geopackage_shape(blob):
     if blob[:2] != b"GP":
         raise ValueError("expected a GeoPackage geometry")
@@ -536,6 +620,12 @@ def build_atlas(cache, output, keys, *, fetch, pinned=None):
     observation_records, observations, observation_sources = jotr_observations(
         cache, keys, fetch
     )
+    japan_records, japan_shapes, japan_sources = japan_observations(
+        cache, keys, fetch, len(observation_records)
+    )
+    observation_records.extend(japan_records)
+    observations.extend(japan_shapes)
+    observation_sources.update(japan_sources)
     geology_records, geology, geology_sources = jotr_geology(cache, keys, fetch)
     with ThreadPoolExecutor(max_workers=6) as pool:
         tiles = dict(

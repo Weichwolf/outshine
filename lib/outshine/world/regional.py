@@ -560,7 +560,7 @@ def regional_transport(
     )
 
 
-def regional_stands(source, transport, focal, radius, seed):
+def regional_stands(source, transport, focal, radius, seed, *, exclude=None):
     reach = max(radius, crown_reach(focal)) + MIN_STEM_SPACING_M
     extent = box(-reach, -reach, reach, reach)
     shapely.prepare(extent)
@@ -589,6 +589,12 @@ def regional_stands(source, transport, focal, radius, seed):
     )
     verges = riverside_verges(features, extent)
     riverside = verge_tree_sites(source, verges, seed, receipts)
+    if exclude is not None:
+        retained = []
+        for xy, marks in (woodland, riverside):
+            keep = ~exclude(xy)
+            retained.append((xy[keep], marks[keep]))
+        woodland, riverside = retained
     return RegionalStands(woodland, riverside, verges)
 
 

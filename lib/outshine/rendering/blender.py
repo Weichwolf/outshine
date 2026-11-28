@@ -71,7 +71,6 @@ from outshine.rendering.woody_visibility import (
     reference_visibility_test,
     visible_woody_placements,
 )
-from outshine.vegetation.landscape_cover import LANDSCAPE_MATERIALS
 from outshine.vegetation.regional_canopy import crown_batches
 from outshine.water.shore_substrate import (
     CRUST_GRAIN,
@@ -398,7 +397,7 @@ def apply_distant_cover(material, cover):
 
 def apply_landscape_cover(cover):
     image = cover_image("Landscape vegetation", cover)
-    for name in sorted(LANDSCAPE_MATERIALS):
+    for name in sorted(cover.materials):
         material = bpy.data.materials.get(name)
         if material is None:
             continue

@@ -10,6 +10,7 @@ from outshine.materials.palette import SURFACES
 from outshine.terrain.granodiorite import BEDROCK, OUTCROPS, RESIDUUM, ROCK_MATERIAL
 from outshine.terrain.ground_surface import at_grade_routes
 from outshine.vegetation.atlas import CELLS_PER_DEGREE
+from outshine.vegetation.japanese_open_ground import open_ground_colour
 from outshine.vegetation.patagonian_shrub import PATAGONIAN_COMMUNITIES
 from outshine.vegetation.plant_sites import patch_density
 
@@ -33,6 +34,7 @@ class LandscapeCover:
 
     pixels: np.ndarray
     transform: tuple[float, float, float, float]
+    materials: frozenset[str] = LANDSCAPE_MATERIALS
 
 
 def raster_window(cover, field="potential_community"):
@@ -116,6 +118,8 @@ def reserved_routes(source, xy, pitch, bounds):
 def landscape_cover(cover, eye, seed):
     if cover is None:
         return None
+    if cover.has_japanese_open_ground:
+        return japanese_landscape(cover, seed)
     if getattr(cover.atlas, "geology_indices", None):
         geology = geology_landscape(cover, seed)
         if geology is not None:
@@ -152,6 +156,31 @@ def landscape_cover(cover, eye, seed):
         colour * (255 * weight.ravel()[picked, None])
     )
     return LandscapeCover(pixels, transform)
+
+
+def japanese_landscape(cover, seed):
+    window = raster_window(cover, "observed_vegetation")
+    if window is None:
+        return None
+    points, pitch, transform = window
+    xy = points.reshape(-1, 2)
+    land, _ = cover.land_cells(xy, include_wood=True)
+    bog, grass = cover.japanese_communities(xy, land)
+    bounds = (*(points[0, 0] - pitch / 2), *(points[-1, -1] + pitch / 2))
+    occupied = reserved_routes(cover.source, xy, pitch, bounds)
+    weight = np.where(~occupied, np.select((bog, grass), (0.84, 0.72)), 0.0)
+    rgb = open_ground_colour(cover.source, xy, bog, seed)
+    fields = np.column_stack((rgb * weight[:, None], weight)).reshape(
+        *points.shape[:2], 4
+    )
+    filtered = gaussian_filter(fields, (0.91, 0.91, 0), mode="constant")
+    filtered[[0, -1], :, :] = 0
+    filtered[:, [0, -1], :] = 0
+    return LandscapeCover(
+        np.rint(255 * filtered).astype(np.uint8),
+        transform,
+        LANDSCAPE_MATERIALS | {"wetland", "forest floor", "regional wood"},
+    )
 
 
 def geology_landscape(cover, seed):
