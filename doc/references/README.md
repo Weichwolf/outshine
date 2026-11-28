@@ -142,6 +142,14 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
   [Flora von Chile](https://catalogoplantas.udec.cl/?q=node%2F1991) ·
   [Argentinische Nationalparks](https://sib.gob.ar/especies/chiliotrichum-diffusum)
 
+- **Mineralischer Ufersaum an Laguna Amarga**. Die Studie belegt
+  karbonatische Ablagerungen in der Lagune. Das datierte Ortsfoto zeigt
+  feuchtes dunkles Sediment, helle Ablagerungen und einen offenen Rand.
+  In Outshine begründen beide Quellen die Auswahl des Ufermaterials und
+  die Aussparung des schmalen mineralischen Saums bei der Bepflanzung.
+  [Solari et al.](https://doi.org/10.1016/j.palaeo.2010.07.016) ·
+  [Uferfoto vom 29. Dezember 2012](https://commons.wikimedia.org/wiki/File:Torres_del_Paine,_Laguna_Amarga.jpg)
+
 - **Hierarchical Image Caching for Accelerated Walkthroughs of Complex Environments**,
   Shade / Lischinski / Salesin / DeRose / Snyder, SIGGRAPH 1996.
   [Autorenprojekt](https://pages.cs.huji.ac.il/danix-lab/cglab/research/wa/) ·

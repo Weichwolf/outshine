@@ -65,6 +65,13 @@ from outshine.rendering.woody_visibility import (
 )
 from outshine.vegetation.landscape_cover import LANDSCAPE_MATERIALS
 from outshine.vegetation.regional_canopy import crown_batches
+from outshine.water.shore_substrate import (
+    CRUST_GRAIN,
+    MINERAL_CRUST,
+    MINERAL_GRAVEL,
+    MINERAL_WET,
+    SHORE_MATERIALS,
+)
 from outshine.water.water_bed import BED_ALBEDO
 from outshine.world.scene import ReferenceScene
 
@@ -73,7 +80,7 @@ CYCLES_REFERENCE_SAMPLES = 128
 CYCLES_NOISE_THRESHOLD = 0.025
 
 
-def detail_nodes(material, name, colour):
+def detail_texels(material, name):
     image_name = f"Outshine detail {name}"
     image = bpy.data.images.get(image_name)
     if image is None:
@@ -109,7 +116,13 @@ def detail_nodes(material, name, colour):
             sampler.projection_blend = BARK_BOX_BLEND
         link(coords.outputs["Vector"], sampler.inputs["Vector"])
         texels.append(sampler)
-    detail, macro = texels
+    return texels
+
+
+def detail_nodes(material, name, colour):
+    nodes = material.node_tree.nodes
+    link = material.node_tree.links.new
+    detail, macro = detail_texels(material, name)
     channels = nodes.new("ShaderNodeSeparateColor")
     link(detail.outputs["Color"], channels.inputs["Color"])
     variance = nodes.new("ShaderNodeMath")
@@ -316,6 +329,71 @@ def apply_landscape_cover(cover):
         tree.links.new(weight.outputs[0], mix.inputs[1])
         tree.links.new(texture["Color"], mix.inputs[2])
         tree.links.new(mix.outputs["Vector"], base)
+
+
+def mix_shore_surface(material, weight, colour, roughness):
+    tree = material.node_tree
+    bsdf = tree.nodes["Principled BSDF"]
+    paint = tree.nodes.new("ShaderNodeMixRGB")
+    fade = tree.nodes.new("ShaderNodeMix")
+    fade.data_type = "FLOAT"
+    for destination, factor, previous, deposit, output, target in (
+        (
+            bsdf.inputs["Base Color"],
+            paint.inputs[0],
+            paint.inputs[1],
+            paint.inputs[2],
+            paint.outputs[0],
+            (*colour, 1),
+        ),
+        (
+            bsdf.inputs["Roughness"],
+            fade.inputs[0],
+            fade.inputs[2],
+            fade.inputs[3],
+            fade.outputs[0],
+            roughness,
+        ),
+    ):
+        tree.links.new(weight, factor)
+        if destination.is_linked:
+            tree.links.new(destination.links[0].from_socket, previous)
+        else:
+            previous.default_value = destination.default_value
+        deposit.default_value = target
+        tree.links.new(output, destination)
+
+
+def apply_shore_appearance(appearance):
+    image = cover_image("Mineral shore weights", appearance)
+    for name in sorted(SHORE_MATERIALS):
+        material = bpy.data.materials.get(name)
+        if material is None:
+            continue
+        texture = cover_texture(material, appearance.transform, image)
+        tree = material.node_tree
+        fields = tree.nodes.new("ShaderNodeSeparateColor")
+        tree.links.new(texture["Color"], fields.inputs[0])
+        crust = fields.outputs["Green"]
+        if detail := SURFACE_DETAIL.get(name):
+            fine, _ = detail_texels(material, detail)
+            grains = tree.nodes.new("ShaderNodeSeparateColor")
+            tree.links.new(fine.outputs["Color"], grains.inputs[0])
+            contrast = tree.nodes.new("ShaderNodeMath")
+            contrast.operation = "MULTIPLY_ADD"
+            contrast.use_clamp = True
+            contrast.inputs[1].default_value, contrast.inputs[2].default_value = (
+                CRUST_GRAIN
+            )
+            tree.links.new(grains.outputs["Red"], contrast.inputs[0])
+            mask = tree.nodes.new("ShaderNodeMath")
+            mask.operation = "MULTIPLY"
+            tree.links.new(contrast.outputs[0], mask.inputs[0])
+            tree.links.new(crust, mask.inputs[1])
+            crust = mask.outputs[0]
+        mix_shore_surface(material, fields.outputs["Blue"], *MINERAL_GRAVEL)
+        mix_shore_surface(material, fields.outputs["Red"], *MINERAL_WET)
+        mix_shore_surface(material, crust, *MINERAL_CRUST)
 
 
 def upload(name, vertices, faces, *, collection, smooth=False, ground_blend=None):
@@ -538,6 +616,8 @@ def render(place, config, args):
         apply_distant_cover(material, world.terrain_cover)
     if cover := world.landscape_cover:
         apply_landscape_cover(cover)
+    if shore := world.shore_appearance:
+        apply_shore_appearance(shore)
     for name, verts, faces in world.grass_and_understory(config["seed"]):
         upload(name, verts, faces, collection=geometry)
     eye, look = Vector(world.eye), Vector(world.look)
