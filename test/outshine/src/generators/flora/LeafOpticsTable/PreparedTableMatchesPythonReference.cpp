@@ -17,7 +17,7 @@ void CheckOwnedTable() {
   using namespace outshine::Generators;
   using namespace outshine::Test;
   const auto source =
-      ReadTextFile("lib/outshine/vegetation/data/leaf-optics-table-1.json", 1024u * 1024u);
+      ReadTextFile("lib/outshine/vegetation/data/leaf-optics-table-1.json", size_t{1024} * 1024);
   CHECK(source.has_value(), "the runtime table has one owned canonical reference input");
   if (!source) { return; }
   Json document;
@@ -45,8 +45,8 @@ int main() {
   using namespace outshine;
   using namespace outshine::Generators;
   using namespace outshine::Test;
-  const auto text =
-      ReadTextFile("test/experiments/vegetation/reference/leaf-optics-native.json", 128u * 1024u);
+  const auto text = ReadTextFile("test/experiments/vegetation/reference/leaf-optics-native.json",
+                                 size_t{128} * 1024);
   CHECK(text.has_value(), "the unchanged Python reference input is available");
   if (!text) { return Report(); }
   Json document;
