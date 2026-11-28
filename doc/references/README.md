@@ -122,6 +122,16 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
   aus der jeweiligen Ortsrecherche.
   [UNESCO World Heritage List](https://data.unesco.org/explore/assets/whc001/)
 
+- **Küstenmammutbäume und Schwertfarne am Prairie Creek**. Die Parkkartierung
+  grenzt alten Küstenmammutbaumwald und alte Sitkafichtenbestände räumlich ab.
+  Messungen an Waldbeständen stützen die Größenordnung der Stämme, die hoch
+  angesetzten Kronen und die Schwertfarne im Unterwuchs. Outshine nutzt die
+  Karte für die Bestandswahl und die Messungen für prozedurale Baumformen.
+  [NPS Park Atlas](https://irma.nps.gov/DataStore/Reference/Profile/2316675) ·
+  [Van Pelt et al., Bestandsstruktur](vegetation/botany/2016-coast-redwood-stand-structure.pdf)
+  ([DOI](https://doi.org/10.1016/j.foreco.2016.05.018), [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/)) ·
+  [USFS Silvics](https://research.fs.usda.gov/silvics/redwood)
+
 - **Pflanzengesellschaften in japanischen Hochmooren**. Die Vegetationskarte
   des japanischen Umweltministeriums liefert abgegrenzte Moor- und
   Grasgesellschaften. Das Feuchtgebietsinventar beschreibt Pfeifengras und

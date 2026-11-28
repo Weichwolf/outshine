@@ -32,6 +32,9 @@ SURFACES = {
     "muller oak leaves": ((0.112, 0.154, 0.083), 0.82),
     "foliage": ((0.095, 0.205, 0.044), 0.52),
     "spruce foliage": ((0.049, 0.121, 0.032), 0.60),
+    "redwood bark": ((0.172, 0.084, 0.046), 0.88),
+    "redwood foliage": ((0.046, 0.112, 0.039), 0.77),
+    "redwood fern": ((0.061, 0.163, 0.033), 0.78),
     "regional soil": ((0.19, 0.16, 0.105), 0.95),
     "grass": ((0.097, 0.145, 0.043), 0.9),
     "grass blades": ((0.083, 0.165, 0.037), 0.86),
@@ -130,6 +133,8 @@ GROUND_BLENDS = {
     **{profile.tread: profile.sand for profile in SAND_PROFILES.values()},
 }
 DIFFUSE_TRANSMISSION = {
+    "redwood foliage": 0.18,
+    "redwood fern": 0.31,
     "foliage": 0.32,
     "spruce foliage": 0.17,
     "umbrella thorn foliage": 0.30,

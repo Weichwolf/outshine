@@ -50,8 +50,18 @@ from outshine.vegetation.open_cover import (
     dry_savanna_season,
 )
 from outshine.vegetation.patagonian_shrub import PATAGONIAN_COMMUNITIES
+from outshine.vegetation.redwood import (
+    OLD_GROWTH_REDWOOD,
+    REDWOOD_TAXON,
+    redwood_batches,
+    redwood_forms,
+    redwood_mask,
+)
+from outshine.vegetation.redwood import (
+    RADIUS as REDWOOD_RADIUS,
+)
 from outshine.vegetation.regional_woody import savanna_woody, steppe_shrubs
-from outshine.vegetation.understory import woodland_cover
+from outshine.vegetation.understory import redwood_ferns, woodland_cover
 from outshine.vegetation.woodland import habitat, tree_batches
 from outshine.vegetation.woodland_shrubs import woodland_shrubs
 from outshine.water.river_control import RiverControl, control_surfaces
@@ -313,6 +323,13 @@ class ReferenceScene:
         atlas_path = config.get("vegetation_atlas")
         atlas = VegetationAtlas(atlas_path) if atlas_path is not None else None
         sample = atlas.sample(self.source.lat, self.source.lon) if atlas else None
+        self.redwood_atlas = (
+            atlas
+            if sample
+            and REDWOOD_TAXON in sample.native_candidates
+            and OLD_GROWTH_REDWOOD in atlas.observation_indices
+            else None
+        )
         self.soil_surfaces = soil_surfaces(sample, utc)
         self.sand = SAND_PROFILES.get(sample.ecoregion_id) if sample else None
         self.sand_area = mapped_sand(self.source.features) if self.sand else None
@@ -498,13 +515,20 @@ class ReferenceScene:
             self.focal,
             250,
             self.canopy_seed,
-            exclude=(
-                self.open_cover.japanese_woodland_exclusion
-                if self.open_cover is not None
-                and self.open_cover.has_japanese_open_ground
-                else None
-            ),
+            exclude=self.woodland_exclusion,
+            redwood=self.redwood_evidence if self.redwood_atlas is not None else None,
         )
+
+    def redwood_evidence(self, xy):
+        return redwood_mask(self.redwood_atlas, self.source, xy)
+
+    def woodland_exclusion(self, xy):
+        exclude = np.zeros(len(xy), dtype=bool)
+        if self.open_cover is not None and self.open_cover.has_japanese_open_ground:
+            exclude |= self.open_cover.japanese_woodland_exclusion(xy)
+        if self.redwood_atlas is not None:
+            exclude |= self.redwood_evidence(xy)
+        return exclude
 
     def grass_and_understory(self, seed):
         exclude = self.ground_cover_exclusion if self.open_cover else None
@@ -525,13 +549,33 @@ class ReferenceScene:
         if self.open_cover is not None:
             yield from self.open_cover.batches(self.local, self.eye, seed)
         if "forest floor" in self.local:
+            redwood = self.redwood_evidence if self.redwood_atlas is not None else None
             yield from woodland_cover(
                 self.local["forest floor"],
                 self.source,
                 self.woodland_floor,
                 self.eye,
                 seed,
+                exclude=redwood,
             )
+            if redwood is not None and self.stands.redwoods is not None:
+                xy, marks = self.stands.redwoods
+                near = np.linalg.norm(xy - self.eye[:2], axis=1) < 84
+                centres, marks = xy[near], marks[near]
+                radius = REDWOOD_RADIUS[redwood_forms(marks)] * marks[:, 2] * 1.52
+                stems = shapely.union_all(
+                    shapely.buffer(shapely.points(centres), radius)
+                )
+                floor = self.woodland_floor
+                if floor is not None:
+                    yield from redwood_ferns(
+                        self.local["forest floor"],
+                        self.source,
+                        floor.difference(stems),
+                        self.eye,
+                        seed,
+                        redwood,
+                    )
         yield from bank_plants(
             self.local,
             self.source,
@@ -586,6 +630,10 @@ class ReferenceScene:
         root_domain = shapely.union_all((self.woodland_floor, self.stands.verges))
         if self.plant_exclusion is not None:
             root_domain = root_domain.difference(self.plant_exclusion)
+        if self.stands.redwoods is not None:
+            yield from redwood_batches(
+                self.local, self.stands.redwoods, self.eye[:2], 250, eye_route=eye_route
+            )
         yield from tree_batches(
             self.source,
             250,
@@ -597,12 +645,7 @@ class ReferenceScene:
             eye_route=eye_route,
             mature=self.stands.woodland,
             riverside=self.stands.riverside,
-            exclude=(
-                self.open_cover.japanese_open_ground
-                if self.open_cover is not None
-                and self.open_cover.has_japanese_open_ground
-                else None
-            ),
+            exclude=self.woodland_exclusion,
             skylight=skylight,
         )
         if "forest floor" in self.local:

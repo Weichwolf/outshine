@@ -76,6 +76,30 @@ class NaturalMaterialsTest(unittest.TestCase):
                     ).reshape(3, -1)
                     self.assertLess(np.max(np.abs(np.corrcoef(samples)[0, 1:])), 0.35)
 
+    def test_redwood_bark_does_not_repeat_up_or_across_the_bole(self):
+        frame = DetailFrame(np.array([-13804410.7, 4596854.4, 53.0]), np.ones(3))
+        recipe = "redwood bark"
+        texture = ground_detail(recipe)
+        for band, stretch in enumerate(WAVE_STRETCH):
+            span = detail_scale(recipe)[band]
+            x, z = np.meshgrid(np.linspace(0, span, 120), np.linspace(0, span, 120))
+            points = np.column_stack((x.ravel(), np.zeros(x.size), z.ravel()))
+            channel = texture[:, :, 2 if band == 0 else 3]
+            for multiple in (1, 2, 4):
+                with self.subTest(band=band, spans=multiple):
+                    shift = multiple * span
+                    positions = np.vstack(
+                        (points, points + [shift, 0, 0], points + [0, 0, shift])
+                    )
+                    uv = texture_position(frame, positions, span, stretch)
+                    samples = map_coordinates(
+                        channel,
+                        uv[:, (2, 0)].T * len(channel),
+                        order=1,
+                        mode="grid-wrap",
+                    ).reshape(3, -1)
+                    self.assertLess(np.max(np.abs(np.corrcoef(samples)[0, 1:])), 0.35)
+
     def test_sand_overlay_preserves_mesh_support_and_uses_mapped_coverage(self):
         scene = object.__new__(ReferenceScene)
         scene.sand = SAND_PROFILES[103]

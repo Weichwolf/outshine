@@ -22,6 +22,7 @@ VARIED_DETAILS = frozenset(
         "granodiorite",
         "grass",
         "leaf litter",
+        "redwood bark",
         SAND_DETAIL,
         TREAD_DETAIL,
     )

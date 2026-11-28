@@ -10,6 +10,12 @@ from outshine.terrain.ground_surface import surface_elevations, terrain_triangle
 from outshine.vegetation.axis_surface import axis_mesh
 from outshine.vegetation.montane_trees import conifer_sites, needle_sprays, spruce_plan
 from outshine.vegetation.plant_sites import patch_density
+from outshine.vegetation.redwood import (
+    HEIGHT,
+    REDWOOD_PROFILE,
+    redwood_forms,
+    redwood_geometry,
+)
 from outshine.vegetation.woodland import crown_leaf_frames, stand_plan
 from outshine.vegetation.woodland_leaves import grouped_blades
 from outshine.vegetation.woodland_sites import CANOPY_SCALE
@@ -96,14 +102,17 @@ def crown_template(species, form):
     return crown, (upright, stem["faces"])
 
 
-def rooted_crowns(source, receipt, data, forest, focal, seed, stand, bounds):
+def rooted_crowns(
+    source, receipt, data, forest, focal, seed, stand, bounds, *, redwood=False
+):
     xy, marks = stand
     lo, hi = np.asarray(bounds).reshape(2, 2)
     owned = np.all((xy >= lo) & (xy < hi), axis=1)
     xy, marks = xy[owned], marks[owned]
     scale = marks[:, 2]
     distance = np.linalg.norm(xy, axis=1)
-    projected = focal * CROWN_HEIGHT_M * scale / np.maximum(distance, 1.0)
+    canopy_height = HEIGHT[redwood_forms(marks)] if redwood else CROWN_HEIGHT_M
+    projected = focal * canopy_height * scale / np.maximum(distance, 1.0)
     visibility = np.clip(
         (projected - MIN_CROWN_PIXELS) / (FULL_CROWN_PIXELS - MIN_CROWN_PIXELS), 0, 1
     )
@@ -122,10 +131,15 @@ def rooted_crowns(source, receipt, data, forest, focal, seed, stand, bounds):
     if not keep.any():
         return
     xy, marks, scale, height = xy[keep], marks[keep], scale[keep], height[keep]
+    anchors = np.c_[xy, height - (0.12 if redwood else 0.10)]
+    placements = np.c_[anchors, 2 * np.pi * marks[:, 1], scale].astype(np.float32)
+    if redwood:
+        forms = redwood_forms(marks)
+        for form in np.unique(forms):
+            yield (REDWOOD_PROFILE, int(form)), placements[forms == form]
+        return
     features = source.metric_features(receipt, ("landcover",), data)
     conifers = conifer_sites(source, xy, height, marks[:, 0], features=features)
-    anchors = np.c_[xy, height - 0.10]
-    placements = np.c_[anchors, 2 * np.pi * marks[:, 1], scale].astype(np.float32)
     oak = marks[:, 0] < 0.5
     forms = (marks[:, 0] * 4).astype(int) % 2
     forms[conifers] = 1
@@ -146,6 +160,13 @@ def crown_batches(sites):
         key = species, form
         groups.setdefault(key, []).append(placements)
     for (species, form), placements in groups.items():
+        if species == REDWOOD_PROFILE:
+            yield (
+                f"Regional {species} {form}",
+                redwood_geometry(form, False, True),
+                np.concatenate(placements),
+            )
+            continue
         crown, stem = crown_template(species, form)
         canopy = "needle crown" if species == "spruce" else "foliage"
         yield (

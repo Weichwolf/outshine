@@ -127,6 +127,22 @@ JAPAN_OBSERVATIONS = {
     "attribution": "Biodiversity Center of Japan, Ministry of the Environment",
     "license": "Public Data License 1.0. Clipped and rasterized for the Outshine atlas.",
 }
+REDW_EXTENT = box(-124.06, 41.32, -123.98, 41.42)
+REDW_OBSERVATIONS = {
+    "url": (
+        "https://services1.arcgis.com/fBc8EJBxQRMcHlei/arcgis/rest/services/"
+        "REDW_Vegetation_Ae/FeatureServer/0/query?f=geojson&where=1%3D1"
+        "&geometry=-124.06,41.32,-123.98,41.42&geometryType=esriGeometryEnvelope"
+        "&inSR=4326&outSR=4326&orderByFields=OBJECTID"
+        "&outFields=OBJECTID%2CForestType%2CForestTypeSpecific%2CForestTypeSpecies"
+    ),
+    "metadata_url": "https://irma.nps.gov/DataStore/Reference/Profile/2316675",
+    "release": "REDW Park Atlas, Old-Growth Coniferous Forest, layer 0",
+    "sha256": "05464b1c5224128d11e460d55a8cba77e8b94e303a59967f747b08c86653847b",
+    "attribution": "National Park Service, Redwood National and State Parks GIS Program",
+    "license": "Public NPS GIS service. See metadata for use limitations.",
+    "bounds_wgs84": REDW_EXTENT.bounds,
+}
 HOMOLOSINE = "+proj=igh +ellps=WGS84 +units=m"
 SOIL_CRS = "http://www.opengis.net/def/crs/EPSG/0/152160"
 
@@ -442,6 +458,46 @@ def japan_observations(cache, keys, fetch, offset):
     )
 
 
+def redwood_observations(cache, keys, fetch, offset):
+    window = shapely.union_all(
+        [
+            tile.intersection(REDW_EXTENT)
+            for key in keys
+            if (tile := box(*tile_bounds(key))).intersects(REDW_EXTENT)
+        ]
+    )
+    if window.area == 0:
+        return [], [], {}
+    path = pinned_source(
+        cache, "nps-prairie-creek-old-growth.geojson", REDW_OBSERVATIONS, fetch
+    )
+    document = json.loads(path.read_bytes())
+    if document.get("type") != "FeatureCollection" or document.get(
+        "exceededTransferLimit"
+    ):
+        raise ValueError(
+            "incomplete Redwood National and State Parks observation window"
+        )
+    rows = []
+    for feature in document["features"]:
+        polygon = shapely.make_valid(shape(feature["geometry"])).intersection(window)
+        if polygon.area == 0:
+            continue
+        props = feature["properties"]
+        row = (f"REDW-OG:{props['ForestTypeSpecies']}", props["ForestTypeSpecific"])
+        rows.append((polygon, row))
+    records = sorted({row for _, row in rows})
+    indices = {row: index for index, row in enumerate(records, offset + 1)}
+    return (
+        [
+            {"map_unit": unit, "label": label, "height_class": 0, "density_class": 0}
+            for unit, label in records
+        ],
+        [(polygon, indices[row]) for polygon, row in rows],
+        {"redwood_observed_vegetation": REDW_OBSERVATIONS},
+    )
+
+
 def geopackage_shape(blob):
     if blob[:2] != b"GP":
         raise ValueError("expected a GeoPackage geometry")
@@ -630,6 +686,12 @@ def build_atlas(cache, output, keys, *, fetch, pinned=None):
     observation_records.extend(japan_records)
     observations.extend(japan_shapes)
     observation_sources.update(japan_sources)
+    redwood_records, redwood_shapes, redwood_sources = redwood_observations(
+        cache, keys, fetch, len(observation_records)
+    )
+    observation_records.extend(redwood_records)
+    observations.extend(redwood_shapes)
+    observation_sources.update(redwood_sources)
     geology_records, geology, geology_sources = jotr_geology(cache, keys, fetch)
     with ThreadPoolExecutor(max_workers=6) as pool:
         tiles = dict(
