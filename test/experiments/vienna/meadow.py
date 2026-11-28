@@ -4,7 +4,7 @@ from functools import cache
 
 import numpy as np
 import shapely
-from ground_surface import surface_elevations
+from ground_surface import MEADOW_MARGIN_M, margin_weights, surface_elevations
 from outshine_ref.vegetation import Bellflower, Blade
 from outshine_ref.vegetation.axis_surface import axis_mesh
 from outshine_ref.vegetation.curve_frame import arc_frame
@@ -112,7 +112,7 @@ def meadow_forb(cream):
     return upright_products(meshes)
 
 
-def meadow_cover(mesh, source, eye, seed, *, focal_pixels):
+def meadow_cover(mesh, source, eye, seed, *, focal_pixels, woodland_edges=None):
     distant = coarse_tuft()
     distant_height = distant[0][:, 2].max()
     reach = max(MEADOW_REACH_M, distant_height * focal_pixels / MIN_COARSE_HEIGHT_PX)
@@ -142,8 +142,14 @@ def meadow_cover(mesh, source, eye, seed, *, focal_pixels):
         (MEADOW_REACH_M - distance) / (MEADOW_REACH_M - FULL_MEADOW_COVER_M), 0, 1
     )
     patch = patch_density(source, xy, seed)
-    active = ~coarse & (marks[:, 2] < fade**2 * (3 - 2 * fade) * (0.68 + 0.32 * patch))
-    tall = marks[:, 1] < 0.15 + 0.55 * patch**2
+    cover = np.ones_like(patch)
+    if woodland_edges is not None:
+        margin = margin_weights(woodland_edges, xy, MEADOW_MARGIN_M)
+        cover -= 0.85 * margin**2 * (3 - 2 * margin)
+    active = ~coarse & (
+        marks[:, 2] < fade**2 * (3 - 2 * fade) * (0.68 + 0.32 * patch) * cover
+    )
+    tall = marks[:, 1] < (0.15 + 0.55 * patch**2) * cover
     scale = 0.58 + 0.90 * np.mod(7 * marks[:, 0], 1) + 0.37 * patch
     angles = 2 * np.pi * np.mod(13 * marks[:, 0], 1)
 
@@ -180,7 +186,9 @@ def meadow_cover(mesh, source, eye, seed, *, focal_pixels):
                 )
     flower_patch = patch_density(source, xy, seed ^ 0x4143, scale=0.65)
     flower_cover = 0.07 + 0.26 * flower_patch**2
-    wildflowers = active & (marks[:, 0] > 1 - flower_cover) & (marks[:, 1] > 0.38)
+    wildflowers = (
+        active & (marks[:, 0] > 1 - flower_cover * cover) & (marks[:, 1] > 0.38)
+    )
     for group, products in (
         (active & tall & (marks[:, 0] < 0.16), flowering_stalk),
         (wildflowers & (marks[:, 1] < 0.86), lambda: meadow_forb(False)),
@@ -201,12 +209,12 @@ def meadow_cover(mesh, source, eye, seed, *, focal_pixels):
                 )
     enter = np.clip((distance - 16) / (MEADOW_REACH_M - 16), 0, 1)
     leave = np.clip((reach - distance) / max(reach * 0.30, 1), 0, 1)
-    cover = enter * enter * (3 - 2 * enter) * leave * leave * (3 - 2 * leave)
+    coverage = enter * enter * (3 - 2 * enter) * leave * leave * (3 - 2 * leave) * cover
     radius = np.linalg.norm(distant[0][:, :2], axis=1).max()
     fitted = np.minimum(scale, clearance / radius)
     selected = (
         coarse
-        & (marks[:, 2] < cover * (0.48 + 0.42 * patch))
+        & (marks[:, 2] < coverage * (0.48 + 0.42 * patch))
         & (distant_height * fitted * pixels_per_metre >= MIN_COARSE_HEIGHT_PX)
     )
     if selected.any():

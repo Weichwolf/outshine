@@ -434,6 +434,9 @@ with half as many faces once the measured fold projects below 0.5–0.75 px.
 Smaller clumps follow the field edge. Sparse groups beyond the detailed blades
 fade as their height approaches two pixels. Blender and GLSL share a tile baked
 from the tuft leaves so the ground between clumps retains grass relief.
+Where a meadow meets mapped woodland, the outer 2.4 m of the meadow blends into
+the neighbouring leaf litter. The same distance tapers the grass and flowers.
+Footpaths and other reserved surfaces keep their existing grade and material.
 Use the [Sophienalpe summer photograph, 15 August 2006](https://commons.wikimedia.org/wiki/File:Wien_Sophienalpe.jpg)
 to assess the ground cover and plant height.
 Shore levels, road profiles, ground materials and light still need comparison with real scenes.

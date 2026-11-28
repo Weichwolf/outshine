@@ -31,6 +31,7 @@ from deck_walk_links import DeckWalkLink, deck_walk_links
 from entrances import STREET_STOREY_M, frontages, has_street_storey, pave_entrances
 from facade import FacadeView, draw_facade
 from ground_surface import (
+    MEADOW_MARGIN_M,
     ROUTE_MATERIALS,
     SOIL_MATERIALS,
     TRAIL_SHOULDER_M,
@@ -41,6 +42,7 @@ from ground_surface import (
     partition_ground,
     partition_triangles,
     polygons,
+    shared_edges,
     terrain_triangles,
 )
 from outshine_ref.buildings.structures import suppressed
@@ -62,6 +64,7 @@ class Meshes(dict):
     shore = None
     covered_walks = ()
     trail_litter_edges = None
+    meadow_woodland_edges = None
 
     def add(self, name, vertices, faces):
         points, triangles = self.setdefault(name, ([], []))
@@ -458,6 +461,57 @@ def bank_protection(source, extent, bodies, openings, roads, crossings, fixtures
     return occupied.buffer(TRANSPORT_MARGIN_M).union(bodies)
 
 
+def ground_cover(meshes, features, extent, footprints, names, path, breaks):
+    cover = {"meadow": [], "grass": [], "forest floor": []}
+    for layer, geometry, properties in features:
+        if layer != "landcover":
+            continue
+        material = (
+            "forest floor"
+            if properties.get("class") == "wood"
+            else grassland_material(properties)
+        )
+        if material:
+            cover[material].extend(polygons(shapely.make_valid(geometry)))
+    cover = {
+        name: shapely.union_all(areas).intersection(extent)
+        for name, areas in cover.items()
+    }
+    meadow, grass, woodland = cover.values()
+    if not woodland.is_empty and not (path.is_empty and meadow.is_empty):
+        protected = shapely.union_all(
+            [
+                extent.boundary,
+                *(
+                    geom
+                    for label, geom in footprints.items()
+                    if names[label] != "unpaved path"
+                ),
+            ]
+        )
+        forest = woodland.difference(meadow.union(grass))
+        if not path.is_empty:
+            edges = forest_trail_edges(path, forest, protected)
+            if not edges.is_empty:
+                meshes.trail_litter_edges = edges
+                breaks.append(
+                    edges.buffer(TRAIL_SHOULDER_M, quad_segs=4).boundary.intersection(
+                        path
+                    )
+                )
+        if not meadow.is_empty:
+            occupied = protected.union(path)
+            edges = shared_edges(meadow, forest.difference(occupied), occupied)
+            if not edges.is_empty:
+                meshes.meadow_woodland_edges = edges
+                breaks.append(
+                    edges.buffer(MEADOW_MARGIN_M, quad_segs=4).boundary.intersection(
+                        meadow
+                    )
+                )
+    return cover
+
+
 def ground_surfaces(
     meshes,
     source,
@@ -670,41 +724,17 @@ def ground_surfaces(
         )
         building_stamps = BuildingStamps(foundations, reserved)
         breaks.extend(building_stamps.breaks())
-    vegetation = {"meadow": [], "grass": [], "forest floor": []}
-    for layer, geometry, properties in source.features:
-        if layer != "landcover":
-            continue
-        material = (
-            "forest floor"
-            if properties.get("class") == "wood"
-            else grassland_material(properties)
-        )
-        if material:
-            vegetation[material].extend(polygons(shapely.make_valid(geometry)))
     cover_start = first_stair + len(pieces) + len(earthworks)
-    path = roads["unpaved path"]
-    if not path.is_empty and vegetation["forest floor"]:
-        forest = shapely.union_all(vegetation["forest floor"]).intersection(extent)
-        forest = forest.difference(
-            shapely.union_all([*vegetation["meadow"], *vegetation["grass"]])
-        )
-        reserved = shapely.union_all(
-            [
-                extent.boundary,
-                *(
-                    geom
-                    for label, geom in footprints.items()
-                    if names[label] != "unpaved path"
-                ),
-            ]
-        )
-        edges = forest_trail_edges(path, forest, reserved)
-        if not edges.is_empty:
-            meshes.trail_litter_edges = edges
-            shoulder = edges.buffer(TRAIL_SHOULDER_M, quad_segs=4)
-            breaks.append(shoulder.boundary.intersection(path))
-    for label, (material, areas) in enumerate(vegetation.items(), cover_start):
-        cover = shapely.union_all(areas).intersection(extent)
+    vegetation = ground_cover(
+        meshes,
+        source.features,
+        extent,
+        footprints,
+        names,
+        roads["unpaved path"],
+        breaks,
+    )
+    for label, (material, cover) in enumerate(vegetation.items(), cover_start):
         if not cover.is_empty:
             names[label] = material
             footprints[label] = cover
