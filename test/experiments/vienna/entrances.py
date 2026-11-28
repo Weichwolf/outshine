@@ -110,7 +110,7 @@ def at_path(form, paths, obstacles, reserved, neighbours, tall):
         return min(candidates, key=lambda row: row[:3])
 
 
-def frontages(forms, neighbours, features, water, ground):
+def frontages(forms, neighbours, features, water, ground, wall_ground=None):
     eligible = [
         (index, form, tall)
         for index, (form, nearby) in enumerate(zip(forms, neighbours, strict=True))
@@ -190,6 +190,16 @@ def frontages(forms, neighbours, features, water, ground):
         min_rise = 0.015 if tall else 0.12
         if not min_rise < forms[i].bottom - ground_z <= 0.61:
             continue
+        if wall_ground is not None:
+            bottom = forms[i].bottom
+            a, b = np.asarray(forms[i].polygon.exterior.coords)[side : side + 2]
+            below = wall_ground.buried(a, b, bottom, bottom + DOOR_HEIGHT_M)
+            half = DOOR_WIDTH_M / 2
+            opening = shapely.box(
+                station - half, bottom, station + half, bottom + DOOR_HEIGHT_M
+            )
+            if below is not None and below.intersects(opening):
+                continue
         group = forms[i].group
         if group is not None:
             siblings = grouped.setdefault(group, [])

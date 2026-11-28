@@ -159,6 +159,12 @@ def intact_windows(visible, repeat, start, rise, detailed):
     return intact, quads[intact], holes
 
 
+def opening_area(face, buried, bottom):
+    if buried is None or buried.is_empty:
+        return face
+    return face.difference(translate(buried, yoff=-bottom))
+
+
 def isolated_bays(repeat, intact, quads, start, rise, *, detailed):
     if not len(quads):
         return
@@ -202,7 +208,18 @@ def bay_detail(view, offset, axis, normal, pitch, columns, bottom, top):
 
 
 def draw_facade(
-    meshes, a, b, bottom, top, view, *, grounded, bays, wall="wall", exposed=None
+    meshes,
+    a,
+    b,
+    bottom,
+    top,
+    view,
+    *,
+    grounded,
+    bays,
+    wall="wall",
+    exposed=None,
+    buried=None,
 ):
     span = b - a
     width = np.linalg.norm(span)
@@ -221,6 +238,12 @@ def draw_facade(
             vertices, faces = clipped_wall(visible, [])
             placed(meshes, wall, vertices, faces, a, axis, normal, bottom)
         return
+    if buried is not None and not buried.is_empty and buried.bounds[3] > bottom:
+        if visible is None:
+            visible = shapely.box(0, 0, width, height)
+        clear = opening_area(visible, buried, bottom)
+    else:
+        clear = visible
     offset = np.asarray(view.eye) - a
     columns = max(1, round(width / BAY_PITCH_M))
     pitch = width / columns
@@ -252,7 +275,7 @@ def draw_facade(
                     )
             else:
                 intact, quads, openings = intact_windows(
-                    visible, repeat, offset_m, rise, detailed
+                    clear, repeat, offset_m, rise, detailed
                 )
                 holes.extend(openings)
                 for name, points, faces in isolated_bays(

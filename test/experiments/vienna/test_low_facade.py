@@ -13,6 +13,7 @@ from facade import FacadeView
 from ground_surface import surface_elevations
 from scene_mesh import Meshes
 from street_facade import draw_low_front
+from wall_ground import WallGround
 
 
 class LowFacadeTest(unittest.TestCase):
@@ -43,6 +44,17 @@ class LowFacadeTest(unittest.TestCase):
             frontages([model], [[]], path, shapely.box(-10, -6, 10, -3), ground)
         )
         (front,) = frontages([model], [[]], path, shapely.Polygon(), ground).values()
+        raised = ground | {
+            "sidewalk": (
+                [(-0.08, -0.15, 0), (0.08, -0.15, 0), (0, -0.12, 0.9)],
+                [[0, 1, 2]],
+            )
+        }
+        self.assertFalse(
+            frontages(
+                [model], [[]], path, shapely.Polygon(), raised, WallGround(raised)
+            )
+        )
         corners = np.array(polygon.exterior.coords)
         a, b = corners[front.side : front.side + 2]
         meshes = Meshes()
