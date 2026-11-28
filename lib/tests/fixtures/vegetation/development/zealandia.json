@@ -1,0 +1,37 @@
+{
+  "seed": 2083,
+  "utc": "2026-05-04T21:30:00Z",
+  "weather": "clear",
+  "eye_height_m": 1.7,
+  "vertical_fov_deg": 54,
+  "source_snapshot": "20260927_080001_pt",
+  "source_pins": "zealandia-sources.json",
+  "places": [
+    {
+      "id": "Zealandia-Near",
+      "latitude": -41.29125618,
+      "longitude": 174.75303145,
+      "heading_deg": 210,
+      "pitch_deg": -5,
+      "support": "sidewalk"
+    },
+    {
+      "id": "Zealandia-Stand",
+      "latitude": -41.29114805,
+      "longitude": 174.75321116,
+      "heading_deg": 221,
+      "pitch_deg": -3,
+      "support": "sidewalk"
+    }
+  ],
+  "walks": {
+    "Zealandia-Footpath": {
+      "origin": "Zealandia-Near",
+      "station_offsets_m": [
+        0,
+        7.2
+      ],
+      "step_m": 0.45
+    }
+  }
+}
