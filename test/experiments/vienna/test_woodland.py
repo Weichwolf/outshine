@@ -14,6 +14,7 @@ from scipy.spatial import cKDTree
 from woodland import (
     avenue_plan,
     crown_leaf_frames,
+    foliage_step,
     geometry,
     represented_leaves,
     scaffold_parts,
@@ -32,6 +33,17 @@ from woodland_stem import lean_tree, rooted_stem, stem_profile, template_stem
 
 
 class WoodlandTest(unittest.TestCase):
+    def test_full_chestnut_detail_tracks_the_small_leaflet_width(self):
+        widths = (2, 1.99, 1, 0.5, 0.3, 0.29)
+        self.assertEqual(
+            [foliage_step(width, compound=True) for width in widths],
+            [1, 4, 4, 4, 16, 32],
+        )
+        self.assertEqual(
+            [foliage_step(width, compound=False) for width in widths],
+            [1, 1, 1, 4, 16, 32],
+        )
+
     def test_chestnut_leaflets_share_the_end_of_the_stalk(self):
         for variant, blade in enumerate(chestnut_blades()):
             with self.subTest(variant=variant):
