@@ -206,8 +206,9 @@ class ReferenceScene:
             region,
             pins,
         )
+        self._base_receipts = (*self.source.receipts, *receipts, *region, *self.skyline)
         if pins is not None:
-            for row in self.source.receipts + receipts + region + self.skyline:
+            for row in self._base_receipts:
                 url = row["url"]
                 if url not in pins or pins[url] != row.get("sha256"):
                     raise ValueError(f"Unpinned or changed reference source: {url}")
@@ -304,6 +305,15 @@ class ReferenceScene:
     @cached_property
     def terrain_cover(self):
         return distant_cover(*self.terrain_cover_sources)
+
+    @property
+    def source_receipts(self):
+        """Report the terrain and vector inputs used by the reference scene."""
+        return (
+            *self._base_receipts,
+            *self.transport.receipts,
+            *self.terrain_cover.receipts,
+        )
 
     @cached_property
     def woodland_floor(self):

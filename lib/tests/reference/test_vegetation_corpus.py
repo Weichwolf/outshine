@@ -1,13 +1,72 @@
 import unittest
+from collections import Counter
+from datetime import date
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from lib.tests.fixtures.vegetation.catalog import load_sites, site_views
+from lib.tests.fixtures.vegetation.pin_sources import collect_pins
 from lib.tests.fixtures.vienna.catalog import load_catalog
 from lib.tests.render_places import main
 
 
 class VegetationCorpusTest(unittest.TestCase):
+    def test_pilot_allocates_two_development_sites_per_continent(self):
+        sites = load_sites().values()
+        self.assertEqual(
+            Counter(site["continent"] for site in sites),
+            dict.fromkeys(
+                (
+                    "Africa",
+                    "Asia",
+                    "Europe",
+                    "North America",
+                    "Oceania",
+                    "South America",
+                ),
+                2,
+            ),
+        )
+        for site in sites:
+            self.assertEqual(site["partition"], "development")
+            self.assertTrue(site["reference_photos"])
+            for photo in site["reference_photos"]:
+                self.assertEqual(
+                    date.fromisoformat(photo["date"]).isoformat(), photo["date"]
+                )
+
+    def test_pin_inventory_preserves_missing_tiles_and_rejects_changed_receipts(self):
+        near = SimpleNamespace(
+            source_receipts=(
+                {"url": "local", "sha256": "a"},
+                {"url": "missing-dem", "missing": True},
+            )
+        )
+        regional = SimpleNamespace(
+            source_receipts=(
+                {"url": "regional", "sha256": "b"},
+                {"url": "local", "sha256": "a"},
+            )
+        )
+        with patch(
+            "lib.tests.fixtures.vegetation.pin_sources.ReferenceScene",
+            side_effect=[near, regional],
+        ):
+            self.assertEqual(
+                collect_pins({}, ["near", "regional"]),
+                {"local": "a", "regional": "b", "missing-dem": None},
+            )
+        changed = SimpleNamespace(source_receipts=({"url": "local", "sha256": "c"},))
+        with (
+            patch(
+                "lib.tests.fixtures.vegetation.pin_sources.ReferenceScene",
+                side_effect=[near, changed],
+            ),
+            self.assertRaisesRegex(ValueError, "Source changed during capture: local"),
+        ):
+            collect_pins({}, ["near", "changed"])
+
     def test_catalog_views_and_walks_resolve_to_reference_inputs(self):
         config = load_catalog()
         for site_id, site in load_sites().items():

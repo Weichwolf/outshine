@@ -1,0 +1,37 @@
+{
+  "seed": 2083,
+  "utc": "2026-06-21T13:30:00Z",
+  "weather": "clear",
+  "eye_height_m": 1.7,
+  "vertical_fov_deg": 54,
+  "source_snapshot": "20260927_080001_pt",
+  "source_pins": "ducke-sources.json",
+  "places": [
+    {
+      "id": "DuckeMusa-Near",
+      "latitude": -3.00490577,
+      "longitude": -59.93859529,
+      "heading_deg": 331,
+      "pitch_deg": 2,
+      "support": "sidewalk"
+    },
+    {
+      "id": "DuckeMusa-Stand",
+      "latitude": -3.00389258,
+      "longitude": -59.93957796,
+      "heading_deg": 337,
+      "pitch_deg": 7,
+      "support": "sidewalk"
+    }
+  ],
+  "walks": {
+    "DuckeMusa-Footpath": {
+      "origin": "DuckeMusa-Near",
+      "station_offsets_m": [
+        0,
+        7.2
+      ],
+      "step_m": 0.45
+    }
+  }
+}

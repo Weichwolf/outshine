@@ -1,0 +1,37 @@
+{
+  "seed": 2083,
+  "utc": "2026-10-10T08:30:00Z",
+  "weather": "clear",
+  "eye_height_m": 1.7,
+  "vertical_fov_deg": 54,
+  "source_snapshot": "20260927_080001_pt",
+  "source_pins": "cape-point-sources.json",
+  "places": [
+    {
+      "id": "CapePoint-Near",
+      "latitude": -34.35236938,
+      "longitude": 18.48459363,
+      "heading_deg": 315,
+      "pitch_deg": -4,
+      "support": "unpaved path"
+    },
+    {
+      "id": "CapePoint-Stand",
+      "latitude": -34.35353975,
+      "longitude": 18.48481733,
+      "heading_deg": 199,
+      "pitch_deg": -5,
+      "support": "unpaved path"
+    }
+  ],
+  "walks": {
+    "CapePoint-Footpath": {
+      "origin": "CapePoint-Near",
+      "station_offsets_m": [
+        0,
+        7.2
+      ],
+      "step_m": 0.45
+    }
+  }
+}

@@ -1,7 +1,7 @@
 """Bake the mapped land cover of the geodetic horizon into a shared material map."""
 
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 import shapely
@@ -35,6 +35,7 @@ COVER_CODES = {name: i for i, name in enumerate(COVER_MATERIALS)}
 class HorizonCover:
     pixels: np.ndarray
     transform: tuple[float, float, float, float]
+    receipts: tuple[dict, ...] = ()
 
 
 def cover_source_specs(source, place, snapshot, focal):
@@ -93,9 +94,10 @@ def distant_cover(source, place, snapshot, focal, cache, pins):
         if pins is not None and pins[receipt["url"]] != receipt["sha256"]:
             raise ValueError(f"Changed horizon land cover source: {receipt['url']}")
         footprints.extend(tile_cover(source, receipt, project))
-    return rasterize_cover(
+    cover = rasterize_cover(
         footprints, view_sector(place, focal, HORIZON_RANGE_M).bounds
     )
+    return replace(cover, receipts=tuple(receipts))
 
 
 def rasterize_cover(footprints, bounds, size=COVER_SIZE):

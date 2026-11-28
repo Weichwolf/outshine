@@ -6,6 +6,7 @@ from pathlib import Path
 from ..vienna.catalog import ROOT, available_views
 
 MANIFEST = Path(__file__).with_name("pilot.json")
+SOURCE_CACHE = ROOT / "build/vegetation-pilot-sources"
 
 
 def load_sites():
@@ -26,6 +27,6 @@ def site_views(site, vienna):
         config["source_pins"] = json.loads(
             path.with_name(config["source_pins"]).read_text()
         )
-        config["source_cache"] = str(ROOT / "build/vegetation-pilot-sources")
+        config["source_cache"] = str(SOURCE_CACHE)
     by_id = {view["id"]: view for view in available_views(config)}
     return [(by_id[name], config) for name in site["views"]]
