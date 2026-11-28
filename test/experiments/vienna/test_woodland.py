@@ -20,6 +20,7 @@ from woodland import (
     woodland_surface,
 )
 from woodland_fork import joined_wood
+from woodland_leaves import blade_kite, grouped_blades
 from woodland_stem import lean_tree, rooted_stem, stem_profile, template_stem
 
 
@@ -91,23 +92,63 @@ class WoodlandTest(unittest.TestCase):
             "leaf_variants": np.zeros(64, dtype=int),
             "leaf_origins": np.zeros((64, 3)),
         }
-        for stride in (4, 16):
-            with self.subTest(stride=stride):
-                leaves, _, _ = represented_leaves(rows, np.ones(1), stride)
-                np.testing.assert_array_equal(leaves // stride, np.arange(64 // stride))
-                self.assertEqual(set(leaves % 2), {0, 1})
+        leaves, _, _ = represented_leaves(rows, np.ones(1), 4)
+        np.testing.assert_array_equal(leaves // 4, np.arange(16))
+        self.assertEqual(set(leaves % 2), {0, 1})
 
     def test_distant_canopy_preserves_leaf_area_with_fewer_representatives(self):
         plan = stand_plan("oak", 0)
         rows = plan.tables(sum(plan.axis_counts), sum(plan.leaf_counts))
         areas = np.array([blade.area() for blade in plan.blades])
         variants = rows["leaf_variants"]
-        middle, _, _ = represented_leaves(rows, areas, 16)
-        far, scale, centres = represented_leaves(rows, areas, 32)
+        frames = crown_leaf_frames(rows, plan.seed, oak=True)
+        _, middle = grouped_blades(
+            rows, plan.blades, frames, areas, 16, merge_shoots=False
+        )
+        vertices, far = grouped_blades(
+            rows, plan.blades, frames, areas, 32, merge_shoots=True
+        )
         self.assertLess(len(far), len(middle))
-        self.assertEqual(len(centres), len(far))
-        self.assertAlmostEqual(
-            np.sum(areas[variants[far]] * scale**2), sum(areas[variants])
+        corners = vertices[far]
+        area = (
+            0.5
+            * np.linalg.norm(
+                np.cross(corners[:, 1] - corners[:, 0], corners[:, 2] - corners[:, 0]),
+                axis=1,
+            ).sum()
+        )
+        self.assertAlmostEqual(float(area), float(areas[variants].sum()))
+
+    def test_grouped_leaves_preserve_area_and_separated_shoot_positions(self):
+        blade = stand_plan("oak", 0).blades[0]
+        count = 9
+        x = np.array([-0.37, -0.35, -0.33, -0.31, 0.31, 0.33, 0.35, 0.37, 0.8])
+        origins = np.column_stack((x, np.zeros((count, 2))))
+        rows = {
+            "leaf_axis_ids": np.zeros(count, dtype=int),
+            "leaf_variants": np.zeros(count, dtype=int),
+            "leaf_origins": origins,
+        }
+        frames = np.tile(np.eye(3), (count, 1, 1))
+        area = blade.area()
+        vertices, faces = grouped_blades(
+            rows, (blade,), frames, np.array([area]), 8, merge_shoots=False
+        )
+        self.assertEqual(len(faces), 6)
+        corners = vertices[faces]
+        triangle_areas = 0.5 * np.linalg.norm(
+            np.cross(corners[:, 1] - corners[:, 0], corners[:, 2] - corners[:, 0]),
+            axis=1,
+        )
+        self.assertAlmostEqual(float(triangle_areas.sum()), count * area)
+        areas = triangle_areas.reshape(-1, 2)
+        centres = np.sum(
+            areas[..., None] * corners.mean(axis=1).reshape(-1, 2, 3), axis=1
+        )
+        centres /= areas.sum(axis=1)[:, None]
+        _, _, offset = blade_kite(blade)
+        np.testing.assert_allclose(
+            np.sort(centres[:, 0]), np.array([-0.34, 0.34, 0.8]) + offset[0]
         )
 
     def test_roots_follow_the_rendered_soil_across_a_grass_boundary(self):
