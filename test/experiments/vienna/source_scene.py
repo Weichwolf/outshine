@@ -12,7 +12,7 @@ from outshine_ref.places.sources import (
     decode_vector,
     tile_geography,
 )
-from shapely.geometry import Point, shape
+from shapely.geometry import box, shape
 
 
 class LocalScene:
@@ -28,6 +28,8 @@ class LocalScene:
         self.receipts = []
         self.features = []
         self.dem = Elevation([])
+        extent = box(-radius, -radius, radius, radius)
+        shapely.prepare(extent)
         for kind, zoom in (("elevation", 12), ("vector", 14)):
             for tile in covering_tiles(self.lat, self.lon, radius, zoom):
                 key = "/".join(map(str, tile))
@@ -39,7 +41,7 @@ class LocalScene:
                 receipt = acquire((kind, tile, url), Path(cache), fetch=True)
                 self.receipts.append(receipt)
                 if kind == "vector":
-                    self.add_features(receipt, radius)
+                    self.add_features(receipt, extent)
             if kind == "elevation":
                 self.dem = Elevation(self.receipts)
         self.datum = float(self.dem.sample(self.lat, self.lon))
@@ -48,16 +50,15 @@ class LocalScene:
         lon, lat = (np.asarray(xy) / self.metres + [self.lon, self.lat]).T
         return self.dem.sample(lat, lon) - self.datum
 
-    def add_features(self, receipt, radius):
-        centre = Point(0, 0)
+    def add_features(self, receipt, extent):
         for name, geometry, properties in self.metric_features(
             receipt, ("building", "transportation", "water", "landcover")
         ):
-            if geometry.distance(centre) > radius:
+            if not extent.intersects(geometry):
                 continue
             if name == "building":
                 footprints, _ = building_footprints(geometry)
-                nearby = footprints[shapely.dwithin(footprints, centre, radius)]
+                nearby = footprints[shapely.intersects(extent, footprints)]
                 self.features.extend(
                     (name, footprint, properties) for footprint in nearby
                 )

@@ -31,7 +31,7 @@ def row_points(route, offset):
     return np.concatenate((centre[distinct] + displaced, centre[distinct] - displaced))
 
 
-def avenue_sites(source, radius, seed):
+def avenue_sites(source, half_extent, seed):
     lawns, obstructions, woods, transport, routes = [], [], [], [], []
     for layer, shape, tags in source.features:
         if layer == "landcover" and tags.get("subclass") in LAWN_SUBCLASSES:
@@ -63,7 +63,9 @@ def avenue_sites(source, radius, seed):
     xy = np.concatenate(
         [row_points(line, width / 2 + VERGE_DEPTH_M) for line, width in routes]
     )
-    keep = (np.sum(xy**2, axis=1) < radius**2) & shapely.contains_xy(planting, *xy.T)
+    keep = np.all(np.abs(xy) < half_extent, axis=1) & shapely.contains_xy(
+        planting, *xy.T
+    )
     xy = xy[keep]
     rank = patch_density(source, xy, seed ^ 0xA4D8, scale=0.1)
     distinct = spaced_sites(xy, rank, ROW_SPACING_M * 0.60)

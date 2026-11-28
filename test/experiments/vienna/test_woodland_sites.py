@@ -18,7 +18,7 @@ class WoodlandSitesTest(unittest.TestCase):
         )
 
     def test_crop_keeps_neighbour_competition_and_the_walking_reservation(self):
-        xy = np.array([[0, 0], [4, 0], [9, 0], [11, 0], [18, 0]], dtype=float)
+        xy = np.array([[0, 0], [4, 0], [9, 0], [11, 0], [18, 0], [8, 8]], dtype=float)
         marks = np.zeros((len(xy), 3))
         domain = shapely.box(-30, -30, 30, 30).difference(shapely.box(3, -1, 5, 1))
         source = SimpleNamespace(lon=0, lat=0, metres=np.ones(2))
@@ -41,5 +41,5 @@ class WoodlandSitesTest(unittest.TestCase):
             full, _ = woodland_sites(source, domain, np.zeros(2), 20, 0)
             inner, _ = woodland_sites(source, domain, np.zeros(2), 10, 0)
 
-        np.testing.assert_array_equal(full, [[0, 0], [11, 0], [18, 0]])
-        np.testing.assert_array_equal(inner, full[np.linalg.norm(full, axis=1) < 10])
+        np.testing.assert_array_equal(full, [[0, 0], [11, 0], [18, 0], [8, 8]])
+        np.testing.assert_array_equal(inner, [[0, 0], [8, 8]])
