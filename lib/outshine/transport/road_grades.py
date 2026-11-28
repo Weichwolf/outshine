@@ -42,20 +42,11 @@ class RoadGradeFit:
     unresolved_faces: int
 
 
-def ground_carriageways(paths, project, extent, features=()):
-    areas = defaultdict(list)
+def carriageway_axes(paths, project, extent):
     bounds = {
         width: extent.buffer(width / 2, quad_segs=1)
         for width in set(ROAD_WIDTH.values())
     }
-    for name, geometry, tags in features:
-        grade = GRADE_LIMITS.get(tags.get("class"))
-        if name == "transportation" and grade is not None:
-            width = at_grade_width(tags)
-            if width is not None:
-                area = route_area(geometry, width).intersection(extent)
-                if not area.is_empty:
-                    areas[grade].append(area)
     for path in paths:
         attributes = path.attributes
         limit = GRADE_LIMITS.get(attributes.kind)
@@ -68,7 +59,22 @@ def ground_carriageways(paths, project, extent, features=()):
         axis = shapely.LineString(coords)
         clipped = axis.intersection(bounds[width])
         if clipped.geom_type.endswith("LineString") and not clipped.is_empty:
-            areas[limit].append(route_area(clipped, width))
+            for part in shapely.get_parts(clipped):
+                yield part, width, limit
+
+
+def ground_carriageways(axes, extent, features):
+    areas = defaultdict(list)
+    for name, geometry, tags in features:
+        grade = GRADE_LIMITS.get(tags.get("class"))
+        if name == "transportation" and grade is not None:
+            width = at_grade_width(tags)
+            if width is not None:
+                area = route_area(geometry, width).intersection(extent)
+                if not area.is_empty:
+                    areas[grade].append(area)
+    for axis, width, limit in axes:
+        areas[limit].append(route_area(axis, width))
     return dict(areas)
 
 

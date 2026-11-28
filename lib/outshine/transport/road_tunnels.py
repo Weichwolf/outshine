@@ -326,6 +326,17 @@ def plan_road_tunnels(
         return ()
     protected = shapely.union_all(buildings)
     occupied = shapely.union_all([water, *reservations])
+    tram_ground = shapely.union_all(
+        [
+            route_area(geometry, 2 * TRACK_HALF_WIDTH)
+            for name, geometry, tags in features
+            if name == "transportation"
+            and tags.get("class") == "transit"
+            and tags.get("subclass") == "tram"
+            and not tags.get("brunnel")
+            and not tags.get("layer")
+        ]
+    )
     faces = terrain_triangles(quads)
     terrain = shapely.STRtree(shapely.polygons(vertices[faces, :2]))
     ground = GroundSections(vertices, quads, height, ())
@@ -364,7 +375,9 @@ def plan_road_tunnels(
                 for link in (left, right)
             ]
             best = None
-            frozen = shapely.union_all([protected, occupied, domain.boundary])
+            frozen = shapely.union_all(
+                [protected, occupied, tram_ground, domain.boundary]
+            )
             for support in (None, frozen):
                 for route in tunnel_routes(bore, approaches, left, right):
                     result = fit_tunnel(

@@ -7,7 +7,18 @@ import numpy as np
 from ..heights import _gradient_matrix
 
 
-def solve(faces, target, frames, coefficients, fixed, fixed_heights, weights, budget):
+def solve(
+    faces,
+    target,
+    frames,
+    coefficients,
+    fixed,
+    fixed_heights,
+    weights,
+    budget,
+    *,
+    excess_limits=None,
+):
     import clarabel
     from scipy import sparse
 
@@ -28,6 +39,29 @@ def solve(faces, target, frames, coefficients, fixed, fixed_heights, weights, bu
     cones = [clarabel.SecondOrderConeT(3) for _ in faces]
     if len(fixed):
         cones.append(clarabel.ZeroConeT(len(fixed)))
+    diagonal = np.asarray(weights)
+    objective = -weights * (target - centre)
+    if excess_limits is not None:
+        softened = np.flatnonzero(excess_limits > 0)
+        slack_count = len(softened)
+        slack_columns = sparse.csc_matrix(
+            (-np.ones(slack_count), (3 * softened, np.arange(slack_count))),
+            shape=(matrix.shape[0], slack_count),
+        )
+        matrix = sparse.hstack((matrix, slack_columns))
+        identity = sparse.eye(slack_count, format="csc")
+        bounds = sparse.vstack((-identity, identity))
+        matrix = sparse.vstack(
+            (
+                matrix,
+                sparse.hstack((sparse.csc_matrix((2 * slack_count, count)), bounds)),
+            )
+        ).tocsc()
+        rhs = np.r_[rhs, np.zeros(slack_count), excess_limits[softened]]
+        if slack_count:
+            cones.append(clarabel.NonnegativeConeT(2 * slack_count))
+        diagonal = np.r_[diagonal, np.zeros(slack_count)]
+        objective = np.r_[objective, np.ones(slack_count)]
     settings = clarabel.DefaultSettings()
     settings.verbose = False
     settings.time_limit = budget.time_limit_s
@@ -36,15 +70,15 @@ def solve(faces, target, frames, coefficients, fixed, fixed_heights, weights, bu
     settings.tol_feas = settings.tol_gap_abs = settings.tol_gap_rel = 1e-9
     setup_ms = (time.perf_counter() - began) * 1000
     solver = clarabel.DefaultSolver(
-        sparse.diags(weights, format="csc"),
-        -weights * (target - centre),
+        sparse.diags(diagonal, format="csc"),
+        objective,
         matrix,
         rhs,
         cones,
         settings,
     )
     result = solver.solve()
-    heights = None if result.x is None else np.asarray(result.x) + centre
+    heights = None if result.x is None else np.asarray(result.x[:count]) + centre
     return heights, {
         "solver_status": str(result.status),
         "iterations": result.iterations,
