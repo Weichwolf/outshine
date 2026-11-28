@@ -12,5 +12,6 @@ vec3 segmentTransmission(sampler2D veil, Medium air, float startKm, float vertic
   ivec2 extent = textureSize(veil, 0);
   vec3 startT = textureLod(veil, mediumTransmittanceUv(air, MediumLook(startKm, signOfRay * vertical), extent), 0.0).rgb;
   vec3 endT = textureLod(veil, mediumTransmittanceUv(air, MediumLook(endKm, signOfRay * endVertical), extent), 0.0).rgb;
-  return clamp(aboveGround ? startT / max(endT, vec3(1e-6)) : endT / max(startT, vec3(1e-6)), 0.0, 1.0);
+  // Both values can be very dark at the horizon even for a short surface segment.
+  return clamp(aboveGround ? startT / max(endT, vec3(1e-30)) : endT / max(startT, vec3(1e-30)), 0.0, 1.0);
 }
