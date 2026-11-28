@@ -12,9 +12,16 @@ from ground_surface import (
     ROAD_WIDTH,
     ROUTE_MATERIALS,
     clip_route_areas,
-    grassland_material,
     partition_ground,
     route_footprints,
+    terrain_triangles,
+)
+from land_cover import (
+    COVER_LAYERS,
+    COVER_PRIORITY,
+    PARCEL_SURFACES,
+    cover_material,
+    paint_cover,
 )
 from outshine_ref.buildings.structures import suppressed
 from outshine_ref.places.height import Elevation
@@ -52,7 +59,10 @@ REGIONAL_LAND = (
     "regional water",
     "regional deck",
     "meadow",
+    *PARCEL_SURFACES,
 )
+REGIONAL_CODES = {name: i for i, name in enumerate(REGIONAL_LAND)}
+REGIONAL_GROUND = set(REGIONAL_LAND) - {"regional water", "regional deck"}
 
 
 def tile_rect(source, tile):
@@ -184,7 +194,7 @@ def bridgehead_sources(source, spans, receipts, snapshot, cache, pins):
     return nearby
 
 
-def paint(image, feature, extent, value):
+def paint(image, feature, extent, value, *, preserve_holes=False):
     geom = feature["geometry"]
     polygons = geom["coordinates"]
     if geom["type"] == "Polygon":
@@ -194,51 +204,51 @@ def paint(image, feature, extent, value):
     draw = ImageDraw.Draw(image)
     factor = image.width / extent
     for poly in polygons:
-        for i, ring in enumerate(poly):
-            xy = (np.asarray(ring) * factor).astype(int)
-            if len(xy) >= 3:
-                draw.polygon([tuple(p) for p in xy], fill=value if i == 0 else 0)
+        rings = [
+            (np.asarray(ring) * factor).astype(int) for ring in poly if len(ring) >= 3
+        ]
+        if not rings:
+            continue
+        if preserve_holes:
+            paint_cover(image, rings[0], rings[1:], value)
+        else:
+            for i, ring in enumerate(rings):
+                draw.polygon([tuple(p) for p in ring], fill=value if i == 0 else 0)
 
 
 def class_fields(data, size, elevated, detail):
     land, structures = Image.new("L", (size, size)), Image.new("F", (size, size))
-    for layer in ("landcover", "transportation", "building"):
-        if layer not in data or (detail and layer == "building"):
+    mapped = []
+    for layer in COVER_LAYERS:
+        if layer not in data:
             continue
         group = data[layer]
-        features = group["features"]
-        if layer == "building":
-            features = sorted(
-                features, key=lambda f: f["properties"].get("render_height", 0)
-            )
-        elif layer == "landcover":
-            features = sorted(
-                features,
-                key=lambda f: (
-                    f["properties"].get("class") == "wood",
-                    grassland_material(f["properties"]) == "meadow",
-                ),
-            )
-        for f in features:
-            props = f["properties"]
-            if layer == "building":
-                h = props.get("render_height", 0)
-                if h > 0 and not suppressed(props):
-                    paint(structures, f, group["extent"], float(h))
-            else:
-                value = {
-                    "grass": 1,
-                    "farmland": 1,
-                    "wood": 2,
-                    "wetland": 1,
-                    "bridge": 4,
-                }.get(props.get("class"), 0)
-                if layer == "landcover" and grassland_material(props) == "meadow":
-                    value = REGIONAL_LAND.index("meadow")
-                if value == 4 and id(f) in elevated:
-                    continue
-                if value:
-                    paint(land, f, group["extent"], value)
+        for feature in group["features"]:
+            name = cover_material(layer, feature["properties"], feature.get("id"))
+            if name is not None:
+                mapped.append((name, group["extent"], feature))
+    for name, extent, feature in sorted(
+        mapped, key=lambda item: COVER_PRIORITY[item[0]]
+    ):
+        value = REGIONAL_CODES["regional wood" if name == "wood" else name]
+        paint(land, feature, extent, value, preserve_holes=True)
+    if group := data.get("transportation"):
+        for feature in group["features"]:
+            if (
+                feature["properties"].get("class") == "bridge"
+                and id(feature) not in elevated
+            ):
+                paint(land, feature, group["extent"], REGIONAL_CODES["regional deck"])
+    if not detail and (group := data.get("building")):
+        features = sorted(
+            group["features"],
+            key=lambda item: item["properties"].get("render_height", 0),
+        )
+        for feature in features:
+            props = feature["properties"]
+            height = props.get("render_height", 0)
+            if height > 0 and not suppressed(props):
+                paint(structures, feature, group["extent"], float(height))
     return np.asarray(land), np.asarray(structures)
 
 
@@ -303,7 +313,7 @@ def tile_surface(
     names = (*REGIONAL_LAND, *ROUTE_MATERIALS)
     tile_water = tuple(clipped_water(water_plan, tile.difference(local)))
     water = shapely.union_all([footprint for _, footprint in tile_water])
-    footprints = {3: water}
+    footprints = {REGIONAL_CODES["regional water"]: water}
     graded = {}
     protected = shapely.Polygon()
     if detail:
@@ -376,12 +386,7 @@ def tile_surface(
             elif name == "regional water":
                 edges = vertices[triangles[:, [0, 1, 1, 2, 2, 0]]].reshape(-1, 2, 3)
                 shore_walls(shore_parts, "regional soil", source, shore, edges)
-            elif shore.contacts and name in {
-                "regional soil",
-                "grass",
-                "regional wood",
-                "meadow",
-            }:
+            elif shore.contacts and name in REGIONAL_GROUND:
                 used, inverse = np.unique(triangles, return_inverse=True)
                 products.append(
                     (name, shore.deform(source, vertices[used]), inverse.reshape(-1, 3))
@@ -553,6 +558,7 @@ def regional_meshes(
     seam = terrain_grid(source, radius)[0] if align_seam else None
     reach = crown_reach(focal)
     origin = shapely.Point(0, 0)
+    parcels = {}
     for receipt in transport.receipts:
         if receipt["kind"] == "vector":
             nearby = transport.nearby.get(receipt["url"])
@@ -581,7 +587,27 @@ def regional_meshes(
                     crown_sites.extend(
                         rooted_crowns(source, receipt, data, forest, focal, seed)
                     )
-            yield products, tile
+            tile_products = []
+            for name, vertices, faces in products:
+                if name not in PARCEL_SURFACES:
+                    tile_products.append((name, vertices, faces))
+                    continue
+                if faces.shape[1] == 4:
+                    faces = terrain_triangles(faces)
+                used, indices = np.unique(faces, return_inverse=True)
+                parcels.setdefault(name, []).append(
+                    (vertices[used], indices.reshape(-1, 3))
+                )
+            yield tile_products, tile
+    parcel_meshes = []
+    for name, parts in parcels.items():
+        vertices, triangles = zip(*parts, strict=True)
+        offsets = np.cumsum([0, *(len(chunk) for chunk in vertices[:-1])])
+        faces = np.concatenate(
+            [f + offset for f, offset in zip(triangles, offsets, strict=True)]
+        )
+        parcel_meshes.append((name, np.concatenate(vertices), faces))
+    yield parcel_meshes, shapely.Polygon()
     yield [(n, *mesh) for n, mesh in transport.bridges.items()], shapely.Polygon()
 
 

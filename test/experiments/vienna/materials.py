@@ -1,3 +1,4 @@
+from land_cover import PARCEL_SURFACES
 from outshine_ref.buildings.modelling.material_schema import colour, srgb_to_linear
 
 GLASS_IOR = 1.52
@@ -65,6 +66,7 @@ SURFACES = {
     "frame": ((0.21, 0.18, 0.14), 0.65),
     "glass": ((0.018, 0.024, 0.028), 0.13),
     "entrance door": ((0.072, 0.048, 0.030), 0.54),
+    **PARCEL_SURFACES,
 }
 
 METALLIC = {"rail head": 1.0}
