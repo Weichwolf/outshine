@@ -3,42 +3,25 @@
 from functools import cache
 
 import numpy as np
-import shapely
 from ground_surface import surface_elevations, terrain_triangles
 from montane_trees import conifer_sites
-from outshine_ref.places.sources import tile_geography
 from outshine_ref.vegetation.axis_surface import axis_mesh
 from outshine_ref.vegetation.curve_frame import arc_frame
+from plant_sites import patch_density
 from scipy.spatial import ConvexHull
 from woodland import stand_plan
+from woodland_sites import CANOPY_SCALE
 from woodland_stem import lean_tree
 
-SITE_SPACING_M = 8.0
 CROWN_HEIGHT_M = 14.0
-MAX_SCALE = 1.30
-MIN_CROWN_PIXELS = 8.0
-FULL_CROWN_PIXELS = 12.0
+MIN_CROWN_PIXELS = 12.0
+FULL_CROWN_PIXELS = 16.0
 BROADLEAF_SPREAD = 1.6
 SHOOT_ENVELOPE_M = 0.55
 
 
 def crown_reach(focal):
-    return focal * CROWN_HEIGHT_M * MAX_SCALE / MIN_CROWN_PIXELS
-
-
-def tile_crown_sites(source, tile, seed):
-    latitude, longitude = tile_geography([[0, 1], [1, 0]], 1, tile)
-    sw, ne = np.column_stack((longitude, latitude))
-    metre = np.array((111319.49 * np.cos(np.deg2rad(latitude.mean())), 111132.0))
-    span = (ne - sw) * metre
-    rows, columns = np.ceil(span / SITE_SPACING_M).astype(int)
-    grid = np.indices((rows, columns)).reshape(2, -1).T
-    rng = np.random.default_rng(np.random.SeedSequence((seed, *tile)))
-    random = rng.random((len(grid), 6))
-    positions = (grid + 0.15 + 0.70 * random[:, :2]) * SITE_SPACING_M
-    keep = np.all(positions < span, axis=1)
-    enu = (sw - [source.lon, source.lat] + positions[keep] / metre) * source.metres
-    return enu, random[keep, 2:]
+    return focal * CROWN_HEIGHT_M * CANOPY_SCALE[1] / MIN_CROWN_PIXELS
 
 
 def hull_mesh(vertices):
@@ -65,9 +48,9 @@ def needle_lobe(offset, profile):
     return hull_mesh(np.vstack(rings) + offset)
 
 
-def broadleaf_lobes(species):
+def broadleaf_lobes(species, form):
     oak = species == "oak"
-    plan = stand_plan(species, 0 if oak else 1)
+    plan = stand_plan(species, form)
     sprays = []
     for limb in plan.children(()):
         for twig in plan.children(limb):
@@ -111,14 +94,14 @@ def broadleaf_lobes(species):
 
 
 @cache
-def crown_template(species):
+def crown_template(species, form):
     if species == "spruce":
         lobes = (
             needle_lobe((0, 0, 0), ((2.8, 0), (4.4, 3.2), (9.8, 0))),
             needle_lobe((0.12, 0, 0), ((5.1, 0), (7.4, 2.5), (14, 0))),
         )
     else:
-        lobes = tuple(broadleaf_lobes(species))
+        lobes = tuple(broadleaf_lobes(species, form))
     vertices = np.vstack([vertex for vertex, _ in lobes])
     offsets = np.cumsum([0, *(len(vertex) for vertex, _ in lobes[:-1])])
     faces = np.vstack(
@@ -129,15 +112,18 @@ def crown_template(species):
     return (vertices, faces), (upright, stem["faces"])
 
 
-def rooted_crowns(source, receipt, data, forest, focal, seed):
-    xy, marks = tile_crown_sites(source, receipt["tile"], seed)
-    scale = 0.68 + (MAX_SCALE - 0.68) * marks[:, 2]
+def rooted_crowns(source, receipt, data, forest, focal, seed, stand, bounds):
+    xy, marks = stand
+    lo, hi = np.asarray(bounds).reshape(2, 2)
+    owned = np.all((xy >= lo) & (xy < hi), axis=1)
+    xy, marks = xy[owned], marks[owned]
+    scale = marks[:, 2]
     distance = np.linalg.norm(xy, axis=1)
     projected = focal * CROWN_HEIGHT_M * scale / np.maximum(distance, 1.0)
     visibility = np.clip(
         (projected - MIN_CROWN_PIXELS) / (FULL_CROWN_PIXELS - MIN_CROWN_PIXELS), 0, 1
     )
-    keep = marks[:, 3] < visibility
+    keep = patch_density(source, xy, seed ^ 0x397C, scale=0.125) < visibility
     if not keep.any():
         return
     xy, marks, scale = xy[keep], marks[keep], scale[keep]
@@ -149,36 +135,33 @@ def rooted_crowns(source, receipt, data, forest, focal, seed):
     if not keep.any():
         return
     xy, marks, scale, height = xy[keep], marks[keep], scale[keep], height[keep]
-    features = list(source.metric_features(receipt, ("building", "landcover"), data))
-    buildings = [shapely.make_valid(g) for name, g, _ in features if name == "building"]
-    if buildings:
-        overlap = shapely.STRtree(buildings).query(
-            shapely.points(xy), predicate="intersects"
-        )[0]
-        keep = np.ones(len(xy), dtype=bool)
-        keep[overlap] = False
-        xy, marks, scale, height = xy[keep], marks[keep], scale[keep], height[keep]
+    features = source.metric_features(receipt, ("landcover",), data)
     conifers = conifer_sites(source, xy, height, marks[:, 0], features=features)
     anchors = np.c_[xy, height - 0.10]
     placements = np.c_[anchors, 2 * np.pi * marks[:, 1], scale].astype(np.float32)
     oak = marks[:, 0] < 0.5
+    forms = (marks[:, 0] * 4).astype(int) % 2
     for species, selected in (
         ("oak", ~conifers & oak),
         ("beech", ~conifers & ~oak),
         ("spruce", conifers),
     ):
-        if selected.any():
-            yield species, placements[selected]
+        for form in (0, 1):
+            retained = selected & (forms == form)
+            if retained.any():
+                yield (species, form), placements[retained]
 
 
 def crown_batches(sites):
-    for species in ("oak", "beech", "spruce"):
-        groups = [placements for kind, placements in sites if kind == species]
-        if groups:
-            crown, stem = crown_template(species)
-            canopy = "needle crown" if species == "spruce" else "broadleaf crown"
-            yield (
-                f"Regional {species}",
-                {canopy: crown, "shrub wood": stem},
-                np.concatenate(groups),
-            )
+    groups = {}
+    for (species, form), placements in sites:
+        key = (species, 0 if species == "spruce" else form)
+        groups.setdefault(key, []).append(placements)
+    for (species, form), placements in groups.items():
+        crown, stem = crown_template(species, form)
+        canopy = "needle crown" if species == "spruce" else "broadleaf crown"
+        yield (
+            f"Regional {species} {form}",
+            {canopy: crown, "shrub wood": stem},
+            np.concatenate(placements),
+        )
