@@ -12,6 +12,7 @@ import moderngl
 import numpy as np
 from air_profile import EARTH_RADIUS_KM
 from catalog import HERE, ROOT, available_views, load_catalog, selected_views
+from cloud_profile import cloud_noise
 from PIL import Image
 
 sys.path.insert(0, str(ROOT / "lib/src"))
@@ -34,6 +35,7 @@ from materials import (
 )
 from reference_scene import ReferenceScene
 from sky_environment import (
+    CLOUD_ENVIRONMENT_SIZE,
     SKY_ENVIRONMENT_SIZE,
     diffuse_coefficients,
     environment_path,
@@ -86,7 +88,9 @@ def shader(path):
     return re.sub(r'^#include "([^"]+)"', include, src, flags=re.MULTILINE)
 
 
-def atmosphere(ctx, target, world, right, up, *, environment=False, linear=False):
+def atmosphere(
+    ctx, target, world, right, up, *, environment=False, linear=False, archive=None
+):
     prog = ctx.program(
         vertex_shader=SCREEN, fragment_shader=shader(HERE / "atmosphere.frag")
     )
@@ -107,6 +111,22 @@ def atmosphere(ctx, target, world, right, up, *, environment=False, linear=False
     for unit, key in enumerate(("transmittance", "multiScatter", "skyView")):
         placeholder.use(unit)
         prog[key].value = unit
+    clouds = world.clouds
+    prog["cloudKind"].value = clouds.kind if clouds else 0
+    prog["skyArchive"].value = 4
+    (archive or placeholder).use(4)
+    volume = (
+        cloud_noise(clouds.seed)
+        if environment and clouds
+        else np.zeros((1, 1, 1, 3), dtype="f4")
+    )
+    shape_texture = ctx.texture3d(volume.shape[2::-1], 3, volume.tobytes(), dtype="f4")
+    shape_texture.filter = (moderngl.LINEAR, moderngl.LINEAR)
+    shape_texture.use(3)
+    prog["cloudNoise"].value = 3
+    if clouds and environment:
+        prog["cloudLayer"].value = clouds.layer
+        prog["cloudOriginKm"].value = clouds.origin_km
     textures = []
     for i, (key, size) in enumerate(
         (
@@ -130,30 +150,51 @@ def atmosphere(ctx, target, world, right, up, *, environment=False, linear=False
     prog["stage"].value = 4 if environment else 3
     prog["extent"].value = target.size
     quad.render(vertices=3)
+    cloud_sun = 1.0
+    if environment and clouds:
+        probe = ctx.simple_framebuffer((1, 1), components=4, dtype="f4")
+        probe.use()
+        prog["stage"].value = 5
+        quad.render(vertices=3)
+        cloud_sun = float(
+            np.frombuffer(probe.read(components=1, dtype="f4"), dtype="f4")[0]
+        )
+        probe.release()
+    shape_texture.release()
     placeholder.release()
     quad.release()
     prog.release()
     veil, multi_scatter, sky_view = textures
     multi_scatter.release()
-    return veil, sky_view
+    return veil, sky_view, cloud_sun
 
 
 def export_sky(ctx, place, config, out):
     world = ReferenceScene(place, config)
     _, right, up = projection(world)
-    target = ctx.simple_framebuffer(SKY_ENVIRONMENT_SIZE, components=4, dtype="f4")
+    size = CLOUD_ENVIRONMENT_SIZE if world.clouds else SKY_ENVIRONMENT_SIZE
+    target = ctx.simple_framebuffer(size, components=4, dtype="f4")
     ctx.disable(moderngl.DEPTH_TEST)
-    veil, sky = atmosphere(ctx, target, world, right, up, environment=True)
+    veil, sky, cloud_sun = atmosphere(ctx, target, world, right, up, environment=True)
     width, height = target.size
-    pixels = np.frombuffer(target.read(components=3, dtype="f4"), dtype="f4")
+    rgba = np.frombuffer(target.read(components=4, dtype="f4"), dtype="f4").reshape(
+        height, width, 4
+    )
+    opacity = rgba[height // 2 :, :, 3]
+    elevation = (np.arange(len(opacity)) + 0.5) * (0.5 * np.pi / len(opacity))
+    cloud_cover = float(
+        np.average((opacity >= 0.5).mean(axis=1), weights=np.cos(elevation))
+    )
     path = environment_path(out, place)
     eye_m = world.eye[2] + world.source.datum
     save_environment(
         path,
-        pixels.reshape(height, width, 3),
+        rgba[..., :3].copy(),
         world.sun,
         eye_m,
         aerosol=world.aerosol_extinction,
+        clouds=world.clouds,
+        cloud_sun=cloud_sun,
     )
     for resource in (veil, sky, target):
         resource.release()
@@ -163,6 +204,8 @@ def export_sky(ctx, place, config, out):
                 "place": place["id"],
                 "weather": world.weather,
                 "sky": str(path),
+                "cloud_sun": cloud_sun,
+                "cloud_cover": cloud_cover,
                 "eye_m": eye_m,
             }
         ),
@@ -171,7 +214,7 @@ def export_sky(ctx, place, config, out):
 
 
 def sky_radiance_texture(ctx, radiance):
-    source = ctx.texture(SKY_ENVIRONMENT_SIZE, 3, radiance.tobytes(), dtype="f4")
+    source = ctx.texture(radiance.shape[1::-1], 3, radiance.tobytes(), dtype="f4")
     source.repeat_x = True
     source.repeat_y = False
     source.filter = (moderngl.LINEAR, moderngl.LINEAR)
@@ -413,6 +456,21 @@ def save_view(target, path, *, linear):
 def render(ctx, place, config, out, *, sky_dir=None, linear=False):
     start = perf_counter()
     world = ReferenceScene(place, config)
+    sky_path = environment_path(sky_dir, place) if sky_dir is not None else None
+    if world.clouds and sky_path is None:
+        raise ValueError(f"{place['id']}: export its cloud sky and specify --sky-dir")
+    environment = (
+        load_environment(
+            sky_path,
+            world.sun,
+            world.eye[2] + world.source.datum,
+            aerosol=world.aerosol_extinction,
+            clouds=world.clouds,
+        )
+        if sky_path is not None
+        else None
+    )
+    source = sky_radiance_texture(ctx, environment.radiance) if environment else None
     target = ctx.simple_framebuffer(
         (2560, 1440), components=4, dtype="f4" if linear else "f1"
     )
@@ -420,7 +478,9 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
     target.clear(depth=1)
     ctx.disable(moderngl.DEPTH_TEST)
     m, right, up = projection(world)
-    veil, sky = atmosphere(ctx, target, world, right, up, linear=linear)
+    veil, sky, _ = atmosphere(
+        ctx, target, world, right, up, linear=linear, archive=source
+    )
     prog = ctx.program(
         vertex_shader=shader(HERE / "reference.vert"),
         fragment_shader=shader(HERE / "reference.frag"),
@@ -428,20 +488,15 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
     prog["viewProjection"].write(m.T.astype("f4").tobytes())
     prog["eye"].value = tuple(world.eye)
     prog["sun"].value = tuple(world.sun)
-    prog["directSunFraction"].value = world.direct_sun_fraction
+    cloud_sun = environment.cloud_sun if environment else 1.0
+    prog["directSunFraction"].value = world.direct_sun_fraction * cloud_sun
     prog["linearOutput"].value = linear
-    sky_path = environment_path(sky_dir, place) if sky_dir is not None else None
-    prog["useSkyIrradiance"].value = sky_path is not None
+    prog["useSkyIrradiance"].value = environment is not None
     sky_tables = ()
-    if sky_path is not None:
-        radiance = load_environment(
-            sky_path,
-            world.sun,
-            world.eye[2] + world.source.datum,
-            aerosol=world.aerosol_extinction,
+    if environment is not None:
+        prog["skyIrradiance"].write(
+            diffuse_coefficients(environment.radiance).tobytes()
         )
-        prog["skyIrradiance"].write(diffuse_coefficients(radiance).tobytes())
-        source = sky_radiance_texture(ctx, radiance)
         sky_tables = (*sky_specular_atlas(ctx, source), source)
     atlas, brdf, archive = sky_tables or (sky, sky, sky)
     atlas.use(7)
@@ -512,6 +567,7 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
                 "place": place["id"],
                 "weather": world.weather,
                 "device": ctx.info["GL_RENDERER"],
+                "cloud_sun": cloud_sun,
                 "sky_radiance": str(sky_path) if sky_path is not None else None,
                 "shadow_gpu_ms": round(shadow_time.elapsed * 1e-6, 2),
                 "reflection_levels_m": [round(plane.height, 3) for plane in planes],

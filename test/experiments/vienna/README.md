@@ -105,6 +105,35 @@ blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/ren
   --sky-dir build/shots/2052/sky --output build/shots/2052/eevee
 ```
 
+## Cloud reference
+
+FranzKarlFernsicht and Wien each have `-BrokenCloud` and `-Overcast` variants.
+Each triplet shares a camera, ground geometry, seed and solar time. The trail view
+uses 21 June 2026 at 10:00 UTC. Wien keeps the elevated scenario and 7 September 2026
+at 10:40 UTC. The broken layer spans 1.45–2.95 km altitude and the overcast layer
+0.90–1.36 km. The shared seeded density field moves east at 7 m/s and north at
+3.5 m/s from the catalog clock. GLSL integrates opacity and estimates directional
+light through the layer. Both renderers use its 2048 × 1024 sky archive and the same
+sun transmission at the observer. That fraction multiplies the direct light over
+the whole reference scene. The archive pins the profile, wind-advected origin,
+seed, eye altitude and solar direction.
+
+Use the Wiener Blick afternoon panorama for spaced cumulus, sunlit tops and soft
+undersides. The Neue Donau photo shows a closed deck, diffuse illumination and a
+brighter horizon under the deck. Michaelerplatz shows diffuse light on an urban
+façade below a textured overcast sky. [Wiener Blick, 29 August 2010](https://commons.wikimedia.org/wiki/File:Wiener_Blick_Panorama.jpg) ·
+[Neue Donau, 5 May 2014](https://commons.wikimedia.org/wiki/File:Cloudy_day_on_Neue_Donau_-_panoramio.jpg) ·
+[Michaelerplatz, 28 October 2017](https://commons.wikimedia.org/wiki/File:Vienna,_Austria_(38308253026).jpg)
+
+```sh
+build/blender-python/bin/python test/experiments/vienna/glsl_render.py --export-sky \
+  --place FranzKarlFernsicht --place FranzKarlFernsicht-BrokenCloud \
+  --place FranzKarlFernsicht-Overcast --output build/shots/2086/sky
+blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/render.py -- \
+  --place FranzKarlFernsicht --place FranzKarlFernsicht-BrokenCloud \
+  --place FranzKarlFernsicht-Overcast --sky-dir build/shots/2086/sky
+```
+
 ## Near material comparisons
 
 Adlerhof faces the passage from the street. Adlerhof-Courtyard and Adlerhof-Reverse

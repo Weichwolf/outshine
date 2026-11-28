@@ -269,13 +269,26 @@ def render(place, config, args):
     sky_dir = getattr(args, "sky_dir", None)
     sky_path = environment_path(sky_dir, place) if sky_dir is not None else None
     eye_m = world.eye[2] + world.source.datum
-    radiance = (
-        load_environment(sky_path, world.sun, eye_m, aerosol=world.aerosol_extinction)
+    if world.clouds and sky_path is None:
+        raise ValueError(f"{place['id']}: export its cloud sky and specify --sky-dir")
+    environment = (
+        load_environment(
+            sky_path,
+            world.sun,
+            eye_m,
+            aerosol=world.aerosol_extinction,
+            clouds=world.clouds,
+        )
         if sky_path is not None
         else None
     )
+    if environment is not None:
+        sun.data.energy *= environment.cloud_sun
     sky_image = configure_world_sky(
-        scene, sunlight, radiance, haze=bool(world.aerosol_extinction)
+        scene,
+        sunlight,
+        environment.radiance if environment else None,
+        haze=bool(world.aerosol_extinction),
     )
     scene.cycles.seed = config["seed"]
     geometry = bpy.data.collections.new("World geometry")
@@ -335,6 +348,7 @@ def render(place, config, args):
             {
                 "place": place["id"],
                 "weather": world.weather,
+                "cloud_sun": environment.cloud_sun if environment else 1.0,
                 "surface": world.support,
                 "woody_instances": woody_instances,
                 "eye_m": eye_m,
