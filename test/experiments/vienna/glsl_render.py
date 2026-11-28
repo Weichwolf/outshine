@@ -416,6 +416,7 @@ def draw_surfaces(ctx, prog, draws, textures, *, capture=False):
         prog["metalness"].value = METALLIC.get(name, 0.0)
         prog["diffuseTransmission"].value = DIFFUSE_TRANSMISSION.get(name, 0.0)
         prog["waterSurface"].value = water
+        prog["hasWoodlandCover"].value = base == "distant terrain"
         prog["glassIor"].value = GLASS_IOR if name == "glass" else 1.0
         detail = SURFACE_DETAIL.get(base)
         trail = detail == "compacted"
@@ -584,6 +585,15 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
     bed_map.repeat_x = bed_map.repeat_y = False
     bed_map.use(5)
     prog["waterBedMap"].value = 5
+    cover = world.far_woodland
+    woodland_map = ctx.texture(cover.pixels.shape[::-1], 1, cover.pixels.tobytes())
+    woodland_map.repeat_x = woodland_map.repeat_y = False
+    woodland_map.build_mipmaps()
+    woodland_map.use(13)
+    prog["woodlandCover"].value = 13
+    prog["woodlandTransform"].value = cover.transform
+    _, woodland_colour, woodland_roughness = surface_properties("regional wood")
+    prog["woodlandSurface"].value = (*woodland_colour, woodland_roughness)
     prog["waterBedTransform"].value = bed.transform if bed is not None else (0, 0, 1, 1)
     prog["bedAlbedo"].value = BED_ALBEDO
     prog["waterIor"].value = WATER_IOR
@@ -621,6 +631,7 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
         shadow.release()
     reflection.release()
     bed_map.release()
+    woodland_map.release()
     if sun_map_texture is not None:
         sun_map_texture.release()
     save_view(target, out / place["id"], linear=linear)
