@@ -62,6 +62,30 @@ class BridgeJunctionTest(unittest.TestCase):
         self.assertTrue(crossing.pedestrian_paving.equals(paved))
         self.assertTrue(crossing.pavement.is_empty)
 
+    def test_unfitted_lower_walk_does_not_cover_the_upper_carriageway(self):
+        deck = box(-20, -5, 20, 5)
+        road = box(-20, -3, 20, 3)
+        span = WaterSpan(np.array([-20, 0]), np.array([1, 0]), 40, 1, 0)
+        source = SimpleNamespace(
+            height=lambda xy: np.ones(len(xy)),
+            datum=0,
+            lat=0,
+            lon=0,
+            metres=np.array([111000.0, 111000.0]),
+            features=[
+                ("water", box(-16, -10, 16, 10), {}),
+                (
+                    "transportation",
+                    LineString([(0, -25), (0, 25)]),
+                    {"class": "path", "brunnel": "bridge", "layer": 1},
+                ),
+            ],
+        )
+        meshes = assemble(source, 40, crossings=[WaterCrossing(deck, span, road, 2)])
+        self.assertAlmostEqual(support_height(meshes["road"], (0, 0)).max(), 1)
+        self.assertEqual(support_height(meshes["sidewalk"], (0, 0)).size, 0)
+        self.assertGreater(support_height(meshes["sidewalk"], (0, 15)).size, 0)
+
     def test_mapped_transport_crosses_a_short_gap_between_deck_and_bank(self):
         deck = box(-20, -5, 20, 5)
         span = WaterSpan(np.array([-20, 0]), np.array([1, 0]), 40, 1.2, 0)
