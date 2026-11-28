@@ -22,7 +22,7 @@ MAXIMUM_BALLAST_CUT = 0.08
 
 
 @dataclass(frozen=True)
-class RailApproach:
+class RailFormation:
     footprint: shapely.Polygon
     centreline: np.ndarray
     surface: SurfaceSampler
@@ -138,7 +138,7 @@ def fit_rail_approach(
             xy = shapely.get_coordinates(
                 shapely.line_interpolate_point(course, stations)
             )
-            return RailApproach(
+            return RailFormation(
                 footprint, xy, SurfaceSampler(mesh, xy_tolerance_m=2e-6)
             )
     return None

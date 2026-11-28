@@ -30,6 +30,7 @@ from outshine.buildings.entrances import (
     pave_entrances,
 )
 from outshine.buildings.facade import FacadeView, draw_facade
+from outshine.buildings.platform_canopies import draw_platform_canopy, platform_canopies
 from outshine.buildings.rail_station import StationHall, plan_station_halls
 from outshine.buildings.street_facade import draw_low_front, draw_street_storey
 from outshine.buildings.structures import suppressed
@@ -74,6 +75,7 @@ from outshine.transport.stair_branches import local_stair_branches
 from outshine.transport.stair_guards import draw_stair_guards
 from outshine.transport.stair_landings import local_landings
 from outshine.transport.stairs import local_stairways
+from outshine.transport.surface_rail import plan_surface_rail
 from outshine.transport.tram_rails import draw_tram_rails, tram_routes
 from outshine.transport.viaducts import draw_viaduct
 from outshine.water.shore_grade import SHORE_REACH_M, shore_grade
@@ -803,6 +805,24 @@ def ground_surfaces(
         earthworks.extend(
             (approach, "rail ballast") for approach in rail_approaches.values()
         )
+    surface_rails = plan_surface_rail(
+        source.features,
+        extent,
+        height,
+        blocked=[
+            bodies,
+            reserved_decks,
+            junction_area,
+            *structures,
+            *roads.values(),
+            *(item.footprint for item, _ in earthworks),
+            *(stair.footprint for stair in stairs),
+            *(deck.footprint for deck in rail_decks),
+        ],
+        tunnels=tunnels,
+        decks=rail_decks,
+    )
+    earthworks.extend((formation, "rail ballast") for formation, _ in surface_rails)
     graded = {
         i: item for i, item in enumerate(earthworks, start=first_stair + len(pieces))
     }
@@ -870,7 +890,12 @@ def ground_surfaces(
         *shore.breaks(bodies, extent),
         *(
             edge
-            for shape in [*passages, *bank_grades, *rail_approaches.values()]
+            for shape in [
+                *passages,
+                *bank_grades,
+                *rail_approaches.values(),
+                *(formation for formation, _ in surface_rails),
+            ]
             for edge in shape.breaks
         ),
     ]
@@ -941,6 +966,9 @@ def ground_surfaces(
                 dry_banks.append(dry_shore_edges(shore, terrain, triangles))
     for tunnel in tunnels:
         draw_road_tunnel(meshes, tunnel, height)
+    for _, products in surface_rails:
+        for name, points, triangles in products:
+            meshes.add(name, points, triangles)
     wall_ground = WallGround(meshes) if track_wall_ground else None
     for link in links:
         meshes.add(link.material, link.mesh.vertices, link.mesh.triangles)
@@ -1012,6 +1040,8 @@ def assemble(
         )
         if polygon.distance(centre) <= radius
     ]
+    canopies = platform_canopies(source.features, footprints)
+    footprints = [(g, tags) for g, tags in footprints if g not in canopies]
     geometries = [g for g, _ in footprints]
     tags = [p for _, p in footprints]
     colours = facade_colours(geometries, tags)
@@ -1121,6 +1151,9 @@ def assemble(
         bridges[deck.layer] = deck.footprint.union(
             bridges.get(deck.layer, shapely.Polygon())
         )
+    rail_mesh = meshes.get("rail head")
+    for polygon, canopy in canopies.items():
+        draw_platform_canopy(meshes, polygon, canopy, extent, grade, rail_mesh)
     footprints = [form.polygon for form in forms]
     eaves, roofs = plan_roofs(
         footprints,
