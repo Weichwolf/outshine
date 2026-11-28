@@ -31,6 +31,13 @@ inspect limb collars and the outline of the joined wood. Manifold builds the sha
 surface of broadleaf stems and their main limbs within the 32 m detailed stem range. Fillet
 displacement fades with distance from the joins.
 
+Managed horse chestnuts carry opposite leaves on wider-reaching limbs. Each
+detailed leaf has an 11 cm stalk and five or seven leaflets joined at its tip.
+The grouped representations use the compound leaf's one-sided area and centre.
+Check the canopy above the verge at `Hauptallee-Fork` and along the path at
+`Hauptallee-Avenue`. [Thomas et al., horse chestnut morphology](https://doi.org/10.1111/1365-2745.13116)
+· [Hauptallee, 9 August 2022](https://commons.wikimedia.org/wiki/File:Hauptallee_Prater_Wien_2022-08-09_15.jpg)
+
 The broadleaf levels grouping 16 or 32 leaves keep up to two folded sheets per
 group. Each sheet carries its share of the original one-sided area and sits at
 the centre of its half of the group. Use `Dechantlacke-Woodland`,

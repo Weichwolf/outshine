@@ -14,17 +14,45 @@ from scipy.spatial import cKDTree
 from woodland import (
     avenue_plan,
     crown_leaf_frames,
+    geometry,
     represented_leaves,
     scaffold_parts,
     stand_plan,
     woodland_surface,
 )
 from woodland_fork import joined_wood
-from woodland_leaves import blade_kite, grouped_blades
+from woodland_leaves import (
+    blade_kite,
+    chestnut_blades,
+    chestnut_leaf,
+    grouped_blades,
+    leaf_area_centre,
+)
 from woodland_stem import lean_tree, rooted_stem, stem_profile, template_stem
 
 
 class WoodlandTest(unittest.TestCase):
+    def test_chestnut_leaflets_share_the_end_of_the_stalk(self):
+        for variant, blade in enumerate(chestnut_blades()):
+            with self.subTest(variant=variant):
+                leaf = chestnut_leaf(blade, variant, 3)
+                points = leaf["vertices"]
+                hubs = np.count_nonzero(np.linalg.norm(points, axis=1) < 1e-10)
+                self.assertEqual(hubs, 5 if variant % 3 == 0 else 7)
+                self.assertAlmostEqual(points[:, 1].min(), -0.11)
+                self.assertGreater(points[:, 1].max(), 0.14)
+
+    def test_chestnut_render_levels_preserve_compound_leaf_area(self):
+        plan = avenue_plan(0)
+        areas, triangle_counts = [], []
+        for step in (1, 4, 16, 32):
+            meshes = geometry(plan, step, has_stem=False, species="chestnut")
+            vertices, faces = map(np.asarray, meshes["foliage"])
+            areas.append(leaf_area_centre(vertices, faces)[0])
+            triangle_counts.append(len(faces))
+        np.testing.assert_allclose(areas[1:], areas[0], rtol=0.025)
+        self.assertLess(triangle_counts[-1], triangle_counts[0] / 8)
+
     def test_conifer_selection_uses_local_elevation_and_mapped_leaf_type(self):
         xy = np.column_stack((np.arange(6), np.zeros(6)))
         source = SimpleNamespace(
