@@ -602,7 +602,9 @@ def render(place, config, args):
             scene,
             world.local.covered_walks,
             world.eye[:2],
+            sun.data,
             street_sky=bool(receivers) and not (below_deck or woodland),
+            woodland=woodland,
         )
         if args.engine == "eevee"
         else (0, 0.0)
@@ -741,6 +743,7 @@ def render(place, config, args):
                 "sky_radiance": str(sky_path) if sky_path is not None else None,
                 "passage_irradiance_volumes": probes,
                 "passage_irradiance_bake_s": round(bake_s, 3),
+                "woodland_sky_volume": args.engine == "eevee" and woodland,
                 "street_bounce": {
                     "samples": bounce_count,
                     "seconds": round(receiver_s + bounce_s, 3),
@@ -851,7 +854,7 @@ if __name__ == "__main__":
     p.add_argument(
         "--street-sky",
         action="store_true",
-        help="trace diffuse sky visibility for nearby street surfaces in EEVEE",
+        help="bake local diffuse skylight for street and woodland in EEVEE",
     )
     args = p.parse_args(
         sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
