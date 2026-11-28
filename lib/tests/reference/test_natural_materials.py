@@ -3,6 +3,13 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
+from outshine.materials.aeolian_sand import (
+    SAND_DETAIL,
+    SAND_PROFILES,
+    SAND_TRAIL_SHOULDER_M,
+    TREAD_DETAIL,
+    mapped_sand,
+)
 from outshine.materials.detail_coordinates import (
     WARP_METRES,
     WAVE_STRETCH,
@@ -11,8 +18,10 @@ from outshine.materials.detail_coordinates import (
 )
 from outshine.materials.ground_detail import detail_scale, ground_detail
 from outshine.terrain.granodiorite import cube_surface, rock_field
+from outshine.world.mesh import Meshes
+from outshine.world.scene import ReferenceScene
 from scipy.ndimage import map_coordinates
-from shapely.geometry import box
+from shapely.geometry import LineString, box
 
 
 def texture_position(frame, xyz, span, stretch):
@@ -47,6 +56,8 @@ class NaturalMaterialsTest(unittest.TestCase):
             ("gravelly soil", [-12930050.17, 3776200.53, 1231.31]),
             ("grass", [15380536.2, 4014154.0, 1633.0]),
             ("leaf litter", [15380536.2, 4014154.0, 1633.0]),
+            (SAND_DETAIL, [1722241, -2747831, 612]),
+            (TREAD_DETAIL, [-4772473, -289249, 37]),
         ):
             frame = DetailFrame(np.array(origin), np.ones(3))
             texture = ground_detail(recipe)
@@ -64,6 +75,48 @@ class NaturalMaterialsTest(unittest.TestCase):
                         channel, uv[:, :2].T * len(channel), order=1, mode="grid-wrap"
                     ).reshape(3, -1)
                     self.assertLess(np.max(np.abs(np.corrcoef(samples)[0, 1:])), 0.35)
+
+    def test_sand_overlay_preserves_mesh_support_and_uses_mapped_coverage(self):
+        scene = object.__new__(ReferenceScene)
+        scene.sand = SAND_PROFILES[103]
+        scene.soil_surfaces = {}
+        scene.sand_area = mapped_sand(
+            [
+                ("landcover", box(-2, -3, 0, 3), {"class": "sand"}),
+                ("landcover", box(0, -3, 2, 3), {"class": "rock"}),
+            ]
+        )
+        vertices = [
+            (-1, 0, 1),
+            (-0.5, 0, 2),
+            (-1, 1, 1),
+            (1, 0, 2),
+            (1.5, 0, 2),
+            (1, 1, 2),
+        ]
+        faces = [[0, 1, 2], [3, 4, 5]]
+        batches = list(scene.local_material("ground", vertices, faces))
+        self.assertEqual([batch[0] for batch in batches], [scene.sand.sand, "ground"])
+        for batch, face in zip(batches, faces, strict=True):
+            self.assertIs(batch[1], vertices)
+            np.testing.assert_array_equal(batch[2], [face])
+        self.assertEqual(
+            [
+                batch[0]
+                for batch in scene.local_material("rail ballast", vertices, faces)
+            ],
+            ["rail ballast"],
+        )
+
+        scene.local = Meshes()
+        edge = LineString([(0, -2), (0, 2)])
+        scene.local.mineral_trail_edges = edge
+        width = SAND_TRAIL_SHOULDER_M
+        route = [(0, 0, 0), (width / 2, 0, 0), (width, 0, 0)]
+        scene.local["unpaved path"] = route, []
+        np.testing.assert_allclose(
+            scene.ground_blend(scene.sand.tread, route), [1, 0.5, 0]
+        )
 
     def test_block_has_closed_outward_faces_and_never_occupies_the_route(self):
         vertices, faces = cube_surface(5)

@@ -10,6 +10,11 @@ from astral import Observer
 from astral.sun import azimuth, elevation
 
 from outshine.buildings.facade import FacadeView
+from outshine.materials.aeolian_sand import (
+    SAND_PROFILES,
+    SAND_TRAIL_SHOULDER_M,
+    mapped_sand,
+)
 from outshine.materials.detail_coordinates import DetailFrame
 from outshine.places.height import Elevation
 from outshine.terrain.granodiorite import ROCK_MATERIAL, rock_field
@@ -309,6 +314,10 @@ class ReferenceScene:
         atlas = VegetationAtlas(atlas_path) if atlas_path is not None else None
         sample = atlas.sample(self.source.lat, self.source.lon) if atlas else None
         self.soil_surfaces = soil_surfaces(sample, utc)
+        self.sand = SAND_PROFILES.get(sample.ecoregion_id) if sample else None
+        self.sand_area = mapped_sand(self.source.features) if self.sand else None
+        if self.sand_area is not None and self.sand_area.is_empty:
+            self.sand, self.sand_area = None, None
         self.local = assemble(
             self.source,
             250,
@@ -318,12 +327,20 @@ class ReferenceScene:
             water_plan=self.water_plan,
             facade_view=FacadeView(tuple(xy), self.focal, view_z),
             blend_mineral_trails=self.soil_surfaces is MOJAVE_SURFACES,
+            sand_area=self.sand_area,
         )
         self.water_bed = nearshore_bed(self.local.shore, domain, source=self.source)
         self.look = direction(place["heading_deg"], place["pitch_deg"])
         observer = Observer(place["latitude"], place["longitude"])
         self.mineral_shore = (
-            mineral_shore(self.local.shore, atlas.shore_substrates) if atlas else None
+            mineral_shore(
+                self.local.shore,
+                atlas.shore_substrates,
+                sand=self.sand,
+                sand_area=self.sand_area,
+            )
+            if atlas
+            else None
         )
         self.bare_shore = self.mineral_shore.bare if self.mineral_shore else None
         self.rocks = (
@@ -386,7 +403,7 @@ class ReferenceScene:
 
     def surfaces(self, *, crown_sites=None):
         for name, (verts, faces) in self.local.items():
-            yield self.soil_surfaces.get(name, name), verts, faces
+            yield from self.local_material(name, verts, faces)
         if self.rocks is not None:
             yield ROCK_MATERIAL, *self.rocks.mesh
         yield from control_surfaces(self.source, self.water_plan)
@@ -403,14 +420,42 @@ class ReferenceScene:
             local_terrain=self.local.terrain_lattice,
             stands=self.stands if crown_sites is not None else None,
         ):
-            yield from products
+            for name, verts, faces in products:
+                if name == "sand" and self.sand:
+                    name = self.sand.sand
+                yield name, verts, faces
             bounds.append(tile)
         yield "distant terrain", *beyond_region(self.far, self.faces, bounds)
         yield from skyline_meshes(self.source, self.skyline, self.focal, 250)
 
+    def local_material(self, name, vertices, faces):
+        base = self.soil_surfaces.get(name, name)
+        if (
+            self.sand_area is not None
+            and len(faces)
+            and name
+            in (
+                "ground",
+                "unpaved path",
+                "unpaved road",
+            )
+        ):
+            triangles = np.asarray(faces, dtype=int).reshape(-1, 3)
+            centres = np.asarray(vertices)[triangles, :2].mean(axis=1)
+            sandy = shapely.intersects_xy(self.sand_area, *centres.T)
+            if sandy.any():
+                material = self.sand.sand if name == "ground" else self.sand.tread
+                yield material, vertices, triangles[sandy]
+                faces = triangles[~sandy]
+        if len(faces):
+            yield base, vertices, faces
+
     @cached_property
     def terrain_cover(self):
-        return distant_cover(*self.terrain_cover_sources)
+        return distant_cover(
+            *self.terrain_cover_sources,
+            sand_material=self.sand.sand if self.sand else None,
+        )
 
     @cached_property
     def detail_frame(self):
@@ -503,15 +548,17 @@ class ReferenceScene:
         return exclusion
 
     def ground_blend(self, name, vertices):
+        sand_tread = self.sand is not None and name == self.sand.tread
         if (
-            name == "mojave footpath"
+            (name == "mojave footpath" or sand_tread)
             and vertices is self.local.get("unpaved path", (None,))[0]
             and self.local.mineral_trail_edges is not None
         ):
-            return margin_weights(
-                self.local.mineral_trail_edges, vertices, MINERAL_TRAIL_SHOULDER_M
-            )
-        if name == self.soil_surfaces.get("unpaved road"):
+            width = SAND_TRAIL_SHOULDER_M if sand_tread else MINERAL_TRAIL_SHOULDER_M
+            return margin_weights(self.local.mineral_trail_edges, vertices, width)
+        if name == self.soil_surfaces.get("unpaved road") or (
+            sand_tread and vertices is self.local.get("unpaved road", (None,))[0]
+        ):
             name = "unpaved road"
         if vertices is not self.local.get(name, (None,))[0]:
             return None

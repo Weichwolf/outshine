@@ -168,7 +168,8 @@
       "capture": "development/lencois.json",
       "views": [
         "Lencois-Near",
-        "Lencois-Stand"
+        "Lencois-Stand",
+        "Lencois-Waterline"
       ],
       "reference_photos": [
         {

@@ -83,6 +83,7 @@ class MojaveYuccasTest(unittest.TestCase):
 
     def test_compaction_fades_from_the_footpath_to_matching_gravelly_sand(self):
         scene = object.__new__(ReferenceScene)
+        scene.sand = None
         scene.local = Meshes()
         scene.local.mineral_trail_edges = LineString([(0, -2), (0, 2)])
         width = MINERAL_TRAIL_SHOULDER_M
