@@ -171,7 +171,16 @@ def shore_grade(bodies, extent, protected, *, neighbor=None, retaining_height=No
     clipped = shapely.intersection(
         [b.footprint for b in nearby], neighborhood, grid_size=1e-6
     )
+    # A tangent water polygon can clip to a line or point on the neighborhood.
+    clipped = [
+        part
+        if isinstance(part, (shapely.Polygon, shapely.MultiPolygon))
+        else part.buffer(0)
+        for part in clipped
+    ]
     wet = shapely.union_all(clipped, grid_size=1e-6)
+    if wet.is_empty:
+        return ShoreGrade((), (), protection)
     coast = wet.boundary.difference(neighborhood.boundary, grid_size=1e-6)
     contacts = shapely.intersection(shapely.boundary(clipped), coast, grid_size=1e-6)
     active = [

@@ -9,11 +9,27 @@ import shapely
 from outshine_ref.vegetation import PlantPlan
 from outshine_ref.vegetation.curve_frame import arc_frame
 from scene_mesh import terrain_grid, terrain_height
-from woodland import represented_leaves, stand_plan, woodland_surface
+from woodland import crown_leaf_frames, represented_leaves, stand_plan, woodland_surface
 from woodland_stem import lean_tree, rooted_stem, template_stem
 
 
 class WoodlandTest(unittest.TestCase):
+    def test_leaf_roll_keeps_the_seeded_blades_on_their_midribs(self):
+        count = 512
+        height = np.repeat((2.0, 8.0), count // 2)
+        rows = {
+            "leaf_origins": np.column_stack((np.zeros((count, 2)), height)),
+            "leaf_frames": np.tile(np.eye(3), (count, 1, 1)),
+        }
+        beech = crown_leaf_frames(rows, 12, oak=False)
+        oak = crown_leaf_frames(rows, 12, oak=True)
+        np.testing.assert_array_equal(oak, crown_leaf_frames(rows, 12, oak=True))
+        np.testing.assert_array_equal(oak[:, :, 1], rows["leaf_frames"][:, :, 1])
+        np.testing.assert_allclose(np.linalg.det(oak), 1)
+        beech_tilt, oak_tilt = (np.arccos(r[:, 2, 2]) for r in (beech, oak))
+        self.assertGreater(oak_tilt.mean(), beech_tilt.mean())
+        self.assertGreater(oak_tilt[count // 2 :].mean(), oak_tilt[: count // 2].mean())
+
     def test_middle_canopy_samples_both_sides_of_an_alternating_shoot(self):
         rows = {
             "leaf_axis_ids": np.zeros(64, dtype=int),

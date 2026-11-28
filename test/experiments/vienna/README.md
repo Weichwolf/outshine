@@ -135,6 +135,14 @@ water boundaries. Dechantlacke-Stem-Oblique shows the same shore trees from the 
 path position, with the lower forks above the root contacts in frame.
 [Weber and Penn, Creation and Rendering of Realistic Trees](https://doi.org/10.1145/218380.218427)
 
+In the summer crowns, upper limbs spread out and the outer twigs carry shorter,
+more numerous shoots. Seeded blade roll keeps the midrib attached to its shoot.
+The lower foliage stays flatter, and oak blades have a wider range of inclinations
+than beech blades. The same leaf orientations feed the near meshes and the grouped
+distance meshes. Compare leaf area and blade inclination against measured broadleaf
+crowns. [Fleck, mature beech and oak crowns](https://epub.uni-bayreuth.de/id/eprint/264/1/FleckDiss.pdf) ·
+[Chianucci et al., leaf inclination data](https://doi.org/10.17632/4rmc7r8zvy.2)
+
 ## Photographic targets at eye level
 
 The street, water and woodland references use the pinned Vienna catalog at 1.70 m.
@@ -225,6 +233,8 @@ crop. The distant templates group leaves by branch and retain their represented 
 area. Dechantlacke-Woodland looks into the stand from a mapped path. Compare crown
 gaps and woodland layers with the
 [August 2022 Lobau woodland](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg).
+Wienerwald-Woodland follows a mapped trail by Franz-Karl-Fernsicht. This hillside
+stand tests crown overlap, younger stems and terrain contact away from riverbank woodland.
 Mapped woodland soil carries baked leaves, exposed humus and moss. Ground-level leaf
 patches use the solved soil and reserve their full width along paths and water.
 
