@@ -18,6 +18,7 @@ from outshine.transport.rail_hardware import bake_rail_sleepers, build_rail_hard
 from outshine.transport.viaducts import LOWER_CLEARANCE, SLAB_DEPTH
 
 TRACK_HALF_WIDTH = 2.2
+BALLAST_WIDTH = 3.3
 BALLAST_DEPTH = 0.18
 MAX_TRACK_SPACING = 10.0
 SUPPORT_SPACING = 36.0
@@ -222,7 +223,36 @@ def plan_elevated_rail(
     return decks
 
 
-def draw_elevated_rail(meshes, deck, height):
+def track_centreline(line, start, end):
+    return np.concatenate(
+        (
+            start.centreline[:0:-1] if start is not None else np.empty((0, 2)),
+            np.asarray(line.coords),
+            end.centreline[1:] if end is not None else np.empty((0, 2)),
+        )
+    )
+
+
+def draw_track_hardware(meshes, line, elevation, approaches):
+    hardware, _ = build_rail_hardware(track_centreline(line, *approaches), elevation)
+    if hardware is None:
+        return
+    sleepers = bake_rail_sleepers(hardware.sleeper_transforms)
+    for material, product in (
+        ("rail head", hardware.rails),
+        ("rail sleeper", sleepers),
+    ):
+        vertices = product.vertices.copy()
+        for approach in approaches:
+            if approach is not None:
+                on_bed = shapely.dwithin(
+                    shapely.points(vertices[:, :2]), approach.footprint, 1e-6
+                )
+                vertices[on_bed, 2] += approach.heights(vertices[on_bed]) - elevation
+        meshes.add(material, vertices, product.triangles)
+
+
+def draw_elevated_rail(meshes, deck, height, approaches):
     slab(meshes, "bridge deck", deck.footprint, deck.height, SLAB_DEPTH)
     edge_guards(meshes, shapely.orient_polygons(deck.footprint), deck)
     for support in deck.supports:
@@ -233,9 +263,9 @@ def draw_elevated_rail(meshes, deck, height):
             meshes, "bridge deck", support, lambda xy, z=top: np.full(len(xy), z), depth
         )
     for line in deck.tracks:
-        bed = line.buffer(1.65, cap_style="flat", join_style="mitre").intersection(
-            deck.footprint
-        )
+        bed = line.buffer(
+            BALLAST_WIDTH / 2, cap_style="flat", join_style="mitre"
+        ).intersection(deck.footprint)
         top = deck.elevation + BALLAST_DEPTH
         for polygon in shapely.get_parts(bed):
             if polygon.geom_type == "Polygon" and not polygon.is_empty:
@@ -246,8 +276,6 @@ def draw_elevated_rail(meshes, deck, height):
                     lambda xy, z=top: np.full(len(xy), z),
                     BALLAST_DEPTH,
                 )
-        hardware, _ = build_rail_hardware(np.asarray(line.coords), top)
-        if hardware is not None:
-            meshes.add("rail head", hardware.rails.vertices, hardware.rails.triangles)
-            sleepers = bake_rail_sleepers(hardware.sleeper_transforms)
-            meshes.add("rail sleeper", sleepers.vertices, sleepers.triangles)
+        draw_track_hardware(
+            meshes, line, top, (approaches.get((line, 0)), approaches.get((line, -1)))
+        )
