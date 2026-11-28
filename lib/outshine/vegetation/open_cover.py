@@ -50,7 +50,7 @@ class RegionalOpenCover:
             if name is not None:
                 covers.setdefault(name, []).append(shapely.make_valid(geometry))
         self.overrides = tuple(
-            (name in OPEN_COVER, shapely.union_all(covers[name]))
+            (name, shapely.union_all(covers[name]))
             for name in sorted(
                 covers,
                 key=lambda name: (
@@ -60,7 +60,7 @@ class RegionalOpenCover:
             )
         )
         if exclusion is not None:
-            self.overrides += ((False, exclusion),)
+            self.overrides += ((None, exclusion),)
         for _, geometry in self.overrides:
             shapely.prepare(geometry)
 
@@ -69,13 +69,18 @@ class RegionalOpenCover:
             np.array([self.source.lon, self.source.lat]) + xy / self.source.metres
         ).T
 
-    def land_cells(self, xy):
+    def land_cells(self, xy, *, include_wood=False):
         lon, lat = self.coordinates(xy)
         cover, ecoregion = self.atlas.land_cells(lat, lon)
-        for allowed, geometry in self.overrides:
-            cover[shapely.intersects_xy(geometry, xy[:, 0], xy[:, 1])] = (
-                30 if allowed else 0
+        for name, geometry in self.overrides:
+            inferred = (
+                10
+                if include_wood and name == "wood"
+                else 30
+                if name in OPEN_COVER
+                else 0
             )
+            cover[shapely.intersects_xy(geometry, xy[:, 0], xy[:, 1])] = inferred
         mojave = (ecoregion == MOJAVE_DESERT) & (cover != 0)
         if mojave.any() and getattr(self.atlas, "observation_indices", None):
             indices, _ = self.atlas.observed_cells(lat[mojave], lon[mojave])

@@ -68,6 +68,8 @@ SURFACE_DETAIL = {
     "umbrella thorn bark": "umbrella thorn bark",
     "joshua tree bark": "umbrella thorn bark",
     "mojave yucca bark": "umbrella thorn bark",
+    "pinyon bark": "spruce bark",
+    "muller oak bark": "oak bark",
     "foliage": "leaf",
     "woodland low leaves": "leaf",
     "weir overflow": "weir overflow",

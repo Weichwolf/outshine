@@ -23,6 +23,7 @@ from outshine.materials.ground_detail import (
     ground_detail,
 )
 from outshine.materials.palette import (
+    BACKFACE_REFLECTANCE,
     DIFFUSE_TRANSMISSION,
     GLASS_IOR,
     GROUND_BLENDS,
@@ -222,6 +223,14 @@ def surface_material(name):
         bsdf.inputs["IOR"].default_value = WATER_IOR
     if detail := SURFACE_DETAIL.get(base):
         apply_detail(material, bsdf, detail, colour, GROUND_BLENDS.get(base))
+    if pale_side := BACKFACE_REFLECTANCE.get(base):
+        tree = material.node_tree
+        backfacing = tree.nodes.new("ShaderNodeNewGeometry").outputs["Backfacing"]
+        reflectance = tree.nodes.new("ShaderNodeMixRGB")
+        reflectance.inputs[1].default_value = (*colour, 1)
+        reflectance.inputs[2].default_value = (*pale_side, 1)
+        tree.links.new(backfacing, reflectance.inputs[0])
+        tree.links.new(reflectance.outputs[0], bsdf.inputs["Base Color"])
     if transmission := DIFFUSE_TRANSMISSION.get(name):
         tree = material.node_tree
         backlight = tree.nodes.new("ShaderNodeBsdfTranslucent")

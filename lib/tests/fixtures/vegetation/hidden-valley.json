@@ -24,6 +24,14 @@
       "support": "unpaved path"
     }
   ],
+  "comparison_views": [
+    {
+      "id": "HiddenValley-Woodland",
+      "origin": "HiddenValley-Stand",
+      "heading_deg": 349,
+      "pitch_deg": 1
+    }
+  ],
   "walks": {
     "HiddenValley-Footpath": {
       "origin": "HiddenValley-Trail",

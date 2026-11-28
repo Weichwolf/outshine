@@ -74,6 +74,7 @@ uniform vec3 sun;
 uniform vec4 surface;
 uniform float metalness;
 uniform float diffuseTransmission;
+uniform vec3 backfaceReflectance;
 uniform vec3 skyIrradiance[9];
 uniform sampler2D skyRadiance;
 uniform sampler2D skySpecularMap;
@@ -291,6 +292,8 @@ void main(){
     if(dot(n,view)<0.) n=-n;
   }
   vec4 material=surface;
+  if (!gl_FrontFacing)
+    material.rgb=backfaceReflectance;
   vec4 coverage=vec4(0.);
   float mineralGrain=1.;
   if (terrainCoverMode != 0) {
