@@ -14,7 +14,6 @@ from PIL import Image
 from outshine.materials.ground_detail import (
     BARK_BOX_BLEND,
     DETAIL_TINTS,
-    LITTER_DETAILS,
     PLANAR_DETAILS,
     SURFACE_DETAIL,
     detail_scale,
@@ -23,6 +22,7 @@ from outshine.materials.ground_detail import (
 from outshine.materials.palette import (
     DIFFUSE_TRANSMISSION,
     GLASS_IOR,
+    GROUND_BLENDS,
     METALLIC,
     SURFACES,
     WATER_IOR,
@@ -355,7 +355,7 @@ def shadow_caster_mask(projection, centres, half_axes):
     return (np.abs(centre) <= 1.0001 + half_size).all(axis=1)
 
 
-def upload(ctx, program, name, vertices, faces, placements, *, ground_litter=None):
+def upload(ctx, program, name, vertices, faces, placements, *, ground_blend=None):
     faces = np.asarray(faces, dtype="i4")
     if not faces.size:
         return
@@ -371,10 +371,10 @@ def upload(ctx, program, name, vertices, faces, placements, *, ground_litter=Non
         (instances, "4f 1f /i", "offsetAngle", "scale"),
     ]
     buffers = [instances]
-    if ground_litter is not None:
-        litter = ctx.buffer(ground_litter.tobytes())
-        content.append((litter, "1f", "groundLitter"))
-        buffers.append(litter)
+    if ground_blend is not None:
+        blend = ctx.buffer(ground_blend.tobytes())
+        content.append((blend, "1f", "groundBlend"))
+        buffers.append(blend)
     if name.endswith((" bark", " crown")):
         a, b, c = vertices[faces].transpose(1, 0, 2)
         area_normals = np.cross(b - a, c - a)
@@ -608,8 +608,8 @@ def draw_surfaces(ctx, prog, draws, textures, *, capture=False, bed_map=None):
         prog["hasTerrainCover"].value = base == "distant terrain"
         prog["glassIor"].value = GLASS_IOR if name == "glass" else 1.0
         detail = SURFACE_DETAIL.get(base)
-        litter = detail in LITTER_DETAILS
-        prog["hasGroundLitter"].value = litter
+        target = GROUND_BLENDS.get(base)
+        prog["hasGroundBlend"].value = target is not None
         prog["hasDetail"].value = detail is not None
         prog["blendDetailAxes"].value = base.endswith(" bark")
         prog["planarDetail"].value = detail in PLANAR_DETAILS
@@ -619,8 +619,12 @@ def draw_surfaces(ctx, prog, draws, textures, *, capture=False, bed_map=None):
         elif detail is not None:
             prog["detailScale"].value = detail_scale(detail)
             detail_texture(ctx, textures, detail).use(2)
-        if litter:
-            detail_texture(ctx, textures, "leaf litter").use(12)
+        if target is not None:
+            overlay = SURFACE_DETAIL[target]
+            prog["overlayScale"].value = detail_scale(overlay)
+            prog["overlayColour"].value = SURFACES[target][0]
+            prog["overlayTint"].value = DETAIL_TINTS.get(overlay, (1, 1, 1))
+            detail_texture(ctx, textures, overlay).use(12)
         batch.vao.render(instances=len(batch.placements))
 
 
@@ -786,10 +790,7 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False, street_sky
     prog["skyView"].value = 0
     sky.use(2)
     prog["detailMap"].value = 2
-    prog["litterMap"].value = 12
-    prog["litterScale"].value = detail_scale("leaf litter")
-    prog["litterColour"].value = SURFACES["forest floor"][0]
-    prog["litterTint"].value = DETAIL_TINTS["leaf litter"]
+    prog["overlayMap"].value = 12
     prog["barkBoxBlend"].value = BARK_BOX_BLEND
     bed = world.water_bed
     transmission = bed.transmission if bed is not None else np.zeros((1, 1, 3))
@@ -820,7 +821,7 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False, street_sky
             v,
             f,
             [(0, 0, 0, 0, 1)],
-            ground_litter=world.ground_litter(n, v),
+            ground_blend=world.ground_blend(n, v),
         )
         for n, v, f in chain(
             world.surfaces(crown_sites=crown_sites),

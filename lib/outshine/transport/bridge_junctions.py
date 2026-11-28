@@ -9,6 +9,7 @@ from outshine.contracts import Mesh
 from outshine.terrain.ground_surface import (
     ROAD_WIDTH,
     at_grade_width,
+    carriageway_footprint,
     partition_ground,
     path_material,
     route_area,
@@ -275,7 +276,7 @@ def bridge_junctions(features, crossings, domain, water, roads, vertices, terrai
             outline.boundary,
             core,
             served,
-            roads["road"],
+            carriageway_footprint(roads),
             track,
             shoulder,
             pedestrian,

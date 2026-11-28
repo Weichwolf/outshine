@@ -17,7 +17,6 @@ from shapely import Point
 from outshine.materials.ground_detail import (
     BARK_BOX_BLEND,
     DETAIL_TINTS,
-    LITTER_DETAILS,
     PLANAR_DETAILS,
     SURFACE_DETAIL,
     detail_scale,
@@ -26,6 +25,7 @@ from outshine.materials.ground_detail import (
 from outshine.materials.palette import (
     DIFFUSE_TRANSMISSION,
     GLASS_IOR,
+    GROUND_BLENDS,
     METALLIC,
     SURFACES,
     WATER_IOR,
@@ -140,20 +140,20 @@ def detail_nodes(material, name, colour):
     )
 
 
-def blend_ground_litter(material, colour, roughness, height):
+def blend_ground(material, target, colour, roughness, height):
     nodes = material.node_tree.nodes
     link = material.node_tree.links.new
-    floor, floor_roughness, floor_height, litter = detail_nodes(
-        material, "leaf litter", SURFACES["forest floor"][0]
+    ground, ground_roughness, ground_height, variation = detail_nodes(
+        material, SURFACE_DETAIL[target], SURFACES[target][0]
     )
     mask = nodes.new("ShaderNodeAttribute")
-    mask.attribute_name = "ground litter"
+    mask.attribute_name = "ground blend"
     edge = nodes.new("ShaderNodeMapRange")
     edge.interpolation_type = "SMOOTHSTEP"
     link(mask.outputs["Fac"], edge.inputs["Value"])
     exponent = nodes.new("ShaderNodeMath")
     exponent.operation = "MULTIPLY_ADD"
-    link(litter, exponent.inputs[0])
+    link(variation, exponent.inputs[0])
     exponent.inputs[1].default_value = -0.70
     exponent.inputs[2].default_value = 1.35
     factor = nodes.new("ShaderNodeMath")
@@ -163,25 +163,25 @@ def blend_ground_litter(material, colour, roughness, height):
     mix = nodes.new("ShaderNodeMixRGB")
     link(factor.outputs[0], mix.inputs[0])
     link(colour, mix.inputs[1])
-    link(floor, mix.inputs[2])
+    link(ground, mix.inputs[2])
     properties = [mix.outputs[0]]
-    for trail, shoulder in ((roughness, floor_roughness), (height, floor_height)):
+    for inner, outer in ((roughness, ground_roughness), (height, ground_height)):
         blend = nodes.new("ShaderNodeMix")
         blend.data_type = "FLOAT"
         link(factor.outputs[0], blend.inputs[0])
-        link(trail, blend.inputs[2])
-        link(shoulder, blend.inputs[3])
+        link(inner, blend.inputs[2])
+        link(outer, blend.inputs[3])
         properties.append(blend.outputs[0])
     return properties
 
 
-def apply_detail(material, bsdf, name, colour):
+def apply_detail(material, bsdf, name, colour, ground_target):
     nodes = material.node_tree.nodes
     link = material.node_tree.links.new
     reflectance, roughness, height, _ = detail_nodes(material, name, colour)
-    if name in LITTER_DETAILS:
-        reflectance, roughness, height = blend_ground_litter(
-            material, reflectance, roughness, height
+    if ground_target is not None:
+        reflectance, roughness, height = blend_ground(
+            material, ground_target, reflectance, roughness, height
         )
     link(reflectance, bsdf.inputs["Base Color"])
     link(roughness, bsdf.inputs["Roughness"])
@@ -207,7 +207,7 @@ def surface_material(name):
     if name in WATER_MATERIALS:
         bsdf.inputs["IOR"].default_value = WATER_IOR
     if detail := SURFACE_DETAIL.get(base):
-        apply_detail(material, bsdf, detail, colour)
+        apply_detail(material, bsdf, detail, colour, GROUND_BLENDS.get(base))
     if transmission := DIFFUSE_TRANSMISSION.get(name):
         tree = material.node_tree
         backlight = tree.nodes.new("ShaderNodeBsdfTranslucent")
@@ -282,7 +282,7 @@ def apply_distant_cover(material, cover):
     link(texture.outputs["Alpha"], bsdf.inputs["Roughness"])
 
 
-def upload(name, vertices, faces, *, collection, smooth=False, ground_litter=None):
+def upload(name, vertices, faces, *, collection, smooth=False, ground_blend=None):
     mesh = bpy.data.meshes.new(name)
     if isinstance(vertices, np.ndarray) and isinstance(faces, np.ndarray):
         used, indices = np.unique(faces, return_inverse=True)
@@ -296,13 +296,13 @@ def upload(name, vertices, faces, *, collection, smooth=False, ground_litter=Non
         )
     else:
         mesh.from_pydata(vertices, [], faces)
-    if ground_litter is not None:
+    if ground_blend is not None:
         data = (
-            ground_litter[used]
+            ground_blend[used]
             if isinstance(vertices, np.ndarray) and isinstance(faces, np.ndarray)
-            else ground_litter
+            else ground_blend
         )
-        attribute = mesh.attributes.new("ground litter", "FLOAT", "POINT")
+        attribute = mesh.attributes.new("ground blend", "FLOAT", "POINT")
         attribute.data.foreach_set("value", data)
     if smooth:
         mesh.polygons.foreach_set("use_smooth", np.ones(len(mesh.polygons), dtype=bool))
@@ -496,7 +496,7 @@ def render(place, config, args):
             verts,
             faces,
             collection=geometry,
-            ground_litter=world.ground_litter(name, verts),
+            ground_blend=world.ground_blend(name, verts),
         )
     if material := bpy.data.materials.get("distant terrain"):
         apply_distant_cover(material, world.terrain_cover)
