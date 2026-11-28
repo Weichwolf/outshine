@@ -10,13 +10,16 @@ from montane_trees import conifer_sites, needle_sprays, spruce_plan
 from outshine_ref.vegetation import PlantPlan
 from outshine_ref.vegetation.curve_frame import arc_frame
 from scene_mesh import terrain_grid, terrain_height
+from scipy.spatial import cKDTree
 from woodland import (
     avenue_plan,
     crown_leaf_frames,
     represented_leaves,
+    scaffold_parts,
     stand_plan,
     woodland_surface,
 )
+from woodland_fork import joined_wood
 from woodland_stem import lean_tree, rooted_stem, stem_profile, template_stem
 
 
@@ -150,6 +153,46 @@ class WoodlandTest(unittest.TestCase):
         edges = np.sort(faces[:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2), axis=1)
         _, counts = np.unique(edges, axis=0, return_counts=True)
         np.testing.assert_array_equal(counts, 2)
+
+    def test_broadleaf_forks_share_one_closed_shell_and_retain_root_shape(self):
+        from manifold3d import Error, Manifold, Mesh64
+
+        for species, plan in (
+            ("oak", stand_plan("oak", 0)),
+            ("chestnut", avenue_plan(1)),
+        ):
+            with self.subTest(species=species):
+                oak = species == "oak"
+
+                def height(xy):
+                    return 0.50 * (xy[:, 0] - 5) + 0.20 * xy[:, 1]
+
+                position = np.array([5.0, 0.0, -0.08])
+                angle, scale = 0.69, 1.3
+                stem = rooted_stem(
+                    plan,
+                    shapely.box(3, -3, 8, 3),
+                    height,
+                    position,
+                    angle,
+                    scale,
+                    oak=oak,
+                    seed=7291,
+                )
+                limbs = tuple(scaffold_parts(plan, 4, species))
+                vertices, faces = joined_wood(
+                    stem, limbs, position, angle, scale, plan.radii(())[0]
+                )
+                shell = Manifold(Mesh64(vertices.copy(), faces.copy()))
+                self.assertEqual(shell.status(), Error.NoError)
+                self.assertEqual(len(shell.decompose()), 1)
+                root = stem["vertices"][
+                    stem["vertices"][:, 2] - height(stem["vertices"][:, :2]) < 0
+                ]
+                self.assertGreater(len(root), 48)
+                np.testing.assert_allclose(
+                    cKDTree(vertices).query(root)[0], 0, atol=1e-10
+                )
 
     def test_near_and_instanced_stems_enclose_the_same_first_branch(self):
         position = np.array([1.0, -2.0, -0.08])
