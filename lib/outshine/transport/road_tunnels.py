@@ -68,11 +68,23 @@ def road_sources(features):
                 continue
             key = shapely.normalize(part)
             if ground is not None:
-                links[(part.coords[0], kind)][key] = part
-                links[(part.coords[-1], kind)][key] = shapely.reverse(part)
+                links[part.coords[0]][kind, key] = kind, part
+                links[part.coords[-1]][kind, key] = kind, shapely.reverse(part)
             if tags.get("brunnel") == "tunnel":
                 tunnels[(kind, tags.get("layer", -1))].add(key)
     return tunnels, links, surfaces
+
+
+def _tunnel_approach(links, point, kind, hints):
+    arms = links.get(point, {}).values()
+    lead = hints.get(tuple(np.round(point, 6)))
+    if lead is not None:
+        target = shapely.Point(lead)
+        matched = [line for _, line in arms if shapely.dwithin(line, target, 2e-6)]
+        if len(matched) == 1:
+            return matched[0]
+    candidates = [line for road, line in arms if road == kind]
+    return candidates[0] if len(candidates) == 1 else None
 
 
 def ground_cover_constraints(pavement, terrain, height):
@@ -226,7 +238,16 @@ def approach_lengths(line, width, reach, protected, domain):
 
 
 def plan_road_tunnels(
-    features, domain, buildings, water, reservations, vertices, quads, height
+    features,
+    domain,
+    buildings,
+    water,
+    reservations,
+    vertices,
+    quads,
+    height,
+    *,
+    portal_approaches=None,
 ):
     tunnels, links, surfaces = road_sources(features)
     if not tunnels:
@@ -239,6 +260,7 @@ def plan_road_tunnels(
     areas = shapely.STRtree([area for _, area in roads])
     reach = (PREFERRED_CLEARANCE + LINING_DEPTH) / MAXIMUM_GRADE
     reach += 2 * MAXIMUM_GRADE / GRADE_CHANGE_PER_M
+    hints = portal_approaches or {}
     fitted = []
     for (kind, _), parts in sorted(tunnels.items()):
         merged = shapely.line_merge(
@@ -247,11 +269,10 @@ def plan_road_tunnels(
         for bore in shapely.get_parts(merged):
             if not domain.covers(bore):
                 continue
-            start = links.get((bore.coords[0], kind), {})
-            end = links.get((bore.coords[-1], kind), {})
-            if len(start) != 1 or len(end) != 1:
+            left = _tunnel_approach(links, bore.coords[0], kind, hints)
+            right = _tunnel_approach(links, bore.coords[-1], kind, hints)
+            if left is None or right is None:
                 continue
-            left, right = next(iter(start.values())), next(iter(end.values()))
             width = ROAD_WIDTH[kind]
             route_domain = bore.buffer(reach + width)
             surfaces = shapely.union_all(

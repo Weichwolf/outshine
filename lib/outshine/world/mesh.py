@@ -769,6 +769,7 @@ def ground_surfaces(
         vertices,
         quads,
         height,
+        portal_approaches=getattr(source, "road_tunnel_approaches", None),
     )
     if tunnels:
         cuts = shapely.union_all([tunnel.openings for tunnel in tunnels])
