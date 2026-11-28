@@ -162,6 +162,17 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
   [Aufnahme vom 14. November 2023](https://commons.wikimedia.org/wiki/File:Hidden_Valley_Landscape_(53333022118).jpg) ·
   [USGS-Geologie](https://www.usgs.gov/publications/geology-joshua-tree-national-park-geodatabase)
 
+- **Kartierte Pflanzengesellschaften in Hidden Valley**. Die Parkkartierung
+  unterscheidet Blackbrush mit Mojave-Yucca, lichten Kiefern- und
+  Wacholderbestand und Felsaufschlüsse. In Outshine bestimmt sie, wo das
+  Blackbrush-Rezept eingesetzt werden kann und welche Flächen offen bleiben.
+  Die Deckungsklasse beschreibt die gesamte damalige Vegetation. Das
+  USDA-Artenprofil stützt die niedrige Wuchsform und die fein verzweigten
+  Triebe des Strauchs.
+  [NPS-Inventar](https://www.nps.gov/im/vmi-jotr.htm) ·
+  [Kartendatensatz und Klassen](https://filelib.wildlife.ca.gov/public/BDB/GIS/BIOS/metadata/DS0730.html) ·
+  [USDA-Artenprofil](https://research.fs.usda.gov/feis/species-reviews/colram)
+
 - **Hierarchical Image Caching for Accelerated Walkthroughs of Complex Environments**,
   Shade / Lischinski / Salesin / DeRose / Snyder, SIGGRAPH 1996.
   [Autorenprojekt](https://pages.cs.huji.ac.il/danix-lab/cglab/research/wa/) ·
