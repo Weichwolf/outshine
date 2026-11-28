@@ -15,6 +15,11 @@ uniform vec3 detailTint;
 uniform float barkBoxBlend;
 uniform bool hasDetail;
 uniform bool planarDetail;
+uniform bool hasTrailLitter;
+uniform sampler2D litterMap;
+uniform vec3 litterColour;
+uniform vec3 litterScale;
+uniform vec3 litterTint;
 uniform float eyeKm;
 uniform float directSunFraction;
 uniform sampler2D cloudSunMap;
@@ -48,6 +53,7 @@ uniform vec2 localShadowSpan;
 uniform float nearShadowWidth;
 in vec3 point;
 in vec3 smoothNormal;
+in float litterWeight;
 flat in vec2 rotation;
 out vec4 colour;
 uniform vec3 eye;
@@ -225,7 +231,17 @@ void main(){
     float macro=bark ? barkDetail(objectNormal,detailScale.y).a : texture(detailMap,uv/detailScale.y).a;
     material.rgb*=fine.r*(1.68+.64*macro)*mix(vec3(1.),detailTint,fine.a);
     material.a=fine.g;
-    n=bumpNormal(n,dx,dy,fine.b*detailScale.z);
+    float height = fine.b * detailScale.z;
+    if (hasTrailLitter) {
+      vec4 litter = texture(litterMap,uv/litterScale.x);
+      float broad = texture(litterMap,uv/litterScale.y).a;
+      float weight = pow(smoothstep(0.,1.,litterWeight),1.35 - .70 * litter.a);
+      vec3 albedo = litterColour * litter.r * (1.68 + .64 * broad) *
+                    mix(vec3(1.),litterTint,litter.a);
+      material = mix(material,vec4(albedo,litter.g),weight);
+      height = mix(height,litter.b * litterScale.z,weight);
+    }
+    n=bumpNormal(n,dx,dy,height);
   }
   vec3 h=normalize(view+sun);
   float nl=max(0.,dot(n,sun)),nv=max(.001,dot(n,view));

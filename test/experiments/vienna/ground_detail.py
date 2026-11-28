@@ -153,10 +153,12 @@ def ground_detail(name):
         roughness = 0.77 + 0.045 * pits + 0.025 * patches
         height = -0.0010 * pits + 0.00030 * grain
     elif name == "compacted":
-        aggregate = np.maximum(grain - 0.75, 0)
-        tint = 1 + 0.075 * aggregate + 0.04 * fine + 0.05 * patches
-        roughness = 0.89 - 0.035 * aggregate + 0.018 * patches
-        height = 0.0014 * aggregate + 0.00035 * fine + 0.00045 * patches
+        wear = np.tanh(0.8 * patches + 0.55 * noise(rng, (29, 19)))
+        exposed = np.clip(0.45 + 0.24 * wear + 0.32 * noise(rng, 6), 0, 1)
+        aggregate = exposed * np.clip(grain + 0.32 * fine - 0.75, 0, 1.7)
+        tint = 0.90 + 0.14 * wear + 0.17 * aggregate + 0.047 * fine
+        roughness = 0.90 - 0.047 * aggregate + 0.023 * wear
+        height = 0.0030 * aggregate + 0.00045 * fine + 0.00085 * wear
     elif name == "soil":
         humus = noise(rng, 30)
         litter = np.maximum(noise(rng, (2.5, 0.95)) - 0.7, 0)

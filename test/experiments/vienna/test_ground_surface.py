@@ -3,7 +3,13 @@ from types import SimpleNamespace
 
 import numpy as np
 import shapely
-from ground_surface import at_grade_routes, partition_ground
+from ground_surface import (
+    TRAIL_SHOULDER_M,
+    at_grade_routes,
+    forest_trail_edges,
+    partition_ground,
+    trail_litter_weights,
+)
 from reference_scene import support_height
 from regional import REGIONAL_LAND, class_fields
 from scene_mesh import assemble
@@ -40,6 +46,31 @@ class GroundSurfaceTest(unittest.TestCase):
         )
         height = woodland_surface(meshes).sample([[-3, 4], [8, 4]]).points_enu_m[:, 2]
         np.testing.assert_allclose(height, [0.35, 2.0])
+
+    def test_woodland_shoulders_stop_at_open_land_and_paved_crossings(self):
+        path = box(-6, -0.9, 6, 0.9)
+        woods = box(-4, -0.9, 4, 3)
+        paving = box(-0.3, -1.5, 0.3, 1.5)
+        edge = forest_trail_edges(path.difference(paving), woods, paving)
+        positions = [
+            (-2, 0.9, 0),
+            (-2, 0.9 - TRAIL_SHOULDER_M / 2, 0),
+            (-2, -0.9, 0),
+            (-5, 0.9, 0),
+            (0.35, 0.9, 0),
+        ]
+        np.testing.assert_allclose(
+            trail_litter_weights(edge, positions), [1, 0.5, 0, 0, 0]
+        )
+
+    def test_diagonal_trail_retains_both_edges_across_the_woodland_cut(self):
+        centreline = LineString([(-5, -1), (4, 3)])
+        path = centreline.buffer(0.9, cap_style="flat")
+        woods = box(-2, -4, 2, 4)
+        edge = forest_trail_edges(path, woods, Polygon())
+        self.assertEqual(len(shapely.get_parts(edge)), 2)
+        expected = 2 * 4 * centreline.length / 9
+        self.assertAlmostEqual(edge.length, expected, delta=0.001)
 
     def test_grass_and_soil_follow_the_same_grade_at_the_waterline(self):
         water = WaterBody(box(-40, -40, 0, 40), 0.0)

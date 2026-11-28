@@ -60,7 +60,7 @@ CYCLES_REFERENCE_SAMPLES = 128
 CYCLES_NOISE_THRESHOLD = 0.025
 
 
-def apply_detail(material, bsdf, name, colour):
+def detail_nodes(material, name, colour):
     image_name = f"Outshine detail {name}"
     image = bpy.data.images.get(image_name)
     if image is None:
@@ -82,7 +82,7 @@ def apply_detail(material, bsdf, name, colour):
         axes.inputs["Angle"].default_value = np.pi / 2
         link(position, axes.inputs["Vector"])
         position = axes.outputs["Vector"]
-    fine_span, macro_span, height_span = detail_scale(name)
+    fine_span, macro_span, _ = detail_scale(name)
     texels = []
     for span in (fine_span, macro_span):
         coords = nodes.new("ShaderNodeVectorMath")
@@ -99,7 +99,6 @@ def apply_detail(material, bsdf, name, colour):
     detail, macro = texels
     channels = nodes.new("ShaderNodeSeparateColor")
     link(detail.outputs["Color"], channels.inputs["Color"])
-    link(channels.outputs["Green"], bsdf.inputs["Roughness"])
     variance = nodes.new("ShaderNodeMath")
     variance.operation = "MULTIPLY_ADD"
     link(macro.outputs["Alpha"], variance.inputs[0])
@@ -121,10 +120,62 @@ def apply_detail(material, bsdf, name, colour):
         link(detail.outputs["Alpha"], pigment.inputs[0])
         link(reflectance, pigment.inputs[1])
         reflectance = pigment.outputs["Color"]
+    return (
+        reflectance,
+        channels.outputs["Green"],
+        channels.outputs["Blue"],
+        detail.outputs["Alpha"],
+    )
+
+
+def blend_trail_litter(material, colour, roughness, height):
+    nodes = material.node_tree.nodes
+    link = material.node_tree.links.new
+    floor, floor_roughness, floor_height, litter = detail_nodes(
+        material, "leaf litter", SURFACES["forest floor"][0]
+    )
+    mask = nodes.new("ShaderNodeAttribute")
+    mask.attribute_name = "trail litter"
+    edge = nodes.new("ShaderNodeMapRange")
+    edge.interpolation_type = "SMOOTHSTEP"
+    link(mask.outputs["Fac"], edge.inputs["Value"])
+    exponent = nodes.new("ShaderNodeMath")
+    exponent.operation = "MULTIPLY_ADD"
+    link(litter, exponent.inputs[0])
+    exponent.inputs[1].default_value = -0.70
+    exponent.inputs[2].default_value = 1.35
+    factor = nodes.new("ShaderNodeMath")
+    factor.operation = "POWER"
+    link(edge.outputs[0], factor.inputs[0])
+    link(exponent.outputs[0], factor.inputs[1])
+    mix = nodes.new("ShaderNodeMixRGB")
+    link(factor.outputs[0], mix.inputs[0])
+    link(colour, mix.inputs[1])
+    link(floor, mix.inputs[2])
+    properties = [mix.outputs[0]]
+    for trail, shoulder in ((roughness, floor_roughness), (height, floor_height)):
+        blend = nodes.new("ShaderNodeMix")
+        blend.data_type = "FLOAT"
+        link(factor.outputs[0], blend.inputs[0])
+        link(trail, blend.inputs[2])
+        link(shoulder, blend.inputs[3])
+        properties.append(blend.outputs[0])
+    return properties
+
+
+def apply_detail(material, bsdf, name, colour):
+    nodes = material.node_tree.nodes
+    link = material.node_tree.links.new
+    reflectance, roughness, height, _ = detail_nodes(material, name, colour)
+    if name == "compacted":
+        reflectance, roughness, height = blend_trail_litter(
+            material, reflectance, roughness, height
+        )
     link(reflectance, bsdf.inputs["Base Color"])
+    link(roughness, bsdf.inputs["Roughness"])
     bump = nodes.new("ShaderNodeBump")
-    bump.inputs["Distance"].default_value = height_span
-    link(channels.outputs["Blue"], bump.inputs["Height"])
+    bump.inputs["Distance"].default_value = detail_scale(name)[2]
+    link(height, bump.inputs["Height"])
     link(bump.outputs["Normal"], bsdf.inputs["Normal"])
 
 
@@ -192,7 +243,7 @@ def apply_water_bed(bed):
     link(colour.outputs["Vector"], nodes["Principled BSDF"].inputs["Base Color"])
 
 
-def upload(name, vertices, faces, *, collection, smooth=False):
+def upload(name, vertices, faces, *, collection, smooth=False, trail_litter=None):
     mesh = bpy.data.meshes.new(name)
     if isinstance(vertices, np.ndarray) and isinstance(faces, np.ndarray):
         used, indices = np.unique(faces, return_inverse=True)
@@ -206,6 +257,14 @@ def upload(name, vertices, faces, *, collection, smooth=False):
         )
     else:
         mesh.from_pydata(vertices, [], faces)
+    if trail_litter is not None:
+        data = (
+            trail_litter[used]
+            if isinstance(vertices, np.ndarray) and isinstance(faces, np.ndarray)
+            else trail_litter
+        )
+        attribute = mesh.attributes.new("trail litter", "FLOAT", "POINT")
+        attribute.data.foreach_set("value", data)
     if smooth:
         mesh.polygons.foreach_set("use_smooth", np.ones(len(mesh.polygons), dtype=bool))
     mesh.update()
@@ -401,7 +460,13 @@ def render(place, config, args):
     geometry = bpy.data.collections.new("World geometry")
     scene.collection.children.link(geometry)
     for name, verts, faces in world.surfaces():
-        upload(name, verts, faces, collection=geometry)
+        upload(
+            name,
+            verts,
+            faces,
+            collection=geometry,
+            trail_litter=world.trail_litter(name, verts),
+        )
     for name, verts, faces in world.grass_and_understory(config["seed"]):
         upload(name, verts, faces, collection=geometry)
     eye, look = Vector(walk.eyes[0] if walk else world.eye), Vector(world.look)
