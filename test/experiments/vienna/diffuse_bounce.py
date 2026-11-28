@@ -125,9 +125,11 @@ def albedo(material):
     )
 
 
-def reflection_index(graph, eye):
-    lower = eye - (RECEIVER_REACH_M + REFLECTION_REACH_M)
-    upper = eye + (RECEIVER_REACH_M + REFLECTION_REACH_M)
+def reflection_index(graph, eye, sunlight):
+    reach = RECEIVER_REACH_M + REFLECTION_REACH_M + 2 * SURFACE_BIAS_M
+    sunward = np.asarray(sunlight) * SUN_OCCLUSION_REACH_M
+    lower = eye - reach + np.minimum(sunward, 0)
+    upper = eye + reach + np.maximum(sunward, 0)
     vertices, faces, reflectance = [], [], []
     offset = 0
     for instance in graph.object_instances:
@@ -174,7 +176,7 @@ def hemisphere_directions(count):
     )
 
 
-def reflected_rgb(scene, graph, index, point, normal, sunlight, directions):
+def reflected_rgb(index, point, normal, sunlight, directions):
     tree, reflectance = index
     normal = Vector(normal).normalized()
     origin = Vector(point) + normal * SURFACE_BIAS_M
@@ -190,13 +192,10 @@ def reflected_rgb(scene, graph, index, point, normal, sunlight, directions):
         cosine = surface.dot(sunlight)
         if cosine <= 0 or not reflectance[face].any():
             continue
-        blocked = scene.ray_cast(
-            graph,
-            hit + surface * SURFACE_BIAS_M,
-            sunlight,
-            distance=SUN_OCCLUSION_REACH_M,
-        )[0]
-        if not blocked:
+        obstruction = tree.ray_cast(
+            hit + surface * SURFACE_BIAS_M, sunlight, SUN_OCCLUSION_REACH_M
+        )[2]
+        if obstruction is None:
             radiance += cosine * reflectance[face]
     return radiance
 
@@ -222,26 +221,30 @@ def bake_sun_bounce(scene, sun, batches):
     start = perf_counter()
     eye = np.asarray(scene.camera.matrix_world.translation)
     graph = bpy.context.evaluated_depsgraph_get()
-    index = reflection_index(graph, eye)
     sunlight = -(sun.matrix_world.to_3x3() @ Vector((0, 0, -1))).normalized()
     directions = hemisphere_directions(32)
     positions = np.concatenate([batch.positions for batch in batches])
     normals = np.concatenate([batch.normals for batch in batches])
-    keys = np.c_[np.floor(positions / RECEIVER_SPACING_M), np.round(normals * 12)]
-    _, first, lookup = np.unique(keys, axis=0, return_index=True, return_inverse=True)
-    strength = sun.data.energy / (np.pi * len(directions))
-    values = strength * np.array(
-        [
-            reflected_rgb(
-                scene, graph, index, positions[i], normals[i], sunlight, directions
-            )
-            for i in first
-        ]
-    )
     fade = np.clip(
         (RECEIVER_REACH_M - np.linalg.norm(positions - eye, axis=1)) / 8, 0, 1
     )
-    irradiance = values[lookup] * fade[:, None]
+    active = np.flatnonzero(fade)
+    if not len(active):
+        return 0, perf_counter() - start
+    keys = np.c_[
+        np.floor(positions[active] / RECEIVER_SPACING_M), np.round(normals[active] * 12)
+    ]
+    _, first, lookup = np.unique(keys, axis=0, return_index=True, return_inverse=True)
+    index = reflection_index(graph, eye, sunlight)
+    strength = sun.data.energy / (np.pi * len(directions))
+    values = strength * np.array(
+        [
+            reflected_rgb(index, positions[i], normals[i], sunlight, directions)
+            for i in active[first]
+        ]
+    )
+    irradiance = np.zeros_like(positions)
+    irradiance[active] = values[lookup] * fade[active, None]
     start_loop = 0
     materials = set()
     for batch in batches:
