@@ -30,6 +30,18 @@ COARSE_LEAF_STEP = 16
 DISTANT_LEAF_STEP = 32
 
 
+def foliage_step(width_px, *, compound):
+    # The smallest horse-chestnut leaflets are about half the central leaflet width.
+    detail_width_px = width_px * (0.5 if compound else 1.0)
+    if detail_width_px >= 1:
+        return 1
+    if width_px >= 0.5:
+        return 4
+    if width_px >= 0.30:
+        return COARSE_LEAF_STEP
+    return DISTANT_LEAF_STEP
+
+
 def stand_plan(species, form):
     data = files("outshine_ref.vegetation").joinpath("data", f"stand-{species}.json")
     base = PlantPlan.from_recipe(json.loads(data.read_text()))
@@ -420,15 +432,7 @@ def tree_batches(
         plan = plant.wood if spruce else plant
         width = 0.30 * SPRAY_WIDTH_M if spruce else plan.blades[0].width
         width_px = width * scale * focal_pixels / max(1, distance)
-        group = (
-            1
-            if width_px >= 1
-            else (
-                4
-                if width_px >= 0.5
-                else (COARSE_LEAF_STEP if width_px >= 0.30 else DISTANT_LEAF_STEP)
-            )
-        )
+        group = foliage_step(width_px, compound=species == "chestnut")
         angle = rotation * 2 * np.pi
         near_stem = distance < 32
         if near_stem:

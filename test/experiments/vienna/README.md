@@ -34,6 +34,8 @@ displacement fades with distance from the joins.
 Managed horse chestnuts carry opposite leaves on wider-reaching limbs. Each
 detailed leaf has an 11 cm stalk and five or seven leaflets joined at its tip.
 The grouped representations use the compound leaf's one-sided area and centre.
+Full compound detail starts when the small outer leaflets, about half as wide as
+the central leaflet, reach a pixel in the reference projection.
 Where mapped side paths follow the shared park road, tree rows follow the
 grass strips between the paths and their outer verges. Adjacent rows stagger
 their 7.6 m stations. The tree register supplies a spacing and layout check for
