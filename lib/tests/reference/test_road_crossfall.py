@@ -2,6 +2,7 @@ import unittest
 
 import numpy as np
 import shapely
+from outshine.transport.crown_constraints import CrownConstraints
 from outshine.transport.road_crossfall import (
     GROUND,
     METRES_PER_CELL,
@@ -17,6 +18,7 @@ from outshine.transport.route_graph import (
     RoutePath,
 )
 from outshine.transport.route_tiles import WORLD_CELLS
+from outshine.world.crown_surface import CrownPatch, CrownSurface
 from outshine.world.road_terrain import _reservations
 
 
@@ -45,7 +47,7 @@ class RoadCrossfallTest(unittest.TestCase):
         xy, _ = tile.grid(self.shape)
         raw = self.height(xy).reshape(self.shape)
         _, latitude = geodetic(xy.reshape(*self.shape, 2)[:, 0])
-        crown = grade_crossfall(
+        crown, _ = grade_crossfall(
             tile, latitude, raw, graph, self.height, reserved, absent
         )
         return xy.reshape(*self.shape, 2) - self.origin, raw, crown
@@ -116,3 +118,43 @@ class RoadCrossfallTest(unittest.TestCase):
         _, _, right = self.ground(east, graph)
         np.testing.assert_allclose(left[:, -1], right[:, 0], atol=1e-8, rtol=0)
         self.assertLess(abs(left[63, -1] - left[64, -1]), 0.13)
+
+
+class CrownSurfaceTest(unittest.TestCase):
+    def test_opposite_tiles_fit_one_shared_height_and_preserve_both_slopes(self):
+        zero = np.zeros((3, 3))
+        left_target = zero.copy()
+        right_target = zero.copy()
+        left_target[1] = (0, 1, 1)
+        right_target[1] = (1, 0.5, 0)
+        left = CrownPatch(
+            zero,
+            left_target,
+            CrownConstraints(
+                np.array([[3, 4, 5]]),
+                np.array([[0, -1, 1]]),
+                np.array([-0.2]),
+                np.array([0.2]),
+            ),
+        )
+        right = CrownPatch(
+            zero,
+            right_target,
+            CrownConstraints(
+                np.array([[3, 4, 5]]),
+                np.array([[-1, 0.5, 0]]),
+                np.array([-0.2]),
+                np.array([0.2]),
+            ),
+        )
+        for west, east in (((2, 1, 1), (2, 2, 1)), ((2, 3, 1), (2, 0, 1))):
+            with self.subTest(west=west):
+                patches = {west: left, east: right}
+                first = CrownSurface(4, 2, patches.get).fit(west, left)
+                second = CrownSurface(4, 2, patches.get).fit(east, right)
+                np.testing.assert_allclose(first[1], (0, 0.9, 0.7), atol=1e-10)
+                np.testing.assert_allclose(second[1], (0.7, 0.5, 0), atol=1e-10)
+                np.testing.assert_array_equal(first[:, -1], second[:, 0])
+                self.assertFalse(
+                    CrownSurface(4, 2, {west: left}.get).fit(west, left).any()
+                )

@@ -20,6 +20,8 @@ from outshine.transport.road_grades import fit_road_grades, ground_carriageways
 from outshine.transport.route_graph import route_graph
 from outshine.transport.route_tiles import WORLD_CELLS
 
+from .crown_surface import CrownPatch, CrownSurface
+
 TERRAIN_ZOOM = 16
 VECTOR_ZOOM = 14
 CELLS_PER_TILE = 128
@@ -52,15 +54,19 @@ def terrain_tiles(latitude, longitude, radius):
     return covering_tiles(latitude, longitude, radius, TERRAIN_ZOOM)
 
 
-def crossfall_tiles(tiles):
+def terrain_halo(tiles):
     side = 1 << TERRAIN_ZOOM
-    shift = TERRAIN_ZOOM - VECTOR_ZOOM
     return {
-        (VECTOR_ZOOM, (xx % side) >> shift, yy >> shift)
+        (TERRAIN_ZOOM, xx % side, yy)
         for _, x, y in tiles
         for xx in range(x - 1, x + 2)
         for yy in range(max(0, y - 1), min(side, y + 2))
     }
+
+
+def crossfall_tiles(tiles):
+    shift = TERRAIN_ZOOM - VECTOR_ZOOM
+    return {(VECTOR_ZOOM, x >> shift, y >> shift) for _, x, y in terrain_halo(tiles)}
 
 
 def elevation_tiles(tiles, zoom):
@@ -125,6 +131,8 @@ class RoadTerrain:
         self.tiles = {}
         self.parents = {}
         self.reservations = {}
+        self.prepared = {}
+        self.crowns = CrownSurface(1 << TERRAIN_ZOOM, CELLS_PER_TILE, self._patch)
 
     def _parent(self, parent):
         if parent not in self.parents:
@@ -181,7 +189,7 @@ class RoadTerrain:
             if "transportation" in self.vectors[key]
         }
         if not transport:
-            return heights
+            return heights, None
         stride = WORLD_CELLS >> TERRAIN_ZOOM
         graph = route_graph(
             transport,
@@ -210,7 +218,7 @@ class RoadTerrain:
             frame, latitude, heights, graph, elevation, reserved, absent
         )
 
-    def _fit_tile(self, tile):
+    def _prepare_tile(self, tile):
         _, x, y = tile
         shift = TERRAIN_ZOOM - VECTOR_ZOOM
         parent = (VECTOR_ZOOM, x >> shift, y >> shift)
@@ -244,13 +252,25 @@ class RoadTerrain:
                 vertices, quads, roads, tuple(_reservations(local))
             )
             heights = product.vertices[:, 2].reshape(heights.shape)
-        return TerrainTile(
-            longitude, latitude, self._crossfall(tile, latitude, heights)
-        )
+        target, constraints = self._crossfall(tile, latitude, heights)
+        return (longitude, latitude, CrownPatch(heights, target, constraints))
+
+    def _patch(self, tile):
+        if tile not in self.prepared:
+            self.prepared[tile] = self._prepare_tile(tile)
+        data = self.prepared[tile]
+        return data[2] if data is not None else None
 
     def _tile(self, tile):
         if tile not in self.tiles:
-            self.tiles[tile] = self._fit_tile(tile)
+            patch = self._patch(tile)
+            if patch is None:
+                self.tiles[tile] = None
+            else:
+                longitude, latitude, _ = self.prepared[tile]
+                self.tiles[tile] = TerrainTile(
+                    longitude, latitude, self.crowns.fit(tile, patch)
+                )
         return self.tiles[tile]
 
     def grid(self, radius):

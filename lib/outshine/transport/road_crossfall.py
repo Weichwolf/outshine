@@ -8,6 +8,7 @@ import shapely
 
 from outshine.terrain.ground_surface import ROAD_WIDTH, at_grade_width
 
+from .crown_constraints import crown_constraints
 from .road_grades import GRADE_LIMITS
 from .route_tiles import WORLD_CELLS
 
@@ -131,7 +132,7 @@ def _support_weight(xy, scale, diagonal, geometries, margin, taper):
 def grade_crossfall(tile, latitude, solved, graph, elevation, reserved=(), absent=()):
     edges, junctions, bends, approaches = _road_layout(graph)
     if not edges:
-        return solved
+        return solved, None
     keys = sorted(edges)
     segments = tile.route_points(keys)
     ways = shapely.linestrings(segments)
@@ -142,7 +143,7 @@ def grade_crossfall(tile, latitude, solved, graph, elevation, reserved=(), absen
     reach = diagonal + (EARTHWORK_TAPER_M + MAX_ROAD_WIDTH_M / 2) / scale.min()
     vertex, owner = index.query_nearest(shapely.points(xy), max_distance=reach)
     if not len(vertex):
-        return solved
+        return solved, None
     order = np.lexsort((owner, vertex))
     unique = order[np.r_[True, np.diff(vertex[order]) != 0]]
     vertex, owner = vertex[unique], owner[unique]
@@ -192,7 +193,7 @@ def grade_crossfall(tile, latitude, solved, graph, elevation, reserved=(), absen
     )
     keep = blend > 0
     if not keep.any():
-        return solved
+        return solved, None
     vertex, owner, anchor, direction, local_scale, offset, half_width, blend = (
         values[keep]
         for values in (
@@ -224,4 +225,7 @@ def grade_crossfall(tile, latitude, solved, graph, elevation, reserved=(), absen
     selected = vertex[valid]
     crown = centre[valid] - PAVEMENT_CROSS_SLOPE * offset[valid]
     result[selected] += blend[valid] * (crown - result[selected])
-    return result.reshape(solved.shape)
+    target = result.reshape(solved.shape)
+    return target, crown_constraints(
+        xy, latitude, solved, target, segments, widths, limits
+    )

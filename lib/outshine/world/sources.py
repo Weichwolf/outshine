@@ -28,6 +28,7 @@ from .road_terrain import (
     elevation_tiles,
     local_metric,
     metres_at,
+    terrain_halo,
     terrain_tiles,
 )
 
@@ -44,7 +45,7 @@ class LocalScene:
         self.dem = Elevation([])
         transport_tiles = {}
         vectors = {}
-        ground_tiles = terrain_tiles(self.lat, self.lon, radius)
+        ground_tiles = terrain_halo(terrain_tiles(self.lat, self.lon, radius))
         support = {
             "elevation": elevation_tiles(ground_tiles, 12),
             "vector": crossfall_tiles(ground_tiles),
