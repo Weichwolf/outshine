@@ -30,7 +30,6 @@ SURFACE_DETAIL = {
     "ground": "soil",
     "forest floor": "leaf litter",
     "regional wood": CANOPY_DETAIL,
-    "broadleaf crown": CROWN_DETAIL,
     "needle crown": CROWN_DETAIL,
     "grass": "grass",
     "meadow": "meadow",
