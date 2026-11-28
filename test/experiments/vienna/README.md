@@ -92,6 +92,12 @@ blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/ren
   --sky-dir build/shots/1965/prater-sky --repeat --output build/shots/1965/prater-crossing
 ```
 
+Near mapped woodland, `--street-sky` also covers the forest floor and trails. Its
+first diffuse scattering samples sky on the same side of a surface for reflection
+and through the opposite side of a translucent leaf for transmission. The color
+and transmission fraction come from the scene materials. Use the same archived
+sky at `Dechantlacke-Woodland` and `Wienerwald-Woodland` with and without the flag.
+
 Standalone GLSL uses 16 m and 96 m camera-centred shadow footprints with 2048 texels
 per axis. They resolve close sills, leaf shadows and root contact. Visibility blends
 into the coarser maps at their footprint edges. The 16 m footprint moves in whole

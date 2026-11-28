@@ -31,13 +31,8 @@ RECEIVERS = (
         "frame",
     }
 )
-DECK_RECEIVERS = {
-    "bridge deck",
-    "retaining wall",
-    "unpaved path",
-    "forest floor",
-    "meadow",
-}
+WOODLAND_RECEIVERS = {"forest floor", "unpaved path", "meadow"}
+DECK_RECEIVERS = WOODLAND_RECEIVERS | {"bridge deck", "retaining wall"}
 
 
 @dataclass(frozen=True)
@@ -48,7 +43,7 @@ class ReceiverBatch:
     normals: np.ndarray
 
 
-def collect_receivers(scene, *, below_deck=False):
+def collect_receivers(scene, extra):
     bpy.context.view_layer.update()
     camera = scene.camera.matrix_world
     eye = np.asarray(camera.translation)
@@ -57,7 +52,7 @@ def collect_receivers(scene, *, below_deck=False):
     tan_x, tan_y = film[:2] / film[2]
     batches = []
     has_facade = False
-    materials = RECEIVERS | DECK_RECEIVERS if below_deck else RECEIVERS
+    materials = RECEIVERS | extra
     for obj in scene.objects:
         if obj.type != "MESH" or len(obj.data.materials) != 1:
             continue
@@ -99,16 +94,24 @@ def collect_receivers(scene, *, below_deck=False):
                 np.repeat(normal[keep] / length[keep, None], 3, axis=0),
             )
         )
-    return batches if has_facade or below_deck else []
+    return batches if has_facade or extra else []
 
 
-def street_receivers(scene, *, below_deck=False):
-    batches = collect_receivers(scene, below_deck=below_deck)
-    materials = GROUND_RECEIVERS | DECK_RECEIVERS if below_deck else GROUND_RECEIVERS
+def street_receivers(scene, *, below_deck=False, woodland=False):
+    extra = set()
+    if below_deck:
+        extra = DECK_RECEIVERS
+    elif woodland:
+        extra = WOODLAND_RECEIVERS
+    batches = collect_receivers(scene, extra)
     if refine_receivers(
-        scene, batches, RECEIVER_REACH_M, 2 * RECEIVER_SPACING_M, materials
+        scene,
+        batches,
+        RECEIVER_REACH_M,
+        2 * RECEIVER_SPACING_M,
+        GROUND_RECEIVERS | extra,
     ):
-        return collect_receivers(scene, below_deck=below_deck)
+        return collect_receivers(scene, extra)
     return batches
 
 
@@ -129,30 +132,31 @@ def place_street_sky(scene):
     scene.collection.objects.link(volume)
 
 
-def albedo(material):
-    if material is None:
-        return (0, 0, 0)
-    name = material.name
+def surface_scattering(name):
+    if name is None:
+        return np.zeros((2, 3))
     base = name.partition(" #")[0]
     if base not in SURFACES or base in {"glass", "water", "regional water"}:
-        return (0, 0, 0)
+        return np.zeros((2, 3))
     _, colour, _ = surface_properties(name)
-    return (
-        np.asarray(colour)
-        * (1 - METALLIC.get(base, 0))
-        * (1 - DIFFUSE_TRANSMISSION.get(base, 0))
-    )
+    colour = np.asarray(colour)
+    transmission = DIFFUSE_TRANSMISSION.get(base, 0)
+    reflection = (1 - METALLIC.get(base, 0)) * (1 - transmission)
+    return np.array([colour * reflection, colour * transmission])
 
 
-def face_albedo(mesh):
+def face_materials(mesh, slots):
     ids = np.empty(len(mesh.loop_triangles), dtype=np.int32)
     mesh.loop_triangles.foreach_get("material_index", ids)
-    palette = np.array([albedo(m) for m in mesh.materials] or [(0, 0, 0)])
-    return palette[ids]
+    indices = np.array(
+        [slots[m.name if m is not None else None] for m in mesh.materials] or [0],
+        dtype=np.int32,
+    )
+    return indices[ids]
 
 
-def static_ray_mesh(objects, lower, upper):
-    vertices, faces, reflectance = [], [], []
+def static_ray_mesh(objects, lower, upper, slots):
+    vertices, faces, materials = [], [], []
     offset = 0
     for mesh, transform in objects:
         points = mesh_points(mesh, transform)
@@ -166,15 +170,22 @@ def static_ray_mesh(objects, lower, upper):
         used, packed = np.unique(triangles[keep], return_inverse=True)
         vertices.append(points[used])
         faces.append(packed.reshape(-1, 3) + offset)
-        reflectance.append(face_albedo(mesh)[keep])
+        materials.append(face_materials(mesh, slots)[keep])
         offset += len(used)
     tree = BVHTree.FromPolygons(
         np.concatenate(vertices).tolist() if vertices else [],
         np.concatenate(faces).tolist() if faces else [],
         all_triangles=True,
     )
-    colours = np.concatenate(reflectance) if reflectance else np.empty((0, 3))
-    return tree, colours
+    return tree, np.concatenate(materials) if materials else np.empty(0, np.int32)
+
+
+@dataclass(frozen=True)
+class LightingRays:
+    tree: object
+    face_materials: np.ndarray
+    reflectance: np.ndarray
+    transmittance: np.ndarray
 
 
 def reflection_index(graph, eye, sunlight, *, reflected_sky=False):
@@ -201,12 +212,17 @@ def reflection_index(graph, eye, sunlight, *, reflected_sky=False):
             placements.append((obj.data, instance.matrix_world.copy(), bounds))
         else:
             objects.append((obj.data, transform))
-    static, colours = static_ray_mesh(objects, lower, upper)
+    names = (None, *bpy.data.materials.keys())
+    slots = {name: i for i, name in enumerate(names)}
+    reflection, transmission = np.asarray(
+        [surface_scattering(name) for name in names]
+    ).transpose(1, 0, 2)
+    static, materials = static_ray_mesh(objects, lower, upper, slots)
     if not placements:
-        return static, colours
+        return LightingRays(static, materials, reflection, transmission)
 
-    reflectance = [colours]
-    face_offset = len(colours)
+    face_indices = [materials]
+    face_offset = len(materials)
     prototypes, instances = {}, []
     for mesh, transform, bounds in placements:
         key = mesh.as_pointer()
@@ -216,11 +232,16 @@ def reflection_index(graph, eye, sunlight, *, reflected_sky=False):
                 mesh_points(mesh).tolist(), triangles.tolist(), all_triangles=True
             )
             prototypes[key] = native, face_offset
-            reflectance.append(face_albedo(mesh))
+            face_indices.append(face_materials(mesh, slots))
             face_offset += len(triangles)
         native, offset = prototypes[key]
         instances.append(RayInstance.make(native, offset, transform, bounds))
-    return InstancedRays(static, instances), np.concatenate(reflectance)
+    return LightingRays(
+        InstancedRays(static, instances),
+        np.concatenate(face_indices),
+        reflection,
+        transmission,
+    )
 
 
 def hemisphere_directions(count):
@@ -246,7 +267,7 @@ def hemisphere_rays(point, normal, directions):
 
 
 def reflected_rgb(index, point, normal, sunlight, directions):
-    tree, reflectance = index
+    tree = index.tree
     origin, world_directions = hemisphere_rays(point, normal, directions)
     radiance = np.zeros(3)
     for direction in world_directions:
@@ -254,13 +275,14 @@ def reflected_rgb(index, point, normal, sunlight, directions):
         if face is None:
             continue
         cosine = surface.dot(sunlight)
-        if cosine <= 0 or not reflectance[face].any():
+        colour = index.reflectance[index.face_materials[face]]
+        if cosine <= 0 or not colour.any():
             continue
         obstruction = tree.ray_cast(
             hit + surface * SURFACE_BIAS_M, sunlight, SUN_OCCLUSION_REACH_M
         )[2]
         if obstruction is None:
-            radiance += cosine * reflectance[face]
+            radiance += cosine * colour
     return radiance
 
 
