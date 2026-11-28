@@ -10,6 +10,7 @@ from time import perf_counter
 
 import moderngl
 import numpy as np
+from air_profile import EARTH_RADIUS_KM
 from catalog import HERE, ROOT, available_views, load_catalog, selected_views
 from PIL import Image
 
@@ -92,7 +93,8 @@ def atmosphere(ctx, target, world, right, up, *, environment=False, linear=False
     quad = ctx.vertex_array(prog, [])
     prog["linearOutput"].value = linear
     for key, value in {
-        "eyeKm": 6360 + (world.eye[2] + world.source.datum) * 0.001,
+        "eyeKm": EARTH_RADIUS_KM + (world.eye[2] + world.source.datum) * 0.001,
+        "aerosolExtinction": world.aerosol_extinction,
         "sun": tuple(world.sun),
         "rightRay": tuple(right),
         "upRay": tuple(up),
@@ -146,11 +148,25 @@ def export_sky(ctx, place, config, out):
     pixels = np.frombuffer(target.read(components=3, dtype="f4"), dtype="f4")
     path = environment_path(out, place)
     eye_m = world.eye[2] + world.source.datum
-    save_environment(path, pixels.reshape(height, width, 3), world.sun, eye_m)
+    save_environment(
+        path,
+        pixels.reshape(height, width, 3),
+        world.sun,
+        eye_m,
+        aerosol=world.aerosol_extinction,
+    )
     for resource in (veil, sky, target):
         resource.release()
     print(
-        json.dumps({"place": place["id"], "sky": str(path), "eye_m": eye_m}), flush=True
+        json.dumps(
+            {
+                "place": place["id"],
+                "weather": world.weather,
+                "sky": str(path),
+                "eye_m": eye_m,
+            }
+        ),
+        flush=True,
     )
 
 
@@ -412,6 +428,7 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
     prog["viewProjection"].write(m.T.astype("f4").tobytes())
     prog["eye"].value = tuple(world.eye)
     prog["sun"].value = tuple(world.sun)
+    prog["directSunFraction"].value = world.direct_sun_fraction
     prog["linearOutput"].value = linear
     sky_path = environment_path(sky_dir, place) if sky_dir is not None else None
     prog["useSkyIrradiance"].value = sky_path is not None
@@ -421,6 +438,7 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
             sky_path,
             world.sun,
             world.eye[2] + world.source.datum,
+            aerosol=world.aerosol_extinction,
         )
         prog["skyIrradiance"].write(diffuse_coefficients(radiance).tobytes())
         source = sky_radiance_texture(ctx, radiance)
@@ -451,7 +469,7 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
     prog["waterIor"].value = WATER_IOR
     veil.use(1)
     prog["veil"].value = 1
-    prog["eyeKm"].value = 6360 + (world.eye[2] + world.source.datum) * 0.001
+    prog["eyeKm"].value = EARTH_RADIUS_KM + (world.eye[2] + world.source.datum) * 0.001
     ctx.enable(moderngl.DEPTH_TEST)
     draws = [
         upload(ctx, prog, n, v, f, [(0, 0, 0, 0, 1)])
@@ -492,6 +510,7 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
         json.dumps(
             {
                 "place": place["id"],
+                "weather": world.weather,
                 "device": ctx.info["GL_RENDERER"],
                 "sky_radiance": str(sky_path) if sky_path is not None else None,
                 "shadow_gpu_ms": round(shadow_time.elapsed * 1e-6, 2),

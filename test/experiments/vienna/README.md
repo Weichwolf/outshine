@@ -39,8 +39,9 @@ the combined GPU time for the depth passes.
 ## Matched sky radiance
 
 Export the GLSL atmosphere for a fixed view and pass the directory to both renderers.
-Each archive stores a scene-linear 512 × 256 equirectangular image, solar direction and
-rendered eye altitude. Direct sunlight comes from the separate sun in each renderer.
+Each archive stores a scene-linear 512 × 256 equirectangular image, solar direction,
+rendered eye altitude and aerosol extinction. Direct sunlight comes from the
+separate sun in each renderer.
 Blender uses the image as its world environment. GLSL integrates the same image with a
 Lambert cosine kernel and evaluates unoccluded diffuse light from nine spherical harmonics.
 For opaque materials, GLSL also filters the shared sky into the native renderer's
@@ -79,6 +80,29 @@ build/blender-python/bin/python test/experiments/vienna/glsl_render.py --linear 
 blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/render.py -- \
   --display-linear build/shots/1965/linear/Dechantlacke-Path-Near-Afternoon.npy \
   --output build/shots/1965/glsl-agx
+```
+
+## Clear and hazy distance
+
+FranzKarlFernsicht and FranzKarlFernsicht-Haze retain the same mapped trail support,
+heading, pitch, eye height, and 21 June 2026 10:00 UTC solar time. Clear air retains
+Rayleigh and ozone. The haze adds grey aerosol extinction of 0.04 km⁻¹ at sea level,
+with a 1.2 km exponential scale height and 0.9 scattering albedo. GLSL samples the
+atmospheric lookup tables for the camera-to-surface segment. Blender integrates the
+aerosol column along each camera ray using its Mist distance pass and a curved height
+profile. Blender's compositor uses scalar transmission for the image mix. Both renderers
+attenuate direct sunlight through the aerosol column. Use separate sky archives for the
+two weather profiles. [Hillaire, Scalable Atmosphere Rendering](https://doi.org/10.1111/cgf.14050)
+
+FranzKarlFernsicht-Adjacent follows the same mapped trail by four metres.
+Use the elevated Wien scenario for historical horizon comparison.
+
+```sh
+build/blender-python/bin/python test/experiments/vienna/glsl_render.py --export-sky \
+  --place FranzKarlFernsicht --place FranzKarlFernsicht-Haze --output build/shots/2052/sky
+blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/render.py -- \
+  --place FranzKarlFernsicht --place FranzKarlFernsicht-Haze \
+  --sky-dir build/shots/2052/sky --output build/shots/2052/eevee
 ```
 
 ## Near material comparisons

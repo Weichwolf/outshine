@@ -9,6 +9,7 @@ uniform int stage;
 uniform bool linearOutput;
 uniform vec2 extent;
 uniform float eyeKm;
+uniform float aerosolExtinction;
 uniform vec3 sun;
 uniform vec3 rightRay;
 uniform vec3 upRay;
@@ -17,7 +18,7 @@ uniform sampler2D transmittance;
 uniform sampler2D multiScatter;
 uniform sampler2D skyView;
 void main() {
-  Medium air = clearAir();
+  Medium air = referenceAir(aerosolExtinction);
   vec2 uv=gl_FragCoord.xy/extent;
   MediumUv coord=MediumUv(uv.x,uv.y);
   MediumLutSize size=MediumLutSize(extent.x,extent.y);

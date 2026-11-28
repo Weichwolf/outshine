@@ -7,6 +7,7 @@ from functools import cached_property, partial
 
 import numpy as np
 import shapely
+from air_profile import aerosol_extinction, direct_sun_fraction
 from astral import Observer
 from astral.sun import azimuth, elevation
 from bank_vegetation import bank_plants
@@ -230,6 +231,8 @@ class ReferenceScene:
         observer = Observer(place["latitude"], place["longitude"])
         utc = datetime.fromisoformat(place.get("utc", config["utc"]))
         self.sun = direction(azimuth(observer, utc), elevation(observer, utc))
+        self.weather = place.get("weather", config.get("weather", "clear"))
+        self.aerosol_extinction = aerosol_extinction(self.weather)
         if "absolute_eye_m" in place:
             self.support = "absolute station"
             z = view_z
@@ -246,6 +249,9 @@ class ReferenceScene:
             z, self.support = max(hits)
             z += config["eye_height_m"]
         self.eye = np.array([*xy, z])
+        self.direct_sun_fraction = direct_sun_fraction(
+            z + self.source.datum, self.sun[2], self.aerosol_extinction
+        )
 
     def surfaces(self):
         for name, (verts, faces) in self.local.items():

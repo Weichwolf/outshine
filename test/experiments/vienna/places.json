@@ -7,6 +7,16 @@
   "weather": "clear",
   "comparison_views": [
     {
+      "id": "FranzKarlFernsicht-Haze",
+      "origin": "FranzKarlFernsicht",
+      "weather": "haze"
+    },
+    {
+      "id": "FranzKarlFernsicht-Adjacent",
+      "origin": "FranzKarlFernsicht",
+      "offset_east_north_m": [-2.9, 2.76]
+    },
+    {
       "id": "KarlMarxHof-Courtyard",
       "origin": "KarlMarxHof",
       "offset_east_north_m": [0, 0],
