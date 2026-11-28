@@ -10,7 +10,9 @@ from astral import Observer
 from astral.sun import azimuth, elevation
 
 from outshine.buildings.facade import FacadeView
+from outshine.materials.detail_coordinates import DetailFrame
 from outshine.places.height import Elevation
+from outshine.terrain.granodiorite import ROCK_MATERIAL, rock_field
 from outshine.terrain.ground_surface import (
     CARRIAGEWAY_MATERIALS,
     MEADOW_MARGIN_M,
@@ -324,8 +326,25 @@ class ReferenceScene:
             mineral_shore(self.local.shore, atlas.shore_substrates) if atlas else None
         )
         self.bare_shore = self.mineral_shore.bare if self.mineral_shore else None
+        self.rocks = (
+            rock_field(
+                atlas,
+                self.source,
+                self.local,
+                np.asarray(xy),
+                self.canopy_seed,
+                exclusion=self.bare_shore,
+            )
+            if atlas is not None and atlas.geology_indices
+            else None
+        )
+        self.plant_exclusion = self.bare_shore
+        if self.rocks is not None:
+            self.plant_exclusion = shapely.union_all(
+                (self.bare_shore, self.rocks.footprints)
+            )
         self.open_cover = (
-            RegionalOpenCover(atlas, self.source, utc, exclusion=self.bare_shore)
+            RegionalOpenCover(atlas, self.source, utc, exclusion=self.plant_exclusion)
             if atlas is not None
             else None
         )
@@ -368,6 +387,8 @@ class ReferenceScene:
     def surfaces(self, *, crown_sites=None):
         for name, (verts, faces) in self.local.items():
             yield self.soil_surfaces.get(name, name), verts, faces
+        if self.rocks is not None:
+            yield ROCK_MATERIAL, *self.rocks.mesh
         yield from control_surfaces(self.source, self.water_plan)
         bounds = []
         for products, tile in regional_meshes(
@@ -392,6 +413,10 @@ class ReferenceScene:
         return distant_cover(*self.terrain_cover_sources)
 
     @cached_property
+    def detail_frame(self):
+        return DetailFrame.from_source(self.source)
+
+    @cached_property
     def landscape_cover(self):
         return landscape_cover(self.open_cover, self.eye, self.canopy_seed)
 
@@ -413,8 +438,8 @@ class ReferenceScene:
     @cached_property
     def woodland_floor(self):
         ground = habitat(self.source, stems=False)
-        if ground is not None and self.bare_shore is not None:
-            return ground.difference(self.bare_shore)
+        if ground is not None and self.plant_exclusion is not None:
+            return ground.difference(self.plant_exclusion)
         return ground
 
     @cached_property
@@ -455,13 +480,13 @@ class ReferenceScene:
             self.local.shore,
             self.eye,
             seed,
-            exclusion=self.bare_shore,
+            exclusion=self.plant_exclusion,
         )
 
     def ground_cover_exclusion(self, xy):
         exclusion = self.open_cover.replaces(xy)
-        if self.bare_shore is not None:
-            exclusion |= shapely.intersects_xy(self.bare_shore, *xy.T)
+        if self.plant_exclusion is not None:
+            exclusion |= shapely.intersects_xy(self.plant_exclusion, *xy.T)
         return exclusion
 
     def ground_blend(self, name, vertices):
@@ -499,8 +524,8 @@ class ReferenceScene:
             )
             yield from mojave_woodland(self.open_cover, self.local, self.eye[:2], seed)
         root_domain = shapely.union_all((self.woodland_floor, self.stands.verges))
-        if self.bare_shore is not None:
-            root_domain = root_domain.difference(self.bare_shore)
+        if self.plant_exclusion is not None:
+            root_domain = root_domain.difference(self.plant_exclusion)
         yield from tree_batches(
             self.source,
             250,

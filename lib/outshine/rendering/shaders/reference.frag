@@ -44,6 +44,11 @@ uniform vec4 waterBedTransform;
 uniform vec3 bedAlbedo;
 uniform bool shadowPass;
 uniform bool blendDetailAxes;
+uniform bool detailVaried, overlayVaried;
+uniform vec3 detailFrameScale, fineWavePhase, broadWavePhase, waveMetres;
+uniform mat3 detailWaves;
+uniform float broadWaveStretch;
+uniform vec3 detailFineOffset, detailBroadOffset, overlayFineOffset, overlayBroadOffset;
 uniform bool reflectionCapture;
 uniform vec4 reflectionClip;
 uniform vec4 reflectionPlane0;
@@ -83,24 +88,30 @@ uniform bool linearOutput;
 #ifdef OUTSHINE_LOCAL_SKYLIGHT
 #include "local_skylight.glsl"
 #endif
-vec2 detailCoordinates(vec3 normal) {
+vec2 detailCoordinates(vec3 normal, vec3 position) {
   vec3 axis=abs(normal);
   // Use Blender BOX axes and mirroring for the shared texture.
   if (axis.z>=max(axis.x,axis.y))
-    return vec2(normal.z>0. ? -point.y : point.y,point.x);
+    return vec2(normal.z>0. ? -position.y : position.y,position.x);
   if (axis.y>axis.x)
-    return vec2(normal.y>0. ? -point.x : point.x,point.z);
-  return vec2(normal.x<0. ? -point.y : point.y,point.z);
+    return vec2(normal.y>0. ? -position.x : position.x,position.z);
+  return vec2(normal.x<0. ? -position.y : position.y,position.z);
 }
 
-vec4 barkDetail(vec3 normal, float span) {
+vec3 variedDetailPosition(float stretch, vec3 phase, vec3 offset) {
+  vec3 metric=point*detailFrameScale;
+  vec3 wave=vec3(dot(metric,detailWaves[0]),dot(metric,detailWaves[1]),dot(metric,detailWaves[2]));
+  return metric+offset+stretch*waveMetres*sin(wave/stretch+phase);
+}
+
+vec4 boxDetail(vec3 normal, vec3 position, float span) {
   vec3 axis=abs(normal);
   vec3 ratios=axis/max(axis.x,max(axis.y,axis.z));
   vec3 w=smoothstep(vec3(1.-barkBoxBlend),vec3(1.),ratios);
   w/=w.x+w.y+w.z;
-  vec2 x=vec2(normal.x<0. ? -point.y : point.y,point.z)/span;
-  vec2 y=vec2(normal.y>0. ? -point.x : point.x,point.z)/span;
-  vec2 z=vec2(normal.z>0. ? -point.y : point.y,point.x)/span;
+  vec2 x=vec2(normal.x<0. ? -position.y : position.y,position.z)/span;
+  vec2 y=vec2(normal.y>0. ? -position.x : position.x,position.z)/span;
+  vec2 z=vec2(normal.z>0. ? -position.y : position.y,position.x)/span;
   return w.x*texture(detailMap,x)+w.y*texture(detailMap,y)+w.z*texture(detailMap,z);
 }
 
@@ -306,23 +317,28 @@ void main(){
     vec3 objectNormal=vec3(
         dot(vec2(rotation.x,rotation.y),n.xy),
         dot(vec2(-rotation.y,rotation.x),n.xy),n.z);
-    vec2 uv=planarDetail ? vec2(-point.y,point.x) : detailCoordinates(objectNormal);
-    vec4 fine=blendDetailAxes ? barkDetail(objectNormal,detailScale.x) : texture(detailMap,uv/detailScale.x);
+    vec3 finePoint=detailVaried ? variedDetailPosition(1.,fineWavePhase,detailFineOffset) : point;
+    vec3 broadPoint=detailVaried ? variedDetailPosition(broadWaveStretch,broadWavePhase,detailBroadOffset) : point;
+    vec2 uv=planarDetail ? vec2(-point.y,point.x) : detailCoordinates(objectNormal,finePoint);
+    vec2 broadUv=planarDetail ? uv : detailCoordinates(objectNormal,broadPoint);
+    vec4 fine=blendDetailAxes ? boxDetail(objectNormal,finePoint,detailScale.x) : texture(detailMap,uv/detailScale.x);
     if (hasShoreSubstrate)
       mineralGrain=clamp(fine.r*crustGrain.x+crustGrain.y,0.,1.);
-    float macro=blendDetailAxes ? barkDetail(objectNormal,detailScale.y).a : texture(detailMap,uv/detailScale.y).a;
+    float macro=blendDetailAxes ? boxDetail(objectNormal,broadPoint,detailScale.y).a : texture(detailMap,broadUv/detailScale.y).a;
     material.rgb*=fine.r*(1.68+.64*macro)*mix(vec3(1.),detailTint,fine.a);
     material.a=fine.g;
-    float height = fine.b * detailScale.z;
+    float height = (fine.b-.5) * detailScale.z;
     if (hasGroundBlend) {
-      vec2 overlayUv = detailCoordinates(objectNormal);
+      vec3 overlayPoint=overlayVaried ? variedDetailPosition(1.,fineWavePhase,overlayFineOffset) : point;
+      vec3 overlayBroad=overlayVaried ? variedDetailPosition(broadWaveStretch,broadWavePhase,overlayBroadOffset) : point;
+      vec2 overlayUv = detailCoordinates(objectNormal,overlayPoint);
       vec4 overlay = texture(overlayMap,overlayUv/overlayScale.x);
-      float broad = texture(overlayMap,overlayUv/overlayScale.y).a;
+      float broad = texture(overlayMap,detailCoordinates(objectNormal,overlayBroad)/overlayScale.y).a;
       float weight = pow(smoothstep(0.,1.,blendWeight),1.35 - .70 * overlay.a);
       vec3 albedo = overlayColour * overlay.r * (1.68 + .64 * broad) *
                     mix(vec3(1.),overlayTint,overlay.a);
       material = mix(material,vec4(albedo,overlay.g),weight);
-      height = mix(height,overlay.b * overlayScale.z,weight);
+      height = mix(height,(overlay.b-.5) * overlayScale.z,weight);
     }
     n=bumpNormal(n,dx,dy,height);
   }

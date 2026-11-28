@@ -184,6 +184,17 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
   [Kiefernfoto aus Hidden Valley](https://commons.wikimedia.org/wiki/File:Pinyon_Pine_at_Hidden_Valley_(37449978012).jpg) ·
   [Eichenfoto vom Barker Dam Trail](https://commons.wikimedia.org/wiki/File:Muller_oak_(Quercus_cornelius-mulleri);_Barker_Dam_Trail.jpg)
 
+- **Granodiorit-Aufschlüsse und Verwitterungsboden in Hidden Valley**. Die
+  Geologiekarte unterscheidet anstehenden Granodiorit von seinem
+  Verwitterungsboden. Zusammen mit der kartierten offenen Felsfläche steuert
+  sie Material und Dichte der prozeduralen Blöcke. Die NPS-Beschreibung der
+  Klüftung und Kantenverwitterung begründet die abgerundeten Blockformen und
+  ihre gemeinsame Ausrichtung. Datierte Ortsaufnahmen geben Maßstab und
+  Farbwirkung vor.
+  [Geologiekarte](https://irma.nps.gov/DataStore/Reference/Profile/2209598) ·
+  [Klüftung und Verwitterung](https://www.nps.gov/jotr/learn/nature/geologicformations.htm) ·
+  [Aufnahme aus Hidden Valley vom 26. September 2017](https://commons.wikimedia.org/wiki/File:Pinyon_Pine_at_Hidden_Valley_(37449978012).jpg)
+
 - **Hierarchical Image Caching for Accelerated Walkthroughs of Complex Environments**,
   Shade / Lischinski / Salesin / DeRose / Snyder, SIGGRAPH 1996.
   [Autorenprojekt](https://pages.cs.huji.ac.il/danix-lab/cglab/research/wa/) ·

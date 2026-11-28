@@ -69,6 +69,7 @@ RASTER_DTYPES = {
 }
 COMMUNITY_DTYPE = np.dtype("<u2")
 OBSERVATION_DTYPE = np.dtype("<u2")
+GEOLOGY_DTYPE = np.dtype("<u2")
 
 
 def tile_bounds(key):
@@ -127,6 +128,13 @@ class VegetationObservation:
 
 
 @dataclass(frozen=True, slots=True)
+class GeologyObservation:
+    map_unit: str
+    label: str
+    lithology: str
+
+
+@dataclass(frozen=True, slots=True)
 class HabitatSample:
     cover: str | None
     cover_source: str | None
@@ -140,6 +148,7 @@ class HabitatSample:
     soil: SoilPrior | None
     potential_community: str | None = None
     observed_vegetation: VegetationObservation | None = None
+    geology: GeologyObservation | None = None
 
 
 def soil_prior(values):
@@ -207,6 +216,13 @@ class VegetationAtlas:
         self.observation_indices = {}
         for index, record in enumerate(self.observations[1:], 1):
             self.observation_indices.setdefault(record.map_unit, []).append(index)
+        self.geology = (
+            None,
+            *(GeologyObservation(**row) for row in self.manifest.get("geology", ())),
+        )
+        self.geology_indices = {
+            row.map_unit: index for index, row in enumerate(self.geology[1:], 1)
+        }
         self._density_classes = np.array(
             [0, *(row.density_class for row in self.observations[1:])], dtype=np.uint8
         )
@@ -229,6 +245,8 @@ class VegetationAtlas:
             dtypes = dtypes | {"community": COMMUNITY_DTYPE}
         if record.get("observed_vegetation"):
             dtypes = dtypes | {"observation": OBSERVATION_DTYPE}
+        if record.get("geology"):
+            dtypes = dtypes | {"geology": GEOLOGY_DTYPE}
         with np.load(io.BytesIO(data), allow_pickle=False) as archive:
             layers = {layer: archive[layer] for layer in dtypes}
         if any(
@@ -244,6 +262,8 @@ class VegetationAtlas:
             self.observations
         ):
             raise ValueError(f"unknown observed vegetation in atlas tile {name}")
+        if "geology" in layers and layers["geology"].max() >= len(self.geology):
+            raise ValueError(f"unknown geology in atlas tile {name}")
         return layers
 
     def land_cells(self, latitude, longitude):
@@ -276,6 +296,19 @@ class VegetationAtlas:
                 index
                 for code in codes
                 for index in self.observation_indices.get(code, ())
+            ],
+        )
+
+    def geology_cells(self, latitude, longitude):
+        return self._cells(latitude, longitude, {"geology": GEOLOGY_DTYPE})[0]
+
+    def geology_mask(self, indices, codes):
+        return np.isin(
+            indices,
+            [
+                self.geology_indices[code]
+                for code in codes
+                if code in self.geology_indices
             ],
         )
 
@@ -324,7 +357,7 @@ class VegetationAtlas:
             raise ValueError(f"unknown mapped cover {mapped_cover!r}")
         key, cell = grid_cell(latitude, longitude)
         layers = self._tiles(tile_name(key))
-        code = ecoregion = region = soil = community = observation = None
+        code = ecoregion = region = soil = community = observation = geology = None
         if layers is not None:
             code = int(layers["cover"][cell]) or None
             ecoregion = int(layers["ecoregion"][cell]) or None
@@ -335,6 +368,8 @@ class VegetationAtlas:
                 community = self.communities[layers["community"][cell]] or None
             if "observation" in layers:
                 observation = self.observations[layers["observation"][cell]]
+            if "geology" in layers:
+                geology = self.geology[layers["geology"][cell]]
         cover = mapped_cover or COVER_CLASSES.get(code)
         source = "mapped" if mapped_cover else "worldcover" if cover else None
         regions = (region,) if region else ()
@@ -356,6 +391,7 @@ class VegetationAtlas:
             soil,
             community,
             observation,
+            geology,
         )
 
     def sample_local(self, source, xy):

@@ -5,10 +5,12 @@ import hashlib
 import io
 import json
 import shutil
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from math import ceil, floor
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from urllib.parse import urlencode
 from urllib.request import urlopen
 from zipfile import ZipFile
@@ -103,6 +105,17 @@ JOTR_OBSERVATIONS = {
         "height_class": "HEIGHT",
         "density_class": "DENSITY",
     },
+}
+JOTR_GEOLOGY = {
+    "url": "https://irma.nps.gov/DataStore/DownloadFile/678003?Reference=2209598",
+    "release": "NPS Geologic Resources Inventory JOTR GeoPackage 2022",
+    "attribution": "National Park Service, after Powell, Matti and Cossette (USGS OFR 2015-1175)",
+    "license": "Public NPS GeoPackage. See publication metadata for use limitations.",
+    "metadata_url": "https://irma.nps.gov/DataStore/Reference/Profile/2209598",
+    "sha256": "54ff10725a894f46fba612c191a71024c27d3d7c5ec0ad2bfff7e1b3b8f9cd4c",
+    "bounds_wgs84": JOTR_EXTENT.bounds,
+    "table": "JOTR_Geologic_Units",
+    "crs": "EPSG:26911",
 }
 HOMOLOSINE = "+proj=igh +ellps=WGS84 +units=m"
 SOIL_CRS = "http://www.opengis.net/def/crs/EPSG/0/152160"
@@ -345,8 +358,79 @@ def jotr_observations(cache, keys, fetch):
     )
 
 
+def geopackage_shape(blob):
+    if blob[:2] != b"GP":
+        raise ValueError("expected a GeoPackage geometry")
+    envelope = (blob[3] >> 1) & 7
+    if envelope > 4:
+        raise ValueError("unsupported GeoPackage envelope")
+    header = 8 + (0, 32, 48, 48, 64)[envelope]
+    return shapely.from_wkb(blob[header:])
+
+
+def jotr_geology(cache, keys, fetch):
+    region = shapely.union_all(
+        [box(*tile_bounds(key)).intersection(JOTR_EXTENT) for key in keys]
+    )
+    if region.is_empty or region.area == 0:
+        return [], [], {}
+    archive = pinned_source(cache, "jotr-geology-gpkg.zip", JOTR_GEOLOGY, fetch)
+    crs = JOTR_GEOLOGY["crs"]
+    west, south, east, north = transform_bounds("EPSG:4326", crs, *region.bounds)
+    polygons = []
+    with (
+        TemporaryDirectory() as directory,
+        ZipFile(archive) as package,
+    ):
+        path = Path(package.extract("jotr_geology.gpkg", directory))
+        with closing(sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True)) as database:
+            rows = database.execute(
+                """
+                select Unit_Symbol, Unit_Name, Major_Lithology
+                from JOTR_Geologic_Unit_Information_Table_short_version
+                """
+            )
+            units = {symbol: (name, lithology) for symbol, name, lithology in rows}
+            rows = database.execute(
+                """
+                select Unit_Symbol, Shape from JOTR_Geologic_Units where OBJECTID in (
+                    select id from rtree_JOTR_Geologic_Units_Shape
+                    where minx < ? and maxx > ? and miny < ? and maxy > ?
+                )
+                """,
+                (east, west, north, south),
+            )
+            for symbol, blob in rows:
+                source = geopackage_shape(blob)
+                projected = transform_geom(crs, "EPSG:4326", source.__geo_interface__)
+                polygon = shapely.make_valid(shape(projected)).intersection(region)
+                if polygon.area > 0:
+                    polygons.append((polygon, symbol))
+    symbols = sorted({symbol for _, symbol in polygons})
+    indices = {symbol: index for index, symbol in enumerate(symbols, 1)}
+    records = []
+    for symbol in symbols:
+        name, lithology = units[symbol]
+        records.append(
+            {"map_unit": f"JOTR-GRI:{symbol}", "label": name, "lithology": lithology}
+        )
+    return (
+        records,
+        [(polygon, indices[symbol]) for polygon, symbol in polygons],
+        {"jotr_geology": JOTR_GEOLOGY},
+    )
+
+
 def build_tile(
-    key, cache, output, fetch, resolve_path, botanical, communities, observations
+    key,
+    cache,
+    output,
+    fetch,
+    resolve_path,
+    botanical,
+    communities,
+    observations,
+    geology,
 ):
     name = tile_name(key)
     bounds = tile_bounds(key)
@@ -369,20 +453,20 @@ def build_tile(
         "ecoregion": polygon_layer(region_polygons, bounds),
         "botanical": polygon_layer(botanical_polygons, bounds),
     }
-    regional = [
-        (polygon.intersection(extent), code)
-        for polygon, code in communities
-        if polygon.intersects(extent)
-    ]
-    if regional:
-        layers["community"] = polygon_layer(regional, bounds)
-    observed = [
-        (polygon.intersection(extent), code)
-        for polygon, code in observations
-        if polygon.intersects(extent)
-    ]
-    if observed:
-        layers["observation"] = polygon_layer(observed, bounds)
+    flags = {}
+    for layer, field, shapes in (
+        ("community", "potential_community", communities),
+        ("observation", "observed_vegetation", observations),
+        ("geology", "geology", geology),
+    ):
+        clipped = [
+            (polygon.intersection(extent), code)
+            for polygon, code in shapes
+            if polygon.intersects(extent)
+        ]
+        if clipped:
+            layers[layer] = polygon_layer(clipped, bounds)
+            flags[field] = True
     soil = {}
     water_or_ice = np.isin(cover, (70, 80))
     for layer in SOIL_LAYERS:
@@ -399,12 +483,7 @@ def build_tile(
     payload = stream.getvalue()
     digest = hashlib.sha256(payload).hexdigest()
     write_bytes(output / f"{name}-{digest}.npz", payload)
-    record = {"sha256": digest, "worldcover": worldcover, "soil": soil}
-    if regional:
-        record["potential_community"] = True
-    if observed:
-        record["observed_vegetation"] = True
-    return name, record
+    return name, {"sha256": digest, "worldcover": worldcover, "soil": soil, **flags}
 
 
 def covering_keys(positions):
@@ -457,6 +536,7 @@ def build_atlas(cache, output, keys, *, fetch, pinned=None):
     observation_records, observations, observation_sources = jotr_observations(
         cache, keys, fetch
     )
+    geology_records, geology, geology_sources = jotr_geology(cache, keys, fetch)
     with ThreadPoolExecutor(max_workers=6) as pool:
         tiles = dict(
             pool.map(
@@ -469,6 +549,7 @@ def build_atlas(cache, output, keys, *, fetch, pinned=None):
                     botanical,
                     communities,
                     observations,
+                    geology,
                 ),
                 keys,
             )
@@ -484,10 +565,12 @@ def build_atlas(cache, output, keys, *, fetch, pinned=None):
             | {"catalog_sha256": species_catalog_digest()},
             **regional_sources,
             **observation_sources,
+            **geology_sources,
         },
         "botanical_regions": codes,
         "potential_communities": community_codes,
         "observations": observation_records,
+        "geology": geology_records,
         "shore_substrates": json.loads(
             Path(__file__).with_name("shore-substrates.json").read_text()
         ),

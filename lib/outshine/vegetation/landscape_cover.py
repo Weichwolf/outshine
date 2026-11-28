@@ -4,9 +4,10 @@ from dataclasses import dataclass
 
 import numpy as np
 import shapely
-from scipy.ndimage import distance_transform_edt
+from scipy.ndimage import distance_transform_edt, gaussian_filter
 
 from outshine.materials.palette import SURFACES
+from outshine.terrain.granodiorite import BEDROCK, OUTCROPS, RESIDUUM, ROCK_MATERIAL
 from outshine.terrain.ground_surface import at_grade_routes
 from outshine.vegetation.atlas import CELLS_PER_DEGREE
 from outshine.vegetation.patagonian_shrub import PATAGONIAN_COMMUNITIES
@@ -14,7 +15,15 @@ from outshine.vegetation.plant_sites import patch_density
 
 LANDSCAPE_REACH_M = 2400
 LANDSCAPE_MATERIALS = frozenset(
-    ("patagonian gravel soil", "regional soil", "ground", "grass", "meadow", "scrub")
+    (
+        "patagonian gravel soil",
+        "mojave gravelly sand",
+        "regional soil",
+        "ground",
+        "grass",
+        "meadow",
+        "scrub",
+    )
 )
 
 
@@ -26,12 +35,16 @@ class LandscapeCover:
     transform: tuple[float, float, float, float]
 
 
-def raster_window(cover):
+def raster_window(cover, field="potential_community"):
     source = cover.source
     origin = np.array([source.lon, source.lat])
     radius = LANDSCAPE_REACH_M / source.metres
     bounds = np.r_[origin - radius, origin + radius]
-    tiles = list(cover.atlas.community_windows(bounds))
+    tiles = list(
+        cover.atlas.community_windows(bounds)
+        if field == "potential_community"
+        else cover.atlas.evidence_windows(bounds, field)
+    )
     if not tiles:
         return None
     tiles = np.asarray(tiles)
@@ -101,9 +114,13 @@ def reserved_routes(source, xy, pitch, bounds):
 
 
 def landscape_cover(cover, eye, seed):
-    if cover is None or not PATAGONIAN_COMMUNITIES.intersection(
-        cover.atlas.community_indices
-    ):
+    if cover is None:
+        return None
+    if getattr(cover.atlas, "geology_indices", None):
+        geology = geology_landscape(cover, seed)
+        if geology is not None:
+            return geology
+    if not PATAGONIAN_COMMUNITIES.intersection(cover.atlas.community_indices):
         return None
     window = raster_window(cover)
     if window is None:
@@ -135,3 +152,34 @@ def landscape_cover(cover, eye, seed):
         colour * (255 * weight.ravel()[picked, None])
     )
     return LandscapeCover(pixels, transform)
+
+
+def geology_landscape(cover, seed):
+    window = raster_window(cover, "geology")
+    if window is None:
+        return None
+    points, pitch, transform = window
+    xy = points.reshape(-1, 2)
+    lon, lat = cover.coordinates(xy)
+    units = cover.atlas.geology_cells(lat, lon)
+    bedrock = cover.atlas.geology_mask(units, BEDROCK)
+    weathered = cover.atlas.geology_mask(units, RESIDUUM)
+    observations, _ = cover.atlas.observed_cells(lat, lon)
+    bare = cover.atlas.observation_mask(observations, OUTCROPS)
+    weight = np.select((bedrock & bare, bedrock, weathered), (0.67, 0.21, 0.12))
+    bounds = (*(points[0, 0] - pitch / 2), *(points[-1, -1] + pitch / 2))
+    weight[reserved_routes(cover.source, xy, pitch, bounds)] = 0
+    shade = patch_density(cover.source, xy, seed ^ 0x9584, scale=27)
+    base = np.where(
+        bedrock[:, None],
+        SURFACES[ROCK_MATERIAL][0],
+        SURFACES["mojave gravelly sand"][0],
+    )
+    grey = base * (0.82 + 0.27 * shade[:, None])
+    fields = np.column_stack((grey * weight[:, None], weight)).reshape(
+        *points.shape[:2], 4
+    )
+    filtered = gaussian_filter(fields, (0.92, 0.92, 0), mode="constant")
+    filtered[[0, -1], :, :] = 0
+    filtered[:, [0, -1], :] = 0
+    return LandscapeCover(np.rint(255 * filtered).astype(np.uint8), transform)

@@ -22,8 +22,14 @@ DETAIL_SCALES = {
     MEADOW_DETAIL: (MEADOW_TILE_M, 31.0, HEIGHT_SPAN_M),
     "umbrella thorn bark": (1.30, 8.0, 0.020),
     "gravelly soil": (3.40, 54.0, HEIGHT_SPAN_M),
+    "granodiorite": (2.31, 38.9, 0.012),
 }
 DETAIL_TINTS = {"beech bark": (0.86, 1.0, 0.78), "leaf litter": (0.53, 1.26, 0.66)}
+SURFACE_RELIEF = {
+    "mojave gravelly sand": 0.51,
+    "mojave footpath": 0.64,
+    "mojave unpaved road": 0.64,
+}
 SIZE = 512
 
 
@@ -43,6 +49,7 @@ SURFACE_DETAIL = {
     "patagonian footpath": "gravelly soil",
     "mojave gravelly sand": "gravelly soil",
     "mojave footpath": "compacted",
+    "granodiorite rock": "granodiorite",
     "forest floor": "leaf litter",
     "regional wood": CANOPY_DETAIL,
     "needle crown": CROWN_DETAIL,
@@ -83,6 +90,11 @@ def noise(rng, scale):
 
 def detail_scale(name):
     return DETAIL_SCALES.get(name, (DETAIL_SPAN_M, MACRO_SPAN_M, HEIGHT_SPAN_M))
+
+
+def surface_detail_scale(detail, material):
+    fine, broad, height = detail_scale(detail)
+    return fine, broad, height * SURFACE_RELIEF.get(material, 1.0)
 
 
 def regional_canopy(rng):
@@ -171,6 +183,7 @@ def ground_detail(name):
         "sandy clay loam",
         "compacted road",
         "gravelly soil",
+        "granodiorite",
     ).index(name)
     rng = np.random.default_rng(seed)
     fine, grain, patches = (noise(rng, scale) for scale in (0.65, 1.6, 12))
@@ -233,6 +246,15 @@ def ground_detail(name):
         roughness = 0.94 - 0.11 * stones + 0.02 * fines
         height = 0.0093 * stones + 0.0014 * beds + 0.00046 * fine
         macro = 0.5 + 0.20 * noise(rng, 24)
+    elif name == "granodiorite":
+        quartz = np.clip(noise(rng, (1.4, 1.9)) - 0.30, 0, 1.8)
+        mafic = np.clip(-noise(rng, 1.0) - 1.04, 0, 1.9)
+        weathering = np.tanh(0.72 * noise(rng, 21) + 0.31 * patches)
+        chips = np.clip(noise(rng, 5.4) + 0.24 * grain - 0.61, 0, 1.35)
+        tint = 0.91 + 0.18 * quartz - 0.21 * mafic + 0.17 * weathering + 0.06 * grain
+        roughness = 0.86 - 0.05 * quartz + 0.047 * weathering + 0.032 * mafic
+        height = 0.0012 * quartz + 0.0021 * chips + 0.00028 * fine
+        macro = 0.5 + 0.12 * noise(rng, 27)
     elif name == "leaf litter":
         tint, roughness, height, macro = bake_litter(
             rng, fine, grain, noise(rng, 30), noise(rng, 15), patches, DETAIL_SPAN_M

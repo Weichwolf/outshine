@@ -75,6 +75,7 @@ SURFACES = {
     "patagonian gravel soil": PATAGONIAN_GRAVEL,
     "patagonian footpath": PATAGONIAN_GRAVEL,
     "mojave gravelly sand": ((0.248, 0.193, 0.133), 0.94),
+    "granodiorite rock": ((0.291, 0.252, 0.203), 0.88),
     "mojave footpath": ((0.272, 0.213, 0.151), 0.91),
     "forest floor": ((0.098, 0.073, 0.047), 0.91),
     "unpaved path": ((0.17, 0.135, 0.095), 0.89),
