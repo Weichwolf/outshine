@@ -32,8 +32,8 @@ from diffuse_bounce import (
 )
 from ground_detail import (
     BARK_BOX_BLEND,
-    CANOPY_DETAIL,
     DETAIL_TINTS,
+    PLANAR_DETAILS,
     SURFACE_DETAIL,
     detail_scale,
     ground_detail,
@@ -84,7 +84,7 @@ def detail_nodes(material, name, colour):
     nodes = material.node_tree.nodes
     link = material.node_tree.links.new
     position = nodes.new("ShaderNodeNewGeometry").outputs["Position"]
-    planar = name == CANOPY_DETAIL
+    planar = name in PLANAR_DETAILS
     if planar:
         axes = nodes.new("ShaderNodeVectorRotate")
         axes.rotation_type = "Z_AXIS"

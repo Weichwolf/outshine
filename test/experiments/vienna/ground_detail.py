@@ -4,6 +4,7 @@ from functools import cache
 
 import numpy as np
 from leaf_litter import bake_litter
+from meadow_material import MEADOW_TILE_M, bake_meadow
 from scipy.ndimage import gaussian_filter, map_coordinates
 
 DETAIL_SPAN_M = 2.56
@@ -12,7 +13,13 @@ HEIGHT_SPAN_M = 0.024
 BARK_BOX_BLEND = 0.35
 CANOPY_DETAIL = "regional canopy"
 CROWN_DETAIL = "crown sprays"
-DETAIL_SCALES = {CANOPY_DETAIL: (512.0, 1523.0, 2.4), CROWN_DETAIL: (24.8, 127.9, 0.48)}
+MEADOW_DETAIL = "meadow canopy"
+PLANAR_DETAILS = (CANOPY_DETAIL, MEADOW_DETAIL)
+DETAIL_SCALES = {
+    CANOPY_DETAIL: (512.0, 1523.0, 2.4),
+    CROWN_DETAIL: (24.8, 127.9, 0.48),
+    MEADOW_DETAIL: (MEADOW_TILE_M, 31.0, HEIGHT_SPAN_M),
+}
 DETAIL_TINTS = {"beech bark": (0.86, 1.0, 0.78), "leaf litter": (0.53, 1.26, 0.66)}
 SIZE = 512
 
@@ -32,7 +39,7 @@ SURFACE_DETAIL = {
     "regional wood": CANOPY_DETAIL,
     "needle crown": CROWN_DETAIL,
     "grass": "grass",
-    "meadow": "meadow",
+    "meadow": MEADOW_DETAIL,
     "green crop": "grass",
     "dry crop": "meadow",
     "field soil": "soil",
@@ -142,12 +149,15 @@ def ground_detail(name):
         CANOPY_DETAIL,
         "spruce bark",
         CROWN_DETAIL,
+        MEADOW_DETAIL,
     ).index(name)
     rng = np.random.default_rng(seed)
     fine, grain, patches = (noise(rng, scale) for scale in (0.65, 1.6, 12))
     macro = 0.5 + 0.15 * patches
     if name == CANOPY_DETAIL:
         tint, roughness, height, macro = regional_canopy(rng)
+    elif name == MEADOW_DETAIL:
+        tint, roughness, height, macro = bake_meadow(rng, SIZE, fine, patches)
     elif name == CROWN_DETAIL:
         sprays = np.tanh(0.54 * noise(rng, 11) + 0.47 * noise(rng, 24))
         shade = np.maximum(sprays, 0)
