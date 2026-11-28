@@ -69,6 +69,7 @@ from outshine.transport.elevated_rail import (
 )
 from outshine.transport.passage_trim import draw_passage_trim
 from outshine.transport.rail_approaches import plan_rail_approaches
+from outshine.transport.road_tunnels import draw_road_tunnel, plan_road_tunnels
 from outshine.transport.stair_branches import local_stair_branches
 from outshine.transport.stair_guards import draw_stair_guards
 from outshine.transport.stair_landings import local_landings
@@ -746,6 +747,26 @@ def ground_surfaces(
             *(deck.footprint for deck in crossings),
         ]
     )
+    tunnels = plan_road_tunnels(
+        source.features,
+        extent,
+        structures,
+        bodies,
+        [
+            reserved_decks,
+            junction_area,
+            track_paving,
+            *(item.footprint for item, _ in earthworks),
+            *(stair.footprint for stair in stairs),
+        ],
+        vertices,
+        quads,
+        height,
+    )
+    if tunnels:
+        cuts = shapely.union_all([tunnel.openings for tunnel in tunnels])
+        openings = openings.union(cuts)
+        reserved_decks = reserved_decks.union(cuts)
     rail_decks = plan_elevated_rail(
         source.features,
         extent,
@@ -804,6 +825,9 @@ def ground_surfaces(
             )
     names.update({i: i for i in stair_tops.keys() | graded.keys()})
     footprints = {1: bodies}
+    if tunnels:
+        names[-1] = "tunnel opening"
+        footprints[-1] = cuts
     footprints.update(
         {i: foot for i, (foot, _, _) in enumerate(pieces, start=first_stair)}
     )
@@ -878,6 +902,8 @@ def ground_surfaces(
         footprints,
         breaks=breaks,
     ):
+        if name == "tunnel opening":
+            continue
         if name in graded:
             earthwork, ground_material = graded[name]
             if isinstance(earthwork, DeckWalkLink):
@@ -896,12 +922,12 @@ def ground_surfaces(
             if name == "water":
                 banks = np.concatenate((banks, edges))
                 continue
-            height, name = stair_tops[name]
+            step_height, name = stair_tops[name]
             vertical_faces(
-                meshes, "sidewalk", boundary_edges(edges, stair_limit), height
+                meshes, "sidewalk", boundary_edges(edges, stair_limit), step_height
             )
             points = points.copy()
-            points[:, 2] = height
+            points[:, 2] = step_height
         if len(faces):
             used, inverse = np.unique(faces, return_inverse=True)
             terrain = points[used]
@@ -913,6 +939,8 @@ def ground_surfaces(
             meshes.add(name, terrain, triangles)
             if retain:
                 dry_banks.append(dry_shore_edges(shore, terrain, triangles))
+    for tunnel in tunnels:
+        draw_road_tunnel(meshes, tunnel, height)
     wall_ground = WallGround(meshes) if track_wall_ground else None
     for link in links:
         meshes.add(link.material, link.mesh.vertices, link.mesh.triangles)
