@@ -13,7 +13,9 @@ AEROSOL_SAMPLES = tuple(zip(0.5 * (1 + nodes), 0.5 * weights, strict=True))
 
 def aerosol_extinction(weather):
     try:
-        return {"clear": 0.0, "haze": 0.04}[weather]
+        return {"clear": 0.0, "haze": 0.04, "broken-cloud": 0.0, "overcast": 0.0}[
+            weather
+        ]
     except KeyError as error:
         raise ValueError(f"unsupported reference weather {weather!r}") from error
 

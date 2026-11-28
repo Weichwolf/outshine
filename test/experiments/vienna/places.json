@@ -7,6 +7,26 @@
   "weather": "clear",
   "comparison_views": [
     {
+      "id": "FranzKarlFernsicht-BrokenCloud",
+      "origin": "FranzKarlFernsicht",
+      "weather": "broken-cloud"
+    },
+    {
+      "id": "FranzKarlFernsicht-Overcast",
+      "origin": "FranzKarlFernsicht",
+      "weather": "overcast"
+    },
+    {
+      "id": "Wien-BrokenCloud",
+      "origin": "Wien",
+      "weather": "broken-cloud"
+    },
+    {
+      "id": "Wien-Overcast",
+      "origin": "Wien",
+      "weather": "overcast"
+    },
+    {
       "id": "FranzKarlFernsicht-Haze",
       "origin": "FranzKarlFernsicht",
       "weather": "haze"

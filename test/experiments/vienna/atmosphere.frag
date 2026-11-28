@@ -1,8 +1,11 @@
 #version 410 core
 #include "medium.glsl"
 #include "clear_air.glsl"
+#include "reference_cloud.glsl"
 #include "skyViewLookup.glsl"
 #include "display.glsl"
+const float kPi = OUTSHINE_PI;
+#include "archived_sky.glsl"
 in vec2 ndc;
 out vec4 colour;
 uniform int stage;
@@ -17,6 +20,7 @@ uniform vec3 forward;
 uniform sampler2D transmittance;
 uniform sampler2D multiScatter;
 uniform sampler2D skyView;
+uniform sampler2D skyArchive;
 void main() {
   Medium air = referenceAir(aerosolExtinction);
   vec2 uv=gl_FragCoord.xy/extent;
@@ -34,6 +38,8 @@ void main() {
     SkyViewLook ray=skyViewParams(air,eyeKm,coord,size);
     colour=vec4(mediumSkyRay(air,eyeKm,ray,sun.z,transmittance,multiScatter,kSkyViewSteps,
       kMediumLuminanceSegment,kMediumGroundLiftKm),1.);
+  } else if (stage == 5) {
+    colour = vec4(cloudSun(air, eyeKm, sun, vec2(0.), 32));
   } else {
     vec3 dir;
     if (stage == 4) {
@@ -49,7 +55,16 @@ void main() {
       SkyViewLook(dir.z,skyLightViewCos(dir,vec3(0.,0.,1.),sun)), MediumLutSize(float(res.x),float(res.y)));
     vec3 rgb=texture(skyView,vec2(sampleAt.Uv.U,sampleAt.Uv.V)).rgb;
     if (stage == 4) {
-      colour = vec4(rgb * (2.5 / 1.2), 1.);
+      vec3 sky = rgb * (2.5 / 1.2);
+      float cloudOpacity = 0.;
+      if (cloudKind != 0 && !sampleAt.HitsGround)
+        sky = cloudRadiance(air, eyeKm, dir, sun, sky, transmittance, cloudOpacity);
+      colour = vec4(sky, cloudOpacity);
+      return;
+    }
+    if (cloudKind != 0) {
+      vec3 light = archivedSky(skyArchive, dir);
+      colour = vec4(linearOutput ? light : pow(filmic(light), vec3(1./2.2)), 1.);
       return;
     }
     if(!sampleAt.HitsGround && dot(dir,sun)>cos(kSunHalfAngleRad)){

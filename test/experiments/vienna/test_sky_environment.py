@@ -4,7 +4,9 @@ from pathlib import Path
 
 import numpy as np
 from air_profile import AEROSOL_HEIGHT_KM, aerosol_extinction, direct_sun_fraction
+from cloud_profile import WIND_KM_S, cloud_profile
 from sky_environment import (
+    CLOUD_ENVIRONMENT_SIZE,
     SKY_ENVIRONMENT_SIZE,
     diffuse_coefficients,
     load_environment,
@@ -34,7 +36,9 @@ class SkyEnvironmentTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "sky.npz"
             save_environment(path, radiance, sun, 156.25)
-            np.testing.assert_array_equal(load_environment(path, sun, 156.25), radiance)
+            np.testing.assert_array_equal(
+                load_environment(path, sun, 156.25).radiance, radiance
+            )
             with self.assertRaisesRegex(ValueError, "sun or eye altitude"):
                 load_environment(path, (0.6, 0.0, 0.8), 156.25)
             with self.assertRaisesRegex(ValueError, "sun or eye altitude"):
@@ -47,12 +51,14 @@ class SkyEnvironmentTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "sky.npz"
             np.savez(path, radiance=radiance, sun_enu=sun, eye_m=eye)
-            np.testing.assert_array_equal(load_environment(path, sun, eye), radiance)
+            np.testing.assert_array_equal(
+                load_environment(path, sun, eye).radiance, radiance
+            )
             with self.assertRaisesRegex(ValueError, "aerosol extinction"):
                 load_environment(path, sun, eye, aerosol=haze)
             save_environment(path, radiance, sun, eye, aerosol=haze)
             np.testing.assert_array_equal(
-                load_environment(path, sun, eye, aerosol=haze), radiance
+                load_environment(path, sun, eye, aerosol=haze).radiance, radiance
             )
             with self.assertRaisesRegex(ValueError, "aerosol extinction"):
                 load_environment(path, sun, eye)
@@ -64,6 +70,31 @@ class SkyEnvironmentTest(unittest.TestCase):
         self.assertLess(direct_sun_fraction(0.0, 0.2, haze), above)
         self.assertGreater(direct_sun_fraction(1500.0, 1.0, haze), above)
         self.assertEqual(direct_sun_fraction(0.0, 0.2, aerosol_extinction("clear")), 1)
+
+    def test_cloud_sky_keeps_its_advected_field_and_direct_light(self):
+        def profile(name, elapsed):
+            return cloud_profile(name, 16.22, 48.24, (0, 0), elapsed, 2083)
+
+        broken = profile("broken-cloud", 0)
+        later = profile("broken-cloud", 90)
+        np.testing.assert_allclose(
+            np.array(later.origin_km) - broken.origin_km, -90 * WIND_KM_S
+        )
+        self.assertIsNone(profile("clear", 0))
+        sun, eye = (0.0, 0.6, 0.8), 477.25
+        radiance = np.full((*CLOUD_ENVIRONMENT_SIZE[::-1], 3), 0.125, dtype="f4")
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "sky.npz"
+            save_environment(path, radiance, sun, eye, clouds=broken, cloud_sun=0.37)
+            restored = load_environment(path, sun, eye, clouds=broken)
+            self.assertEqual(restored.cloud_sun, 0.37)
+            np.testing.assert_array_equal(restored.radiance, radiance)
+            for mismatch in (None, later, profile("overcast", 0)):
+                with self.assertRaisesRegex(ValueError, "cloud recipe"):
+                    load_environment(path, sun, eye, clouds=mismatch)
+            save_environment(path, radiance, sun, eye, clouds=broken, cloud_sun=np.nan)
+            with self.assertRaisesRegex(ValueError, "solar transmission"):
+                load_environment(path, sun, eye, clouds=broken)
 
 
 if __name__ == "__main__":

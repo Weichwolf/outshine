@@ -14,6 +14,7 @@ from bank_vegetation import bank_plants
 from bridge_approach import APPROACH_SEARCH, bridge_approaches
 from bridges import plan_water_crossings
 from catalog import HERE, ROOT
+from cloud_profile import cloud_profile
 from facade import FacadeView
 from grass_cover import blades
 from horizon import terrain_horizon
@@ -249,6 +250,14 @@ class ReferenceScene:
             z, self.support = max(hits)
             z += config["eye_height_m"]
         self.eye = np.array([*xy, z])
+        self.clouds = cloud_profile(
+            self.weather,
+            place["longitude"],
+            place["latitude"],
+            xy,
+            (utc - datetime.fromisoformat(config["utc"])).total_seconds(),
+            config["seed"],
+        )
         self.direct_sun_fraction = direct_sun_fraction(
             z + self.source.datum, self.sun[2], self.aerosol_extinction
         )

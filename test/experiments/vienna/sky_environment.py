@@ -1,20 +1,39 @@
 """Scene-linear environment radiance for matched Vienna lighting comparisons."""
 
+from dataclasses import dataclass
+
 import numpy as np
 
 SKY_ENVIRONMENT_SIZE = (512, 256)
+CLOUD_ENVIRONMENT_SIZE = (2048, 1024)
+
+
+@dataclass(frozen=True)
+class SkyEnvironment:
+    radiance: np.ndarray
+    cloud_sun: float
 
 
 def environment_path(directory, place):
     return directory / f"{place['id']}-sky.npz"
 
 
-def save_environment(path, radiance, sun, eye_m, *, aerosol=0.0):
+def save_environment(
+    path, radiance, sun, eye_m, *, aerosol=0.0, clouds=None, cloud_sun=1.0
+):
     path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(path, radiance=radiance, sun_enu=sun, eye_m=eye_m, aerosol=aerosol)
+    np.savez(
+        path,
+        radiance=radiance,
+        sun_enu=sun,
+        eye_m=eye_m,
+        aerosol=aerosol,
+        clouds=clouds.archive_key if clouds else (),
+        cloud_sun=cloud_sun,
+    )
 
 
-def load_environment(path, sun, eye_m, *, aerosol=0.0):
+def load_environment(path, sun, eye_m, *, aerosol=0.0, clouds=None):
     with np.load(path, allow_pickle=False) as sky:
         radiance = sky["radiance"]
         saved_sun = sky["sun_enu"]
@@ -29,14 +48,25 @@ def load_environment(path, sun, eye_m, *, aerosol=0.0):
             saved_aerosol, aerosol, rtol=0, atol=1e-7
         ):
             raise ValueError(f"{path}: sky aerosol extinction differs from this view")
+        expected_clouds = np.array(clouds.archive_key if clouds else ())
+        saved_clouds = np.asarray(sky.get("clouds", ()))
+        if saved_clouds.shape != expected_clouds.shape or not np.allclose(
+            saved_clouds, expected_clouds, rtol=0, atol=1e-7
+        ):
+            raise ValueError(f"{path}: sky cloud recipe differs from this view")
+        saved_sun_fraction = np.asarray(sky.get("cloud_sun", np.nan if clouds else 1.0))
+        if saved_sun_fraction.shape or not 0.0 <= saved_sun_fraction <= 1.0:
+            raise ValueError(f"{path}: expected a finite solar transmission fraction")
+        cloud_sun = saved_sun_fraction.item()
+    size = CLOUD_ENVIRONMENT_SIZE if clouds else SKY_ENVIRONMENT_SIZE
     if (
-        radiance.shape != (*SKY_ENVIRONMENT_SIZE[::-1], 3)
+        radiance.shape != (*size[::-1], 3)
         or radiance.dtype != np.float32
         or not np.isfinite(radiance).all()
         or (radiance < 0).any()
     ):
         raise ValueError(f"{path}: expected finite scene-linear RGB sky radiance")
-    return radiance
+    return SkyEnvironment(radiance, cloud_sun)
 
 
 def diffuse_coefficients(radiance):
