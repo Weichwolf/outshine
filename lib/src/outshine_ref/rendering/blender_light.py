@@ -15,10 +15,10 @@ def configure_daylight(scene):
     if scene.render.engine not in ("BLENDER_EEVEE", "BLENDER_EEVEE_NEXT"):
         raise ValueError("Research daylight presentation requires the Eevee profile")
     settings = {
-        "profile": "research-daylight-v1",
+        "profile": "research-daylight-v2",
         "sun_rotation_radians": [0.45, -0.65, -0.6],
         "sun_energy": 2.5,
-        "sun_angle_radians": 0.04,
+        "sun_angle_radians": 0.0093084,  # Twice the shared atmosphere's kSunHalfAngleRad.
         "world_linear_rgb": [0.35, 0.45, 0.6],
         "world_strength": 0.35,
         **configure_research_view(scene),

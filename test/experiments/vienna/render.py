@@ -266,6 +266,7 @@ def render(place, config, args):
     sun.rotation_euler = (-sunlight).to_track_quat("-Z", "Y").to_euler()
     sun.data.energy *= world.direct_sun_fraction
     sun.data.shadow_maximum_resolution = SUN_SHADOW_MIN_TEXEL_M
+    sun.data.use_shadow_jitter = True
     sky_dir = getattr(args, "sky_dir", None)
     sky_path = environment_path(sky_dir, place) if sky_dir is not None else None
     eye_m = world.eye[2] + world.source.datum
@@ -314,7 +315,7 @@ def render(place, config, args):
     woody_instances = place_woody_plants(world, config["seed"], geometry)
     if world.water_bed is not None:
         apply_water_bed(world.water_bed)
-    scene.eevee.taa_render_samples = 16
+    scene.eevee.taa_render_samples = 8
     probes, bake_s = (
         bake_passage_lighting(scene, world.local.covered_walks, world.eye[:2])
         if args.engine == "eevee"
@@ -349,6 +350,13 @@ def render(place, config, args):
                 "place": place["id"],
                 "weather": world.weather,
                 "cloud_sun": environment.cloud_sun if environment else 1.0,
+                "sun_angle_rad": sun.data.angle,
+                "eevee_sun_jitter": sun.data.use_shadow_jitter
+                if args.engine == "eevee"
+                else None,
+                "eevee_samples": scene.eevee.taa_render_samples
+                if args.engine == "eevee"
+                else None,
                 "surface": world.support,
                 "woody_instances": woody_instances,
                 "eye_m": eye_m,
