@@ -38,11 +38,11 @@ def scatter_mesh(mesh, anchors, angles, scales):
     return points.reshape(-1, 3), (faces + offsets[:, None, None]).reshape(-1, 3)
 
 
-def tile_sites(source, centre, radius, seed, *, density, cell_size):
+def tile_sites(source, centre, radius, seed, *, density, cell_size, receipts=None):
     anchor = np.array([source.lon, source.lat])
     lower = anchor + (centre - radius) / source.metres
     upper = anchor + (centre + radius) / source.metres
-    for receipt in source.receipts:
+    for receipt in source.receipts if receipts is None else receipts:
         if receipt["kind"] != "vector":
             continue
         tile = receipt["tile"]
@@ -55,7 +55,9 @@ def tile_sites(source, centre, radius, seed, *, density, cell_size):
         plan = GroundCoverPlan(
             seed ^ (tile[1] << 24) ^ tile[2], density_m2=density, cell_m=cell_size
         )
-        sites = plan.sites((lo - sw) * metres, (hi - sw) * metres)
+        sites = plan.sites((lo - sw) * metres, (hi - sw) * metres, max_cells=65536)
+        if sites is None:
+            raise RuntimeError(f"plant site query exceeds budget for tile {tile}")
         xy = (sw - anchor + sites["xy"] / metres) * source.metres
         keep = np.sum((xy - centre) ** 2, axis=1) < radius**2
         if keep.any():

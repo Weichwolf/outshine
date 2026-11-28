@@ -27,6 +27,7 @@ from regional import (
     bridgehead_sources,
     regional_meshes,
     regional_sources,
+    regional_stand,
     regional_transport,
     skyline_meshes,
     skyline_sources,
@@ -287,6 +288,7 @@ class ReferenceScene:
             crown_sites=crown_sites,
             seed=self.canopy_seed,
             local_shore=self.local.shore.protection,
+            stand=self.mature_woodland if crown_sites is not None else None,
         ):
             yield from products
             bounds.append(tile)
@@ -300,6 +302,12 @@ class ReferenceScene:
     @cached_property
     def woodland_floor(self):
         return habitat(self.source, stems=False)
+
+    @cached_property
+    def mature_woodland(self):
+        return regional_stand(
+            self.source, self.transport, self.focal, 250, self.canopy_seed
+        )
 
     def grass_and_understory(self, seed):
         if "grass" in self.local:
@@ -338,6 +346,7 @@ class ReferenceScene:
             eye_xy=self.eye[:2],
             soil=self.local,
             eye_route=eye_route,
+            mature=self.mature_woodland,
         )
         if "forest floor" in self.local:
             yield from woodland_shrubs(
