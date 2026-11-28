@@ -57,6 +57,7 @@ def main():
                         output / (view["id"] + ".npy"),
                         sky_dir=args.sky_dir,
                         linear=True,
+                        street_sky=args.street_sky,
                     )
         return
     for view in selected_views(config, args.place):

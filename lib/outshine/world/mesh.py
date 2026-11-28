@@ -87,6 +87,7 @@ class Meshes(dict):
     covered_walks = ()
     trail_litter_edges = None
     meadow_woodland_edges = None
+    skylight_foliage = None
 
     def add(self, name, vertices, faces):
         points, triangles = self.setdefault(name, ([], []))

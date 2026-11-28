@@ -6,6 +6,51 @@ from outshine.rendering.image import gl_context
 
 
 class GlslShadowTest(unittest.TestCase):
+    def test_local_skylight_reduces_only_occluded_irradiance_inside_its_reach(self):
+        try:
+            from outshine.rendering import glsl
+
+            context = gl_context()
+        except Exception as error:  # noqa: BLE001 - glcontext can raise a plain Exception.
+            self.skipTest(f"GLSL context unavailable: {error}")
+
+        with context as ctx:
+            fragment = (
+                "#version 410 core\nvec3 point;\nout vec4 colour;\n"
+                + glsl.shader(glsl.HERE / "local_skylight.glsl")
+                + """
+void main() {
+  point = gl_FragCoord.x < 1. ? vec3(0.) : vec3(50., 0., 0.);
+  colour = vec4(occludedSkylight(vec3(1., .9, .75), vec3(0., 0., 1.)), 1.);
+}
+"""
+            )
+            program = ctx.program(vertex_shader=glsl.SCREEN, fragment_shader=fragment)
+            quad = ctx.vertex_array(program, [])
+            atlas = ctx.depth_texture((16, 8))
+            depth = ctx.framebuffer(depth_attachment=atlas)
+            target = ctx.simple_framebuffer((2, 1), components=4, dtype="f4")
+            atlas.use(0)
+            program["skylightDepth"].value = 0
+            program["skylightEye"].value = (0, 0, 0)
+            program["skylightProjection"].write(np.eye(4, dtype="f4").tobytes() * 8)
+            program["skylightDirection"].write(
+                np.array([0, 0, 1], dtype="f4").tobytes() * 8
+            )
+            program["skylightRadiance"].write(
+                np.array([0.25, 0.125, 0.0625], dtype="f4").tobytes() * 8
+            )
+            for height, near in ((1.0, (1, 0.9, 0.75)), (0.25, (0.5, 0.65, 0.625))):
+                with self.subTest(depth=height):
+                    depth.use()
+                    depth.clear(depth=height)
+                    target.use()
+                    quad.render(vertices=3)
+                    colour = np.frombuffer(
+                        target.read(components=3, dtype="f4"), dtype="f4"
+                    ).reshape(2, 3)
+                    np.testing.assert_allclose(colour, (near, (1, 0.9, 0.75)))
+
     def test_shadow_caster_culling_preserves_clipped_depth(self):
         try:
             import moderngl

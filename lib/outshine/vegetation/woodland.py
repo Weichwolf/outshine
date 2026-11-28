@@ -383,6 +383,7 @@ def tree_batches(
     eye_route=None,
     mature=None,
     riverside=None,
+    skylight=False,
 ):
     domain = habitat(source)
     lawn, avenue, avenue_marks = avenue_sites(source, radius, seed)
@@ -483,6 +484,7 @@ def tree_batches(
             stems.add(f"{species} bark", *wood)
         key = species, form, group, near_stem
         templates.setdefault(key, []).append((*xy, z - 0.08, angle, scale))
+    grouped_foliage = {}
     for (species, form, group, near_stem), placements in templates.items():
         meshes = geometry(
             plans[species, form],
@@ -490,6 +492,16 @@ def tree_batches(
             has_stem=not near_stem,
             species=species,
         )
+        if skylight and group < COARSE_LEAF_STEP:
+            name = "spruce foliage" if species == "spruce" else "foliage"
+            key = species, form
+            if key not in grouped_foliage:
+                grouped = geometry(
+                    plans[key], COARSE_LEAF_STEP, has_stem=False, species=species
+                )
+                grouped_foliage[key] = grouped.get(name)
+            if grouped_foliage[key] is not None:
+                meshes.skylight_foliage = name, grouped_foliage[key]
         yield (
             "avenue chestnut" if species == "chestnut" else species,
             group,

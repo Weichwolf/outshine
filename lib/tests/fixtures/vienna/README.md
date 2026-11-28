@@ -132,6 +132,11 @@ shadow texels. Both share a depth interval, and the
 4.8 km regional map also retains sunward casters beyond it. The GLSL command prints
 the combined GPU time for the depth passes.
 
+With `--backend glsl --street-sky`, eight directions sample local sky visibility
+for diffuse lighting. The skylight passes use grouped leaf geometry for the
+nearest crowns. The correction fades between 36 and 48 m from the camera.
+Use `--linear` and `--display-linear` when comparing the result with Blender.
+
 ## Footpath replay
 
 Use the mapped Vienna Woods path or the steep meadow edge at Körbersee for movement
