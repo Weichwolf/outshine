@@ -51,6 +51,8 @@ def elevation_tiles(tiles, zoom):
     for _, x, y in tiles:
         xx = {x >> shift, (x + 1) >> shift}
         yy = {y >> shift, (y + 1) >> shift}
+        if x % (1 << shift) == 0:
+            xx.add((x >> shift) - 1)
         if y % (1 << shift) == 0 and y:
             yy.add((y >> shift) - 1)
         parents.update((zoom, i % side, j) for i in xx for j in yy if j < side)
