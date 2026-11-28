@@ -36,6 +36,7 @@ from outshine.buildings.street_facade import draw_low_front, draw_street_storey
 from outshine.buildings.structures import suppressed
 from outshine.terrain.ground_surface import (
     MEADOW_MARGIN_M,
+    ROAD_WIDTH,
     ROUTE_MATERIALS,
     SOIL_MATERIALS,
     TRAIL_SHOULDER_M,
@@ -46,6 +47,7 @@ from outshine.terrain.ground_surface import (
     partition_ground,
     partition_triangles,
     polygons,
+    route_area,
     shared_edges,
     terrain_triangles,
 )
@@ -70,6 +72,7 @@ from outshine.transport.elevated_rail import (
 )
 from outshine.transport.passage_trim import draw_passage_trim
 from outshine.transport.rail_approaches import plan_rail_approaches
+from outshine.transport.road_grades import fit_road_grades, ground_carriageways
 from outshine.transport.road_tunnels import draw_road_tunnel, plan_road_tunnels
 from outshine.transport.stair_branches import local_stair_branches
 from outshine.transport.stair_guards import draw_stair_guards
@@ -84,6 +87,7 @@ from outshine.water.water_surface import clipped_water, water_bodies
 
 class Meshes(dict):
     shore = None
+    road_grades = None
     covered_walks = ()
     trail_litter_edges = None
     meadow_woodland_edges = None
@@ -511,6 +515,29 @@ def compound_ground(vertices, quads, junctions, footprint):
         faces.append(offset + junction.mesh.triangles)
         offset += len(junction.mesh.vertices)
     return np.concatenate(points), np.concatenate(faces)
+
+
+def grade_ground_routes(source, vertices, quads, extent, reserved):
+    network = getattr(source, "transport_graph", None)
+    if network is None:
+        return None
+    road_areas = ground_carriageways(
+        network.paths, source.metric, extent, source.features
+    )
+    if not road_areas:
+        return None
+    crossings = [
+        route_area(geometry, ROAD_WIDTH.get(tags.get("class"), BALLAST_WIDTH))
+        for name, geometry, tags in source.features
+        if name == "transportation"
+        and (
+            tags.get("brunnel")
+            or tags.get("layer")
+            or tags.get("class") in {"rail", "transit"}
+        )
+    ]
+    protected = shapely.union_all([*reserved, *crossings])
+    return fit_road_grades(vertices, quads, road_areas, protected)
 
 
 def bank_protection(source, extent, bodies, openings, roads, crossings, fixtures):
@@ -1049,6 +1076,21 @@ def assemble(
     canopies = platform_canopies(source.features, footprints)
     footprints = [(g, tags) for g, tags in footprints if g not in canopies]
     geometries = [g for g, _ in footprints]
+    meshes.road_grades = grade_ground_routes(
+        source,
+        vertices,
+        quads,
+        extent,
+        [
+            bodies,
+            *geometries,
+            *(deck.footprint for deck in viaducts),
+            *(crossing.footprint for crossing in crossings),
+            *(approach.footprint for approach in approaches),
+        ],
+    )
+    if meshes.road_grades is not None:
+        vertices = meshes.road_grades.vertices
     tags = [p for _, p in footprints]
     colours = facade_colours(geometries, tags)
     parents = building_groups(geometries, tags)
