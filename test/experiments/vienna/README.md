@@ -358,8 +358,9 @@ coordinates. Road, water and building exclusion precedes placement. Established 
 take priority over smaller recruitment in the same stand. Recruitment varies in patches
 and thins at paths, banks and clearings. Nearby stems compete regardless of the render
 crop. The distant templates group leaves by branch and retain their represented leaf
-area. Dechantlacke-Woodland looks into the stand from a mapped path. Compare crown
-gaps and woodland layers with the
+area. From groups of sixteen leaves, a four-triangle blade uses the same placement
+frame and one-sided area as the detailed representative. Dechantlacke-Woodland
+looks into the stand from a mapped path. Compare crown gaps and woodland layers with the
 [August 2022 Lobau woodland](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg).
 Wienerwald-Woodland follows a mapped trail by Franz-Karl-Fernsicht. This hillside
 stand tests crown overlap, younger stems and terrain contact away from riverbank woodland.
