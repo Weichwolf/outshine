@@ -257,7 +257,8 @@
       ],
       "evidence_gaps": [
         "The recorded photo is within 145 m of both cameras and has a different eye position and shoreline water level",
-        "Exact inundation, alluvial texture and management history of the capture are unknown"
+        "Exact inundation, alluvial texture and management history of the capture are unknown",
+        "SoilGrids has no texture prior at the stand camera, and the mapped track there has no surface tag"
       ],
       "walk": "Chitwan-Footpath"
     },
@@ -324,6 +325,7 @@
       ],
       "evidence_gaps": [
         "The dated photograph has no exact pose or recording of tide level",
+        "WorldCover labels the camera cells as woodland and maps mangroves around them",
         "The mapped raised boardwalk does not provide a solved deck at the test stations; the fixed cameras use at-grade paths"
       ],
       "walk": "Weedon-Footpath"
