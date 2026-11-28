@@ -60,6 +60,7 @@ from outshine.transport.bridge_junctions import junction_pavement
 from outshine.transport.bridge_passages import bridge_terrain
 from outshine.transport.bridges import draw_water_crossings, plan_water_crossings
 from outshine.transport.deck_walk_links import DeckWalkLink, deck_walk_links
+from outshine.transport.elevated_rail import draw_elevated_rail, plan_elevated_rail
 from outshine.transport.passage_trim import draw_passage_trim
 from outshine.transport.stair_branches import local_stair_branches
 from outshine.transport.stair_guards import draw_stair_guards
@@ -931,6 +932,24 @@ def assemble(
     )
     for viaduct in viaducts:
         draw_viaduct(meshes, viaduct, source.height, approaches)
+    reserved_decks = shapely.union_all(
+        [*bridges.values(), *(deck.footprint for deck in viaducts)]
+    )
+    rail_decks = plan_elevated_rail(
+        source.features,
+        extent,
+        bodies,
+        geometries,
+        reserved_decks,
+        vertices,
+        quads,
+        grade,
+    )
+    for deck in rail_decks:
+        draw_elevated_rail(meshes, deck, grade)
+        bridges[deck.layer] = deck.footprint.union(
+            bridges.get(deck.layer, shapely.Polygon())
+        )
     forms = []
     form_tags = []
     for polygon, properties, wall in buildings:
