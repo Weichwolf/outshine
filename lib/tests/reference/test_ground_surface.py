@@ -278,6 +278,24 @@ class GroundSurfaceTest(unittest.TestCase):
         self.assertFalse(products["paving"].covers(Point(10, 3)))
         self.assertTrue(products["unpaved path"].covers(Point(10, 3)))
 
+    def test_crossing_and_terminating_footways_keep_the_carriageway(self):
+        road = LineString([(-8, 0), (8, 0)])
+        crossing = LineString([(-2, -5), (0.8, 5)])
+        terminating = LineString([(4, -5), (5, 0.3)])
+        products = at_grade_routes(
+            [
+                (road, {"class": "service"}),
+                (crossing, {"class": "path", "subclass": "footway"}),
+                (terminating, {"class": "path", "subclass": "footway"}),
+            ],
+            box(-9, -6, 9, 6),
+        )
+        self.assertTrue(products["road"].covers(road))
+        self.assertTrue(products["sidewalk"].covers(Point(-2, -4.8)))
+        self.assertTrue(products["sidewalk"].covers(Point(0.7, 4.8)))
+        self.assertTrue(products["sidewalk"].covers(Point(4.1, -4.8)))
+        self.assertEqual(products["road"].intersection(products["sidewalk"]).area, 0)
+
     def test_pedestrian_area_takes_precedence_over_an_unpaved_path(self):
         trail = LineString([(0, 0), (20, 0)])
         square = box(8, -2, 12, 2)

@@ -99,8 +99,37 @@ def margin_weights(edge, vertices, width):
     return np.clip(1 - distance / width, 0, 1).astype("f4")
 
 
+def _path_footprints(paths, carriageways):
+    if not paths:
+        return
+    cutouts = {}
+    if carriageways:
+        axes, road_areas = zip(*carriageways, strict=True)
+        index = shapely.STRtree(axes)
+        pairs = index.query([line for _, line, _ in paths], predicate="intersects")
+        for path, road in pairs.T:
+            _, line, width = paths[path]
+            area = road_areas[road]
+            crossing = [
+                part
+                for part in shapely.get_parts(line.intersection(area))
+                if part.geom_type == "LineString" and part.intersects(axes[road])
+            ]
+            if crossing:
+                near = shapely.union_all(crossing).buffer(width / 2, quad_segs=2)
+                cutouts.setdefault(path, []).append(near.intersection(area))
+    for index, (material, line, width) in enumerate(paths):
+        footprint = route_area(line, width)
+        if index in cutouts:
+            footprint = footprint.difference(
+                shapely.union_all(cutouts[index], grid_size=1e-6), grid_size=1e-6
+            )
+        yield material, footprint
+
+
 def at_grade_routes(features, domain, *, focal=None, replaced_paths=()):
     footprints = {name: [] for name in ROUTE_MATERIALS}
+    carriageways, paths = [], []
     for geom, props in features:
         kind = props.get("class")
         width = at_grade_width(props)
@@ -126,7 +155,20 @@ def at_grade_routes(features, domain, *, focal=None, replaced_paths=()):
         ):
             continue
         material = path_material(props) if kind == "path" else "road"
+        if geom.geom_type.endswith("LineString"):
+            for part in shapely.get_parts(geom):
+                if part.is_empty:
+                    continue
+                if material == "road":
+                    area = route_area(part, width)
+                    carriageways.append((part, area))
+                    footprints[material].append(area)
+                else:
+                    paths.append((material, part, width))
+            continue
         footprints[material].append(route_area(geom, width))
+    for material, footprint in _path_footprints(paths, carriageways):
+        footprints[material].append(footprint)
     roads, paths, paving, unpaved = (
         clip_route_areas(footprints[name], domain) for name in ROUTE_MATERIALS
     )
