@@ -5,14 +5,23 @@ from pathlib import Path
 
 from outshine.rendering.image import blender_run, gl_context, render_scene
 
+from .fixtures.vegetation.catalog import load_sites, site_views
 from .fixtures.vienna.catalog import ROOT, available_views, load_catalog, selected_views
 
 
 def main():
     config = load_catalog()
+    sites = load_sites()
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument(
         "--place", action="append", choices=[v["id"] for v in available_views(config)]
+    )
+    selection.add_argument(
+        "--vegetation-site",
+        action="append",
+        choices=sites,
+        help="render the pinned views for a vegetation corpus site",
     )
     parser.add_argument("--backend", choices=("blender", "glsl"), default="blender")
     parser.add_argument("--blender", type=Path)
@@ -26,6 +35,14 @@ def main():
     parser.add_argument("--street-bounce", action="store_true")
     parser.add_argument("--street-sky", action="store_true")
     args = parser.parse_args()
+    if args.vegetation_site:
+        views = [
+            entry
+            for site_id in dict.fromkeys(args.vegetation_site)
+            for entry in site_views(sites[site_id], config)
+        ]
+    else:
+        views = [(view, config) for view in selected_views(config, args.place)]
     default = (
         "glsl-agx"
         if args.display_linear
@@ -46,24 +63,24 @@ def main():
         from outshine.rendering.glsl import export_sky, render
 
         with gl_context() as ctx:
-            for view in selected_views(config, args.place):
+            for view, view_config in views:
                 if args.export_sky:
-                    export_sky(ctx, view, config, output)
+                    export_sky(ctx, view, view_config, output)
                 else:
                     render(
                         ctx,
                         view,
-                        config,
+                        view_config,
                         output / (view["id"] + ".npy"),
                         sky_dir=args.sky_dir,
                         linear=True,
                         street_sky=args.street_sky,
                     )
         return
-    for view in selected_views(config, args.place):
+    for view, view_config in views:
         render_scene(
             view,
-            config,
+            view_config,
             output / (view["id"] + ".png"),
             backend=args.backend,
             engine=args.engine,
