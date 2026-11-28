@@ -13,8 +13,10 @@ The measured interval includes rendering and PNG output. Source acquisition, sce
 Blender startup are separate. Run with `--engine cycles --output /tmp/outshine-vienna-light` for
 an independent lighting comparison. Cycles uses adaptive sampling with GPU denoising and a
 128-sample ceiling. Use `--cycles-samples` to change that ceiling for a paired comparison.
-Use EEVEE for rapid scene iteration and Cycles for light transport that needs off-screen
-occluders or multiple bounces. Inputs are genuine ZXY tiles pinned in sources.json.
+Use EEVEE for rapid scene iteration and Cycles as the control for light transport.
+Compare the Outshine GLSL renderer with both using the same view, sky and display
+transform. Prefer GLSL improvements that move the image closer to Cycles within
+the device budget. Inputs are genuine ZXY tiles pinned in sources.json.
 The seed, camera, clear sky and UTC are in places.json. The final eye position follows a vertical
 intersection with the rendered support mesh.
 
