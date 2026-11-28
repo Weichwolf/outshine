@@ -6,7 +6,8 @@ from unittest.mock import patch
 import numpy as np
 from outshine.materials.palette import GROUND_BLENDS
 from outshine.terrain.ground_surface import MINERAL_TRAIL_SHOULDER_M
-from outshine.vegetation.mojave_sites import mojave_yuccas
+from outshine.vegetation.blackbrush import BLACKBRUSH_PROFILE, BLACKBRUSH_TAXON
+from outshine.vegetation.mojave_sites import mojave_blackbrush, mojave_yuccas
 from outshine.vegetation.open_cover import MOJAVE_DESERT, RegionalOpenCover
 from outshine.vegetation.yuccas import (
     JOSHUA_BARK,
@@ -91,3 +92,53 @@ class MojaveYuccasTest(unittest.TestCase):
             scene.ground_blend("mojave footpath", vertices), [1, 0.5, 0]
         )
         self.assertEqual(GROUND_BLENDS["mojave footpath"], "mojave gravelly sand")
+
+    def test_blackbrush_requires_an_observed_association_and_root_clearance(self):
+        source = SimpleNamespace(
+            lon=-116.1,
+            lat=34.0,
+            metres=np.array([92000.0, 111000.0]),
+            height=grade,
+            features=[],
+        )
+        code = {1: "JOTR-2012:29032", 2: "JOTR-2012:90200", 3: "JOTR-2012:10161"}
+
+        def observed_cells(lat, lon):
+            east = (lon - source.lon) * source.metres[0]
+            indices = np.select((east > 9, east > 7), (2, 3), default=1)
+            return indices, np.where(indices == 2, 9, 5)
+
+        atlas = SimpleNamespace(
+            observation_indices=code,
+            evidence_windows=lambda *_: [(-117, 33, -116, 35)],
+            observed_cells=observed_cells,
+            observation_mask=lambda indices, units: np.isin(
+                indices, [key for key, unit in code.items() if unit in units]
+            ),
+            land_cells=lambda lat, lon: (
+                np.full(len(lat), 20),
+                np.full(len(lat), MOJAVE_DESERT),
+            ),
+            sample=lambda lat, lon: SimpleNamespace(
+                native_candidates=(BLACKBRUSH_TAXON,)
+            ),
+        )
+        cover = RegionalOpenCover(atlas, source, datetime(2026, 11, 14, tzinfo=UTC))
+        xy = np.array([[-8.0, 2], [0.0, 0], [1.05, 0], [5.0, 0], [8.0, 0], [12.0, 0]])
+        marks = np.zeros((len(xy), 3))
+        with patch(
+            "outshine.vegetation.mojave_sites.tile_sites",
+            return_value=iter([(xy, marks)]),
+        ):
+            batches = list(
+                mojave_blackbrush(
+                    cover,
+                    {"ground": surface(-16, 16), "unpaved path": surface(-1, 1)},
+                    np.zeros(2),
+                    2083,
+                )
+            )
+        self.assertEqual([batch[0] for batch in batches], [BLACKBRUSH_PROFILE])
+        positions = batches[0][3]
+        np.testing.assert_array_equal(positions[:, :2], xy[[0, 3]])
+        np.testing.assert_allclose(positions[:, 2], grade(xy[[0, 3]]) - 0.03)

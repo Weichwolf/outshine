@@ -9,6 +9,7 @@ import numpy as np
 from outshine.vegetation.atlas import (
     COMMUNITY_DTYPE,
     NO_SOIL,
+    OBSERVATION_DTYPE,
     RASTER_DTYPES,
     TILE_CELLS,
     VegetationAtlas,
@@ -21,7 +22,7 @@ from shapely.geometry import box
 
 
 class VegetationAtlasTest(unittest.TestCase):
-    def build_fixture(self, root, key, *, community=False):
+    def build_fixture(self, root, key, *, community=False, observed=False):
         values = {
             "cover": 10,
             "ecoregion": 265,
@@ -40,6 +41,10 @@ class VegetationAtlasTest(unittest.TestCase):
             rasters["community"] = np.ones(
                 (TILE_CELLS, TILE_CELLS), dtype=COMMUNITY_DTYPE
             )
+        if observed:
+            rasters["observation"] = np.full(
+                (TILE_CELLS, TILE_CELLS), 2, dtype=OBSERVATION_DTYPE
+            )
         temporary = root / "tile.npz"
         np.savez_compressed(temporary, **rasters)
         digest = hashlib.sha256(temporary.read_bytes()).hexdigest()
@@ -49,6 +54,8 @@ class VegetationAtlasTest(unittest.TestCase):
         tile = {"sha256": digest}
         if community:
             tile["potential_community"] = True
+        if observed:
+            tile["observed_vegetation"] = True
         (root / "atlas.json").write_text(
             json.dumps(
                 {
@@ -61,11 +68,48 @@ class VegetationAtlasTest(unittest.TestCase):
                     "potential_communities": ["", "CHL-2017:P70"]
                     if community
                     else [""],
+                    "observations": [
+                        {
+                            "map_unit": "JOTR-2012:29032",
+                            "label": "Yucca schidigera - Coleogyne ramosissima",
+                            "height_class": 2,
+                            "density_class": density,
+                        }
+                        for density in (4, 5)
+                    ]
+                    if observed
+                    else [],
                     "tiles": {name: tile},
                 }
             )
         )
         return product
+
+    def test_observation_raster_has_its_own_classes_and_preserves_unknown(self):
+        latitude, longitude = 34.01348287, -116.16867665
+        with tempfile.TemporaryDirectory() as root:
+            self.build_fixture(
+                Path(root),
+                grid_cell(latitude, longitude)[0],
+                community=True,
+                observed=True,
+            )
+            atlas = VegetationAtlas(root)
+            sample = atlas.sample(latitude, longitude)
+            self.assertEqual(sample.potential_community, "CHL-2017:P70")
+            self.assertEqual(sample.observed_vegetation.map_unit, "JOTR-2012:29032")
+            self.assertEqual(sample.observed_vegetation.height_class, 2)
+            indices, density = atlas.observed_cells(
+                latitude, [longitude, longitude + 0.1]
+            )
+            np.testing.assert_array_equal(indices, [2, 0])
+            np.testing.assert_array_equal(density, [5, 0])
+            np.testing.assert_array_equal(
+                atlas.observation_mask(indices, ("JOTR-2012:29032",)), [True, False]
+            )
+            self.assertIsNone(
+                atlas.sample(latitude, longitude + 0.1).observed_vegetation
+            )
 
     def test_geographic_index_owns_shared_edges_once_and_wraps_antimeridian(self):
         key, _ = grid_cell(48.19054, 16.47658)

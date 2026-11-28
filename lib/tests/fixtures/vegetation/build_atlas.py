@@ -83,6 +83,27 @@ CHILE_COMMUNITIES = {
 }
 CHILE_EXTENT = box(-75.70, -55.99, -66.41, -17.49)
 CHILE_CRS = "EPSG:5360"
+JOTR_EXTENT = box(-116.20, 33.98, -116.14, 34.04)
+JOTR_OBSERVATIONS = {
+    "url": (
+        "https://services2.arcgis.com/Uq9r85Potqm3MfRV/ArcGIS/rest/services/"
+        "biosds730_fpu/FeatureServer/0/query?f=geojson&where=1%3d1"
+        "&geometry=-116.20%2c33.98%2c-116.14%2c34.04&geometryType=esriGeometryEnvelope"
+        "&inSR=4326&outSR=4326&outFields=OBJECTID%2cPI%2cHEIGHT%2cDENSITY%2cMapUnit"
+        "&orderByFields=OBJECTID"
+    ),
+    "metadata_url": "https://filelib.wildlife.ca.gov/public/BDB/GIS/BIOS/metadata/DS0730.html",
+    "release": "Vegetation - Joshua Tree National Park - 2012 [ds730], edition 2",
+    "attribution": "National Park Service and Aerial Information Systems via CDFW BIOS",
+    "license": "Public CDFW BIOS service. Source metadata specifies use limitations and disclaimers; no standard license named.",
+    "sha256": "aefa240e85803e3d19bb6687729d09305623de8b76611da521bd6dec5cd41540",
+    "bounds_wgs84": JOTR_EXTENT.bounds,
+    "source_schema": {
+        "map_unit": "PI",
+        "height_class": "HEIGHT",
+        "density_class": "DENSITY",
+    },
+}
 HOMOLOSINE = "+proj=igh +ellps=WGS84 +units=m"
 SOIL_CRS = "http://www.opengis.net/def/crs/EPSG/0/152160"
 
@@ -283,7 +304,50 @@ def chile_communities(cache, keys, fetch):
     )
 
 
-def build_tile(key, cache, output, fetch, resolve_path, botanical, communities):
+def jotr_observations(cache, keys, fetch):
+    window = shapely.union_all(
+        [
+            tile.intersection(JOTR_EXTENT)
+            for key in keys
+            if (tile := box(*tile_bounds(key))).intersects(JOTR_EXTENT)
+        ]
+    )
+    if window.is_empty or window.area == 0:
+        return [], [], {}
+    file = pinned_source(
+        cache, "jotr-hidden-valley-2012.geojson", JOTR_OBSERVATIONS, fetch
+    )
+    document = json.loads(file.read_bytes())
+    if document.get("type") != "FeatureCollection" or document.get(
+        "exceededTransferLimit"
+    ):
+        raise ValueError("incomplete Joshua Tree observation window")
+    rows = []
+    for feature in document["features"]:
+        polygon = shapely.make_valid(shape(feature["geometry"])).intersection(window)
+        if polygon.is_empty or polygon.area == 0:
+            continue
+        props = feature["properties"]
+        row = (
+            f"JOTR-2012:{props['PI']}",
+            props["MapUnit"],
+            props["HEIGHT"],
+            props["DENSITY"],
+        )
+        rows.append((polygon, row))
+    fields = ("map_unit", "label", "height_class", "density_class")
+    records = sorted({row for _, row in rows})
+    indices = {row: index for index, row in enumerate(records, 1)}
+    return (
+        [dict(zip(fields, row, strict=True)) for row in records],
+        [(polygon, indices[row]) for polygon, row in rows],
+        {"jotr_observed_vegetation": JOTR_OBSERVATIONS},
+    )
+
+
+def build_tile(
+    key, cache, output, fetch, resolve_path, botanical, communities, observations
+):
     name = tile_name(key)
     bounds = tile_bounds(key)
     extent = box(*bounds)
@@ -312,6 +376,13 @@ def build_tile(key, cache, output, fetch, resolve_path, botanical, communities):
     ]
     if regional:
         layers["community"] = polygon_layer(regional, bounds)
+    observed = [
+        (polygon.intersection(extent), code)
+        for polygon, code in observations
+        if polygon.intersects(extent)
+    ]
+    if observed:
+        layers["observation"] = polygon_layer(observed, bounds)
     soil = {}
     water_or_ice = np.isin(cover, (70, 80))
     for layer in SOIL_LAYERS:
@@ -331,6 +402,8 @@ def build_tile(key, cache, output, fetch, resolve_path, botanical, communities):
     record = {"sha256": digest, "worldcover": worldcover, "soil": soil}
     if regional:
         record["potential_community"] = True
+    if observed:
+        record["observed_vegetation"] = True
     return name, record
 
 
@@ -381,11 +454,21 @@ def build_atlas(cache, output, keys, *, fetch, pinned=None):
     community_codes, communities, regional_sources = chile_communities(
         cache, keys, fetch
     )
+    observation_records, observations, observation_sources = jotr_observations(
+        cache, keys, fetch
+    )
     with ThreadPoolExecutor(max_workers=6) as pool:
         tiles = dict(
             pool.map(
                 lambda key: build_tile(
-                    key, cache, output, fetch, resolve_path, botanical, communities
+                    key,
+                    cache,
+                    output,
+                    fetch,
+                    resolve_path,
+                    botanical,
+                    communities,
+                    observations,
                 ),
                 keys,
             )
@@ -400,9 +483,11 @@ def build_atlas(cache, output, keys, *, fetch, pinned=None):
             "species": dict(load_species_catalog().document["source"])
             | {"catalog_sha256": species_catalog_digest()},
             **regional_sources,
+            **observation_sources,
         },
         "botanical_regions": codes,
         "potential_communities": community_codes,
+        "observations": observation_records,
         "shore_substrates": json.loads(
             Path(__file__).with_name("shore-substrates.json").read_text()
         ),

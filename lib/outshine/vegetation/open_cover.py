@@ -21,6 +21,7 @@ MOJAVE = 4
 ACACIA_COMMIPHORA_BUSHLANDS = 57
 NORTH_ISLAND_TEMPERATE_FORESTS = 171
 MOJAVE_DESERT = 433
+MOJAVE_BARREN = frozenset(("JOTR-2012:90200", "JOTR-2012:90600", "JOTR-2012:90900"))
 TUFT_FORMS = {
     SAVANNA: (14, (1.30, 1.30, 0.69), 0.20, 0.12),
     TUSSOCK: (26, (1.95, 1.95, 1.55), 0.43, 0.31),
@@ -74,6 +75,12 @@ class RegionalOpenCover:
         for allowed, geometry in self.overrides:
             cover[shapely.intersects_xy(geometry, xy[:, 0], xy[:, 1])] = (
                 30 if allowed else 0
+            )
+        mojave = (ecoregion == MOJAVE_DESERT) & (cover != 0)
+        if mojave.any() and getattr(self.atlas, "observation_indices", None):
+            indices, _ = self.atlas.observed_cells(lat[mojave], lon[mojave])
+            cover[mojave] = np.where(
+                self.atlas.observation_mask(indices, MOJAVE_BARREN), 0, cover[mojave]
             )
         return cover, ecoregion
 
