@@ -63,6 +63,15 @@ class GroundSurfaceTest(unittest.TestCase):
             trail_litter_weights(edge, positions), [1, 0.5, 0, 0, 0]
         )
 
+    def test_diagonal_trail_retains_both_edges_across_the_woodland_cut(self):
+        centreline = LineString([(-5, -1), (4, 3)])
+        path = centreline.buffer(0.9, cap_style="flat")
+        woods = box(-2, -4, 2, 4)
+        edge = forest_trail_edges(path, woods, Polygon())
+        self.assertEqual(len(shapely.get_parts(edge)), 2)
+        expected = 2 * 4 * centreline.length / 9
+        self.assertAlmostEqual(edge.length, expected, delta=0.001)
+
     def test_grass_and_soil_follow_the_same_grade_at_the_waterline(self):
         water = WaterBody(box(-40, -40, 0, 40), 0.0)
         source = SimpleNamespace(

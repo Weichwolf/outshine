@@ -76,7 +76,9 @@ def clip_route_areas(areas, domain):
 
 def forest_trail_edges(path, woodland, reserved):
     floor = woodland.difference(path)
-    edge = path.boundary.intersection(floor.boundary).difference(
+    # The overlay may place an intersection a few ulps off the input edge.
+    contact = floor.buffer(1e-4, quad_segs=2)
+    edge = path.boundary.intersection(contact).difference(
         reserved.buffer(2 * TRAIL_SHOULDER_M, quad_segs=2)
     )
     parts = shapely.get_parts(edge)
