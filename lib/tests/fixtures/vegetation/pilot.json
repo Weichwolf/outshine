@@ -78,7 +78,9 @@
         "Scale and form of Joshua trees and low plants",
         "Trail clearance and dry mineral surface continuity"
       ],
-      "evidence_gaps": ["Atlas soil inputs and local measurements of plant density"]
+      "evidence_gaps": [
+        "Local plant density and surface mineral composition are unmeasured. SoilGrids supplies a regional texture prior."
+      ]
     },
     {
       "id": "tz-serengeti-seronera",

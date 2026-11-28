@@ -20,6 +20,7 @@ CARRIAGEWAY_MATERIALS = ("road", "unpaved road")
 ROUTE_MATERIALS = ("road", "sidewalk", "paving", "unpaved path", "unpaved road")
 SOIL_MATERIALS = ("ground", "forest floor", "grass", "meadow")
 TRAIL_SHOULDER_M = 0.42
+MINERAL_TRAIL_SHOULDER_M = 0.54
 MEADOW_MARGIN_M = 2.4
 DIRT_ROAD_SHOULDER_M = 0.82
 DIRT_ROAD_CENTRE_M = (1.60, 2.45)

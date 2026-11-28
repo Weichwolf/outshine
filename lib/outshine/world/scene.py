@@ -14,6 +14,7 @@ from outshine.places.height import Elevation
 from outshine.terrain.ground_surface import (
     CARRIAGEWAY_MATERIALS,
     MEADOW_MARGIN_M,
+    MINERAL_TRAIL_SHOULDER_M,
     ROUTE_MATERIALS,
     SOIL_MATERIALS,
     TRAIL_SHOULDER_M,
@@ -30,9 +31,12 @@ from outshine.vegetation.bank_vegetation import bank_plants
 from outshine.vegetation.grass_cover import blades
 from outshine.vegetation.landscape_cover import landscape_cover
 from outshine.vegetation.meadow import meadow_cover
+from outshine.vegetation.mojave_sites import mojave_yuccas
 from outshine.vegetation.open_cover import (
     ACACIA_COMMIPHORA_BUSHLANDS,
+    MOJAVE_DESERT,
     RegionalOpenCover,
+    dry_savanna_season,
 )
 from outshine.vegetation.patagonian_shrub import PATAGONIAN_COMMUNITIES
 from outshine.vegetation.regional_woody import savanna_woody, steppe_shrubs
@@ -76,19 +80,23 @@ PATAGONIAN_SURFACES = {
     "unpaved path": "patagonian footpath",
     "unpaved road": "patagonian unpaved road",
 }
+MOJAVE_SURFACES = {
+    "ground": "mojave gravelly sand",
+    "grass": "mojave gravelly sand",
+    "unpaved path": "mojave footpath",
+    "unpaved road": "mojave unpaved road",
+}
 
 
-def soil_surfaces(cover):
-    if cover is None:
+def soil_surfaces(sample, time):
+    if sample is None:
         return {}
-    source = cover.source
-    sample = cover.atlas.sample(source.lat, source.lon)
     soil = sample.soil
     if soil is None or soil.sand_g_kg is None:
         return {}
     if (
         sample.ecoregion_id == ACACIA_COMMIPHORA_BUSHLANDS
-        and cover.dry_savanna
+        and dry_savanna_season(time)
         and soil.clay_g_kg is not None
         and 450 <= soil.sand_g_kg <= 650
         and 200 <= soil.clay_g_kg <= 380
@@ -101,6 +109,13 @@ def soil_surfaces(cover):
         and soil.coarse_fragments_pct >= 5
     ):
         return PATAGONIAN_SURFACES
+    if (
+        sample.ecoregion_id == MOJAVE_DESERT
+        and soil.sand_g_kg >= 490
+        and soil.coarse_fragments_pct is not None
+        and soil.coarse_fragments_pct >= 5
+    ):
+        return MOJAVE_SURFACES
     return {}
 
 
@@ -283,6 +298,11 @@ class ReferenceScene:
             view_z = place["absolute_eye_m"] - self.source.datum
         else:
             view_z = self.source.height(np.array([xy]))[0] + config["eye_height_m"]
+        utc = datetime.fromisoformat(place.get("utc", config["utc"]))
+        atlas_path = config.get("vegetation_atlas")
+        atlas = VegetationAtlas(atlas_path) if atlas_path is not None else None
+        sample = atlas.sample(self.source.lat, self.source.lon) if atlas else None
+        self.soil_surfaces = soil_surfaces(sample, utc)
         self.local = assemble(
             self.source,
             250,
@@ -291,13 +311,11 @@ class ReferenceScene:
             crossings=crossings,
             water_plan=self.water_plan,
             facade_view=FacadeView(tuple(xy), self.focal, view_z),
+            blend_mineral_trails=self.soil_surfaces is MOJAVE_SURFACES,
         )
         self.water_bed = nearshore_bed(self.local.shore, domain, source=self.source)
         self.look = direction(place["heading_deg"], place["pitch_deg"])
         observer = Observer(place["latitude"], place["longitude"])
-        utc = datetime.fromisoformat(place.get("utc", config["utc"]))
-        atlas_path = config.get("vegetation_atlas")
-        atlas = VegetationAtlas(atlas_path) if atlas_path is not None else None
         self.mineral_shore = (
             mineral_shore(self.local.shore, atlas.shore_substrates) if atlas else None
         )
@@ -307,7 +325,6 @@ class ReferenceScene:
             if atlas is not None
             else None
         )
-        self.soil_surfaces = soil_surfaces(self.open_cover)
         self.sun = direction(azimuth(observer, utc), elevation(observer, utc))
         self.weather = place.get("weather", config.get("weather", "clear"))
         self.aerosol_extinction = aerosol_extinction(self.weather)
@@ -444,6 +461,14 @@ class ReferenceScene:
         return exclusion
 
     def ground_blend(self, name, vertices):
+        if (
+            name == "mojave footpath"
+            and vertices is self.local.get("unpaved path", (None,))[0]
+            and self.local.mineral_trail_edges is not None
+        ):
+            return margin_weights(
+                self.local.mineral_trail_edges, vertices, MINERAL_TRAIL_SHOULDER_M
+            )
         if name == self.soil_surfaces.get("unpaved road"):
             name = "unpaved road"
         if vertices is not self.local.get(name, (None,))[0]:
@@ -464,6 +489,7 @@ class ReferenceScene:
         if self.open_cover is not None:
             yield from savanna_woody(self.open_cover, self.local, self.eye[:2], seed)
             yield from steppe_shrubs(self.open_cover, self.local, self.eye[:2], seed)
+            yield from mojave_yuccas(self.open_cover, self.local, self.eye[:2], seed)
         root_domain = shapely.union_all((self.woodland_floor, self.stands.verges))
         if self.bare_shore is not None:
             root_domain = root_domain.difference(self.bare_shore)

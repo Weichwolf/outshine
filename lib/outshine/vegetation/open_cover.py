@@ -17,13 +17,20 @@ REACH_M = 95.0
 SAVANNA = 1
 TUSSOCK = 2
 PATAGONIAN = 3
+MOJAVE = 4
 ACACIA_COMMIPHORA_BUSHLANDS = 57
 NORTH_ISLAND_TEMPERATE_FORESTS = 171
+MOJAVE_DESERT = 433
 TUFT_FORMS = {
     SAVANNA: (14, (1.30, 1.30, 0.69), 0.20, 0.12),
     TUSSOCK: (26, (1.95, 1.95, 1.55), 0.43, 0.31),
     PATAGONIAN: (24, (1.56, 1.56, 0.96), 0.24, 0.16),
+    MOJAVE: (22, (1.20, 1.20, 0.58), 0.23, 0.09),
 }
+
+
+def dry_savanna_season(time):
+    return time.month in (2, 6, 7, 8, 9, 10)
 
 
 class RegionalOpenCover:
@@ -31,7 +38,7 @@ class RegionalOpenCover:
         self.atlas = atlas
         self.source = source
         self.exclusion = exclusion
-        self.dry_savanna = time.month in (2, 6, 7, 8, 9, 10)
+        self.dry_savanna = dry_savanna_season(time)
         covers = {}
         for layer, geometry, properties in source.features:
             name = None
@@ -95,6 +102,7 @@ class RegionalOpenCover:
         open_land = np.isin(cover, (20, 30))
         groups = np.zeros(len(xy), dtype=np.uint8)
         groups[open_land & (ecoregion == ACACIA_COMMIPHORA_BUSHLANDS)] = SAVANNA
+        groups[(open_land | (cover == 60)) & (ecoregion == MOJAVE_DESERT)] = MOJAVE
         upslope = open_land & (ecoregion == NORTH_ISLAND_TEMPERATE_FORESTS)
         if upslope.any():
             elevation = self.source.height(xy[upslope]) + self.source.datum
@@ -126,9 +134,15 @@ class RegionalOpenCover:
         steppe_cover = np.where(
             land == 60, 0.018 + 0.30 * patch**3.2, 0.15 + 0.78 * patch**1.25
         )
+        desert_cover = np.where(land == 60, 0.13, 0.38) * patch**1.68
         probability = np.select(
-            (groups == SAVANNA, groups == TUSSOCK, groups == PATAGONIAN),
-            (savanna_cover, tussock_cover, steppe_cover),
+            (
+                groups == SAVANNA,
+                groups == TUSSOCK,
+                groups == PATAGONIAN,
+                groups == MOJAVE,
+            ),
+            (savanna_cover, tussock_cover, steppe_cover, desert_cover),
         )
         probability *= distance_density * outer
         selected = (groups != 0) & (marks[:, 2] < probability)
@@ -209,7 +223,7 @@ def tuft_geometry(profile, detailed, variant):
 
 
 def draw_tufts(anchors, marks, groups, distance, scale, clearance, dry_savanna):
-    dry_share = np.choose(groups, (0, 0.82 if dry_savanna else 0.15, 0.77, 0.84))
+    dry_share = np.choose(groups, (0, 0.82 if dry_savanna else 0.15, 0.77, 0.84, 0.82))
     dry = marks[:, 1] < dry_share
     angles = 2 * np.pi * marks[:, 0]
     variants = np.floor(np.mod(marks[:, 0] * 11, 1) * 3).astype(int)
@@ -218,6 +232,7 @@ def draw_tufts(anchors, marks, groups, distance, scale, clearance, dry_savanna):
         (SAVANNA, "savanna grass blades", "savanna straw blades"),
         (TUSSOCK, "tussock green blades", "tussock straw blades"),
         (PATAGONIAN, "patagonian grass blades", "patagonian straw blades"),
+        (MOJAVE, "mojave grass blades", "mojave straw blades"),
     ):
         for detailed in (False, True):
             for variant in range(3):
