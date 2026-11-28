@@ -81,7 +81,8 @@ def street_receivers(scene):
         has_facade |= material in FACADES
         loops = np.empty(3 * len(mesh.loop_triangles), dtype=np.int32)
         mesh.loop_triangles.foreach_get("loops", loops)
-        positions = (centres[keep, None, :] + 0.96 * vectors[keep]).reshape(-1, 3)
+        # Face-local offsets can give opposite sides of a shared edge different irradiance.
+        positions = corners[keep].reshape(-1, 3)
         batches.append(
             ReceiverBatch(
                 mesh,
