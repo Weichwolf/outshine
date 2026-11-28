@@ -8,7 +8,7 @@ from scipy.spatial import ConvexHull
 
 from outshine.terrain.ground_surface import surface_elevations, terrain_triangles
 from outshine.vegetation.axis_surface import axis_mesh
-from outshine.vegetation.montane_trees import conifer_sites
+from outshine.vegetation.montane_trees import conifer_sites, needle_sprays, spruce_plan
 from outshine.vegetation.plant_sites import patch_density
 from outshine.vegetation.woodland import crown_leaf_frames, stand_plan
 from outshine.vegetation.woodland_leaves import grouped_blades
@@ -69,9 +69,19 @@ def broadleaf_crown(species, form):
 
 
 def needle_crown():
+    sprays, _ = needle_sprays(spruce_plan(1), 32)
+    base, top = sprays[:, 2].min(), sprays[:, 2].max()
+    height = top - base
+    fraction = (sprays[:, 2] - base) / height
+    radii = np.linalg.norm(sprays[:, :2], axis=1)
+    skirt = np.quantile(radii[fraction < 0.36], 0.95)
+    middle = np.quantile(radii[(fraction >= 0.36) & (fraction < 0.65)], 0.95)
     lower, upper = (
-        needle_lobe((0, 0, 0), ((2.8, 0), (4.4, 3.2), (9.8, 0))),
-        needle_lobe((0.12, 0, 0), ((5.1, 0), (7.4, 2.5), (14, 0))),
+        needle_lobe((0, 0, base), ((0, 0), (0.19 * height, skirt), (0.76 * height, 0))),
+        needle_lobe(
+            (0.12, 0, base),
+            ((0.31 * height, 0), (0.49 * height, middle), (height, 0)),
+        ),
     )
     return np.vstack((lower[0], upper[0])), np.vstack(
         (lower[1], upper[1] + len(lower[0]))
@@ -118,6 +128,7 @@ def rooted_crowns(source, receipt, data, forest, focal, seed, stand, bounds):
     placements = np.c_[anchors, 2 * np.pi * marks[:, 1], scale].astype(np.float32)
     oak = marks[:, 0] < 0.5
     forms = (marks[:, 0] * 4).astype(int) % 2
+    forms[conifers] = 1
     for species, selected in (
         ("oak", ~conifers & oak),
         ("beech", ~conifers & ~oak),
@@ -132,7 +143,7 @@ def rooted_crowns(source, receipt, data, forest, focal, seed, stand, bounds):
 def crown_batches(sites):
     groups = {}
     for (species, form), placements in sites:
-        key = (species, 0 if species == "spruce" else form)
+        key = species, form
         groups.setdefault(key, []).append(placements)
     for (species, form), placements in groups.items():
         crown, stem = crown_template(species, form)
