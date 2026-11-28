@@ -90,7 +90,8 @@ roots. Select these extra views explicitly to keep the twelve-view run in order.
 
 KarlMarxHof faces the east façade from a mapped sidewalk. Its taller sections share
 a street-storey band and shallow stone belt; KarlMarxHof-Street inspects a separate
-entrance nearby from its paved connection. The source's light
+entrance nearby from its paved connection. The solved terrain keeps recesses and
+sills clear on sloped lots. The source's light
 and rose finishes stay distinct on separately modelled building parts.
 KarlMarxHof-Courtyard retains the longer view for window rows. Nevillebruecke
 checks the same window grid as the streetscape recedes. Near openings have
