@@ -5,6 +5,7 @@ from time import perf_counter
 
 import bpy
 import numpy as np
+from irradiance_mesh import GROUND_RECEIVERS, refine_ground_receivers
 from materials import DIFFUSE_TRANSMISSION, METALLIC, SURFACES, surface_properties
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
@@ -12,19 +13,18 @@ from mathutils.bvhtree import BVHTree
 RECEIVER_REACH_M = 38.0
 REFLECTION_REACH_M = 100.0
 SUN_OCCLUSION_REACH_M = 200.0
-RECEIVER_SPACING_M = 2.0
+RECEIVER_SPACING_M = 1.0
 SURFACE_BIAS_M = 0.03
 ATTRIBUTE = "Reflected sunlight"
 FACADES = {"wall", "street base", "foundation", "street trim", "portal stone"}
-RECEIVERS = FACADES | {
-    "paving",
-    "sidewalk",
-    "road",
-    "ground",
-    "grass",
-    "window sill",
-    "frame",
-}
+RECEIVERS = (
+    FACADES
+    | GROUND_RECEIVERS
+    | {
+        "window sill",
+        "frame",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -41,7 +41,7 @@ def mesh_points(mesh, transform):
     return points.reshape(-1, 3) @ transform[:3, :3].T + transform[:3, 3]
 
 
-def street_receivers(scene):
+def collect_receivers(scene):
     bpy.context.view_layer.update()
     camera = scene.camera.matrix_world
     eye = np.asarray(camera.translation)
@@ -92,6 +92,15 @@ def street_receivers(scene):
             )
         )
     return batches if has_facade else []
+
+
+def street_receivers(scene):
+    batches = collect_receivers(scene)
+    if refine_ground_receivers(
+        scene, batches, RECEIVER_REACH_M, 2 * RECEIVER_SPACING_M
+    ):
+        return collect_receivers(scene)
+    return batches
 
 
 def place_street_sky(scene):
@@ -184,9 +193,9 @@ def reflected_rgb(index, point, normal, sunlight, directions):
     axis = Vector((0, 0, 1)) if abs(normal.z) < 0.95 else Vector((1, 0, 0))
     tangent = normal.cross(axis).normalized()
     bitangent = normal.cross(tangent)
+    world_directions = directions @ np.asarray((tangent, bitangent, normal))
     radiance = np.zeros(3)
-    for x, y, z in directions:
-        direction = x * tangent + y * bitangent + z * normal
+    for direction in world_directions:
         hit, surface, face, _ = tree.ray_cast(origin, direction, REFLECTION_REACH_M)
         if face is None:
             continue
@@ -223,7 +232,7 @@ def bake_sun_bounce(scene, sun, batches):
     eye = np.asarray(scene.camera.matrix_world.translation)
     graph = bpy.context.evaluated_depsgraph_get()
     sunlight = -(sun.matrix_world.to_3x3() @ Vector((0, 0, -1))).normalized()
-    directions = hemisphere_directions(32)
+    directions = hemisphere_directions(128)
     positions = np.concatenate([batch.positions for batch in batches])
     normals = np.concatenate([batch.normals for batch in batches])
     fade = np.clip(
