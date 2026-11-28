@@ -5,7 +5,9 @@ import json
 import sys
 from functools import partial
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from time import perf_counter
+from types import SimpleNamespace
 
 import bpy
 import numpy as np
@@ -18,7 +20,7 @@ sys.path.extend(
     map(str, (ROOT / "build/blender-python/lib").glob("python*/site-packages"))
 )
 
-from blender_air import configure_aerial
+from blender_air import clear_air_depth, configure_aerial
 from blender_cloud import CloudLighting
 from blender_reflection import apply_reflection, capture_images
 from catalog import available_views, load_catalog, selected_views
@@ -49,6 +51,7 @@ from outshine_ref.rendering.blender_render import configure_gpu, render_png
 from passage_light import bake_reference_irradiance
 from reference_scene import ReferenceScene
 from sky_environment import environment_path, load_environment
+from walk_reference import plan_walk
 from water_bed import BED_ALBEDO
 from water_reflection import reflection_planes
 
@@ -212,9 +215,11 @@ def upload(name, vertices, faces, *, collection, smooth=False):
     return obj
 
 
-def place_woody_plants(world, seed, geometry):
+def place_woody_plants(world, seed, geometry, *, eye_route=None):
     count = 0
-    for species, group, meshes, placements in world.woody_plants(seed):
+    for species, group, meshes, placements in world.woody_plants(
+        seed, eye_route=eye_route
+    ):
         if group is None:
             for name, (vertices, faces) in meshes.items():
                 upload(name, vertices, faces, collection=geometry, smooth=True)
@@ -280,12 +285,80 @@ def configure_cycles_reference(scene, samples, repeat):
     return device
 
 
+def render_walk(scene, world, walk, output, metadata):
+    output.mkdir(parents=True, exist_ok=True)
+    camera = scene.camera
+    optical_depth = scene.compositing_node_group.nodes["Clear-air optical depth"]
+    frames = []
+    with TemporaryDirectory(prefix=".frames-", dir=output) as directory:
+        pending = Path(directory)
+        for index, eye in enumerate(walk.eyes):
+            camera.location = eye
+            eye_m = eye[2] + world.source.datum
+            optical_depth.inputs[1].default_value = clear_air_depth(
+                eye_m, scene.world.mist_settings.depth
+            )
+            filename = f"{index:04}.png"
+            seconds = render_png(scene, pending / filename)
+            frames.append(
+                {"image": filename, "eye_enu_m": eye.tolist(), "seconds": seconds}
+            )
+        receipt = {
+            **metadata,
+            "distance_m": walk.route.length,
+            "frame_spacing_m": walk.spacing_m,
+            "forward_enu": world.look.tolist(),
+            "route_enu_m": list(walk.route.coords),
+            "support_probes": len(walk.foot_heights),
+            "support_rise_m": float(walk.foot_heights[-1] - walk.foot_heights[0]),
+            "maximum_probe_step_m": float(abs(np.diff(walk.foot_heights)).max()),
+            "frames": frames,
+        }
+        (pending / "walk.json").write_text(json.dumps(receipt, indent=2) + "\n")
+        for frame in frames:
+            (pending / frame["image"]).replace(output / frame["image"])
+        (pending / "walk.json").replace(output / "walk.json")
+    print(
+        json.dumps(
+            {
+                "walk": output.name,
+                "frames": len(frames),
+                "receipt": str(output / "walk.json"),
+            }
+        ),
+        flush=True,
+    )
+
+
 def render(place, config, args):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     device = configure_gpu(scene, "eevee")
     configure_daylight(scene)
     world = ReferenceScene(place, config)
+    walk_name = getattr(args, "walk", None)
+    walk = plan_walk(world, config, config["walks"][walk_name]) if walk_name else None
+    if walk and (world.clouds or world.aerosol_extinction or args.sky_dir):
+        raise ValueError(f"{walk_name}: walk requires the clear procedural sky")
+    if (
+        walk
+        and args.engine == "eevee"
+        and any(
+            reflection_planes(
+                SimpleNamespace(
+                    eye=eye,
+                    look=world.look,
+                    focal=world.focal,
+                    water_plan=world.water_plan,
+                    source=world.source,
+                )
+            )
+            for eye in walk.eyes
+        )
+    ):
+        raise ValueError(
+            f"{walk_name}: movement across visible water needs per-view reflection capture"
+        )
     sunlight = Vector(world.sun)
     sun = next(o for o in scene.objects if o.type == "LIGHT" and o.data.type == "SUN")
     sun.rotation_euler = (-sunlight).to_track_quat("-Z", "Y").to_euler()
@@ -331,7 +404,7 @@ def render(place, config, args):
         upload(name, verts, faces, collection=geometry)
     for name, verts, faces in world.grass_and_understory(config["seed"]):
         upload(name, verts, faces, collection=geometry)
-    eye, look = Vector(world.eye), Vector(world.look)
+    eye, look = Vector(walk.eyes[0] if walk else world.eye), Vector(world.look)
     scene.camera = configure_camera(
         {
             "eye": eye,
@@ -345,7 +418,9 @@ def render(place, config, args):
     scene.render.resolution_x, scene.render.resolution_y = 1280, 720
     scene.render.resolution_percentage = 100
     scene.render.image_settings.compression = 0
-    woody_instances = place_woody_plants(world, config["seed"], geometry)
+    woody_instances = place_woody_plants(
+        world, config["seed"], geometry, eye_route=walk.route if walk else None
+    )
     if world.water_bed is not None:
         apply_water_bed(world.water_bed)
     scene.eevee.taa_render_samples = 6
@@ -368,7 +443,7 @@ def render(place, config, args):
     bounce_count, bounce_s = bake_sun_bounce(scene, sun, bounce) if bounce else (0, 0.0)
     if cloud_lighting is not None:
         sun.data.energy = sun_energy
-    planes = reflection_planes(world) if args.engine == "eevee" else ()
+    planes = reflection_planes(world) if args.engine == "eevee" and walk is None else ()
     images = ()
     capture_s = 0.0
     if planes:
@@ -393,7 +468,9 @@ def render(place, config, args):
         geometry,
         world,
         eye_m,
-        cache_sky=args.repeat and (args.engine == "eevee" or sky_image is not None),
+        cache_sky=walk is None
+        and args.repeat
+        and (args.engine == "eevee" or sky_image is not None),
         surface_filter=surface_filter,
     )
     if args.engine == "cycles":
@@ -402,6 +479,35 @@ def render(place, config, args):
             getattr(args, "cycles_samples", None) or CYCLES_REFERENCE_SAMPLES,
             args.repeat,
         )
+    if walk:
+        render_walk(
+            scene,
+            world,
+            walk,
+            args.output / walk_name,
+            {
+                "place": place["id"],
+                "utc": place.get("utc", config["utc"]),
+                "weather": world.weather,
+                "seed": config["seed"],
+                "source_snapshot": config["source_snapshot"],
+                "engine": args.engine,
+                "eevee_samples": scene.eevee.taa_render_samples
+                if args.engine == "eevee"
+                else None,
+                "cycles_sample_cap": scene.cycles.samples
+                if args.engine == "cycles"
+                else None,
+                "surface": world.support,
+                "eye_offset_m": config["eye_height_m"],
+                "origin_altitude_m": world.source.datum,
+                "origin_wgs84": [world.source.lat, world.source.lon],
+                "vertical_fov_deg": world.fov,
+                "woody_instances": woody_instances,
+                **device,
+            },
+        )
+        return
     image = args.output / (place["id"] + ".png")
     args.output.mkdir(parents=True, exist_ok=True)
     times = [render_png(scene, image) for _ in range(2 if args.repeat else 1)]
@@ -498,6 +604,11 @@ if __name__ == "__main__":
         "--place", action="append", choices=[v["id"] for v in available_views(config)]
     )
     inputs.add_argument(
+        "--walk",
+        choices=config.get("walks", {}),
+        help="render a mapped footpath sequence",
+    )
+    inputs.add_argument(
         "--display-linear",
         type=Path,
         nargs="+",
@@ -534,6 +645,10 @@ if __name__ == "__main__":
         display_linear(
             args.display_linear, args.output or ROOT / "build/shots/glsl-agx"
         )
+    elif args.walk:
+        args.output = args.output or ROOT / "build/shots/walks"
+        (place,) = selected_views(config, [config["walks"][args.walk]["origin"]])
+        render(place, config, args)
     else:
         args.output = args.output or ROOT / "build/shots/places"
         for place in selected_views(config, args.place):

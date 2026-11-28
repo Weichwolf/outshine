@@ -301,7 +301,7 @@ class ReferenceScene:
             self.local, self.source, self.local.shore, self.eye, seed
         )
 
-    def woody_plants(self, seed):
+    def woody_plants(self, seed, *, eye_route=None):
         yield from tree_batches(
             self.source,
             250,
@@ -310,6 +310,7 @@ class ReferenceScene:
             self.woodland_floor,
             eye_xy=self.eye[:2],
             soil=self.local,
+            eye_route=eye_route,
         )
         if "forest floor" in self.local:
             yield from woodland_shrubs(

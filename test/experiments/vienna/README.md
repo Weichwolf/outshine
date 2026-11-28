@@ -55,6 +55,30 @@ shadow texels. Both share a depth interval, and the
 4.8 km regional map also retains sunward casters beyond it. The GLSL command prints
 the combined GPU time for the depth passes.
 
+## Footpath replay
+
+Use the mapped Vienna Woods path or the steep meadow edge at Körbersee for movement
+checks. `Wienerwald-Footpath` starts at the woodland camera and moves along the path.
+`Koerbersee-Footpath` approaches its tree-line camera while looking uphill. Both keep the
+anchor's view direction and scenario time. The path centreline snaps the anchor to the
+mapped path. The eye stays 1.70 m above the solved path mesh. The planner tests coverage
+over the entire segment and samples support height at intervals of at most 10 cm.
+
+```sh
+blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/render.py -- \
+  --walk Wienerwald-Footpath
+blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/render.py -- \
+  --walk Koerbersee-Footpath
+```
+
+Each walk writes sequential 720p PNGs 0.45 m apart under `build/shots/walks/<walk>`.
+`walk.json` records the frame order, eye positions in local east/north/up metres,
+source snapshot, scenario time, renderer settings and support probes. The prepared
+scene uses the highest tree detail needed anywhere on the route. The clear procedural
+sky renders from each pose. These profiles use paths without visible planar reflections.
+[Anninger Süd, 1 May 2014](https://commons.wikimedia.org/wiki/File:Wienerwald_Weg.jpg) ·
+[Körbersee, 17 October 2017](https://commons.wikimedia.org/wiki/File:Schr%C3%B6cken_K%C3%B6rbersee_Schr%C3%A4gluftbild.jpg)
+
 ## Matched sky radiance
 
 Export the GLSL atmosphere for a fixed view and pass the directory to both renderers.

@@ -307,7 +307,15 @@ def woodland_surface(surfaces):
 
 
 def tree_batches(
-    source, radius, seed, focal_pixels, root_domain, *, eye_xy=(0, 0), soil=None
+    source,
+    radius,
+    seed,
+    focal_pixels,
+    root_domain,
+    *,
+    eye_xy=(0, 0),
+    soil=None,
+    eye_route=None,
 ):
     domain = habitat(source)
     lawn, avenue, avenue_marks = avenue_sites(source, radius, seed)
@@ -341,7 +349,11 @@ def tree_batches(
     conifers = conifer_sites(
         source, positions[:stand_count], heights[:stand_count], marks[:stand_count, 0]
     )
-    distances = np.linalg.norm(positions - eye_xy, axis=1)
+    distances = (
+        shapely.distance(shapely.points(positions), eye_route)
+        if eye_route is not None
+        else np.linalg.norm(positions - eye_xy, axis=1)
+    )
     for index, (xy, z, (family, rotation, scale), distance) in enumerate(
         zip(positions, heights, marks, distances, strict=True)
     ):
