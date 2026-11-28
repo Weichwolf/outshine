@@ -321,6 +321,11 @@ Wienerblick remains an independent, eye-level site.
 The regional reference samples the mapped building heights, water, woods, grass and deck
 footprints around each camera. Its height field extends to the distance at which a 12 m
 building occupies one pixel (6–15 km range). Closer tiles retain mapped building outlines and facade openings.
+Mapped woodland in the regional mesh uses a filtered canopy material. A shared
+512 m tile describes overlapping crowns and their shaded gaps. Slower colour
+variation across the stand helps distinguish wooded slopes from meadows. Both
+renderers project the material horizontally on the existing terrain. The relief
+affects shading. The terrain mesh determines the ridge silhouette.
 Compact buildings can use a pitched roof within their mapped top height. The near and
 regional generators share the same gable recipe, including the closing wall faces.
 Courtyards, conflicting parts and incomplete tile footprints use the flat envelope.

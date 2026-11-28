@@ -10,6 +10,8 @@ DETAIL_SPAN_M = 2.56
 MACRO_SPAN_M = 23.0
 HEIGHT_SPAN_M = 0.024
 BARK_BOX_BLEND = 0.35
+CANOPY_DETAIL = "regional canopy"
+DETAIL_SCALES = {CANOPY_DETAIL: (512.0, 1523.0, 2.4)}
 DETAIL_TINTS = {"beech bark": (0.86, 1.0, 0.78), "leaf litter": (0.53, 1.26, 0.66)}
 SIZE = 512
 
@@ -26,6 +28,7 @@ SURFACE_DETAIL = {
     "window sill": "concrete",
     "ground": "soil",
     "forest floor": "leaf litter",
+    "regional wood": CANOPY_DETAIL,
     "grass": "grass",
     "meadow": "meadow",
     "unpaved path": "compacted",
@@ -44,6 +47,35 @@ SURFACE_DETAIL = {
 def noise(rng, scale):
     signal = gaussian_filter(rng.standard_normal((SIZE, SIZE)), scale, mode="wrap")
     return np.clip(signal / signal.std(), -3, 3)
+
+
+def detail_scale(name):
+    return DETAIL_SCALES.get(name, (DETAIL_SPAN_M, MACRO_SPAN_M, HEIGHT_SPAN_M))
+
+
+def regional_canopy(rng):
+    """Bake overlapping crown profiles on a periodic eight-metre grid."""
+    cells = 64
+    y, x = (np.indices((SIZE, SIZE), dtype=np.float32) + 0.5) * (cells / SIZE)
+    row, column = np.floor(y).astype(int), np.floor(x).astype(int)
+    offsets = rng.uniform(0.10, 0.90, (2, cells, cells))
+    radii = rng.uniform(0.58, 1.03, (cells, cells))
+    heights = rng.uniform(0.70, 1.13, (cells, cells))
+    crown = np.zeros_like(x)
+    for dy in (-1, 0, 1):
+        for dx in (-1, 0, 1):
+            j, i = row + dy, column + dx
+            key = j % cells, i % cells
+            cy, cx = j + offsets[0][key], i + offsets[1][key]
+            radius_squared = ((x - cx) ** 2 + (y - cy) ** 2) / radii[key] ** 2
+            lobe = heights[key] * np.maximum(1 - radius_squared, 0) ** 0.72
+            crown = np.maximum(crown, lobe)
+    crown = gaussian_filter(crown, 0.7, mode="wrap")
+    tint = 0.69 + 0.40 * crown + 0.042 * noise(rng, 4)
+    roughness = 0.91 - 0.07 * crown
+    height = 1.7 * (crown - 0.43)
+    macro = 0.5 + 0.18 * noise(rng, 20)
+    return tint, roughness, height, macro
 
 
 def stone_setts(rng, grain):
@@ -99,11 +131,14 @@ def ground_detail(name):
         "meadow",
         "leaf litter",
         "chestnut bark",
+        CANOPY_DETAIL,
     ).index(name)
     rng = np.random.default_rng(seed)
     fine, grain, patches = (noise(rng, scale) for scale in (0.65, 1.6, 12))
     macro = 0.5 + 0.15 * patches
-    if name == "asphalt":
+    if name == CANOPY_DETAIL:
+        tint, roughness, height, macro = regional_canopy(rng)
+    elif name == "asphalt":
         aggregate = np.maximum(fine - 0.40, 0)
         tint = 0.97 + 0.18 * aggregate + 0.045 * grain
         roughness = 0.86 - 0.04 * aggregate + 0.018 * patches
@@ -193,7 +228,7 @@ def ground_detail(name):
         (
             np.clip(tint * 0.5, 0, 1),
             np.clip(roughness, 0.05, 1),
-            np.clip(0.5 + height / HEIGHT_SPAN_M, 0, 1),
+            np.clip(0.5 + height / detail_scale(name)[2], 0, 1),
             np.clip(macro, 0, 1),
         ),
         axis=-1,

@@ -18,11 +18,10 @@ from PIL import Image
 sys.path.insert(0, str(ROOT / "lib/src"))
 from ground_detail import (
     BARK_BOX_BLEND,
-    DETAIL_SPAN_M,
+    CANOPY_DETAIL,
     DETAIL_TINTS,
-    HEIGHT_SPAN_M,
-    MACRO_SPAN_M,
     SURFACE_DETAIL,
+    detail_scale,
     ground_detail,
 )
 from materials import (
@@ -403,8 +402,10 @@ def draw_surfaces(ctx, prog, draws, textures, *, capture=False):
         prog["glassIor"].value = GLASS_IOR if name == "glass" else 1.0
         detail = SURFACE_DETAIL.get(base)
         prog["hasDetail"].value = detail is not None
+        prog["planarDetail"].value = detail == CANOPY_DETAIL
         prog["detailTint"].value = DETAIL_TINTS.get(detail, (1, 1, 1))
         if detail is not None:
+            prog["detailScale"].value = detail_scale(detail)
             if detail not in textures:
                 pixels = ground_detail(detail)
                 texture = ctx.texture(pixels.shape[:2], 4, pixels.tobytes(), dtype="f4")
@@ -554,7 +555,6 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
     prog["skyView"].value = 0
     sky.use(2)
     prog["detailMap"].value = 2
-    prog["detailScale"].value = (DETAIL_SPAN_M, MACRO_SPAN_M, HEIGHT_SPAN_M)
     prog["barkBoxBlend"].value = BARK_BOX_BLEND
     bed = world.water_bed
     transmission = bed.transmission if bed is not None else np.zeros((1, 1, 3))

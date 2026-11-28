@@ -14,6 +14,7 @@ uniform vec3 detailScale;
 uniform vec3 detailTint;
 uniform float barkBoxBlend;
 uniform bool hasDetail;
+uniform bool planarDetail;
 uniform float eyeKm;
 uniform float directSunFraction;
 uniform sampler2D cloudSunMap;
@@ -219,7 +220,7 @@ void main(){
     vec3 objectNormal=vec3(
         dot(vec2(rotation.x,rotation.y),n.xy),
         dot(vec2(-rotation.y,rotation.x),n.xy),n.z);
-    vec2 uv=detailCoordinates(objectNormal);
+    vec2 uv=planarDetail ? vec2(-point.y,point.x) : detailCoordinates(objectNormal);
     vec4 fine=bark ? barkDetail(objectNormal,detailScale.x) : texture(detailMap,uv/detailScale.x);
     float macro=bark ? barkDetail(objectNormal,detailScale.y).a : texture(detailMap,uv/detailScale.y).a;
     material.rgb*=fine.r*(1.68+.64*macro)*mix(vec3(1.),detailTint,fine.a);
