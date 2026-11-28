@@ -51,6 +51,7 @@ from stairs import local_stairways
 from street_facade import draw_low_front, draw_street_storey
 from tram_rails import draw_tram_rails, tram_routes
 from viaducts import draw_viaduct
+from wall_ground import WallGround
 from water_surface import clipped_water, water_bodies
 
 
@@ -124,7 +125,9 @@ def building_form(polygon, floor, roof, source, foundation, passages, wall, grou
     )
 
 
-def building(meshes, form, grade, facade_view, neighbours, front=None):
+def building(
+    meshes, form, grade, facade_view, neighbours, front=None, wall_ground=None
+):
     for roof in polygons(exposed_cap(form.polygon, form.top, neighbours)):
         cap(meshes, "roof", roof, lambda xy: form.top)
     if form.minimum_height > 0:
@@ -156,6 +159,7 @@ def building(meshes, form, grade, facade_view, neighbours, front=None):
             form.top,
             facade_view,
             neighbours,
+            wall_ground=wall_ground,
             wall=form.wall,
         )
     else:
@@ -171,6 +175,7 @@ def building(meshes, form, grade, facade_view, neighbours, front=None):
             wall=form.wall,
             front=front,
             street=has_street_storey(form),
+            wall_ground=wall_ground,
         )
 
 
@@ -228,6 +233,7 @@ def building_walls(
     wall,
     front=None,
     street=False,
+    wall_ground=None,
 ):
     for ring_index, ring in enumerate([polygon.exterior, *polygon.interiors]):
         corners = np.asarray(ring.coords)
@@ -255,8 +261,13 @@ def building_walls(
                 if front is not None and ring_index == 0 and side == front.side
                 else None
             )
+            buried = (
+                wall_ground.buried(a, b, bottom, top)
+                if bays and wall_ground is not None
+                else None
+            )
             if entry is not None and entry.low:
-                draw_low_front(meshes, a, b, bottom, top, wall, view, entry)
+                draw_low_front(meshes, a, b, bottom, top, wall, view, entry, buried)
                 continue
             floor_top = bottom + STREET_STOREY_M if street else bottom
             if street:
@@ -270,6 +281,7 @@ def building_walls(
                     view,
                     exposed_wall(a, b, bottom, floor_top, neighbours),
                     entry,
+                    buried,
                 )
             draw_facade(
                 meshes,
@@ -282,6 +294,7 @@ def building_walls(
                 bays=bays and (front is None or not front.low),
                 wall=wall,
                 exposed=exposed_wall(a, b, floor_top, top, neighbours),
+                buried=buried,
             )
 
 
@@ -454,6 +467,7 @@ def ground_surfaces(
     water_plan=(),
     foundations=(),
     covered_walks=(),
+    track_wall_ground=False,
 ):
     transport = [(g, p) for layer, g, p in source.features if layer == "transportation"]
     paved = [*transport, *((p.corridor, p.properties) for p in covered_walks)]
@@ -711,6 +725,7 @@ def ground_surfaces(
             meshes.add(name, terrain, triangles)
             if retain:
                 dry_banks.append(dry_shore_edges(shore, terrain, triangles))
+    wall_ground = WallGround(meshes) if track_wall_ground else None
     for link in links:
         meshes.add(link.material, link.mesh.vertices, link.mesh.triangles)
         edges, ground_z = link.retaining_sections()
@@ -733,7 +748,15 @@ def ground_surfaces(
     walk_edges = {}
     for link in links:
         walk_edges.setdefault(link.span_id, []).append(link.deck_edge)
-    return approaches, carried, track_paving, crossings, openings, walk_edges
+    return (
+        approaches,
+        carried,
+        track_paving,
+        crossings,
+        openings,
+        walk_edges,
+        wall_ground,
+    )
 
 
 def assemble(
@@ -810,7 +833,7 @@ def assemble(
                 item for item in passages[polygon] if item.crown_m + 0.4 < ridge
             ]
     meshes.covered_walks = tuple(item for group in passages.values() for item in group)
-    approaches, carried, track_paving, crossings, openings, walk_edges = (
+    approaches, carried, track_paving, crossings, openings, walk_edges, wall_ground = (
         ground_surfaces(
             meshes,
             source,
@@ -824,6 +847,7 @@ def assemble(
             water_plan=water_plan,
             foundations=foundations,
             covered_walks=meshes.covered_walks,
+            track_wall_ground=bool(buildings),
         )
     )
     if not track_paving.is_empty:
@@ -858,10 +882,12 @@ def assemble(
     neighbours = building_neighbours(
         [form.polygon for form in forms], [form.volumes() for form in forms]
     )
-    fronts = frontages(forms, neighbours, source.features, bodies, meshes)
+    fronts = frontages(forms, neighbours, source.features, bodies, meshes, wall_ground)
     pave_entrances(meshes, fronts)
     for index, (form, adjacent) in enumerate(zip(forms, neighbours, strict=True)):
-        building(meshes, form, grade, facade_view, adjacent, fronts.get(index))
+        building(
+            meshes, form, grade, facade_view, adjacent, fronts.get(index), wall_ground
+        )
     for name, geom, prop in source.features:
         if name == "transportation" and prop.get("brunnel") != "tunnel":
             if at_grade_width(prop) is not None:

@@ -19,6 +19,7 @@ from facade import (
     clipped_wall,
     face_grid,
     members,
+    opening_area,
     placed,
     rectangles,
 )
@@ -84,14 +85,20 @@ def entrance_steps(front, bottom):
         yield "foundation", np.asarray([*points, *skirt]), np.asarray(faces)
 
 
-def draw_low_front(meshes, a, b, bottom, top, wall, view, front):
+def draw_low_front(meshes, a, b, bottom, top, wall, view, front, buried=None):
     width, axis, normal = edge_frame(a, b)
     height = top - bottom
     distance = np.linalg.norm(a + axis * front.station - np.asarray(view.eye))
     detail = view.focal * 0.135 >= RELIEF_PIXELS * max(1.0, distance)
     half = DOOR_WIDTH_M / 2
     door = (front.station - half, 0, front.station + half, DOOR_HEIGHT_M)
-    windows = list(front_windows(width, height, front.station))
+    face = shapely.box(0, 0, width, height)
+    clear = opening_area(face, buried, bottom)
+    windows = [
+        opening
+        for opening in front_windows(width, height, front.station)
+        if clear.covers(shapely.box(*opening))
+    ]
     for opening, material in [
         (door, "entrance door"),
         *((x, "glass") for x in windows),
@@ -99,7 +106,7 @@ def draw_low_front(meshes, a, b, bottom, top, wall, view, front):
         for name, vertices, faces in opening_parts(opening, material, detail):
             placed(meshes, name, vertices, faces, a, axis, normal, bottom)
     holes = list(shapely.box(*np.array([door, *windows]).T))
-    wall_parts = clipped_wall(shapely.box(0, 0, width, height), holes)
+    wall_parts = clipped_wall(face, holes)
     placed(meshes, wall, *wall_parts, a, axis, normal, bottom)
     for name, vertices, faces in entrance_steps(front, bottom):
         placed(meshes, name, vertices, faces, a, axis, normal, bottom)
@@ -126,7 +133,9 @@ def street_openings(width, height, detail, entry):
             )
 
 
-def draw_street_storey(meshes, a, b, bottom, top, wall, view, exposed, entry):
+def draw_street_storey(
+    meshes, a, b, bottom, top, wall, view, exposed, entry, buried=None
+):
     if np.linalg.norm(b - a) < 0.01:
         return
     width, axis, normal = edge_frame(a, b)
@@ -138,6 +147,7 @@ def draw_street_storey(meshes, a, b, bottom, top, wall, view, exposed, entry):
     )
     if face.is_empty:
         return
+    clear = opening_area(face, buried, bottom)
     columns = max(1, round(width / BAY_PITCH_M))
     detail = bay_detail(
         view,
@@ -154,7 +164,7 @@ def draw_street_storey(meshes, a, b, bottom, top, wall, view, exposed, entry):
     holes = []
     for opening, material, relief in street_openings(width, height, detail, entry):
         hole = shapely.box(*opening)
-        if not face.covers(hole):
+        if not clear.covers(hole):
             continue
         holes.append(hole)
         for name, vertices, faces in opening_parts(opening, material, relief):
@@ -165,10 +175,10 @@ def draw_street_storey(meshes, a, b, bottom, top, wall, view, exposed, entry):
     base = wall.replace("wall", "street base", 1)
     placed(meshes, base, *clipped_wall(face, holes), a, axis, normal, bottom)
     if (detail == 2).any():
-        belt = shapely.LineString([(0, height - 0.13), (width, height - 0.13)])
+        belt = shapely.LineString([(0, height - 0.20), (width, height - 0.20)])
         spans = [
             [part.bounds[0], part.bounds[2]]
-            for part in shapely.get_parts(face.intersection(belt))
+            for part in shapely.get_parts(clear.intersection(belt))
             if part.length > 0.01
         ]
         if spans:
