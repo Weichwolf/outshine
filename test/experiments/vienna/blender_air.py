@@ -16,7 +16,7 @@ from air_profile import (
 from water_reflection import camera_axes
 
 
-def capture_sky(scene, ground):
+def capture_linear(scene, name):
     settings = scene.render
     image_settings = settings.image_settings
     original = (
@@ -25,20 +25,20 @@ def capture_sky(scene, ground):
         image_settings.color_depth,
         settings.filepath,
         settings.use_compositing,
-        ground.use,
+        image_settings.exr_codec,
     )
     try:
-        ground.use = False
         settings.use_compositing = False
         image_settings.file_format = "OPEN_EXR"
         image_settings.color_mode = "RGBA"
         image_settings.color_depth = "32"
-        with TemporaryDirectory(prefix="outshine-vienna-sky-") as tmp:
-            settings.filepath = str(Path(tmp) / "sky.exr")
+        image_settings.exr_codec = "NONE"
+        with TemporaryDirectory(prefix="outshine-vienna-light-") as tmp:
+            settings.filepath = str(Path(tmp) / f"{name}.exr")
             if "FINISHED" not in bpy.ops.render.render(
                 write_still=True, scene=scene.name
             ):
-                raise RuntimeError("EEVEE sky capture did not finish")
+                raise RuntimeError(f"EEVEE {name} capture did not finish")
             image = bpy.data.images.load(settings.filepath)
             image.pack()
             return image
@@ -49,8 +49,17 @@ def capture_sky(scene, ground):
             image_settings.color_depth,
             settings.filepath,
             settings.use_compositing,
-            ground.use,
+            image_settings.exr_codec,
         ) = original
+
+
+def capture_sky(scene, ground):
+    enabled = ground.use
+    try:
+        ground.use = False
+        return capture_linear(scene, "sky")
+    finally:
+        ground.use = enabled
 
 
 def math_node(tree, op, *inputs):
@@ -112,9 +121,13 @@ def aerosol_depth(tree, scene, world, eye_m, distance):
     )
 
 
-def configure_aerial(scene, geometry, world, eye_altitude_m, *, cache_sky=False):
+def configure_aerial(
+    scene, geometry, world, eye_altitude_m, *, cache_sky=False, surface_filter=None
+):
     ground = scene.view_layers[0]
     ground.use_pass_mist = True
+    if surface_filter is not None:
+        ground.use_pass_position = True
     sky = scene.view_layers.new("Clear sky")
     sky.layer_collection.children[geometry.name].exclude = True
     sky_image, sky_seconds = None, 0.0
@@ -135,6 +148,9 @@ def configure_aerial(scene, geometry, world, eye_altitude_m, *, cache_sky=False)
     scene.compositing_node_group = tree
     surface = tree.nodes.new("CompositorNodeRLayers")
     surface.layer = ground.name
+    colour = surface.outputs["Image"]
+    if surface_filter is not None:
+        colour = surface_filter(tree, surface)
     if sky_image is None:
         airlight = tree.nodes.new("CompositorNodeRLayers")
         airlight.layer = sky.name
@@ -157,6 +173,6 @@ def configure_aerial(scene, geometry, world, eye_altitude_m, *, cache_sky=False)
     mix.data_type = "RGBA"
     tree.links.new(transmission, mix.inputs[0])
     tree.links.new(airlight.outputs["Image"], mix.inputs[6])
-    tree.links.new(surface.outputs["Image"], mix.inputs[7])
+    tree.links.new(colour, mix.inputs[7])
     tree.links.new(mix.outputs[2], tree.nodes.new("NodeGroupOutput").inputs["Image"])
     return sky_seconds
