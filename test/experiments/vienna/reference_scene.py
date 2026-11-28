@@ -17,6 +17,7 @@ from catalog import HERE, ROOT
 from cloud_profile import cloud_profile
 from facade import FacadeView
 from grass_cover import blades
+from ground_surface import trail_litter_weights
 from horizon import terrain_horizon
 from meadow import meadow_cover
 from outshine_ref.places.height import Elevation
@@ -300,6 +301,16 @@ class ReferenceScene:
         yield from bank_plants(
             self.local, self.source, self.local.shore, self.eye, seed
         )
+
+    def trail_litter(self, name, vertices):
+        edge = self.local.trail_litter_edges
+        if (
+            edge is not None
+            and name == "unpaved path"
+            and vertices is self.local.get(name, (None,))[0]
+        ):
+            return trail_litter_weights(edge, vertices)
+        return None
 
     def woody_plants(self, seed, *, eye_route=None):
         yield from tree_batches(

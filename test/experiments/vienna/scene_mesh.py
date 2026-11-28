@@ -33,8 +33,10 @@ from facade import FacadeView, draw_facade
 from ground_surface import (
     ROUTE_MATERIALS,
     SOIL_MATERIALS,
+    TRAIL_SHOULDER_M,
     at_grade_routes,
     at_grade_width,
+    forest_trail_edges,
     grassland_material,
     partition_ground,
     partition_triangles,
@@ -59,6 +61,7 @@ from water_surface import clipped_water, water_bodies
 class Meshes(dict):
     shore = None
     covered_walks = ()
+    trail_litter_edges = None
 
     def add(self, name, vertices, faces):
         points, triangles = self.setdefault(name, ([], []))
@@ -679,6 +682,27 @@ def ground_surfaces(
         if material:
             vegetation[material].extend(polygons(shapely.make_valid(geometry)))
     cover_start = first_stair + len(pieces) + len(earthworks)
+    path = roads["unpaved path"]
+    if not path.is_empty and vegetation["forest floor"]:
+        forest = shapely.union_all(vegetation["forest floor"]).intersection(extent)
+        forest = forest.difference(
+            shapely.union_all([*vegetation["meadow"], *vegetation["grass"]])
+        )
+        reserved = shapely.union_all(
+            [
+                extent.boundary,
+                *(
+                    geom
+                    for label, geom in footprints.items()
+                    if names[label] != "unpaved path"
+                ),
+            ]
+        )
+        edges = forest_trail_edges(path, forest, reserved)
+        if not edges.is_empty:
+            meshes.trail_litter_edges = edges
+            shoulder = edges.buffer(TRAIL_SHOULDER_M, quad_segs=4)
+            breaks.append(shoulder.boundary.intersection(path))
     for label, (material, areas) in enumerate(vegetation.items(), cover_start):
         cover = shapely.union_all(areas).intersection(extent)
         if not cover.is_empty:

@@ -18,6 +18,7 @@ ROAD_WIDTH = {
 }
 ROUTE_MATERIALS = ("road", "sidewalk", "paving", "unpaved path")
 SOIL_MATERIALS = ("ground", "forest floor", "grass", "meadow")
+TRAIL_SHOULDER_M = 0.42
 
 
 def polygons(geometry):
@@ -71,6 +72,21 @@ def clip_route_areas(areas, domain):
     parts = shapely.get_parts(clipped)
     areal = parts[shapely.get_dimensions(parts) == 2]
     return shapely.union_all(areal) if len(areal) else shapely.Polygon()
+
+
+def forest_trail_edges(path, woodland, reserved):
+    floor = woodland.difference(path)
+    edge = path.boundary.intersection(floor.boundary).difference(
+        reserved.buffer(2 * TRAIL_SHOULDER_M, quad_segs=2)
+    )
+    parts = shapely.get_parts(edge)
+    return shapely.union_all(parts[(shapely.get_dimensions(parts) == 1)])
+
+
+def trail_litter_weights(edge, vertices):
+    xy = np.asarray(vertices)[:, :2]
+    distance = shapely.distance(shapely.points(xy), edge)
+    return np.clip(1 - distance / TRAIL_SHOULDER_M, 0, 1).astype("f4")
 
 
 def at_grade_routes(features, domain, *, focal=None, replaced_paths=()):

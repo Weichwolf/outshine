@@ -28,6 +28,7 @@ from materials import (
     DIFFUSE_TRANSMISSION,
     GLASS_IOR,
     METALLIC,
+    SURFACES,
     WATER_IOR,
     WATER_MATERIALS,
     surface_properties,
@@ -290,7 +291,7 @@ def projection(world):
     return clip @ view, right * t * 1280 / 720, up * t
 
 
-def upload(ctx, program, name, vertices, faces, placements):
+def upload(ctx, program, name, vertices, faces, placements, *, trail_litter=None):
     faces = np.asarray(faces, dtype="i4")
     if not faces.size:
         return
@@ -305,6 +306,10 @@ def upload(ctx, program, name, vertices, faces, placements):
         (instances, "4f 1f /i", "offsetAngle", "scale"),
     ]
     buffers = [instances, idx, points]
+    if trail_litter is not None:
+        litter = ctx.buffer(trail_litter.tobytes())
+        content.append((litter, "1f", "trailLitter"))
+        buffers.append(litter)
     if name.endswith(" bark"):
         a, b, c = vertices[faces].transpose(1, 0, 2)
         area_normals = np.cross(b - a, c - a)
@@ -392,6 +397,15 @@ def render_shadows(ctx, prog, draws, world):
     return textures, query
 
 
+def detail_texture(ctx, textures, detail):
+    if detail not in textures:
+        pixels = ground_detail(detail)
+        texture = ctx.texture(pixels.shape[:2], 4, pixels.tobytes(), dtype="f4")
+        texture.build_mipmaps()
+        textures[detail] = texture
+    return textures[detail]
+
+
 def draw_surfaces(ctx, prog, draws, textures, *, capture=False):
     for name, count, vao, _ in draws:
         water = name in WATER_MATERIALS
@@ -404,17 +418,16 @@ def draw_surfaces(ctx, prog, draws, textures, *, capture=False):
         prog["waterSurface"].value = water
         prog["glassIor"].value = GLASS_IOR if name == "glass" else 1.0
         detail = SURFACE_DETAIL.get(base)
+        trail = detail == "compacted"
+        prog["hasTrailLitter"].value = trail
         prog["hasDetail"].value = detail is not None
         prog["planarDetail"].value = detail == CANOPY_DETAIL
         prog["detailTint"].value = DETAIL_TINTS.get(detail, (1, 1, 1))
         if detail is not None:
             prog["detailScale"].value = detail_scale(detail)
-            if detail not in textures:
-                pixels = ground_detail(detail)
-                texture = ctx.texture(pixels.shape[:2], 4, pixels.tobytes(), dtype="f4")
-                texture.build_mipmaps()
-                textures[detail] = texture
-            textures[detail].use(2)
+            detail_texture(ctx, textures, detail).use(2)
+        if trail:
+            detail_texture(ctx, textures, "leaf litter").use(12)
         vao.render(instances=count)
 
 
@@ -558,6 +571,10 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
     prog["skyView"].value = 0
     sky.use(2)
     prog["detailMap"].value = 2
+    prog["litterMap"].value = 12
+    prog["litterScale"].value = detail_scale("leaf litter")
+    prog["litterColour"].value = SURFACES["forest floor"][0]
+    prog["litterTint"].value = DETAIL_TINTS["leaf litter"]
     prog["barkBoxBlend"].value = BARK_BOX_BLEND
     bed = world.water_bed
     transmission = bed.transmission if bed is not None else np.zeros((1, 1, 3))
@@ -575,7 +592,9 @@ def render(ctx, place, config, out, *, sky_dir=None, linear=False):
     prog["eyeKm"].value = EARTH_RADIUS_KM + (world.eye[2] + world.source.datum) * 0.001
     ctx.enable(moderngl.DEPTH_TEST)
     draws = [
-        upload(ctx, prog, n, v, f, [(0, 0, 0, 0, 1)])
+        upload(
+            ctx, prog, n, v, f, [(0, 0, 0, 0, 1)], trail_litter=world.trail_litter(n, v)
+        )
         for n, v, f in chain(
             world.surfaces(), world.grass_and_understory(config["seed"])
         )

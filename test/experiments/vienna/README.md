@@ -236,6 +236,14 @@ The Adlerhof photo guides the plaster and rectangular paving. The Dechantlacke p
 guides the soil, bark and leaf palette. The renderer infers material for paths without
 surface tags. [Adlerhof, 21 August 2008](https://presse.wien.gv.at/bilder/2008/08/21/adlerhof-innenhof) · [Lobau near Dechantlacke, 9 August 2022](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg)
 
+The compacted trail detail has patches of worn soil and exposed grit. Where an
+unpaved path borders rendered woodland floor, its inner 42 cm blends into the
+same leaf-litter reflectance, roughness and relief. A contour inside the path
+resolves the blend in the existing terrain triangles. Paved crossings, water and
+meadows keep their assigned surfaces. Compare the trail shoulders at
+Wienerwald-Woodland and Dechantlacke-Path-Near-Afternoon.
+[Wienerwald at Anninger Süd, 1 May 2014](https://commons.wikimedia.org/wiki/File:Wienerwald_Weg.jpg)
+
 The Vienna stand varies clear bole length and scaffold height across its two forms each for
 oak and beech. Close boles vary their girth, cross section and branch scars with their
 tile-seeded placements. Separate low root ridges spread along the soil beside the bole,
