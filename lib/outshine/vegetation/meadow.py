@@ -117,7 +117,9 @@ def meadow_forb(cream):
     return upright_products(meshes)
 
 
-def meadow_cover(mesh, source, eye, seed, *, focal_pixels, woodland_edges=None):
+def meadow_cover(
+    mesh, source, eye, seed, *, focal_pixels, woodland_edges=None, exclude=None
+):
     distant = coarse_tuft()
     distant_height = distant[0][:, 2].max()
     reach = max(MEADOW_REACH_M, distant_height * focal_pixels / MIN_COARSE_HEIGHT_PX)
@@ -137,6 +139,8 @@ def meadow_cover(mesh, source, eye, seed, *, focal_pixels, woodland_edges=None):
     xy, marks, coarse = (np.concatenate(rows) for rows in zip(*batches, strict=True))
     heights = surface_elevations(mesh, xy)
     grounded = np.isfinite(heights)
+    if exclude is not None:
+        grounded &= ~exclude(xy)
     if not grounded.any():
         return
     xy, marks, coarse = xy[grounded], marks[grounded], coarse[grounded]

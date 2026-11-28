@@ -105,3 +105,17 @@ class VegetationAtlasTest(unittest.TestCase):
             product.write_bytes(b"wrong payload")
             with self.assertRaisesRegex(ValueError, "changed vegetation atlas tile"):
                 VegetationAtlas(root).sample(0, 0)
+
+    def test_batch_reads_share_scalar_tile_ownership(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.build_fixture(Path(root), grid_cell(1.35, 103.77)[0])
+            atlas = VegetationAtlas(root)
+            longitude = [[103.77, 103.80], [103.76, 103.75]]
+            cover, ecoregion = atlas.land_cells(1.35, longitude)
+            np.testing.assert_array_equal(cover, [[10, 0], [10, 0]])
+            np.testing.assert_array_equal(ecoregion, [[265, 0], [265, 0]])
+            for row, values in enumerate(longitude):
+                for column, lon in enumerate(values):
+                    sample = atlas.sample(1.35, lon)
+                    self.assertEqual(cover[row, column], sample.worldcover_code or 0)
+                    self.assertEqual(ecoregion[row, column], sample.ecoregion_id or 0)

@@ -27,6 +27,10 @@ source layers or `sample_local(scene.source, xy)` to include mapped cover in a
 Python reference scene. Each tile stores the input and output digests in
 `atlas.json`.
 
+Pass `--vegetation-atlas build/vegetation-atlas/pilot` to the image driver to
+enable atlas-driven open-habitat vegetation. The Python `render_png` entry
+point takes the same directory as `vegetation_atlas`.
+
 The WorldCover grid uses geographic cells at 1/12,000 degree spacing.
 SoilGrids fields retain their 250 m source resolution and provide a coarse
 substrate prior. Source gaps return empty fields. Botanical regions provide

@@ -23,9 +23,11 @@ from outshine.terrain.horizon_cover import distant_cover
 from outshine.transport.bridge_approach import APPROACH_SEARCH, bridge_approaches
 from outshine.transport.bridges import plan_water_crossings
 from outshine.transport.viaducts import local_viaducts
+from outshine.vegetation.atlas import VegetationAtlas
 from outshine.vegetation.bank_vegetation import bank_plants
 from outshine.vegetation.grass_cover import blades
 from outshine.vegetation.meadow import meadow_cover
+from outshine.vegetation.open_cover import RegionalOpenCover
 from outshine.vegetation.understory import woodland_cover
 from outshine.vegetation.woodland import habitat, tree_batches
 from outshine.vegetation.woodland_shrubs import woodland_shrubs
@@ -245,6 +247,12 @@ class ReferenceScene:
         self.look = direction(place["heading_deg"], place["pitch_deg"])
         observer = Observer(place["latitude"], place["longitude"])
         utc = datetime.fromisoformat(place.get("utc", config["utc"]))
+        atlas_path = config.get("vegetation_atlas")
+        self.open_cover = (
+            RegionalOpenCover(VegetationAtlas(atlas_path), self.source, utc)
+            if atlas_path is not None
+            else None
+        )
         self.sun = direction(azimuth(observer, utc), elevation(observer, utc))
         self.weather = place.get("weather", config.get("weather", "clear"))
         self.aerosol_extinction = aerosol_extinction(self.weather)
@@ -326,8 +334,11 @@ class ReferenceScene:
         )
 
     def grass_and_understory(self, seed):
+        exclude = self.open_cover.replaces if self.open_cover else None
         if "grass" in self.local:
-            yield from blades(self.local["grass"], self.source, self.eye, seed)
+            yield from blades(
+                self.local["grass"], self.source, self.eye, seed, exclude=exclude
+            )
         if "meadow" in self.local:
             yield from meadow_cover(
                 self.local["meadow"],
@@ -336,7 +347,10 @@ class ReferenceScene:
                 seed,
                 focal_pixels=self.focal,
                 woodland_edges=self.local.meadow_woodland_edges,
+                exclude=exclude,
             )
+        if self.open_cover is not None:
+            yield from self.open_cover.batches(self.local, self.eye, seed)
         if "forest floor" in self.local:
             yield from woodland_cover(
                 self.local["forest floor"],
