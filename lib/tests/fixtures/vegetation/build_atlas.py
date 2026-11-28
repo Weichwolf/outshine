@@ -1,0 +1,393 @@
+"""Build the pilot's versioned atlas from cached or explicitly acquired layers."""
+
+import argparse
+import hashlib
+import io
+import json
+import shutil
+from concurrent.futures import ThreadPoolExecutor
+from math import ceil, floor
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+from urllib.parse import urlencode
+from urllib.request import urlopen
+from zipfile import ZipFile
+from zlib import crc32
+
+import numpy as np
+import rasterio
+import shapefile
+import shapely
+from outshine.vegetation.atlas import (
+    CELLS_PER_DEGREE,
+    NO_SOIL,
+    SOIL_LAYERS,
+    TILE_CELLS,
+    TILES_PER_DEGREE,
+    grid_cell,
+    tile_bounds,
+    tile_name,
+)
+from outshine.vegetation.species_catalog import (
+    load_species_catalog,
+    species_catalog_digest,
+)
+from outshine.vegetation.stand_habitat import polygon_components
+from rasterio.features import rasterize
+from rasterio.transform import from_bounds
+from rasterio.warp import Resampling, reproject, transform
+from rasterio.windows import Window
+from shapely.geometry import box, shape
+
+from ..vienna.catalog import ROOT, load_catalog
+from .catalog import load_sites, site_views
+
+RESOLVE = {
+    "url": "https://storage.googleapis.com/teow2016/Ecoregions2017.zip",
+    "release": "Ecoregions2017",
+    "license": "CC-BY-4.0",
+    "sha256": "be36d6209e443038d02e309f0447c6e7f2a62f5fe60c605ffe90d064952f2a60",
+}
+TDWG_REVISION = "f68afd99aa94adadaa3e0328e4aadda75ecc4215"
+TDWG = {
+    "url": f"https://raw.githubusercontent.com/tdwg/wgsrpd/{TDWG_REVISION}/geojson/level3.geojson",
+    "release": TDWG_REVISION,
+    "license": "TDWG metadata specifies no use constraints. Original boundaries © 1992–1997 ESRI, GMi, used with permission.",
+    "sha256": "c172bcf6aba20e19477adc60aebf0023068f0175dca8480f0760b090dcf64840",
+}
+WORLDCOVER = {
+    "url": "https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/",
+    "release": "2021 v200",
+    "license": "CC-BY-4.0",
+    "attribution": "© ESA WorldCover project / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium",
+    "grid_degrees": 1 / CELLS_PER_DEGREE,
+}
+SOILGRID = {
+    "url": "https://maps.isric.org/",
+    "release": "SoilGrids 2.0, 0–5 cm, mean",
+    "license": "CC-BY-4.0",
+    "resolution_m": 250,
+}
+HOMOLOSINE = "+proj=igh +ellps=WGS84 +units=m"
+SOIL_CRS = "http://www.opengis.net/def/crs/EPSG/0/152160"
+
+
+def write_bytes(path, payload):
+    with NamedTemporaryFile(dir=path.parent, delete=False) as stream:
+        stream.write(payload)
+        temporary = Path(stream.name)
+    try:
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def cached_bytes(path, url, fetch):
+    if path.is_file() or not fetch:
+        return path.read_bytes()
+    with urlopen(url, timeout=40) as response:
+        payload = response.read()
+    write_bytes(path, payload)
+    return payload
+
+
+def pinned_source(root, name, source, fetch):
+    path = root / name
+    if not path.is_file() and fetch:
+        with (
+            urlopen(source["url"], timeout=90) as response,
+            NamedTemporaryFile(dir=root, delete=False) as stream,
+        ):
+            temporary = Path(stream.name)
+            try:
+                shutil.copyfileobj(response, stream)
+                stream.flush()
+                temporary.replace(path)
+            finally:
+                temporary.unlink(missing_ok=True)
+    with path.open("rb") as stream:
+        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+    if digest != source["sha256"]:
+        raise ValueError(f"changed atlas source {path}")
+    return path
+
+
+def extract_shapes(archive, cache):
+    with ZipFile(archive) as source:
+        for suffix in ("dbf", "shp", "shx"):
+            path = cache / f"Ecoregions2017.{suffix}"
+            info = source.getinfo(path.name)
+            if path.is_file():
+                with path.open("rb") as stream:
+                    checksum = 0
+                    for block in iter(lambda: stream.read(1024**2), b""):
+                        checksum = crc32(block, checksum)
+                if checksum == info.CRC:
+                    continue
+            with (
+                source.open(info) as packed,
+                NamedTemporaryFile(dir=cache, delete=False) as stream,
+            ):
+                temporary = Path(stream.name)
+                try:
+                    shutil.copyfileobj(packed, stream)
+                    stream.flush()
+                    temporary.replace(path)
+                finally:
+                    temporary.unlink(missing_ok=True)
+
+
+def worldcover_window(bounds, path, fetch):
+    west, south, east, north = bounds
+    latitude = 3 * floor((south + north) / 6)
+    longitude = 3 * floor((west + east) / 6)
+    name = f"{'N' if latitude >= 0 else 'S'}{abs(latitude):02d}"
+    name += f"{'E' if longitude >= 0 else 'W'}{abs(longitude):03d}"
+    uri = f"{WORLDCOVER['url']}ESA_WorldCover_10m_2021_v200_{name}_Map.tif"
+    if fetch and not path.is_file():
+        with (
+            rasterio.Env(
+                GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR", GDAL_HTTP_TIMEOUT="20"
+            ),
+            rasterio.open(uri) as raster,
+        ):
+            if (
+                raster.crs is None
+                or raster.crs.to_epsg() != 4326
+                or not np.allclose(
+                    raster.res, (1 / CELLS_PER_DEGREE,) * 2, rtol=0, atol=1e-12
+                )
+            ):
+                raise ValueError(f"unexpected WorldCover grid {uri}")
+            column = round((west - raster.bounds.left) * CELLS_PER_DEGREE)
+            row = round((raster.bounds.top - north) * CELLS_PER_DEGREE)
+            window = Window(column, row, TILE_CELLS, TILE_CELLS)
+            values = raster.read(1, window=window)
+        if values.shape != (TILE_CELLS, TILE_CELLS):
+            raise ValueError(f"incomplete WorldCover window {bounds}")
+        write_bytes(path, values.tobytes())
+    payload = path.read_bytes()
+    return np.frombuffer(payload, dtype="u1").reshape(TILE_CELLS, TILE_CELLS), {
+        "url": uri,
+        "window": bounds,
+        "pixel_sha256": hashlib.sha256(payload).hexdigest(),
+    }
+
+
+def soil_window(bounds, layer, path, fetch):
+    west, south, east, north = bounds
+    x, y = transform(
+        "EPSG:4326", HOMOLOSINE, [west, east] * 2, [south] * 2 + [north] * 2
+    )
+    lo_x, hi_x = 250 * floor(min(x) / 250) - 250, 250 * ceil(max(x) / 250) + 250
+    lo_y, hi_y = 250 * floor(min(y) / 250) - 250, 250 * ceil(max(y) / 250) + 250
+    query = [
+        ("map", f"/map/{layer}.map"),
+        ("SERVICE", "WCS"),
+        ("VERSION", "2.0.1"),
+        ("REQUEST", "GetCoverage"),
+        ("COVERAGEID", f"{layer}_0-5cm_mean"),
+        ("FORMAT", "GEOTIFF_INT16"),
+        ("SUBSET", f"X({lo_x},{hi_x})"),
+        ("SUBSET", f"Y({lo_y},{hi_y})"),
+        ("SUBSETTINGCRS", SOIL_CRS),
+        ("OUTPUTCRS", SOIL_CRS),
+    ]
+    url = SOILGRID["url"] + "mapserv?" + urlencode(query)
+    payload = cached_bytes(path, url, fetch)
+    target = np.full((TILE_CELLS, TILE_CELLS), NO_SOIL, dtype="<i2")
+    with rasterio.MemoryFile(payload) as source, source.open() as raster:
+        values = raster.read(1, masked=True).filled(NO_SOIL)
+        values[values < 0] = NO_SOIL
+        reproject(
+            values,
+            target,
+            src_transform=raster.transform,
+            src_crs=raster.crs,
+            src_nodata=NO_SOIL,
+            dst_transform=from_bounds(*bounds, TILE_CELLS, TILE_CELLS),
+            dst_crs="EPSG:4326",
+            dst_nodata=NO_SOIL,
+            resampling=Resampling.nearest,
+        )
+    return target, {"url": url, "sha256": hashlib.sha256(payload).hexdigest()}
+
+
+def polygon_layer(features, bounds):
+    polygons = [
+        (polygon, code)
+        for geometry, code in features
+        for polygon in polygon_components(geometry)
+    ]
+    if not polygons:
+        return np.zeros((TILE_CELLS, TILE_CELLS), dtype="<u2")
+    return rasterize(
+        sorted(polygons, key=lambda feature: feature[1], reverse=True),
+        out_shape=(TILE_CELLS, TILE_CELLS),
+        transform=from_bounds(*bounds, TILE_CELLS, TILE_CELLS),
+        dtype="uint16",
+    )
+
+
+def build_tile(key, cache, output, fetch, resolve_path, botanical):
+    name = tile_name(key)
+    bounds = tile_bounds(key)
+    extent = box(*bounds)
+    cover, worldcover = worldcover_window(bounds, cache / f"{name}-cover.u8", fetch)
+    with shapefile.Reader(resolve_path, encoding="latin-1") as reader:
+        region_polygons = []
+        for entry in reader.iterShapeRecords(bbox=bounds):
+            code = int(entry.record["ECO_ID"])
+            if code > 0:
+                polygon = shapely.make_valid(shape(entry.shape.__geo_interface__))
+                region_polygons.append((polygon.intersection(extent), code))
+    botanical_polygons = [
+        (polygon.intersection(extent), index)
+        for index, polygon in botanical
+        if polygon.intersects(extent)
+    ]
+    layers = {
+        "cover": cover,
+        "ecoregion": polygon_layer(region_polygons, bounds),
+        "botanical": polygon_layer(botanical_polygons, bounds),
+    }
+    soil = {}
+    water_or_ice = np.isin(cover, (70, 80))
+    for layer in SOIL_LAYERS:
+        values, soil[layer] = soil_window(
+            bounds, layer, cache / f"{name}-{layer}.tif", fetch
+        )
+        layers[layer] = values
+    # The WCS can return zero-filled pixels without a declared nodata value.
+    no_texture = (layers["sand"] == 0) & (layers["silt"] == 0) & (layers["clay"] == 0)
+    for layer in SOIL_LAYERS:
+        layers[layer][water_or_ice | no_texture] = NO_SOIL
+    stream = io.BytesIO()
+    np.savez_compressed(stream, **layers)
+    payload = stream.getvalue()
+    digest = hashlib.sha256(payload).hexdigest()
+    write_bytes(output / f"{name}-{digest}.npz", payload)
+    return name, {"sha256": digest, "worldcover": worldcover, "soil": soil}
+
+
+def covering_keys(positions):
+    return sorted(
+        {
+            ((x + dx) % (360 * TILES_PER_DEGREE), y + dy)
+            for latitude, longitude in positions
+            for (x, y), _ in (grid_cell(latitude, longitude),)
+            for dx in (-1, 0, 1)
+            for dy in (-1, 0, 1)
+            if 0 <= y + dy < 180 * TILES_PER_DEGREE
+        }
+    )
+
+
+def pilot_keys():
+    vienna = load_catalog()
+    return covering_keys(
+        (view["latitude"], view["longitude"])
+        for site in load_sites().values()
+        for view, _ in site_views(site, vienna)
+    )
+
+
+def build_atlas(cache, output, keys, *, fetch, pinned=None):
+    cache.mkdir(parents=True, exist_ok=True)
+    output.mkdir(parents=True, exist_ok=True)
+    archive = pinned_source(cache, "Ecoregions2017.zip", RESOLVE, fetch)
+    countries = pinned_source(cache, "wgsrpd-level3.geojson", TDWG, fetch)
+    extract_shapes(archive, cache)
+    resolve_path = cache / "Ecoregions2017.shp"
+    with shapefile.Reader(resolve_path, encoding="latin-1") as source:
+        ecoregions = {
+            str(row["ECO_ID"]): [row["ECO_NAME"], row["BIOME_NUM"], row["REALM"]]
+            for row in source.iterRecords()
+        }
+    features = json.loads(countries.read_text(encoding="utf-8"))["features"]
+    codes = ["", *sorted({row["properties"]["LEVEL3_COD"] for row in features})]
+    indices = {code: index for index, code in enumerate(codes)}
+    botanical = [
+        (
+            indices[row["properties"]["LEVEL3_COD"]],
+            shapely.make_valid(shape(row["geometry"])),
+        )
+        for row in features
+    ]
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        tiles = dict(
+            pool.map(
+                lambda key: build_tile(
+                    key, cache, output, fetch, resolve_path, botanical
+                ),
+                keys,
+            )
+        )
+    manifest = {
+        "format": "outshine-vegetation-atlas-1",
+        "sources": {
+            "ecoregions": RESOLVE,
+            "worldcover": WORLDCOVER,
+            "botanical": TDWG,
+            "soil": SOILGRID,
+            "species": dict(load_species_catalog().document["source"])
+            | {"catalog_sha256": species_catalog_digest()},
+        },
+        "botanical_regions": codes,
+        "ecoregions": ecoregions,
+        "tiles": tiles,
+    }
+    if pinned is not None:
+        actual = source_pins(manifest)
+        changed = sorted(
+            key
+            for key in actual.keys() | pinned.keys()
+            if actual.get(key) != pinned.get(key)
+        )
+        if changed:
+            raise ValueError(
+                f"changed source windows in atlas tiles: {', '.join(changed)}"
+            )
+    write_bytes(
+        output / "atlas.json",
+        (
+            json.dumps(manifest, sort_keys=True, ensure_ascii=False, indent=2) + "\n"
+        ).encode(),
+    )
+    return manifest
+
+
+def source_pins(manifest):
+    return {
+        name: hashlib.sha256(
+            json.dumps(
+                {"worldcover": tile["worldcover"], "soil": tile["soil"]}, sort_keys=True
+            ).encode()
+        ).hexdigest()
+        for name, tile in manifest["tiles"].items()
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--cache", type=Path, default=ROOT / "build/vegetation-atlas/sources"
+    )
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--fetch", action="store_true")
+    parser.add_argument("--check-pins", type=Path)
+    parser.add_argument(
+        "--at", type=float, nargs=2, action="append", metavar=("LAT", "LON")
+    )
+    args = parser.parse_args()
+    pinned = json.loads(args.check_pins.read_text()) if args.check_pins else None
+    keys = pilot_keys() if args.at is None else covering_keys(args.at)
+    output = args.output or ROOT / "build/vegetation-atlas" / (
+        "pilot" if args.at is None else "selection"
+    )
+    manifest = build_atlas(args.cache, output, keys, fetch=args.fetch, pinned=pinned)
+    print(f"Built {len(manifest['tiles'])} atlas tiles")
+
+
+if __name__ == "__main__":
+    main()

@@ -93,6 +93,17 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
 
 ## Relevanz: Hoch
 
+- **Vegetationsatlas und natürliche Böden**. RESOLVE-Ökoregionen geben den
+  regionalen Rahmen. ESA WorldCover liefert die lokale Landbedeckung. WGSRPD
+  verbindet einen Ort mit regionalen Vorkommenskandidaten aus dem WCVP.
+  SoilGrids liefert grobe Hinweise auf das mineralische Substrat und organischen
+  Kohlenstoff. Artenmischung, Deckung und Bodenoberfläche brauchen zusätzliche
+  Ortsbelege. [RESOLVE](https://doi.org/10.1093/biosci/bix014) ·
+  [ESA WorldCover](https://esa-worldcover.org/en/data-access) ·
+  [WGSRPD](https://github.com/tdwg/wgsrpd) ·
+  [WCVP](https://powo.science.kew.org/about-wcvp) ·
+  [SoilGrids](https://docs.isric.org/globaldata/soilgrids/)
+
 - **Hierarchical Image Caching for Accelerated Walkthroughs of Complex Environments**,
   Shade / Lischinski / Salesin / DeRose / Snyder, SIGGRAPH 1996.
   [Autorenprojekt](https://pages.cs.huji.ac.il/danix-lab/cglab/research/wa/) ·
