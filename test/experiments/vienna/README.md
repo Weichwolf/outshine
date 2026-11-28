@@ -34,6 +34,11 @@ displacement fades with distance from the joins.
 Managed horse chestnuts carry opposite leaves on wider-reaching limbs. Each
 detailed leaf has an 11 cm stalk and five or seven leaflets joined at its tip.
 The grouped representations use the compound leaf's one-sided area and centre.
+Where mapped side paths follow the shared park road, tree rows follow the
+grass strips between the paths and their outer verges. Adjacent rows stagger
+their 7.6 m stations. The tree register supplies a spacing and layout check for
+this section of the Hauptallee. [Data source: Stadt Wien, tree register](https://www.wien.gv.at/umwelt/stadtbaeume)
+
 Check the canopy above the verge at `Hauptallee-Fork` and along the path at
 `Hauptallee-Avenue`. [Thomas et al., horse chestnut morphology](https://doi.org/10.1111/1365-2745.13116)
 · [Hauptallee, 9 August 2022](https://commons.wikimedia.org/wiki/File:Hauptallee_Prater_Wien_2022-08-09_15.jpg)

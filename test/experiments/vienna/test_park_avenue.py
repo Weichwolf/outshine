@@ -7,6 +7,50 @@ from park_avenue import avenue_sites
 
 
 class ParkAvenueTest(unittest.TestCase):
+    def test_parallel_footways_define_staggered_rows_in_the_verges(self):
+        road = {"class": "minor", "foot": "yes", "bicycle": "yes", "horse": "yes"}
+        path = {"class": "path", "subclass": "footway"}
+        features = [
+            (
+                "landcover",
+                shapely.box(-80, -32, 80, 32),
+                {"subclass": "recreation_ground"},
+            ),
+            ("transportation", shapely.LineString([(-80, 0), (80, 0)]), road),
+            ("transportation", shapely.LineString([(0, -30), (0, 30)]), path),
+            *(
+                ("transportation", shapely.LineString([(-80, y), (80, y)]), path)
+                for y in (-19, -11, 11, 19)
+            ),
+        ]
+        source = SimpleNamespace(
+            features=features, lon=16.4, lat=48.2, metres=np.array([74022, 111184])
+        )
+        _, spots, _ = avenue_sites(source, 75, 99)
+        points = shapely.points(spots)
+        np.testing.assert_allclose(
+            np.unique(spots[:, 1]), [-22.4, -15, -7.6, 7.6, 15, 22.4]
+        )
+        for _, transport, _ in features[1:]:
+            self.assertTrue((shapely.distance(points, transport) > 1.75).all())
+        inner = spots[np.isclose(spots[:, 1], 7.6), 0]
+        middle = spots[np.isclose(spots[:, 1], 15), 0]
+        self.assertAlmostEqual(np.min(abs(inner[:, None] - middle)), 3.8)
+
+        trail = (
+            "transportation",
+            shapely.LineString([(-80, 24), (80, 24)]),
+            {"class": "path", "subclass": "path"},
+        )
+        source.features = [*features, trail]
+        _, bounded, _ = avenue_sites(source, 75, 99)
+        np.testing.assert_allclose(
+            np.unique(bounded[:, 1]), [-22.4, -15, -7.6, 7.6, 15, 21.5]
+        )
+        source.features = [*features[:3], trail]
+        _, crossing_only, _ = avenue_sites(source, 75, 99)
+        np.testing.assert_allclose(np.unique(crossing_only[:, 1]), [-5.75, 5.75])
+
     def test_shared_route_has_two_rows_with_clear_paths_and_buildings(self):
         route = shapely.LineString([(-70, 0), (70, 0)])
         crosswalk = shapely.LineString([(11, -15), (11, 15)])
