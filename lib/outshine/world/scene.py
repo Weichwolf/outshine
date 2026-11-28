@@ -12,10 +12,12 @@ from astral.sun import azimuth, elevation
 from outshine.buildings.facade import FacadeView
 from outshine.places.height import Elevation
 from outshine.terrain.ground_surface import (
+    CARRIAGEWAY_MATERIALS,
     MEADOW_MARGIN_M,
     ROUTE_MATERIALS,
     SOIL_MATERIALS,
     TRAIL_SHOULDER_M,
+    dirt_road_weights,
     margin_weights,
 )
 from outshine.terrain.horizon import terrain_horizon
@@ -27,7 +29,10 @@ from outshine.vegetation.atlas import VegetationAtlas
 from outshine.vegetation.bank_vegetation import bank_plants
 from outshine.vegetation.grass_cover import blades
 from outshine.vegetation.meadow import meadow_cover
-from outshine.vegetation.open_cover import RegionalOpenCover
+from outshine.vegetation.open_cover import (
+    ACACIA_COMMIPHORA_BUSHLANDS,
+    RegionalOpenCover,
+)
 from outshine.vegetation.regional_woody import savanna_woody
 from outshine.vegetation.understory import woodland_cover
 from outshine.vegetation.woodland import habitat, tree_batches
@@ -54,7 +59,13 @@ from outshine.world.sources import LocalScene
 SUPPORT_MATERIALS = {
     "ground": ("ground", "forest floor", "grass"),
     "sidewalk": ("sidewalk", "paving", "unpaved path"),
-    "street": ("sidewalk", "paving", "unpaved path", "road"),
+    "street": ("sidewalk", "paving", "unpaved path", *CARRIAGEWAY_MATERIALS),
+    "road": CARRIAGEWAY_MATERIALS,
+}
+SAVANNA_SURFACES = {
+    "ground": "dry savanna soil",
+    "grass": "dry savanna soil",
+    "unpaved road": "savanna unpaved road",
 }
 
 
@@ -254,6 +265,20 @@ class ReferenceScene:
             if atlas_path is not None
             else None
         )
+        self.savanna_soil = False
+        if self.open_cover is not None and self.open_cover.dry_savanna:
+            habitat_sample = self.open_cover.atlas.sample(
+                self.source.lat, self.source.lon
+            )
+            soil = habitat_sample.soil
+            self.savanna_soil = (
+                habitat_sample.ecoregion_id == ACACIA_COMMIPHORA_BUSHLANDS
+                and soil is not None
+                and soil.sand_g_kg is not None
+                and soil.clay_g_kg is not None
+                and 450 <= soil.sand_g_kg <= 650
+                and 200 <= soil.clay_g_kg <= 380
+            )
         self.sun = direction(azimuth(observer, utc), elevation(observer, utc))
         self.weather = place.get("weather", config.get("weather", "clear"))
         self.aerosol_extinction = aerosol_extinction(self.weather)
@@ -292,6 +317,8 @@ class ReferenceScene:
 
     def surfaces(self, *, crown_sites=None):
         for name, (verts, faces) in self.local.items():
+            if self.savanna_soil:
+                name = SAVANNA_SURFACES.get(name, name)
             yield name, verts, faces
         yield from control_surfaces(self.source, self.water_plan)
         bounds = []
@@ -364,9 +391,13 @@ class ReferenceScene:
             self.local, self.source, self.local.shore, self.eye, seed
         )
 
-    def ground_litter(self, name, vertices):
+    def ground_blend(self, name, vertices):
+        if name == "savanna unpaved road":
+            name = "unpaved road"
         if vertices is not self.local.get(name, (None,))[0]:
             return None
+        if name == "unpaved road" and self.local.dirt_road_edges is not None:
+            return dirt_road_weights(self.local.dirt_road_edges, vertices)
         if name == "meadow" and self.local.meadow_woodland_edges is not None:
             return margin_weights(
                 self.local.meadow_woodland_edges, vertices, MEADOW_MARGIN_M

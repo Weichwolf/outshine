@@ -16,10 +16,24 @@ ROAD_WIDTH = {
     "track": 2.5,
     "path": 1.8,
 }
-ROUTE_MATERIALS = ("road", "sidewalk", "paving", "unpaved path")
+CARRIAGEWAY_MATERIALS = ("road", "unpaved road")
+ROUTE_MATERIALS = ("road", "sidewalk", "paving", "unpaved path", "unpaved road")
 SOIL_MATERIALS = ("ground", "forest floor", "grass", "meadow")
 TRAIL_SHOULDER_M = 0.42
 MEADOW_MARGIN_M = 2.4
+DIRT_ROAD_SHOULDER_M = 0.82
+DIRT_ROAD_CENTRE_M = (1.60, 2.45)
+UNPAVED_SURFACES = {
+    "unpaved",
+    "compacted",
+    "fine_gravel",
+    "gravel",
+    "ground",
+    "dirt",
+    "earth",
+    "sand",
+    "pebblestone",
+}
 
 
 def polygons(geometry):
@@ -53,15 +67,7 @@ def path_material(props):
         or (surface is None and kind == "pedestrian")
     ):
         return "paving"
-    if surface in {
-        "unpaved",
-        "compacted",
-        "fine_gravel",
-        "gravel",
-        "ground",
-        "dirt",
-        "earth",
-    } or (surface is None and kind == "path"):
+    if surface in UNPAVED_SURFACES or (surface is None and kind == "path"):
         return "unpaved path"
     return "sidewalk"
 
@@ -97,6 +103,18 @@ def margin_weights(edge, vertices, width):
     xy = np.asarray(vertices)[:, :2]
     distance = shapely.distance(shapely.points(xy), edge)
     return np.clip(1 - distance / width, 0, 1).astype("f4")
+
+
+def dirt_road_weights(edge, vertices):
+    distance = shapely.distance(shapely.points(np.asarray(vertices)[:, :2]), edge)
+    shoulder = np.clip(1 - distance / DIRT_ROAD_SHOULDER_M, 0, 1)
+    low, high = DIRT_ROAD_CENTRE_M
+    centre = 0.64 * np.clip((distance - low) / (high - low), 0, 1)
+    return np.maximum(shoulder, centre).astype("f4")
+
+
+def carriageway_footprint(roads):
+    return roads["road"].union(roads.get("unpaved road", shapely.Polygon()))
 
 
 def _path_footprints(paths, carriageways):
@@ -154,12 +172,17 @@ def at_grade_routes(features, domain, *, focal=None, replaced_paths=()):
             and width * focal < 0.85 * geom.distance(shapely.Point(0, 0))
         ):
             continue
-        material = path_material(props) if kind == "path" else "road"
+        if kind == "path":
+            material = path_material(props)
+        elif props.get("surface") in UNPAVED_SURFACES:
+            material = "unpaved road"
+        else:
+            material = "road"
         if geom.geom_type.endswith("LineString"):
             for part in shapely.get_parts(geom):
                 if part.is_empty:
                     continue
-                if material == "road":
+                if material in CARRIAGEWAY_MATERIALS:
                     area = route_area(part, width)
                     carriageways.append((part, area))
                     footprints[material].append(area)
@@ -169,15 +192,17 @@ def at_grade_routes(features, domain, *, focal=None, replaced_paths=()):
         footprints[material].append(route_area(geom, width))
     for material, footprint in _path_footprints(paths, carriageways):
         footprints[material].append(footprint)
-    roads, paths, paving, unpaved = (
+    roads, paths, paving, unpaved, unpaved_roads = (
         clip_route_areas(footprints[name], domain) for name in ROUTE_MATERIALS
     )
     hard_paths = paths.union(paving)
+    reserved = hard_paths.union(unpaved)
     return {
-        "road": roads.difference(hard_paths.union(unpaved)),
+        "road": roads.difference(reserved),
         "sidewalk": paths.difference(paving),
         "paving": paving,
         "unpaved path": unpaved.difference(hard_paths),
+        "unpaved road": unpaved_roads.difference(reserved.union(roads)),
     }
 
 

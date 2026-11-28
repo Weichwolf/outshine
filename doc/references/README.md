@@ -121,6 +121,15 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
   [Kew](https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:77087190-1/general-information) ·
   [Feldstudie](https://doi.org/10.1002/jwmg.70037)
 
+- **Unbefestigte Fahrwege in Seronera**. Der Bericht der Tanzania Association
+  of Tour Operators dokumentiert die Instandsetzung der Parkwege. Eine
+  datierte Aufnahme aus Seronera zeigt den verdichteten Fahrstreifen und
+  den Übergang ins Gras. In Outshine kalibrieren diese Belege die prozeduralen
+  Oberflächen und ergänzen die kartierten OSM-Belagsangaben. SoilGrids
+  liefert den regionalen Hinweis auf die mineralische Zusammensetzung.
+  [Parkwege und Instandsetzung](https://tatotz.org/serengeti-road-maintenance-project/) ·
+  [Seronera-Aufnahme vom 23. Februar 2014](https://www.butterblume-in-afrika.de/tansania-nord-uganda-2014/23-02-14-seronera-serengeti/)
+
 - **Hierarchical Image Caching for Accelerated Walkthroughs of Complex Environments**,
   Shade / Lischinski / Salesin / DeRose / Snyder, SIGGRAPH 1996.
   [Autorenprojekt](https://pages.cs.huji.ac.il/danix-lab/cglab/research/wa/) ·

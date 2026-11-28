@@ -53,8 +53,11 @@ SURFACES = {
     "weir overflow": ((0.18, 0.225, 0.195), 0.37),
     "distant terrain": ((0.11, 0.16, 0.10), 0.95),
     "ground": ((0.105, 0.073, 0.046), 0.92),
+    "dry savanna soil": ((0.177, 0.108, 0.060), 0.94),
     "forest floor": ((0.098, 0.073, 0.047), 0.91),
     "unpaved path": ((0.17, 0.135, 0.095), 0.89),
+    "unpaved road": ((0.187, 0.140, 0.089), 0.91),
+    "savanna unpaved road": ((0.120, 0.058, 0.030), 0.91),
     "road": ((0.075, 0.08, 0.082), 0.82),
     "sidewalk": ((0.27, 0.25, 0.22), 0.77),
     "paving": ((0.245, 0.237, 0.226), 0.74),
@@ -78,6 +81,12 @@ SURFACES = {
 }
 
 METALLIC = {"rail head": 1.0}
+GROUND_BLENDS = {
+    "meadow": "forest floor",
+    "unpaved path": "forest floor",
+    "unpaved road": "ground",
+    "savanna unpaved road": "dry savanna soil",
+}
 DIFFUSE_TRANSMISSION = {
     "foliage": 0.32,
     "spruce foliage": 0.17,

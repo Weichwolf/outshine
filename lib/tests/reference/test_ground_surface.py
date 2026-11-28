@@ -4,9 +4,12 @@ from types import SimpleNamespace
 import numpy as np
 import shapely
 from outshine.terrain.ground_surface import (
+    DIRT_ROAD_SHOULDER_M,
     MEADOW_MARGIN_M,
     TRAIL_SHOULDER_M,
     at_grade_routes,
+    carriageway_footprint,
+    dirt_road_weights,
     forest_trail_edges,
     margin_weights,
     partition_ground,
@@ -21,6 +24,38 @@ from shapely.geometry import LineString, Point, Polygon, box
 
 
 class GroundSurfaceTest(unittest.TestCase):
+    def test_mapped_dirt_road_keeps_its_grade_and_blends_into_the_shoulder(self):
+        dirt = LineString([(-15, 0), (15, 0)])
+        paved = LineString([(5, -15), (5, 15)])
+        transport = [
+            (dirt, {"class": "minor", "surface": "unpaved"}),
+            (paved, {"class": "minor", "surface": "asphalt"}),
+        ]
+        routes = at_grade_routes(transport, box(-10, -10, 10, 10))
+        self.assertAlmostEqual(carriageway_footprint(routes).area, 189.75)
+        self.assertEqual(routes["road"].intersection(routes["unpaved road"]).area, 0)
+        source = SimpleNamespace(
+            height=lambda xy: 0.12 * xy[:, 0] + 0.15 * xy[:, 1],
+            features=[("transportation", geom, tags) for geom, tags in transport],
+        )
+        meshes = assemble(source, 10)
+        shoulder = (-5, 2.75)
+        for name in ("ground", "unpaved road"):
+            self.assertAlmostEqual(
+                support_height(meshes[name], shoulder).max(), -0.1875
+            )
+        positions = [
+            shoulder,
+            (-5, 2.75 - DIRT_ROAD_SHOULDER_M / 2),
+            (-5, 1.55),
+            (-5, 0),
+        ]
+        np.testing.assert_allclose(
+            dirt_road_weights(meshes.dirt_road_edges, positions), [1, 0.5, 0, 0.64]
+        )
+        self.assertEqual(len(support_height(meshes["unpaved road"], (5, 0))), 0)
+        self.assertAlmostEqual(support_height(meshes["road"], (5, 0)).max(), 0.60)
+
     def test_meadow_litter_follows_the_woodland_edge_through_a_path_cut(self):
         source = SimpleNamespace(
             height=lambda xy: 0.12 * xy[:, 0] + 0.15 * xy[:, 1],
