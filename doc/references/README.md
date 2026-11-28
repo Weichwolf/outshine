@@ -133,7 +133,9 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
 - **Patagonische Gebüsche und Horstgrassteppen**. Die chilenische Karte von
   Luebert und Pliscoff ergänzt den Vegetationsatlas um potenzielle
   Pflanzengesellschaften. WorldCover und OSM liefern die heutige Bedeckung
-  und Grenzen offener Flächen. Flora und Feldbelege stützen die schmalen
+  und Grenzen offener Flächen. Die Klassen geben den Rahmen für die
+  prozeduralen Anteile von Gras, Gebüsch und Boden in der Landschaftsansicht.
+  Flora und Feldbelege stützen die schmalen
   Blätter von *Chiliotrichum diffusum* und die Horstform der regionalen Gräser.
   [Vegetationskarte](https://geoportal.cl/geoportal/catalog/32581/Pisos%20vegetacionales%20de%20Luebert%20y%20Pliscoff%202017) ·
   [Chilenisches Umweltministerium](https://simbio.mma.gob.cl/Ecosistemas/Details/128) ·

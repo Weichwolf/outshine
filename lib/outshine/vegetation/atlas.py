@@ -229,6 +229,21 @@ class VegetationAtlas:
         (community,) = self._cells(latitude, longitude, {"community": COMMUNITY_DTYPE})
         return np.isin(community, accepted)
 
+    def community_windows(self, bounds):
+        """Report available tiles without reading their raster payloads."""
+        west, south, east, north = bounds
+        for name, record in self.manifest["tiles"].items():
+            if not record.get("potential_community"):
+                continue
+            tile = tile_bounds(tuple(map(int, name.split("-"))))
+            if (
+                tile[0] < east
+                and tile[2] > west
+                and tile[1] < north
+                and tile[3] > south
+            ):
+                yield tile
+
     def _cells(self, latitude, longitude, fields):
         x, y = grid_indices(latitude, longitude)
         values = tuple(np.zeros(x.shape, dtype=dtype) for dtype in fields.values())

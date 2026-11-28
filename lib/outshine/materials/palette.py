@@ -4,6 +4,7 @@ from outshine.terrain.land_cover import PARCEL_SURFACES
 GLASS_IOR = 1.52
 WATER_IOR = 1.333
 WATER_MATERIALS = ("water", "regional water")
+PATAGONIAN_GRAVEL = ((0.139, 0.117, 0.083), 0.93)
 
 # Linear reflectance, perceptual roughness.
 SURFACES = {
@@ -58,7 +59,8 @@ SURFACES = {
     "distant terrain": ((0.11, 0.16, 0.10), 0.95),
     "ground": ((0.105, 0.073, 0.046), 0.92),
     "dry savanna soil": ((0.177, 0.108, 0.060), 0.94),
-    "patagonian gravel soil": ((0.139, 0.117, 0.083), 0.93),
+    "patagonian gravel soil": PATAGONIAN_GRAVEL,
+    "patagonian footpath": PATAGONIAN_GRAVEL,
     "forest floor": ((0.098, 0.073, 0.047), 0.91),
     "unpaved path": ((0.17, 0.135, 0.095), 0.89),
     "unpaved road": ((0.187, 0.140, 0.089), 0.91),

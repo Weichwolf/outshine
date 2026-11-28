@@ -44,6 +44,7 @@ from outshine.rendering.water_reflection import (
     camera_axes,
     reflection_planes,
 )
+from outshine.vegetation.landscape_cover import LANDSCAPE_MATERIALS
 from outshine.vegetation.regional_canopy import crown_batches
 from outshine.water.water_bed import BED_ALBEDO
 from outshine.weather.air_profile import EARTH_RADIUS_KM
@@ -62,6 +63,9 @@ SKYLIGHT_SHADOW_SPAN = (96.0, 256.0)
 SKYLIGHT_TILE = 768
 SKYLIGHT_ATLAS_TILES = (4, 2)
 SKYLIGHT_TEXTURE_UNIT = 5
+TERRAIN_TEXTURE_UNIT = 13
+HORIZON_COVER = 1
+LANDSCAPE_COVER = 2
 
 SCREEN = """#version 410 core
 out vec2 ndc;
@@ -594,7 +598,15 @@ def detail_texture(ctx, textures, detail):
     return textures[detail]
 
 
-def draw_surfaces(ctx, prog, draws, textures, *, capture=False, bed_map=None):
+def cover_texture(ctx, cover):
+    texture = ctx.texture(cover.pixels.shape[1::-1], 4, cover.pixels.tobytes())
+    texture.repeat_x = texture.repeat_y = False
+    texture.build_mipmaps()
+    return texture, cover.transform
+
+
+def draw_surfaces(ctx, prog, draws, textures, terrain, *, capture=False, bed_map=None):
+    cover_mode = None
     for batch in draws:
         name = batch.name
         water = name in WATER_MATERIALS
@@ -605,7 +617,19 @@ def draw_surfaces(ctx, prog, draws, textures, *, capture=False, bed_map=None):
         prog["metalness"].value = METALLIC.get(name, 0.0)
         prog["diffuseTransmission"].value = DIFFUSE_TRANSMISSION.get(name, 0.0)
         prog["waterSurface"].value = water
-        prog["hasTerrainCover"].value = base == "distant terrain"
+        if base == "distant terrain":
+            mode = HORIZON_COVER
+        elif LANDSCAPE_COVER in terrain and base in LANDSCAPE_MATERIALS:
+            mode = LANDSCAPE_COVER
+        else:
+            mode = 0
+        if mode != cover_mode:
+            cover_mode = mode
+            prog["terrainCoverMode"].value = mode
+            if mode:
+                texture, transform = terrain[mode]
+                texture.use(TERRAIN_TEXTURE_UNIT)
+                prog["terrainTransform"].value = transform
         prog["glassIor"].value = GLASS_IOR if name == "glass" else 1.0
         detail = SURFACE_DETAIL.get(base)
         target = GROUND_BLENDS.get(base)
@@ -628,7 +652,9 @@ def draw_surfaces(ctx, prog, draws, textures, *, capture=False, bed_map=None):
         batch.vao.render(instances=len(batch.placements))
 
 
-def capture_reflections(ctx, prog, draws, textures, world, projection_matrix, planes):
+def capture_reflections(
+    ctx, prog, draws, textures, terrain, world, projection_matrix, planes
+):
     prog["reflectionMap"].value = 4
     prog["reflectionRange"].value = REFLECTION_RANGE_M
     prog["reflectionTolerance"].value = LEVEL_TOLERANCE_M
@@ -663,7 +689,7 @@ def capture_reflections(ctx, prog, draws, textures, world, projection_matrix, pl
                 *plane.normal,
                 plane.offset + LEVEL_TOLERANCE_M / 2,
             )
-            draw_surfaces(ctx, prog, draws, textures, capture=True)
+            draw_surfaces(ctx, prog, draws, textures, terrain, capture=True)
     prog["reflectionCapture"].value = False
     prog["eye"].value = tuple(world.eye)
     capture.release()
@@ -798,13 +824,11 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False, street_sky
         transmission.shape[1::-1], 3, transmission.astype("f2").tobytes(), dtype="f2"
     )
     bed_map.repeat_x = bed_map.repeat_y = False
-    cover = world.terrain_cover
-    terrain_map = ctx.texture(cover.pixels.shape[1::-1], 4, cover.pixels.tobytes())
-    terrain_map.repeat_x = terrain_map.repeat_y = False
-    terrain_map.build_mipmaps()
-    terrain_map.use(13)
-    prog["terrainCover"].value = 13
-    prog["terrainTransform"].value = cover.transform
+    terrain_maps = {HORIZON_COVER: cover_texture(ctx, world.terrain_cover)}
+    if cover := world.landscape_cover:
+        terrain_maps[LANDSCAPE_COVER] = cover_texture(ctx, cover)
+    terrain_maps[HORIZON_COVER][0].use(TERRAIN_TEXTURE_UNIT)
+    prog["terrainCover"].value = TERRAIN_TEXTURE_UNIT
     prog["waterBedTransform"].value = bed.transform if bed is not None else (0, 0, 1, 1)
     prog["bedAlbedo"].value = BED_ALBEDO
     prog["waterIor"].value = WATER_IOR
@@ -854,11 +878,11 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False, street_sky
     textures = {}
     planes = reflection_planes(world)
     reflection, reflection_ms = capture_reflections(
-        ctx, prog, draws, textures, world, m, planes
+        ctx, prog, draws, textures, terrain_maps, world, m, planes
     )
     target.use()
     prog["viewProjection"].write(m.T.astype("f4").tobytes())
-    draw_surfaces(ctx, prog, draws, textures, bed_map=bed_map)
+    draw_surfaces(ctx, prog, draws, textures, terrain_maps, bed_map=bed_map)
     for batch in draws:
         batch.release()
     for texture in textures.values():
@@ -867,7 +891,8 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False, street_sky
         shadow.release()
     reflection.release()
     bed_map.release()
-    terrain_map.release()
+    for texture, _ in terrain_maps.values():
+        texture.release()
     if sun_map_texture is not None:
         sun_map_texture.release()
     save_view(target, Path(output), linear=linear)

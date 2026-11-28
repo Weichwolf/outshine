@@ -1,5 +1,7 @@
 #version 410 core
 const float kPi=3.14159265359;
+const int kHorizonCover=1;
+const int kLandscapeCover=2;
 #include "metalRoughBrdf.glsl"
 #include "medium.glsl"
 #include "clear_air.glsl"
@@ -20,7 +22,7 @@ uniform sampler2D overlayMap;
 uniform vec3 overlayColour;
 uniform vec3 overlayScale;
 uniform vec3 overlayTint;
-uniform bool hasTerrainCover;
+uniform int terrainCoverMode;
 uniform sampler2D terrainCover;
 uniform vec4 terrainTransform;
 uniform float eyeKm;
@@ -283,10 +285,12 @@ void main(){
     if(dot(n,view)<0.) n=-n;
   }
   vec4 material=surface;
-  if (hasTerrainCover) {
+  vec4 coverage=vec4(0.);
+  if (terrainCoverMode != 0) {
     vec2 uv=(point.xy-terrainTransform.xy)*terrainTransform.zw;
     if (all(greaterThanEqual(uv,vec2(0.))) && all(lessThanEqual(uv,vec2(1.))))
-      material=texture(terrainCover,uv);
+      coverage=texture(terrainCover,uv);
+    if (terrainCoverMode==kHorizonCover && coverage.a>0.) material=coverage;
   }
   if (hasDetail) {
     vec3 objectNormal=vec3(
@@ -310,6 +314,8 @@ void main(){
     }
     n=bumpNormal(n,dx,dy,height);
   }
+  if (terrainCoverMode==kLandscapeCover)
+    material.rgb=material.rgb*(1.-coverage.a)+coverage.rgb;
   vec3 h=normalize(view+sun);
   float nl=max(0.,dot(n,sun)),nv=max(.001,dot(n,view));
   float glassF0=(glassIor-1.)/(glassIor+1.);

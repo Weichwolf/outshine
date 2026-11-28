@@ -63,6 +63,7 @@ from outshine.rendering.woody_visibility import (
     reference_visibility_test,
     visible_woody_placements,
 )
+from outshine.vegetation.landscape_cover import LANDSCAPE_MATERIALS
 from outshine.vegetation.regional_canopy import crown_batches
 from outshine.water.water_bed import BED_ALBEDO
 from outshine.world.scene import ReferenceScene
@@ -255,21 +256,24 @@ def apply_water_bed(bed):
     link(colour.outputs["Vector"], nodes["Principled BSDF"].inputs["Base Color"])
 
 
-def apply_distant_cover(material, cover):
+def cover_image(name, cover):
     with TemporaryDirectory(prefix="outshine-land-cover-") as directory:
-        path = Path(directory) / "Horizon material.png"
+        path = Path(directory) / f"{name}.png"
         Image.fromarray(cover.pixels[::-1]).save(path)
         image = bpy.data.images.load(str(path))
         image.colorspace_settings.name = "Non-Color"
         image.alpha_mode = "CHANNEL_PACKED"
         image.pack()
+    return image
 
+
+def cover_texture(material, transform, image):
     tree = material.node_tree
     nodes, link = tree.nodes, tree.links.new
     point = nodes.new("ShaderNodeNewGeometry").outputs["Position"]
     coords = nodes.new("ShaderNodeVectorMath")
     coords.operation = "MULTIPLY_ADD"
-    x, y, sx, sy = cover.transform
+    x, y, sx, sy = transform
     coords.inputs[1].default_value = (sx, sy, 0)
     coords.inputs[2].default_value = (-x * sx, -y * sy, 0)
     link(point, coords.inputs[0])
@@ -277,9 +281,41 @@ def apply_distant_cover(material, cover):
     texture.extension = "EXTEND"
     texture.image = image
     link(coords.outputs[0], texture.inputs["Vector"])
-    bsdf = nodes["Principled BSDF"]
-    link(texture.outputs["Color"], bsdf.inputs["Base Color"])
-    link(texture.outputs["Alpha"], bsdf.inputs["Roughness"])
+    return texture.outputs
+
+
+def apply_distant_cover(material, cover):
+    texture = cover_texture(
+        material, cover.transform, cover_image("Horizon material", cover)
+    )
+    tree = material.node_tree
+    bsdf = tree.nodes["Principled BSDF"]
+    tree.links.new(texture["Color"], bsdf.inputs["Base Color"])
+    tree.links.new(texture["Alpha"], bsdf.inputs["Roughness"])
+
+
+def apply_landscape_cover(cover):
+    image = cover_image("Landscape vegetation", cover)
+    for name in sorted(LANDSCAPE_MATERIALS):
+        material = bpy.data.materials.get(name)
+        if material is None:
+            continue
+        texture = cover_texture(material, cover.transform, image)
+        tree = material.node_tree
+        base = tree.nodes["Principled BSDF"].inputs["Base Color"]
+        weight = tree.nodes.new("ShaderNodeMath")
+        weight.operation = "SUBTRACT"
+        weight.inputs[0].default_value = 1
+        tree.links.new(texture["Alpha"], weight.inputs[1])
+        mix = tree.nodes.new("ShaderNodeVectorMath")
+        mix.operation = "MULTIPLY_ADD"
+        if base.is_linked:
+            tree.links.new(base.links[0].from_socket, mix.inputs[0])
+        else:
+            mix.inputs[0].default_value = base.default_value[:3]
+        tree.links.new(weight.outputs[0], mix.inputs[1])
+        tree.links.new(texture["Color"], mix.inputs[2])
+        tree.links.new(mix.outputs["Vector"], base)
 
 
 def upload(name, vertices, faces, *, collection, smooth=False, ground_blend=None):
@@ -500,6 +536,8 @@ def render(place, config, args):
         )
     if material := bpy.data.materials.get("distant terrain"):
         apply_distant_cover(material, world.terrain_cover)
+    if cover := world.landscape_cover:
+        apply_landscape_cover(cover)
     for name, verts, faces in world.grass_and_understory(config["seed"]):
         upload(name, verts, faces, collection=geometry)
     eye, look = Vector(world.eye), Vector(world.look)
