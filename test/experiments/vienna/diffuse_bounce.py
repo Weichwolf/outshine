@@ -5,10 +5,16 @@ from time import perf_counter
 
 import bpy
 import numpy as np
-from irradiance_mesh import GROUND_RECEIVERS, refine_ground_receivers
+from irradiance_mesh import (
+    GROUND_RECEIVERS,
+    mesh_points,
+    mesh_triangles,
+    refine_receivers,
+)
 from materials import DIFFUSE_TRANSMISSION, METALLIC, SURFACES, surface_properties
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
+from ray_instances import InstancedRays, RayInstance
 
 RECEIVER_REACH_M = 38.0
 REFLECTION_REACH_M = 100.0
@@ -25,6 +31,13 @@ RECEIVERS = (
         "frame",
     }
 )
+DECK_RECEIVERS = {
+    "bridge deck",
+    "retaining wall",
+    "unpaved path",
+    "forest floor",
+    "meadow",
+}
 
 
 @dataclass(frozen=True)
@@ -35,13 +48,7 @@ class ReceiverBatch:
     normals: np.ndarray
 
 
-def mesh_points(mesh, transform):
-    points = np.empty(3 * len(mesh.vertices), dtype=np.float32)
-    mesh.vertices.foreach_get("co", points)
-    return points.reshape(-1, 3) @ transform[:3, :3].T + transform[:3, 3]
-
-
-def collect_receivers(scene):
+def collect_receivers(scene, *, below_deck=False):
     bpy.context.view_layer.update()
     camera = scene.camera.matrix_world
     eye = np.asarray(camera.translation)
@@ -50,12 +57,13 @@ def collect_receivers(scene):
     tan_x, tan_y = film[:2] / film[2]
     batches = []
     has_facade = False
+    materials = RECEIVERS | DECK_RECEIVERS if below_deck else RECEIVERS
     for obj in scene.objects:
         if obj.type != "MESH" or len(obj.data.materials) != 1:
             continue
         mesh = obj.data
         material = mesh.materials[0].name.partition(" #")[0]
-        if material not in RECEIVERS:
+        if material not in materials:
             continue
         mesh.calc_loop_triangles()
         index = np.empty(3 * len(mesh.loop_triangles), dtype=np.int32)
@@ -91,15 +99,16 @@ def collect_receivers(scene):
                 np.repeat(normal[keep] / length[keep, None], 3, axis=0),
             )
         )
-    return batches if has_facade else []
+    return batches if has_facade or below_deck else []
 
 
-def street_receivers(scene):
-    batches = collect_receivers(scene)
-    if refine_ground_receivers(
-        scene, batches, RECEIVER_REACH_M, 2 * RECEIVER_SPACING_M
+def street_receivers(scene, *, below_deck=False):
+    batches = collect_receivers(scene, below_deck=below_deck)
+    materials = GROUND_RECEIVERS | DECK_RECEIVERS if below_deck else GROUND_RECEIVERS
+    if refine_receivers(
+        scene, batches, RECEIVER_REACH_M, 2 * RECEIVER_SPACING_M, materials
     ):
-        return collect_receivers(scene)
+        return collect_receivers(scene, below_deck=below_deck)
     return batches
 
 
@@ -135,45 +144,79 @@ def albedo(material):
     )
 
 
+def face_albedo(mesh):
+    ids = np.empty(len(mesh.loop_triangles), dtype=np.int32)
+    mesh.loop_triangles.foreach_get("material_index", ids)
+    palette = np.array([albedo(m) for m in mesh.materials] or [(0, 0, 0)])
+    return palette[ids]
+
+
+def static_ray_mesh(objects, lower, upper):
+    vertices, faces, reflectance = [], [], []
+    offset = 0
+    for mesh, transform in objects:
+        points = mesh_points(mesh, transform)
+        triangles = mesh_triangles(mesh)
+        if not len(triangles):
+            continue
+        xyz = points[triangles]
+        keep = np.all((xyz.min(axis=1) <= upper) & (xyz.max(axis=1) >= lower), axis=1)
+        if not keep.any():
+            continue
+        used, packed = np.unique(triangles[keep], return_inverse=True)
+        vertices.append(points[used])
+        faces.append(packed.reshape(-1, 3) + offset)
+        reflectance.append(face_albedo(mesh)[keep])
+        offset += len(used)
+    tree = BVHTree.FromPolygons(
+        np.concatenate(vertices).tolist() if vertices else [],
+        np.concatenate(faces).tolist() if faces else [],
+        all_triangles=True,
+    )
+    colours = np.concatenate(reflectance) if reflectance else np.empty((0, 3))
+    return tree, colours
+
+
 def reflection_index(graph, eye, sunlight):
     reach = RECEIVER_REACH_M + REFLECTION_REACH_M + 2 * SURFACE_BIAS_M
     sunward = np.asarray(sunlight) * SUN_OCCLUSION_REACH_M
     lower = eye - reach + np.minimum(sunward, 0)
     upper = eye + reach + np.maximum(sunward, 0)
-    vertices, faces, reflectance = [], [], []
-    offset = 0
+    objects, placements = [], []
     for instance in graph.object_instances:
         obj = instance.object
-        if obj.type != "MESH":
+        if obj.type != "MESH" or not len(obj.data.polygons):
             continue
         transform = np.asarray(instance.matrix_world)
         box = np.asarray(obj.bound_box) @ transform[:3, :3].T + transform[:3, 3]
-        if np.any(box.max(axis=0) < lower) or np.any(box.min(axis=0) > upper):
+        low, high = box.min(axis=0) - 1e-5, box.max(axis=0) + 1e-5
+        if np.any(high < lower) or np.any(low > upper):
             continue
-        mesh = obj.data
-        mesh.calc_loop_triangles()
-        indices = np.empty(3 * len(mesh.loop_triangles), dtype=np.int32)
-        mesh.loop_triangles.foreach_get("vertices", indices)
-        points = mesh_points(mesh, transform)
-        triangles = indices.reshape(-1, 3)
-        xyz = points[triangles]
-        keep = np.all((xyz.min(axis=1) <= upper) & (xyz.max(axis=1) >= lower), axis=1)
-        if not keep.any():
-            continue
-        ids = np.empty(len(triangles), dtype=np.int32)
-        mesh.loop_triangles.foreach_get("material_index", ids)
-        palette = np.array([albedo(m) for m in mesh.materials] or [(0, 0, 0)])
-        used, packed = np.unique(triangles[keep], return_inverse=True)
-        vertices.append(points[used])
-        faces.append(packed.reshape(-1, 3) + offset)
-        reflectance.append(palette[ids[keep]])
-        offset += len(used)
-    tree = BVHTree.FromPolygons(
-        np.concatenate(vertices).tolist(),
-        np.concatenate(faces).tolist(),
-        all_triangles=True,
-    )
-    return tree, np.concatenate(reflectance)
+        if instance.is_instance:
+            bounds = (*low.tolist(), *high.tolist())
+            placements.append((obj.data, instance.matrix_world.copy(), bounds))
+        else:
+            objects.append((obj.data, transform))
+    static, colours = static_ray_mesh(objects, lower, upper)
+    if not placements:
+        return static, colours
+
+    reflectance = [colours]
+    face_offset = len(colours)
+    prototypes, instances = {}, []
+    for mesh, transform, bounds in placements:
+        key = mesh.as_pointer()
+        if key not in prototypes:
+            triangles = mesh_triangles(mesh)
+            native = BVHTree.FromPolygons(
+                mesh_points(mesh).tolist(), triangles.tolist(), all_triangles=True
+            )
+            prototypes[key] = native, face_offset
+            reflectance.append(face_albedo(mesh))
+            face_offset += len(triangles)
+        native, offset = prototypes[key]
+        instances.append(RayInstance.make(native, offset, transform, bounds))
+    return InstancedRays(static, instances), np.concatenate(reflectance)
 
 
 def hemisphere_directions(count):
@@ -186,13 +229,16 @@ def hemisphere_directions(count):
     )
 
 
+def hemisphere_basis(normal):
+    axis = Vector((0, 0, 1)) if abs(normal.z) < 0.95 else Vector((1, 0, 0))
+    tangent = normal.cross(axis).normalized()
+    return tangent, normal.cross(tangent), normal
+
+
 def hemisphere_rays(point, normal, directions):
     normal = Vector(normal).normalized()
     origin = Vector(point) + normal * SURFACE_BIAS_M
-    axis = Vector((0, 0, 1)) if abs(normal.z) < 0.95 else Vector((1, 0, 0))
-    tangent = normal.cross(axis).normalized()
-    bitangent = normal.cross(tangent)
-    return origin, directions @ np.asarray((tangent, bitangent, normal))
+    return origin, directions @ np.asarray(hemisphere_basis(normal))
 
 
 def reflected_rgb(index, point, normal, sunlight, directions):
@@ -280,16 +326,16 @@ def write_irradiance(batches, irradiance, name, *, fade=None):
     return materials
 
 
-def bake_sun_bounce(scene, sun, batches):
+def bake_sun_bounce(scene, sun, batches, *, index=None):
     start = perf_counter()
     eye = np.asarray(scene.camera.matrix_world.translation)
     samples = receiver_samples(batches, eye)
     if not len(samples.first):
         return 0, perf_counter() - start
-    graph = bpy.context.evaluated_depsgraph_get()
     sunlight = -(sun.matrix_world.to_3x3() @ Vector((0, 0, -1))).normalized()
     directions = hemisphere_directions(128)
-    index = reflection_index(graph, eye, sunlight)
+    if index is None:
+        index = reflection_index(bpy.context.evaluated_depsgraph_get(), eye, sunlight)
     strength = sun.data.energy / (np.pi * len(directions))
     values = strength * np.array(
         [

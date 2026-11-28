@@ -5,10 +5,20 @@ from time import perf_counter
 
 import numpy as np
 import shapely
+from viaducts import SLAB_DEPTH
 
 PORTAL_MARGIN_M = 3.5
 PROBE_RANGE_M = 48.0
 PROBE_SPACING_M = 0.85
+
+
+def near_lower_deck(decks, eye, reach):
+    point = shapely.Point(eye[:2])
+    return any(
+        deck.lower_routes.dwithin(point, reach)
+        and eye[2] < deck.height(np.asarray(eye)[None, :2])[0] - SLAB_DEPTH
+        for deck in decks
+    )
 
 
 def passage_probe_regions(passages, eye_xy):
