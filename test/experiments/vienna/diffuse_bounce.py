@@ -17,6 +17,7 @@ from mathutils.bvhtree import BVHTree
 from ray_instances import InstancedRays, RayInstance
 
 RECEIVER_REACH_M = 38.0
+BARK_RECEIVER_REACH_M = 9.0
 REFLECTION_REACH_M = 100.0
 SUN_OCCLUSION_REACH_M = 200.0
 RECEIVER_SPACING_M = 1.0
@@ -33,6 +34,7 @@ RECEIVERS = (
 )
 WOODLAND_RECEIVERS = {"forest floor", "unpaved path", "meadow"}
 DECK_RECEIVERS = WOODLAND_RECEIVERS | {"bridge deck", "retaining wall"}
+WOODLAND_BARK = {"oak bark", "beech bark", "chestnut bark", "spruce bark"}
 
 
 @dataclass(frozen=True)
@@ -41,6 +43,15 @@ class ReceiverBatch:
     loops: np.ndarray
     positions: np.ndarray
     normals: np.ndarray
+    reach: float
+
+
+def smooth_corner_normals(mesh, selected_loops, transform):
+    normals = np.empty(3 * len(mesh.loops), dtype=np.float32)
+    mesh.corner_normals.foreach_get("vector", normals)
+    normals = normals.reshape(-1, 3)[selected_loops] @ np.linalg.inv(transform[:3, :3])
+    length = np.linalg.norm(normals, axis=1, keepdims=True)
+    return normals / np.maximum(length, 1e-10)
 
 
 def collect_receivers(scene, extra):
@@ -63,7 +74,8 @@ def collect_receivers(scene, extra):
         mesh.calc_loop_triangles()
         index = np.empty(3 * len(mesh.loop_triangles), dtype=np.int32)
         mesh.loop_triangles.foreach_get("vertices", index)
-        corners = mesh_points(mesh, np.asarray(obj.matrix_world))[index.reshape(-1, 3)]
+        transform = np.asarray(obj.matrix_world)
+        corners = mesh_points(mesh, transform)[index.reshape(-1, 3)]
         centres = corners.mean(axis=1)
         vectors = corners - centres[:, None, :]
         normal = np.cross(corners[:, 1] - corners[:, 0], corners[:, 2] - corners[:, 0])
@@ -71,9 +83,11 @@ def collect_receivers(scene, extra):
         relative = centres - eye
         depth = relative @ -backward
         margin = 1.0 + np.linalg.norm(vectors, axis=2).max(axis=1)
+        bark = material in WOODLAND_BARK
+        reach = BARK_RECEIVER_REACH_M if bark else RECEIVER_REACH_M
         keep = (
             (length > 1e-7)
-            & (np.linalg.norm(relative, axis=1) < RECEIVER_REACH_M + margin)
+            & (np.linalg.norm(relative, axis=1) < reach + margin)
             & (depth + margin > 0)
             & (abs(relative @ right) < 1.18 * tan_x * depth + margin)
             & (abs(relative @ up) < 1.18 * tan_y * depth + margin)
@@ -84,16 +98,15 @@ def collect_receivers(scene, extra):
         has_facade |= material in FACADES
         loops = np.empty(3 * len(mesh.loop_triangles), dtype=np.int32)
         mesh.loop_triangles.foreach_get("loops", loops)
+        loops = loops.reshape(-1, 3)[keep].ravel()
         # Face-local offsets can give opposite sides of a shared edge different irradiance.
         positions = corners[keep].reshape(-1, 3)
-        batches.append(
-            ReceiverBatch(
-                mesh,
-                loops.reshape(-1, 3)[keep].ravel(),
-                positions,
-                np.repeat(normal[keep] / length[keep, None], 3, axis=0),
-            )
+        normals = (
+            smooth_corner_normals(mesh, loops, transform)
+            if bark
+            else np.repeat(normal[keep] / length[keep, None], 3, axis=0)
         )
+        batches.append(ReceiverBatch(mesh, loops, positions, normals, reach))
     return batches if has_facade or extra else []
 
 
@@ -102,14 +115,14 @@ def street_receivers(scene, *, below_deck=False, woodland=False):
     if below_deck:
         extra = DECK_RECEIVERS
     elif woodland:
-        extra = WOODLAND_RECEIVERS
+        extra = WOODLAND_RECEIVERS | WOODLAND_BARK
     batches = collect_receivers(scene, extra)
     if refine_receivers(
         scene,
         batches,
         RECEIVER_REACH_M,
         2 * RECEIVER_SPACING_M,
-        GROUND_RECEIVERS | extra,
+        GROUND_RECEIVERS | (extra - WOODLAND_BARK),
     ):
         return collect_receivers(scene, extra)
     return batches
@@ -321,12 +334,20 @@ class ReceiverSamples:
 def receiver_samples(batches, eye):
     positions = np.concatenate([batch.positions for batch in batches])
     normals = np.concatenate([batch.normals for batch in batches])
+    reaches = np.concatenate(
+        [np.full(len(batch.loops), batch.reach) for batch in batches]
+    )
+    bark = reaches == BARK_RECEIVER_REACH_M
+    fade_distance = np.where(bark, 2.0, 8.0)
     fade = np.clip(
-        (RECEIVER_REACH_M - np.linalg.norm(positions - eye, axis=1)) / 8, 0, 1
+        (reaches - np.linalg.norm(positions - eye, axis=1)) / fade_distance, 0, 1
     )
     active = np.flatnonzero(fade)
+    normal_bins = np.where(bark[active], 3, 12)
     keys = np.c_[
-        np.floor(positions[active] / RECEIVER_SPACING_M), np.round(normals[active] * 12)
+        np.floor(positions[active] / RECEIVER_SPACING_M),
+        normal_bins,
+        np.round(normals[active] * normal_bins[:, None]),
     ]
     _, first, lookup = np.unique(keys, axis=0, return_index=True, return_inverse=True)
     return ReceiverSamples(positions, normals, fade, active, active[first], lookup)
