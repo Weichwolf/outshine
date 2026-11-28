@@ -40,8 +40,9 @@ class WoodlandSitesTest(unittest.TestCase):
                 "outshine.vegetation.woodland_sites.patch_density", side_effect=field
             ),
         ):
-            full, _ = woodland_sites(source, domain, np.zeros(2), 20, 0)
-            inner, _ = woodland_sites(source, domain, np.zeros(2), 10, 0)
+            full, _, canopy = woodland_sites(source, domain, np.zeros(2), 20, 0)
+            inner, _, inner_canopy = woodland_sites(source, domain, np.zeros(2), 10, 0)
 
         np.testing.assert_array_equal(full, [[0, 0], [11, 0], [18, 0], [8, 8]])
         np.testing.assert_array_equal(inner, [[0, 0], [8, 8]])
+        np.testing.assert_array_equal(canopy[[0, 3]], inner_canopy)

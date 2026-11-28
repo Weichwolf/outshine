@@ -98,7 +98,7 @@ class RegionalCanopyTest(unittest.TestCase):
             side_effect=([(sites, marks)], []),
         ):
             stand = mature_stand(source, domain, 100, 12, [])
-            near, near_marks = woodland_sites(
+            near, near_marks, near_canopy = woodland_sites(
                 source, domain, np.zeros(2), 18, 12, mature=stand
             )
         receipt = {"tile": (14, 8900, 5700)}
@@ -110,6 +110,7 @@ class RegionalCanopyTest(unittest.TestCase):
         ]
 
         np.testing.assert_array_equal(near, sites[[0, 4]])
+        self.assertTrue(near_canopy.all())
         self.assertEqual(
             [kind for kind, _ in products], [("oak", 1), ("beech", 0), ("spruce", 1)]
         )
