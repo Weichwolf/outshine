@@ -60,8 +60,14 @@ from outshine.transport.bridge_junctions import junction_pavement
 from outshine.transport.bridge_passages import bridge_terrain
 from outshine.transport.bridges import draw_water_crossings, plan_water_crossings
 from outshine.transport.deck_walk_links import DeckWalkLink, deck_walk_links
-from outshine.transport.elevated_rail import draw_elevated_rail, plan_elevated_rail
+from outshine.transport.elevated_rail import (
+    BALLAST_DEPTH,
+    BALLAST_WIDTH,
+    draw_elevated_rail,
+    plan_elevated_rail,
+)
 from outshine.transport.passage_trim import draw_passage_trim
+from outshine.transport.rail_approaches import plan_rail_approaches
 from outshine.transport.stair_branches import local_stair_branches
 from outshine.transport.stair_guards import draw_stair_guards
 from outshine.transport.stair_landings import local_landings
@@ -541,6 +547,8 @@ def ground_surfaces(
     foundations=(),
     covered_walks=(),
     track_wall_ground=False,
+    structures=(),
+    viaducts=(),
 ):
     transport = [(g, p) for layer, g, p in source.features if layer == "transportation"]
     paved = [*transport, *((p.corridor, p.properties) for p in covered_walks)]
@@ -668,6 +676,48 @@ def ground_surfaces(
             )
         ]
     )
+    reserved_decks = shapely.union_all(
+        [
+            *(deck.footprint for deck in viaducts),
+            *(deck.footprint for deck in crossings),
+        ]
+    )
+    rail_decks = plan_elevated_rail(
+        source.features,
+        extent,
+        bodies,
+        structures,
+        reserved_decks,
+        vertices,
+        quads,
+        height,
+    )
+    rail_approaches = {}
+    if rail_decks:
+        occupied = shapely.union_all(
+            [
+                bodies,
+                reserved_decks,
+                *structures,
+                *roads.values(),
+                *(item.footprint for item, _ in earthworks),
+                *(stair.footprint for stair in stairs),
+            ]
+        )
+        rail_approaches = plan_rail_approaches(
+            rail_decks,
+            source.features,
+            extent,
+            occupied,
+            vertices,
+            quads,
+            height,
+            BALLAST_WIDTH,
+            BALLAST_DEPTH,
+        )
+        earthworks.extend(
+            (approach, "rail ballast") for approach in rail_approaches.values()
+        )
     graded = {
         i: item for i, item in enumerate(earthworks, start=first_stair + len(pieces))
     }
@@ -730,7 +780,11 @@ def ground_surfaces(
     building_stamps = None
     breaks = [
         *shore.breaks(bodies, extent),
-        *(edge for shape in [*passages, *bank_grades] for edge in shape.breaks),
+        *(
+            edge
+            for shape in [*passages, *bank_grades, *rail_approaches.values()]
+            for edge in shape.breaks
+        ),
     ]
     if foundations:
         reserved = shapely.union_all(
@@ -826,6 +880,8 @@ def ground_surfaces(
         openings,
         walk_edges,
         wall_ground,
+        rail_decks,
+        rail_approaches,
     )
 
 
@@ -903,22 +959,32 @@ def assemble(
                 item for item in passages[polygon] if item.crown_m + 0.4 < ridge
             ]
     meshes.covered_walks = tuple(item for group in passages.values() for item in group)
-    approaches, carried, track_paving, crossings, openings, walk_edges, wall_ground = (
-        ground_surfaces(
-            meshes,
-            source,
-            extent,
-            bodies,
-            vertices,
-            quads,
-            approaches,
-            crossings,
-            water=water,
-            water_plan=water_plan,
-            foundations=foundations,
-            covered_walks=meshes.covered_walks,
-            track_wall_ground=bool(buildings),
-        )
+    (
+        approaches,
+        carried,
+        track_paving,
+        crossings,
+        openings,
+        walk_edges,
+        wall_ground,
+        rail_decks,
+        rail_approaches,
+    ) = ground_surfaces(
+        meshes,
+        source,
+        extent,
+        bodies,
+        vertices,
+        quads,
+        approaches,
+        crossings,
+        water=water,
+        water_plan=water_plan,
+        foundations=foundations,
+        covered_walks=meshes.covered_walks,
+        track_wall_ground=bool(buildings),
+        structures=geometries,
+        viaducts=viaducts,
     )
     if not track_paving.is_empty:
         crossings = [
@@ -932,21 +998,8 @@ def assemble(
     )
     for viaduct in viaducts:
         draw_viaduct(meshes, viaduct, source.height, approaches)
-    reserved_decks = shapely.union_all(
-        [*bridges.values(), *(deck.footprint for deck in viaducts)]
-    )
-    rail_decks = plan_elevated_rail(
-        source.features,
-        extent,
-        bodies,
-        geometries,
-        reserved_decks,
-        vertices,
-        quads,
-        grade,
-    )
     for deck in rail_decks:
-        draw_elevated_rail(meshes, deck, grade)
+        draw_elevated_rail(meshes, deck, grade, rail_approaches)
         bridges[deck.layer] = deck.footprint.union(
             bridges.get(deck.layer, shapely.Polygon())
         )

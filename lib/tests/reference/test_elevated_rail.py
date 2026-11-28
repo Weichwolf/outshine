@@ -66,3 +66,48 @@ class ElevatedRailTest(unittest.TestCase):
         self.assertAlmostEqual(support_height(meshes["road"], (0, 0)).max(), 0)
         self.assertGreater(len(meshes["rail head"][1]), 0)
         self.assertGreater(len(meshes["rail sleeper"][1]), 0)
+
+    def test_dry_approach_descends_from_the_deck_at_bounded_grade(self):
+        source = SimpleNamespace(
+            height=lambda xy: np.zeros(len(xy)),
+            datum=0,
+            lat=0,
+            lon=0,
+            metres=np.array([111000, 111000]),
+            features=[
+                (
+                    "transportation",
+                    shapely.LineString([(-15, 0), (15, 0)]),
+                    {"class": "rail", "brunnel": "bridge"},
+                ),
+                (
+                    "transportation",
+                    shapely.LineString([(15, 0), (250, 0)]),
+                    {"class": "rail"},
+                ),
+                (
+                    "transportation",
+                    shapely.LineString([(0, -12), (0, 12)]),
+                    {"class": "minor"},
+                ),
+            ],
+        )
+        meshes = assemble(source, 260)
+        bed = meshes["rail ballast"]
+        stations = np.r_[14.9999, 15.0001, np.arange(16.0, 228, 3)]
+        z = [support_height(bed, (x, 0)).max() for x in stations]
+        self.assertAlmostEqual(z[0], z[1], places=5)
+        self.assertLessEqual(np.max(abs(np.diff(z)) / np.diff(stations)), 0.030001)
+        self.assertLess(z[-1], 0.24)
+        self.assertEqual(support_height(meshes["ground"], (100, 0)).size, 0)
+
+        source.features.append(
+            (
+                "transportation",
+                shapely.LineString([(75, -20), (75, 20)]),
+                {"class": "minor"},
+            )
+        )
+        blocked = assemble(source, 260)
+        self.assertEqual(support_height(blocked["rail ballast"], (100, 0)).size, 0)
+        self.assertAlmostEqual(support_height(blocked["road"], (75, 0)).max(), 0)
