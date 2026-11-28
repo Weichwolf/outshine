@@ -2,7 +2,12 @@ import unittest
 from types import SimpleNamespace
 
 import numpy as np
-from outshine.transport.bridges import WaterCrossing
+import shapely
+from outshine.transport.bridges import (
+    WaterCrossing,
+    guard_segments,
+    plan_water_crossings,
+)
 from outshine.transport.rail_hardware import RailRecipe
 from outshine.transport.tram_rails import RAIL_HEAD_RISE_M, RAIL_HEAD_WIDTH_M
 from outshine.transport.water_span import WaterSpan
@@ -12,6 +17,51 @@ from shapely.geometry import LineString, MultiLineString, box
 
 
 class BridgeJunctionTest(unittest.TestCase):
+    def test_wet_transverse_deck_edge_keeps_the_mapped_gate_open(self):
+        deck = shapely.orient_polygons(box(-10, -4, 10, 4))
+        water = box(-1, -7, 17, 7)
+        entrance = box(9, -0.9, 11, 0.9)
+        guards = shapely.union_all(
+            list(guard_segments(deck, (1, 0), [entrance], water))
+        )
+        self.assertAlmostEqual(
+            guards.intersection(LineString([(10, -4), (10, 4)])).length, 6.2, places=4
+        )
+        self.assertTrue(guards.intersection(entrance).is_empty)
+        self.assertEqual(
+            guards.intersection(LineString([(-10, -4), (-10, 4)])).length, 0
+        )
+        lane = box(-10, -2.5, 10, 2.5)
+        road_guards = shapely.union_all(
+            list(guard_segments(deck, (1, 0), [entrance], water, carriageway=lane))
+        )
+        self.assertTrue(road_guards.intersection(lane).is_empty)
+
+    def test_pedestrian_polygons_keep_their_deck_without_using_a_lower_plaza(self):
+        deck = box(-10, -4, 10, 4)
+        path = LineString([(-10, 0), (10, 0)])
+        paved = box(-10, -4, 10, -1)
+        lower = box(-15, -1, 15, 4)
+        tags = {"class": "path", "subclass": "pedestrian"}
+        features = [
+            (
+                "transportation",
+                deck,
+                {"class": "bridge", "brunnel": "bridge", "layer": 1},
+            ),
+            ("transportation", path, tags | {"brunnel": "bridge", "layer": 1}),
+            ("transportation", paved, tags),
+            ("transportation", lower, tags | {"layer": 0}),
+        ]
+        (crossing,) = plan_water_crossings(
+            features,
+            box(-20, -20, 20, 20),
+            box(-8, -20, 8, 20),
+            lambda xy: np.zeros(len(xy)),
+        )
+        self.assertTrue(crossing.pedestrian_paving.equals(paved))
+        self.assertTrue(crossing.pavement.is_empty)
+
     def test_mapped_transport_crosses_a_short_gap_between_deck_and_bank(self):
         deck = box(-20, -5, 20, 5)
         span = WaterSpan(np.array([-20, 0]), np.array([1, 0]), 40, 1.2, 0)
