@@ -33,6 +33,11 @@ The volumes follow the generated passages and join around neighbouring portals.
 Shading inside them includes world visibility and diffuse bounce. The render report
 records the bake separately from the warm PNG interval.
 
+Use `--street-bounce` with EEVEE for the one-bounce street-light reference in
+[#1965](https://github.com/Weichwolf/outshine/issues/1965). It bakes sky visibility,
+traces sunlight reflected by the generated geometry, and interpolates it on nearby
+opaque surfaces. Compare it at the same camera and time with `--engine cycles`.
+
 Standalone GLSL uses 16 m and 96 m camera-centred shadow footprints with 2048 texels
 per axis. They resolve close sills, leaf shadows and root contact. Visibility blends
 into the coarser maps at their footprint edges. The 16 m footprint moves in whole

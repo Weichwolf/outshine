@@ -19,6 +19,7 @@ sys.path.extend(
 from blender_air import configure_aerial
 from blender_reflection import apply_reflection, capture_images
 from catalog import available_views, load_catalog, selected_views
+from diffuse_bounce import bake_sun_bounce, street_receivers
 from ground_detail import (
     BARK_BOX_BLEND,
     DETAIL_SPAN_M,
@@ -43,7 +44,7 @@ from outshine_ref.rendering.blender_light import (
     configure_research_view,
 )
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
-from passage_light import bake_passage_lighting
+from passage_light import bake_reference_irradiance
 from reference_scene import ReferenceScene
 from sky_environment import environment_path, load_environment
 from water_bed import BED_ALBEDO
@@ -316,11 +317,21 @@ def render(place, config, args):
     if world.water_bed is not None:
         apply_water_bed(world.water_bed)
     scene.eevee.taa_render_samples = 6
+    bounce = (
+        street_receivers(scene)
+        if args.engine == "eevee"
+        and getattr(args, "street_bounce", False)
+        and sun.data.energy > 0
+        else []
+    )
     probes, bake_s = (
-        bake_passage_lighting(scene, world.local.covered_walks, world.eye[:2])
+        bake_reference_irradiance(
+            scene, world.local.covered_walks, world.eye[:2], street_sky=bool(bounce)
+        )
         if args.engine == "eevee"
         else (0, 0.0)
     )
+    bounce_count, bounce_s = bake_sun_bounce(scene, sun, bounce) if bounce else (0, 0.0)
     planes = reflection_planes(world) if args.engine == "eevee" else ()
     images = ()
     capture_s = 0.0
@@ -364,6 +375,12 @@ def render(place, config, args):
                 "sky_radiance": str(sky_path) if sky_path is not None else None,
                 "passage_irradiance_volumes": probes,
                 "passage_irradiance_bake_s": round(bake_s, 3),
+                "street_bounce": {
+                    "samples": bounce_count,
+                    "seconds": round(bounce_s, 3),
+                }
+                if bounce_count
+                else None,
                 "reflection_levels_m": [round(plane.height, 3) for plane in planes],
                 "reflection_capture_s": round(capture_s, 3),
                 "sky_capture_s": round(sky_s, 3),
@@ -437,9 +454,16 @@ if __name__ == "__main__":
         "--sky-dir", type=Path, help="use exported scene-linear sky radiance"
     )
     p.add_argument("--repeat", action="store_true")
+    p.add_argument(
+        "--street-bounce",
+        action="store_true",
+        help="trace direct sunlight reflected onto nearby streets",
+    )
     args = p.parse_args(
         sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     )
+    if args.street_bounce and args.engine != "eevee":
+        p.error("--street-bounce requires EEVEE")
     if args.display_linear is not None:
         display_linear(
             args.display_linear, args.output or ROOT / "build/shots/glsl-agx"

@@ -39,13 +39,17 @@ def passage_probe_regions(passages, eye_xy):
         yield center, radii, angle
 
 
-def bake_passage_lighting(scene, passages, eye_xy):
+def bake_reference_irradiance(scene, passages, eye_xy, *, street_sky=False):
     import bpy
 
     regions = list(passage_probe_regions(passages, eye_xy))
-    if not regions:
+    if not regions and not street_sky:
         return 0, 0.0
     start = perf_counter()
+    if street_sky:
+        from diffuse_bounce import place_street_sky
+
+        place_street_sky(scene)
     for center, radii, angle in regions:
         probe = bpy.data.lightprobes.new("Covered walk irradiance", "VOLUME")
         samples = np.clip(np.ceil(2 * np.array(radii) / PROBE_SPACING_M) + 1, 3, 40)
@@ -53,7 +57,7 @@ def bake_passage_lighting(scene, passages, eye_xy):
         probe.surfel_density = 4
         probe.bake_samples = 128
         probe.capture_world = True
-        probe.capture_indirect = True
+        probe.capture_indirect = not street_sky
         probe.capture_emission = False
         probe.capture_distance = 12.0
         probe.normal_bias = 0.10
@@ -64,5 +68,5 @@ def bake_passage_lighting(scene, passages, eye_xy):
         scene.collection.objects.link(volume)
     bpy.context.view_layer.update()
     if "FINISHED" not in bpy.ops.object.lightprobe_cache_bake(subset="ALL"):
-        raise RuntimeError("Covered walk irradiance bake did not finish")
+        raise RuntimeError("Reference irradiance bake did not finish")
     return len(regions), perf_counter() - start
