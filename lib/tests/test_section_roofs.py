@@ -10,6 +10,26 @@ from outshine_ref.buildings.section_roofs import RoofSection, section_surface
 
 
 class SectionRoofs(unittest.TestCase):
+    def test_rotated_osm_ring_stays_closed(self):
+        footprint = shapely.Polygon(
+            [
+                (-165.25512104039666, 45.36063698122936),
+                (-162.8647926134329, 63.23468719738658),
+                (-150.51476240745362, 62.043085596652816),
+                (-153.30347890557798, 43.77182979819715),
+            ]
+        )
+        axis = (0.9911760879766045, -0.13255173564836623)
+        run = shapely.get_coordinates(footprint) @ axis
+        lo, hi = float(run.min()), float(run.max())
+        mesh = section_surface(
+            footprint, RoofSection(((lo, 8), ((lo + hi) / 2, 11), (hi, 8)), axis)
+        )
+        triangles = shapely.polygons(mesh["vertices"][mesh["faces"], :2])
+        self.assertLess(
+            shapely.union_all(triangles).symmetric_difference(footprint).area, 1e-8
+        )
+
     def test_repeated_symmetric_and_asymmetric_roof_volume_and_exact_closure(self):
         for peak in (0.5, 0.8):
             knots = [(0, 5)]

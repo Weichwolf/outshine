@@ -26,6 +26,7 @@ from building_foundations import (
     building_foundations,
 )
 from building_passages import building_passages, vault_panels
+from building_roofs import Gable, compile_gable, gable_plan
 from deck_walk_links import DeckWalkLink, deck_walk_links
 from entrances import STREET_STOREY_M, frontages, has_street_storey, pave_entrances
 from facade import FacadeView, draw_facade
@@ -90,6 +91,7 @@ class BuildingForm:
     piers: tuple
     soffit: float
     group: int | None
+    gable: Gable | None
 
     def volumes(self):
         foot = self.foundation.sole_m if self.foundation else self.bottom
@@ -101,7 +103,9 @@ class BuildingForm:
         return [BuildingVolume(self.polygon, foot, self.top)]
 
 
-def building_form(polygon, floor, roof, source, foundation, passages, wall, group):
+def building_form(
+    polygon, floor, roof, source, foundation, passages, wall, group, tags
+):
     base = (
         foundation.seat_m
         if foundation
@@ -122,14 +126,34 @@ def building_form(polygon, floor, roof, source, foundation, passages, wall, grou
         piers,
         soffit,
         group,
+        gable_plan(polygon, base, base + roof, tags)
+        if foundation and not passages
+        else None,
     )
 
 
 def building(
     meshes, form, grade, facade_view, neighbours, front=None, wall_ground=None
 ):
-    for roof in polygons(exposed_cap(form.polygon, form.top, neighbours)):
-        cap(meshes, "roof", roof, lambda xy: form.top)
+    gable = form.gable
+    pitched = (
+        compile_gable(form.polygon, gable)
+        if gable is not None
+        and not any(v.top > gable.eave and v.bottom < form.top for v, _ in neighbours)
+        else None
+    )
+    wall_top = form.top
+    if pitched is None:
+        for roof in polygons(exposed_cap(form.polygon, form.top, neighbours)):
+            cap(meshes, "roof", roof, lambda xy: form.top)
+    else:
+        roof_vertices, ends = pitched
+        meshes.add(
+            "roof tile", roof_vertices, np.arange(len(roof_vertices)).reshape(-1, 3)
+        )
+        if len(ends):
+            meshes.add(form.wall, ends, np.arange(len(ends)).reshape(-1, 3))
+        wall_top = gable.eave
     if form.minimum_height > 0:
         for underside in polygons(
             exposed_cap(form.polygon, form.bottom, neighbours, underside=True)
@@ -167,14 +191,14 @@ def building(
             meshes,
             form.polygon,
             form.bottom,
-            form.top,
+            wall_top,
             facade_view,
             neighbours,
             form.foundation,
             grounded=form.minimum_height == 0,
             wall=form.wall,
             front=front,
-            street=has_street_storey(form),
+            street=has_street_storey(form) and wall_top - form.bottom > STREET_STOREY_M,
             wall_ground=wall_ground,
         )
 
@@ -877,6 +901,7 @@ def assemble(
                     passages.get(polygon, ()),
                     wall,
                     groups.get(polygon),
+                    properties,
                 )
             )
     neighbours = building_neighbours(

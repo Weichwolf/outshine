@@ -302,6 +302,9 @@ Wienerblick remains an independent, eye-level site.
 The regional reference samples the mapped building heights, water, woods, grass and deck
 footprints around each camera. Its height field extends to the distance at which a 12 m
 building occupies one pixel (6–15 km range). Closer tiles retain mapped building outlines and facade openings.
+Compact buildings can use a pitched roof within their mapped top height. The near and
+regional generators share the same gable recipe, including the closing wall faces.
+Courtyards, conflicting parts and incomplete tile footprints use the flat envelope.
 Wienerblick also selects a pinned skyline sector out to 16 km. Its additional tiles
 contribute height-bearing building shells above a two-pixel angular estimate. The
 shells use the same geodetic ENU frame as the horizon terrain. The regional tiles
