@@ -25,11 +25,10 @@ from catalog import available_views, load_catalog, selected_views
 from diffuse_bounce import bake_sun_bounce, street_receivers
 from ground_detail import (
     BARK_BOX_BLEND,
-    DETAIL_SPAN_M,
+    CANOPY_DETAIL,
     DETAIL_TINTS,
-    HEIGHT_SPAN_M,
-    MACRO_SPAN_M,
     SURFACE_DETAIL,
+    detail_scale,
     ground_detail,
 )
 from materials import (
@@ -71,15 +70,23 @@ def apply_detail(material, bsdf, name, colour):
     nodes = material.node_tree.nodes
     link = material.node_tree.links.new
     position = nodes.new("ShaderNodeNewGeometry").outputs["Position"]
+    planar = name == CANOPY_DETAIL
+    if planar:
+        axes = nodes.new("ShaderNodeVectorRotate")
+        axes.rotation_type = "Z_AXIS"
+        axes.inputs["Angle"].default_value = np.pi / 2
+        link(position, axes.inputs["Vector"])
+        position = axes.outputs["Vector"]
+    fine_span, macro_span, height_span = detail_scale(name)
     texels = []
-    for span in (DETAIL_SPAN_M, MACRO_SPAN_M):
+    for span in (fine_span, macro_span):
         coords = nodes.new("ShaderNodeVectorMath")
         coords.operation = "SCALE"
         coords.inputs["Scale"].default_value = 1 / span
         link(position, coords.inputs[0])
         sampler = nodes.new("ShaderNodeTexImage")
         sampler.image = image
-        sampler.projection = "BOX"
+        sampler.projection = "FLAT" if planar else "BOX"
         if name.endswith(" bark"):
             sampler.projection_blend = BARK_BOX_BLEND
         link(coords.outputs["Vector"], sampler.inputs["Vector"])
@@ -111,7 +118,7 @@ def apply_detail(material, bsdf, name, colour):
         reflectance = pigment.outputs["Color"]
     link(reflectance, bsdf.inputs["Base Color"])
     bump = nodes.new("ShaderNodeBump")
-    bump.inputs["Distance"].default_value = HEIGHT_SPAN_M
+    bump.inputs["Distance"].default_value = height_span
     link(channels.outputs["Blue"], bump.inputs["Height"])
     link(bump.outputs["Normal"], bsdf.inputs["Normal"])
 
