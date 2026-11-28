@@ -1,5 +1,7 @@
 import unittest
 
+import numpy as np
+from outshine.transport.rail_routes import surface_rail_lines
 from outshine.transport.route_graph import route_graph
 from outshine.transport.route_tiles import WORLD_CELLS
 
@@ -116,6 +118,21 @@ class RouteGraphTest(unittest.TestCase):
         graph = route_graph({WEST: west, EAST: layer(near, other, weak, extent=32)})
         self.assertFalse(graph.seam_pairs)
         self.assertEqual(len(graph.frontiers), 4)
+
+    def test_ballast_routes_follow_the_node_identity_at_tile_edges(self):
+        west = way(72, [(2, 4), (20, 4)], RAIL)
+        east = way(73, [(-5, 4), (4, 4)], RAIL)
+        graphs = [
+            route_graph({WEST: layer(west), EAST: layer(east)}),
+            route_graph(
+                {WEST: layer(west), EAST: layer(way(73, [(-5, 4), (5, 4)], RAIL))}
+            ),
+        ]
+        for graph, expected in zip(graphs, (1, 2), strict=True):
+            routes = tuple(
+                surface_rail_lines(graph, lambda x, y: np.column_stack((x, y)))
+            )
+            self.assertEqual(len(routes), expected)
 
     def test_at_grade_contact_and_layer_separation(self):
         road = way(1, [(2, 8), (8, 8), (14, 8)], ROAD)

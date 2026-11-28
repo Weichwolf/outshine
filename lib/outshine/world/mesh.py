@@ -830,6 +830,7 @@ def ground_surfaces(
         ],
         tunnels=tunnels,
         decks=rail_decks,
+        routes=getattr(source, "surface_rail_lines", None),
     )
     earthworks.extend((formation, "rail ballast") for formation, _ in surface_rails)
     graded = {

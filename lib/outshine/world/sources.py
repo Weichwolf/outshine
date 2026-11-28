@@ -16,6 +16,7 @@ from outshine.places.sources import (
     tile_geography,
 )
 from outshine.terrain.ground_surface import ROAD_WIDTH, at_grade_width
+from outshine.transport.rail_routes import surface_rail_lines
 from outshine.transport.route_graph import route_graph
 from outshine.transport.route_tiles import geography, grid_point
 
@@ -159,6 +160,10 @@ class LocalScene:
             if axis.geom_type == "LineString":
                 joined.append((axis, tags))
         return tuple(joined)
+
+    @cached_property
+    def surface_rail_lines(self):
+        return tuple(surface_rail_lines(self.transport_graph, self.metric))
 
     def metric(self, longitude, latitude):
         return local_metric(longitude, latitude, (self.lon, self.lat), self.metres)
