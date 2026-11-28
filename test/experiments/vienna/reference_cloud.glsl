@@ -59,6 +59,12 @@ float cloudSun(Medium air, float radius, vec3 sun, vec2 start, int steps) {
   return exp(-depth*stride*cloudLayer.w);
 }
 
+// Henyey–Greenstein relative to isotropic scattering.
+float cloudPhase(float scatterCos, float asymmetry) {
+  float term = 1. + asymmetry*asymmetry - 2.*asymmetry*scatterCos;
+  return (1. - asymmetry*asymmetry) / (term*sqrt(term));
+}
+
 vec3 cloudRadiance(Medium air, float radius, vec3 dir, vec3 sun, vec3 sky,
                    sampler2D transmittance, out float opacity) {
   opacity = 0.;
@@ -69,7 +75,9 @@ vec3 cloudRadiance(Medium air, float radius, vec3 dir, vec3 sun, vec3 sky,
   float stride = (span.y-span.x)/float(steps);
   float transmission = 1.;
   vec3 light = vec3(0.);
-  float forward = .24*pow(max(0.,dot(dir,sun)), 18.);
+  float scatterCos = clamp(dot(dir, sun), -1., 1.);
+  float singleScatter = .48*mix(cloudPhase(scatterCos, -.24),
+                                cloudPhase(scatterCos, .70), .35);
   vec3 incident = textureLod(transmittance,
       mediumTransmittanceUv(air, MediumLook(air.BottomRadiusKm+cloudLayer.y, sun.z),
                            textureSize(transmittance,0)), 0.).rgb;
@@ -82,7 +90,7 @@ vec3 cloudRadiance(Medium air, float radius, vec3 dir, vec3 sun, vec3 sky,
     float sunlight = cloudSun(air, air.BottomRadiusKm+altitude, sun, p, 5);
     float inner = (altitude-cloudLayer.x)/(cloudLayer.y-cloudLayer.x);
     vec3 ambient = mix(vec3(.107,.124,.151),vec3(.185,.198,.215),inner);
-    vec3 colour = ambient + incident*((.64+forward)*sunlight+.20*sqrt(sunlight));
+    vec3 colour = ambient + incident*(singleScatter*sunlight+.23*sqrt(sunlight));
     float stepT = exp(-density*cloudLayer.w*stride);
     light += transmission*(1.-stepT)*colour;
     transmission *= stepT;
