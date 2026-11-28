@@ -421,13 +421,15 @@ building occupies one pixel (6–15 km range). Closer tiles retain mapped buildi
 Mapped woodland in the regional mesh uses a filtered canopy material. A shared
 512 m tile describes overlapping crowns and their shaded gaps. Slower colour
 variation across the stand helps distinguish wooded slopes from meadows. Both
-renderers project the material horizontally. In the middle distance, two lobes and
-a tapered stem give the tree height and a silhouette. Roots sample the solved forest
+renderers project the material horizontally. In the middle distance, oak and beech
+canopies follow twig positions from the near tree recipes. Three overlapping leaf
+volumes retain the upper crown and separate lateral sprays. Spruce uses a tiered
+silhouette. A separate material shades the foliage at branch scale. Roots sample the solved forest
 surface, reserve building footprints, and use the mapped leaf type. An eight-metre
 jittered grid is anchored to each source tile. The rooted geometry thins between
 twelve and eight pixels of projected tree height, leaving the baked canopy relief
 for the rest of the regional terrain. Both renderers instance shared templates
-for broadleaf trees and spruce.
+for oak, beech and spruce.
 Beyond the regional tiles, pinned OpenFreeMap zoom 10 woodland follows the same
 geodetic height field out to 100 km in the camera sector. A shared coverage image
 blends the regional woodland colours into the distant ground and retains clearings

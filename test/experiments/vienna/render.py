@@ -354,7 +354,13 @@ def place_regional_crowns(sites, geometry):
     for species, meshes, placements in crown_batches(sites):
         template = bpy.data.collections.new(species)
         for name, (vertices, faces) in meshes.items():
-            upload(name, vertices, faces, collection=template)
+            upload(
+                name,
+                vertices,
+                faces,
+                collection=template,
+                smooth=name.endswith(" crown"),
+            )
 
         mesh = bpy.data.meshes.new(species)
         mesh.vertices.add(len(placements))

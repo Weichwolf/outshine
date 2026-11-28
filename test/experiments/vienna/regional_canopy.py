@@ -8,13 +8,18 @@ from ground_surface import surface_elevations, terrain_triangles
 from montane_trees import conifer_sites
 from outshine_ref.places.sources import tile_geography
 from outshine_ref.vegetation.axis_surface import axis_mesh
+from outshine_ref.vegetation.curve_frame import arc_frame
 from scipy.spatial import ConvexHull
+from woodland import stand_plan
+from woodland_stem import lean_tree
 
 SITE_SPACING_M = 8.0
 CROWN_HEIGHT_M = 14.0
 MAX_SCALE = 1.30
 MIN_CROWN_PIXELS = 8.0
 FULL_CROWN_PIXELS = 12.0
+BROADLEAF_SPREAD = 1.6
+SHOOT_ENVELOPE_M = 0.55
 
 
 def crown_reach(focal):
@@ -36,7 +41,16 @@ def tile_crown_sites(source, tile, seed):
     return enu, random[keep, 2:]
 
 
-def crown_lobe(offset, girth, profile):
+def hull_mesh(vertices):
+    hull = ConvexHull(vertices)
+    faces = hull.simplices.copy()
+    a, b, c = vertices[faces].transpose(1, 0, 2)
+    inverted = np.sum(np.cross(b - a, c - a) * hull.equations[:, :3], axis=1) < 0
+    faces[inverted] = faces[inverted, ::-1]
+    return vertices, faces
+
+
+def needle_lobe(offset, profile):
     angle = np.arange(6) * (np.pi / 3)
     rings = []
     for level, (height, radius) in enumerate(profile):
@@ -48,30 +62,68 @@ def crown_lobe(offset, girth, profile):
         rings.append(
             np.c_[np.cos(phase) * radial, np.sin(phase) * radial, np.full(6, height)]
         )
-    vertices = np.vstack(rings) * girth + offset
-    hull = ConvexHull(vertices)
-    faces = hull.simplices.copy()
-    a, b, c = vertices[faces].transpose(1, 0, 2)
-    inverted = np.sum(np.cross(b - a, c - a) * hull.equations[:, :3], axis=1) < 0
-    faces[inverted] = faces[inverted, ::-1]
-    return vertices, faces
+    return hull_mesh(np.vstack(rings) + offset)
+
+
+def broadleaf_lobes(species):
+    oak = species == "oak"
+    plan = stand_plan(species, 0 if oak else 1)
+    sprays = []
+    for limb in plan.children(()):
+        for twig in plan.children(limb):
+            axis = plan.axis(twig)
+            local, *_ = arc_frame(
+                axis.length, axis.bend, 0, np.array([0.43, 0.74, 1.0])
+            )
+            sprays.extend(local @ axis.frame.T + axis.origin)
+    points = lean_tree(plan, np.array(sprays), oak=oak)
+    points[:, :2] *= BROADLEAF_SPREAD
+    points[:, 2] *= min(1, (CROWN_HEIGHT_M - SHOOT_ENVELOPE_M) / points[:, 2].max())
+
+    horizontal = points[:, :2] - np.median(points[:, :2], axis=0)
+    _, directions = np.linalg.eigh(horizontal.T @ horizontal)
+    along = horizontal @ directions[:, -1]
+    split = np.quantile(points[:, 2], 0.66)
+    upper = points[:, 2] >= split - SHOOT_ENVELOPE_M
+    lower = points[:, 2] <= split + SHOOT_ENVELOPE_M
+    groups = (
+        upper,
+        lower & (along <= SHOOT_ENVELOPE_M),
+        lower & (along >= -SHOOT_ENVELOPE_M),
+    )
+
+    bearings = 2 * np.pi * np.arange(4) / 4
+    probes = [[0, 0, -1], [0, 0, 1]]
+    for elevation, phase in ((-0.53, 0.0), (0.53, np.pi / 4)):
+        probes.extend(
+            np.c_[
+                np.cos(bearings + phase),
+                np.sin(bearings + phase),
+                np.full(4, elevation),
+            ]
+        )
+    probes = np.array(probes)
+    probes /= np.linalg.norm(probes, axis=1)[:, None]
+    for mask in groups:
+        group = points[mask]
+        support = group[np.argmax(group @ probes.T, axis=0)]
+        yield hull_mesh(support + SHOOT_ENVELOPE_M * probes)
 
 
 @cache
-def crown_template(conifer):
-    if conifer:
+def crown_template(species):
+    if species == "spruce":
         lobes = (
-            crown_lobe((0, 0, 0), (1, 1, 1), ((2.8, 0), (4.4, 3.2), (9.8, 0))),
-            crown_lobe((0.12, 0, 0), (1, 1, 1), ((5.1, 0), (7.4, 2.5), (14, 0))),
+            needle_lobe((0, 0, 0), ((2.8, 0), (4.4, 3.2), (9.8, 0))),
+            needle_lobe((0.12, 0, 0), ((5.1, 0), (7.4, 2.5), (14, 0))),
         )
     else:
-        profile = ((3.6, 0), (6.1, 3.55), (9.5, 3.3), (12.3, 0))
-        lobes = (
-            crown_lobe((-1.35, 0.4, 0), (1.10, 0.90, 1), profile),
-            crown_lobe((1.5, -0.55, 1.7), (0.99, 1.00, 1), profile),
-        )
+        lobes = tuple(broadleaf_lobes(species))
     vertices = np.vstack([vertex for vertex, _ in lobes])
-    faces = np.vstack((lobes[0][1], lobes[1][1] + len(lobes[0][0])))
+    offsets = np.cumsum([0, *(len(vertex) for vertex, _ in lobes[:-1])])
+    faces = np.vstack(
+        [face + offset for (_, face), offset in zip(lobes, offsets, strict=True)]
+    )
     stem = axis_mesh(7.0, 0.04, 0.28, 0.09, 2, 3)
     upright = stem["vertices"][:, (0, 2, 1)] * (1, -1, 1)
     return (vertices, faces), (upright, stem["faces"])
@@ -109,17 +161,24 @@ def rooted_crowns(source, receipt, data, forest, focal, seed):
     conifers = conifer_sites(source, xy, height, marks[:, 0], features=features)
     anchors = np.c_[xy, height - 0.10]
     placements = np.c_[anchors, 2 * np.pi * marks[:, 1], scale].astype(np.float32)
-    for needle, selected in ((False, ~conifers), (True, conifers)):
+    oak = marks[:, 0] < 0.5
+    for species, selected in (
+        ("oak", ~conifers & oak),
+        ("beech", ~conifers & ~oak),
+        ("spruce", conifers),
+    ):
         if selected.any():
-            yield needle, placements[selected]
+            yield species, placements[selected]
 
 
 def crown_batches(sites):
-    for conifer, species, canopy in (
-        (False, "Regional broadleaf", "regional wood"),
-        (True, "Regional spruce", "spruce foliage"),
-    ):
-        groups = [placements for needle, placements in sites if needle == conifer]
+    for species in ("oak", "beech", "spruce"):
+        groups = [placements for kind, placements in sites if kind == species]
         if groups:
-            crown, stem = crown_template(conifer)
-            yield species, {canopy: crown, "shrub wood": stem}, np.concatenate(groups)
+            crown, stem = crown_template(species)
+            canopy = "needle crown" if species == "spruce" else "broadleaf crown"
+            yield (
+                f"Regional {species}",
+                {canopy: crown, "shrub wood": stem},
+                np.concatenate(groups),
+            )
