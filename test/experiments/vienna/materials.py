@@ -12,7 +12,9 @@ SURFACES = {
     "oak bark": ((0.135, 0.098, 0.070), 0.91),
     "beech bark": ((0.158, 0.150, 0.131), 0.84),
     "chestnut bark": ((0.113, 0.087, 0.063), 0.90),
+    "spruce bark": ((0.078, 0.054, 0.038), 0.91),
     "foliage": ((0.095, 0.205, 0.044), 0.52),
+    "spruce foliage": ((0.049, 0.121, 0.032), 0.60),
     "regional soil": ((0.19, 0.16, 0.105), 0.95),
     "grass": ((0.097, 0.145, 0.043), 0.9),
     "grass blades": ((0.083, 0.165, 0.037), 0.86),
@@ -66,6 +68,7 @@ SURFACES = {
 METALLIC = {"rail head": 1.0}
 DIFFUSE_TRANSMISSION = {
     "foliage": 0.32,
+    "spruce foliage": 0.17,
     "grass blades": 0.34,
     "grass pale blades": 0.34,
     "meadow blades": 0.42,

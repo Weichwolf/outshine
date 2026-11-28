@@ -38,6 +38,7 @@ SURFACE_DETAIL = {
     "oak bark": "oak bark",
     "beech bark": "beech bark",
     "chestnut bark": "chestnut bark",
+    "spruce bark": "chestnut bark",
     "foliage": "leaf",
     "woodland low leaves": "leaf",
     "weir overflow": "weir overflow",
