@@ -15,14 +15,14 @@ NEEDLE_SPACING_M = 0.012
 NEEDLES_PER_GROUP = 5
 
 
-def conifer_sites(source, xy, relative_height, rank):
+def conifer_sites(source, xy, relative_height, rank, *, features=None):
     share = np.zeros(len(xy))
     if 43.5 <= source.lat <= 49.5 and 5 <= source.lon <= 17:
         # A montane fallback for untyped forest in the central European reference.
         fraction = np.clip((relative_height + source.datum - 1200) / 370, 0, 1)
         share = fraction**2 * (3 - 2 * fraction)
     leaf_types = {"broadleaved": 0.0, "mixed": 0.5, "needleleaved": 1.0}
-    for layer, shape, tags in source.features:
+    for layer, shape, tags in source.features if features is None else features:
         leaf_type = tags.get("leaf_type")
         if (
             layer == "landcover"
