@@ -117,10 +117,13 @@ uses 21 June 2026 at 10:00 UTC. Wien keeps the elevated scenario and 7 September
 at 10:40 UTC. The broken layer spans 1.45–2.95 km altitude and the overcast layer
 0.90–1.36 km. The shared seeded density field moves east at 7 m/s and north at
 3.5 m/s from the catalog clock. GLSL integrates opacity and estimates directional
-light through the layer. Both renderers use its 2048 × 1024 sky archive and the same
-sun transmission at the observer. That fraction multiplies the direct light over
-the whole reference scene. The archive pins the profile, wind-advected origin,
-seed, eye altitude and solar direction.
+light through the layer. Both renderers use its 2048 × 1024 sky archive. The archive
+contains direct solar transmission at the observer and a 64 × 64 km transmission map
+from the same cloud volume. Standalone GLSL projects surfaces below the layer top
+along the solar direction onto the map, including during reflection captures. The
+map fades to the observer's value near its edge. Blender uses the observer's value
+for the Sun. Older archives use that value in both renderers. The archive pins the
+profile, wind-advected origin, seed, eye altitude and solar direction.
 
 Use the Wiener Blick afternoon panorama for spaced cumulus, sunlit tops and soft
 undersides. The Neue Donau photo shows a closed deck, diffuse illumination and a

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 from air_profile import AEROSOL_HEIGHT_KM, aerosol_extinction, direct_sun_fraction
-from cloud_profile import WIND_KM_S, cloud_profile
+from cloud_profile import SUN_MAP_SIZE, WIND_KM_S, cloud_profile
 from sky_environment import (
     CLOUD_ENVIRONMENT_SIZE,
     SKY_ENVIRONMENT_SIZE,
@@ -80,6 +80,12 @@ class SkyEnvironmentTest(unittest.TestCase):
         np.testing.assert_allclose(
             np.array(later.origin_km) - broken.origin_km, -90 * WIND_KM_S
         )
+        np.testing.assert_array_equal(
+            broken.sun_map_origin([5, 10, 2], 300), [5, 10, 2]
+        )
+        np.testing.assert_array_equal(
+            broken.sun_map_origin([5, 10, 2900], 300), [5, 10, 900]
+        )
         self.assertIsNone(profile("clear", 0))
         sun, eye = (0.0, 0.6, 0.8), 477.25
         radiance = np.full((*CLOUD_ENVIRONMENT_SIZE[::-1], 3), 0.125, dtype="f4")
@@ -88,6 +94,7 @@ class SkyEnvironmentTest(unittest.TestCase):
             save_environment(path, radiance, sun, eye, clouds=broken, cloud_sun=0.37)
             restored = load_environment(path, sun, eye, clouds=broken)
             self.assertEqual(restored.cloud_sun, 0.37)
+            self.assertIsNone(restored.cloud_sun_map)
             np.testing.assert_array_equal(restored.radiance, radiance)
             for mismatch in (None, later, profile("overcast", 0)):
                 with self.assertRaisesRegex(ValueError, "cloud recipe"):
@@ -95,6 +102,27 @@ class SkyEnvironmentTest(unittest.TestCase):
             save_environment(path, radiance, sun, eye, clouds=broken, cloud_sun=np.nan)
             with self.assertRaisesRegex(ValueError, "solar transmission"):
                 load_environment(path, sun, eye, clouds=broken)
+
+    def test_cloud_sun_map_round_trips_and_checks_transmission(self):
+        clouds = cloud_profile("broken-cloud", 16.22, 48.24, (0, 0), 0, 2083)
+        sun, eye = (0.0, 0.6, 0.8), 477.25
+        radiance = np.full((*CLOUD_ENVIRONMENT_SIZE[::-1], 3), 0.125, dtype="f4")
+        transmission = np.full((SUN_MAP_SIZE, SUN_MAP_SIZE), 0.8, dtype="f4")
+        transmission[: SUN_MAP_SIZE // 2] = 0.2
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "sky.npz"
+            save_environment(
+                path, radiance, sun, eye, clouds=clouds, cloud_sun_map=transmission
+            )
+            restored = load_environment(path, sun, eye, clouds=clouds)
+            np.testing.assert_array_equal(restored.cloud_sun_map, transmission)
+
+            transmission[0, 0] = 1.2
+            save_environment(
+                path, radiance, sun, eye, clouds=clouds, cloud_sun_map=transmission
+            )
+            with self.assertRaisesRegex(ValueError, "solar transmission map"):
+                load_environment(path, sun, eye, clouds=clouds)
 
 
 if __name__ == "__main__":
