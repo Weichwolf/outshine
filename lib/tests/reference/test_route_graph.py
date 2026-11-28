@@ -17,8 +17,8 @@ def way(identifier, points, tags):
     }
 
 
-def layer(*features):
-    return {"extent": 16, "features": list(features)}
+def layer(*features, extent=16):
+    return {"extent": extent, "features": list(features)}
 
 
 class RouteGraphTest(unittest.TestCase):
@@ -68,6 +68,54 @@ class RouteGraphTest(unittest.TestCase):
         separated = route_graph({WEST: layer(west), EAST: layer(lower)})
         self.assertEqual(separated.seam_pairs, ())
         self.assertEqual(len(separated.frontiers), 2)
+
+    def test_differently_clipped_buffers_join_at_a_retained_anchor(self):
+        reverse = ROAD | {"oneway": -1}
+        west = way(72, [(2, 4), (20, 4)], reverse)
+        east = way(73, [(-5, 4), (4, 4)], reverse)
+        graph = route_graph({WEST: layer(west), EAST: layer(east)})
+        self.assertEqual(graph.seam_pairs, ((0, 1),))
+        left, right = graph.paths
+        seam = left.nodes[-1]
+        self.assertEqual(seam, right.nodes[0])
+        self.assertEqual(
+            set(graph.connections("motor")),
+            {(right.nodes[-1], seam), (seam, left.nodes[0])},
+        )
+        reversed_geometry = way(73, [(4, 4), (-5, 4)], reverse)
+        self.assertFalse(
+            route_graph({WEST: layer(west), EAST: layer(reversed_geometry)}).seam_pairs
+        )
+
+    def test_long_overlapping_tram_buffers_need_a_unique_same_level_peer(self):
+        tram = {"class": "transit", "subclass": "tram"}
+        west = layer(way(72, [(6, 12), (45, 12)], tram), extent=32)
+        east = way(73, [(-13, 12), (14, 12)], tram)
+        parallel = way(74, [(-12, 13), (13, 13)], tram)
+        graph = route_graph({WEST: west, EAST: layer(east, extent=32)})
+        self.assertEqual(graph.seam_pairs, ((0, 1),))
+        self.assertEqual(graph, route_graph({EAST: layer(east, extent=32), WEST: west}))
+        self.assertFalse(
+            route_graph({WEST: west, EAST: layer(east, parallel, extent=32)}).seam_pairs
+        )
+        elevated = east | {"properties": tram | {"layer": 1}}
+        crossing = way(73, [(-13, 10), (13, 14)], tram)
+        for candidate in (elevated, crossing):
+            with self.subTest(candidate=candidate):
+                self.assertFalse(
+                    route_graph(
+                        {WEST: west, EAST: layer(candidate, extent=32)}
+                    ).seam_pairs
+                )
+
+    def test_buffer_match_does_not_override_ambiguous_source_id(self):
+        west = layer(way(72, [(6, 12), (45, 12)], ROAD), extent=32)
+        near = way(72, [(-5, 12), (7, 12)], ROAD)
+        other = way(72, [(-6, 13), (8, 13)], ROAD)
+        weak = way(73, [(-13, 12), (14, 12)], ROAD)
+        graph = route_graph({WEST: west, EAST: layer(near, other, weak, extent=32)})
+        self.assertFalse(graph.seam_pairs)
+        self.assertEqual(len(graph.frontiers), 4)
 
     def test_at_grade_contact_and_layer_separation(self):
         road = way(1, [(2, 8), (8, 8), (14, 8)], ROAD)
