@@ -1,11 +1,12 @@
 import unittest
+from math import tan
 
 import numpy as np
 from outshine.rendering.image import gl_context
 
 
 class GlslShadowTest(unittest.TestCase):
-    def test_shadow_bias_uses_the_same_incidence_on_both_sides(self):
+    def test_local_solar_shadows_keep_contact_and_soften_with_distance(self):
         try:
             import moderngl
             from outshine.rendering import glsl
@@ -22,14 +23,21 @@ class GlslShadowTest(unittest.TestCase):
             fragment = (
                 declaration
                 + """
+uniform bool shadowStrip;
 void main() {
+    if (shadowStrip) {
+        float x = (gl_FragCoord.x / 512. - .5) * .4;
+        colour = vec4(sunVisibility(vec3(x, 0., 0.), vec3(0., 0., 1.)), 0., 0., 1.);
+        return;
+    }
     vec3 normal = vec3(0., 0., gl_FragCoord.x < 1. ? 1. : -1.);
     colour = vec4(sunVisibility(vec3(0.), normal), 0., 0., 1.);
 }
 """
             )
             program = ctx.program(vertex_shader=glsl.SCREEN, fragment_shader=fragment)
-            projection = np.eye(4, dtype="f4").tobytes()
+            scale = 2 / glsl.NEAR_SHADOW_WIDTH
+            projection = np.diag([scale, scale, 1, 1]).astype("f4").tobytes()
             for name in ("shadowMatrix", "localShadowMatrix", "nearShadowMatrix"):
                 program[name].write(projection)
             program["sun"].value = (0, 0, 1)
@@ -54,6 +62,20 @@ void main() {
             ):
                 texture.use(unit)
                 program[name].value = unit
+            raw_depth = [
+                ctx.sampler(
+                    texture=texture,
+                    repeat_x=False,
+                    repeat_y=False,
+                    filter=(moderngl.NEAREST, moderngl.NEAREST),
+                )
+                for texture in (distant, near)
+            ]
+            for unit, (name, sampler) in enumerate(
+                zip(("localDepthMap", "nearDepthMap"), raw_depth, strict=True), 3
+            ):
+                sampler.use(unit)
+                program[name].value = unit
 
             view = ctx.simple_framebuffer((2, 1), components=4, dtype="f4")
             quad = ctx.vertex_array(program, [])
@@ -68,3 +90,24 @@ void main() {
                         view.read(components=1, dtype="f4"), dtype="f4"
                     )
                     np.testing.assert_array_equal(visibility, [expected, expected])
+
+            program["shadowStrip"].value = True
+            strip = ctx.simple_framebuffer((512, 1), components=4, dtype="f4")
+            x = ((np.arange(512) + 0.5) / 512 - 0.5) * 0.4
+            for gap, tolerance in ((2.0, 0.003), (8.0, 0.006), (32.0, 0.025)):
+                with self.subTest(blocker_distance=gap):
+                    near_fb.use()
+                    near_fb.clear(depth=1)
+                    near_fb.clear(
+                        depth=0.5 - gap / glsl.LOCAL_SHADOW_SPAN[1],
+                        viewport=(0, 0, size // 2, size),
+                    )
+                    strip.use()
+                    quad.render(vertices=3)
+                    visibility = np.frombuffer(
+                        strip.read(components=1, dtype="f4"), dtype="f4"
+                    )
+                    # Visible fraction of the uniform solar disc past a straight edge.
+                    t = np.clip(x / (gap * tan(0.0046542)), -1, 1)
+                    expected = 0.5 + (np.arcsin(t) + t * np.sqrt(1 - t * t)) / np.pi
+                    self.assertLess(np.mean(np.abs(visibility - expected)), tolerance)

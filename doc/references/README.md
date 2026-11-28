@@ -459,15 +459,17 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
   [Lokales PDF](lighting/siggraph/2005-percentage-closer-soft-shadows.pdf) ·
   [Autorenfassung bei NVIDIA](https://download.nvidia.com/developer/presentations/2005/SIGGRAPH/PCSS.pdf).
 
-  - **Relevanz mittel.** Die Methode schätzt aus der Blockertiefe die Breite des
-    Halbschattens und passt den Filter daran an. Sie ist eine Vergleichsmethode
-    für den GLSL-Referenzrenderer. [#1965](https://github.com/Weichwolf/outshine/issues/1965)
-  - **Anwendungsfall.** In der Lobau die Schattenkanten von Stamm und Krone auf
-    demselben Pfad vergleichen und am Adlerhof den Kontakt an der Fensterlaibung
-    prüfen. Für die Sonne die Winkelgröße einsetzen und dünne Blocker, Übergänge
-    zwischen Schattenkarten und GPU-Kosten am Bild prüfen.
-  - **Prüfstand.** Blockersuche, Schätzung und Filterung am 28.11.2026 auf
-    PDF-Seite 1 geprüft. Bild- und Kostenvergleich in Outshine sind offen.
+  - **Relevanz mittel.** Die GLSL-Lichtreferenz nutzt die Blockertiefe, um die
+    Breite des Halbschattens auf den beiden lokalen Sonnenkarten zu bestimmen.
+    Die Kosten für einen späteren nativen Einsatz gehören in die Geräteabnahme.
+    [#1965](https://github.com/Weichwolf/outshine/issues/1965)
+  - **Anwendungsfall.** In der Lobau verbreitern sich Kronenschatten mit dem
+    Abstand zum Pfad. Stammkontakt und nahe Gebäudekanten am Adlerhof bleiben
+    scharf. Die Winkelgröße der Sonne bestimmt die Filterbreite.
+  - **Prüfstand.** Am 28.11.2026 gegen eine analytische Kante und zwölf
+    Sonnenrichtungen auf Iris Xe geprüft. Der mittlere lineare Helligkeitsfehler
+    der betroffenen Pixel sank am Adlerhof um 60 Prozent und in der Lobau um
+    53 Prozent. Der Blockerabstand ist auf 64 m begrenzt.
 
 - **Moment Shadow Mapping**, Peters / Klein, ACM SIGGRAPH I3D 2015.
   [Autoren/Errata](https://momentsingraphics.de/I3D2015.html) ·
