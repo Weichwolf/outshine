@@ -447,7 +447,11 @@ def render(place, config, args):
     sunlight = Vector(world.sun)
     sun = next(o for o in scene.objects if o.type == "LIGHT" and o.data.type == "SUN")
     sun.rotation_euler = (-sunlight).to_track_quat("-Z", "Y").to_euler()
-    sun.data.energy *= world.direct_sun_fraction
+    transmission = world.direct_sun_transmission
+    peak = max(transmission)
+    sun.data.energy *= peak
+    if peak > 0:
+        sun.data.color = tuple(channel / peak for channel in transmission)
     sun.data.shadow_maximum_resolution = SUN_SHADOW_MIN_TEXEL_M
     sun.data.use_shadow_jitter = True
     sky_dir = Path(args.sky_dir) if args.sky_dir is not None else None

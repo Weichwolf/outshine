@@ -578,9 +578,12 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False):
     prog["sun"].value = tuple(world.sun)
     cloud_sun = environment.cloud_sun if environment else 1.0
     cloud_map = environment.cloud_sun_map if environment and world.sun[2] > 0 else None
-    prog["directSunFraction"].value = world.direct_sun_fraction * (
-        cloud_sun if cloud_map is None else 1.0
+    direct_sun = (
+        2.5
+        * np.asarray(world.direct_sun_transmission)
+        * (cloud_sun if cloud_map is None else 1.0)
     )
+    prog["directSunRadiance"].value = tuple(direct_sun)
     prog["cloudSunMapScale"].value = (
         0 if cloud_map is None else 1e-3 / (2 * SUN_MAP_RADIUS_KM)
     )
