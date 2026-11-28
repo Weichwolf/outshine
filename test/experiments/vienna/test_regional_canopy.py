@@ -4,12 +4,59 @@ from unittest.mock import patch
 
 import numpy as np
 import shapely
-from regional_canopy import CROWN_HEIGHT_M, crown_batches, rooted_crowns
-from woodland import habitat
+from PIL import Image, ImageDraw
+from regional_canopy import (
+    CROWN_HEIGHT_M,
+    broadleaf_crown,
+    crown_batches,
+    rooted_crowns,
+)
+from woodland import DISTANT_LEAF_STEP, geometry, habitat, stand_plan
 from woodland_sites import mature_stand, woodland_sites
 
 
+def projected_pixels(mesh, heading, elevation):
+    vertices, faces = map(np.asarray, mesh)
+    yaw, pitch = np.deg2rad([heading, elevation])
+    side = np.array([np.cos(yaw), -np.sin(yaw), 0])
+    up = np.array(
+        [-np.sin(yaw) * np.sin(pitch), -np.cos(yaw) * np.sin(pitch), np.cos(pitch)]
+    )
+    pixels = np.floor(32 * (vertices @ np.column_stack((side, up)))).astype(int)
+    pixels -= pixels.min(axis=0)
+    mask = Image.new("1", tuple(pixels.max(axis=0) + 1))
+    draw = ImageDraw.Draw(mask)
+    for triangle in pixels[faces].tolist():
+        draw.polygon([tuple(point) for point in triangle], fill=1)
+    return np.count_nonzero(mask)
+
+
 class RegionalCanopyTest(unittest.TestCase):
+    def test_regional_broadleaves_keep_projected_cover_at_a_shallow_angle(self):
+        for species in ("oak", "beech"):
+            for form in (0, 1):
+                with self.subTest(species=species, form=form):
+                    local = geometry(
+                        stand_plan(species, form),
+                        DISTANT_LEAF_STEP,
+                        has_stem=False,
+                        species=species,
+                    )["foliage"]
+                    coarse = broadleaf_crown(species, form)
+                    for elevation in (0, 15):
+                        headings = (0, 45, 90, 135)
+                        cover = sum(
+                            projected_pixels(coarse, h, elevation) for h in headings
+                        )
+                        reference = sum(
+                            projected_pixels(local, h, elevation) for h in headings
+                        )
+                        self.assertGreater(cover, 0.86 * reference)
+                    self.assertLess(
+                        projected_pixels(coarse, 0, 90),
+                        1.18 * projected_pixels(local, 0, 90),
+                    )
+
     def test_woodland_distances_share_mature_placements_and_respect_buildings(self):
         features = (
             ("landcover", shapely.box(0, 0, 44, 20), {"class": "wood"}),

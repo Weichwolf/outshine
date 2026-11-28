@@ -474,7 +474,10 @@ Mapped woodland in the regional mesh uses a filtered canopy material. A shared
 variation across the stand helps distinguish wooded slopes from meadows. Both
 renderers project the material horizontally. In the middle distance, oak and beech
 use the leaf positions, orientations and material from the near recipes. Leaf groups
-share a main limb and use representative blades fitted to their area and spread.
+share a main limb and use two-sided folded sheets fitted to their area and spread.
+The regional folds maintain projected leaf cover at shallow angles, including the
+view of the Danube banks from elevated `Wien`. Check the same coverage from the
+pedestrian view at `FranzKarlFernsicht`.
 Spruce uses a tiered silhouette. Both distances use the same tile-seeded mature stems,
 scales and rotations.
 Mapped woodland reserves buildings, water and transport corridors. The ground mesh

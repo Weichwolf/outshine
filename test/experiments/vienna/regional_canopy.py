@@ -1,5 +1,6 @@
-"""Coarse rooted woodland crowns for the regional pedestrian views."""
+"""Coarse rooted woodland crowns for the regional views."""
 
+from dataclasses import replace
 from functools import cache
 
 import numpy as np
@@ -17,6 +18,7 @@ CROWN_HEIGHT_M = 14.0
 MIN_CROWN_PIXELS = 12.0
 FULL_CROWN_PIXELS = 16.0
 REGIONAL_LEAF_GROUP = 1024
+REGIONAL_CLUSTER_FOLD = 1.3
 
 
 def crown_reach(focal):
@@ -53,8 +55,12 @@ def broadleaf_crown(species, form):
     rows = plan.tables(sum(plan.axis_counts), sum(plan.leaf_counts))
     frames = crown_leaf_frames(rows, plan.seed, oak=oak)
     areas = np.array([blade.area() for blade in plan.blades])
+    # A regional sheet represents a 3D cluster of many individual blades.
+    clusters = tuple(
+        replace(blade, fold=REGIONAL_CLUSTER_FOLD) for blade in plan.blades
+    )
     vertices, faces = grouped_blades(
-        rows, plan.blades, frames, areas, REGIONAL_LEAF_GROUP, parent_levels=2
+        rows, clusters, frames, areas, REGIONAL_LEAF_GROUP, parent_levels=2
     )
     vertices = lean_tree(plan, vertices, oak=oak)
     vertices[:, 2] *= min(1, CROWN_HEIGHT_M / vertices[:, 2].max())
