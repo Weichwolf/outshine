@@ -17,6 +17,7 @@ from outshine.transport.route_graph import (
     RoutePath,
 )
 from outshine.transport.route_tiles import WORLD_CELLS
+from outshine.world.road_terrain import _reservations
 
 
 class RoadCrossfallTest(unittest.TestCase):
@@ -87,6 +88,15 @@ class RoadCrossfallTest(unittest.TestCase):
         crossing = (np.abs(xy[..., 0] + 60) < 5) & (np.abs(xy[..., 1]) < 5)
         self.assertTrue(crossing.any())
         np.testing.assert_array_equal(crown[crossing], raw[crossing])
+
+    def test_overlapping_building_parts_reserve_each_footprint(self):
+        shell = shapely.box(-12, -9, 12, 9)
+        tower = shapely.box(-3, -5, 3, 5)
+        grouped = shapely.MultiPolygon((shell, tower))
+        self.assertFalse(grouped.is_valid)
+        parts = tuple(_reservations((("building", grouped, {}),)))
+        self.assertEqual(parts, (shell, tower))
+        self.assertTrue(shapely.union_all(parts).covers(shapely.Point(0, 0)))
 
     def test_sharp_bend_preserves_the_original_support_until_a_curve_is_fit(self):
         road = self.road((-190, 0), (-80, 0), (80, -85))

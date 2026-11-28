@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 import shapely
 
+from outshine.buildings.building_footprints import building_footprints
 from outshine.places.sources import covering_tiles, tile_geography
 from outshine.terrain.ground_surface import ROAD_WIDTH, route_area
 from outshine.terrain.lattice import lattice
@@ -100,7 +101,9 @@ def _enclosing(axis, radius):
 
 def _reservations(features, *, mercator=False):
     for name, geometry, tags in features:
-        if name in {"building", "water"}:
+        if name == "building":
+            yield from building_footprints(geometry)[0]
+        elif name == "water":
             yield shapely.make_valid(geometry)
         elif name == "transportation" and (
             tags.get("brunnel")
