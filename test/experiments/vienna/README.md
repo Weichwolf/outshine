@@ -450,6 +450,10 @@ jittered grid is anchored to each source tile. The rooted geometry thins between
 twelve and eight pixels of projected tree height, leaving the baked canopy relief
 for the rest of the regional terrain. Both renderers instance shared templates
 for oak, beech and spruce.
+At regional distance, the vector tile classifications give fields, grassland, rock
+and built-up ground distinct materials on the solved terrain. The same palette
+extends across the regional boundary. Parcel faces are combined by material after
+shore grading so their draw count does not grow with the number of tiles.
 Beyond the regional tiles, pinned OpenFreeMap zoom 10 land cover and land use follow
 the geodetic height field out to 100 km in the camera sector. Forest, meadow, fields,
 vineyards, orchards, exposed rock and settlement use a shared 2048² material map in
