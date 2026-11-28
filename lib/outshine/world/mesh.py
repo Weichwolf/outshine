@@ -30,6 +30,7 @@ from outshine.buildings.entrances import (
     pave_entrances,
 )
 from outshine.buildings.facade import FacadeView, draw_facade
+from outshine.buildings.rail_station import StationHall, plan_station_halls
 from outshine.buildings.street_facade import draw_low_front, draw_street_storey
 from outshine.buildings.structures import suppressed
 from outshine.terrain.ground_surface import (
@@ -58,7 +59,7 @@ from outshine.transport.bridge_banks import (
 from outshine.transport.bridge_contacts import bank_cuts
 from outshine.transport.bridge_junctions import junction_pavement
 from outshine.transport.bridge_passages import bridge_terrain
-from outshine.transport.bridges import draw_water_crossings, plan_water_crossings
+from outshine.transport.bridges import draw_water_crossings, plan_water_crossings, slab
 from outshine.transport.deck_walk_links import DeckWalkLink, deck_walk_links
 from outshine.transport.elevated_rail import (
     BALLAST_DEPTH,
@@ -115,9 +116,20 @@ class BuildingForm:
     piers: tuple
     soffit: float
     group: int | None
+    station: StationHall | None = None
 
     def volumes(self, top):
         foot = self.foundation.sole_m if self.foundation else self.bottom
+        if self.station is not None:
+            hall = self.station
+            return [
+                BuildingVolume(self.polygon, foot, hall.floor),
+                *(
+                    BuildingVolume(pier, hall.floor, hall.ceiling)
+                    for pier in polygons(self.polygon.difference(hall.openings))
+                ),
+                BuildingVolume(self.polygon, hall.ceiling, top),
+            ]
         if self.passages:
             return [
                 *(BuildingVolume(pier, foot, self.soffit) for pier in self.piers),
@@ -162,7 +174,9 @@ def building(
         ):
             cap(meshes, form.wall, underside, lambda xy: form.bottom, underside=True)
     passages = form.passages
-    if passages:
+    if form.station is not None:
+        station_envelope(meshes, form, facade_view, neighbours, front, wall_ground)
+    elif passages:
         passage_ceilings(
             meshes, form.polygon, passages, form.corridor, form.soffit, grade, form.wall
         )
@@ -202,6 +216,56 @@ def building(
             front=front,
             street=has_street_storey(form) and wall_top - form.bottom > STREET_STOREY_M,
             wall_ground=wall_ground,
+        )
+
+
+def station_envelope(meshes, form, view, neighbours, front, wall_ground):
+    hall = form.station
+    building_walls(
+        meshes,
+        form.polygon,
+        form.bottom,
+        hall.floor,
+        view,
+        neighbours,
+        form.foundation,
+        grounded=form.minimum_height == 0,
+        wall=form.wall,
+        front=front,
+        street=has_street_storey(form) and hall.floor - form.bottom > STREET_STOREY_M,
+        wall_ground=wall_ground,
+    )
+    for pier in polygons(form.polygon.difference(hall.openings)):
+        building_walls(
+            meshes,
+            pier,
+            hall.floor,
+            hall.ceiling,
+            view,
+            neighbours,
+            bays=False,
+            wall=form.wall,
+        )
+    building_walls(
+        meshes,
+        form.polygon,
+        hall.ceiling,
+        form.top,
+        view,
+        neighbours,
+        bays=False,
+        wall=form.wall,
+    )
+    for opening in polygons(form.polygon.intersection(hall.openings)):
+        cap(meshes, "bridge deck", opening, lambda xy: hall.floor)
+        cap(meshes, "bridge deck", opening, lambda xy: hall.ceiling, underside=True)
+    for bed in polygons(hall.ballast):
+        slab(
+            meshes,
+            "rail ballast",
+            bed,
+            lambda xy: np.full(len(xy), hall.floor + BALLAST_DEPTH),
+            BALLAST_DEPTH,
         )
 
 
@@ -998,11 +1062,6 @@ def assemble(
     )
     for viaduct in viaducts:
         draw_viaduct(meshes, viaduct, source.height, approaches)
-    for deck in rail_decks:
-        draw_elevated_rail(meshes, deck, grade, rail_approaches)
-        bridges[deck.layer] = deck.footprint.union(
-            bridges.get(deck.layer, shapely.Polygon())
-        )
     forms = []
     form_tags = []
     for polygon, properties, wall in buildings:
@@ -1022,13 +1081,32 @@ def assemble(
                 )
             )
             form_tags.append(properties)
+    station_halls, station_tracks = plan_station_halls(
+        source.features, rail_decks, forms, rail_approaches
+    )
+    if station_halls:
+        forms = [
+            replace(form, station=station_halls.get(form.polygon)) for form in forms
+        ]
+    for deck in rail_decks:
+        draw_elevated_rail(meshes, deck, grade, rail_approaches, station_tracks)
+        bridges[deck.layer] = deck.footprint.union(
+            bridges.get(deck.layer, shapely.Polygon())
+        )
     footprints = [form.polygon for form in forms]
     eaves, roofs = plan_roofs(
         footprints,
         [form.bottom for form in forms],
         [form.top for form in forms],
         form_tags,
-        np.array([form.foundation is not None and not form.passages for form in forms]),
+        np.array(
+            [
+                form.foundation is not None
+                and not form.passages
+                and form.station is None
+                for form in forms
+            ]
+        ),
     )
     for index, roof in roofs:
         meshes.add(
