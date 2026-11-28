@@ -311,7 +311,7 @@ def upload(ctx, program, name, vertices, faces, placements, *, trail_litter=None
         litter = ctx.buffer(trail_litter.tobytes())
         content.append((litter, "1f", "trailLitter"))
         buffers.append(litter)
-    if name.endswith(" bark"):
+    if name.endswith((" bark", " crown")):
         a, b, c = vertices[faces].transpose(1, 0, 2)
         area_normals = np.cross(b - a, c - a)
         normals = np.zeros_like(vertices)
@@ -423,6 +423,7 @@ def draw_surfaces(ctx, prog, draws, textures, *, capture=False):
         trail = detail == "compacted"
         prog["hasTrailLitter"].value = trail
         prog["hasDetail"].value = detail is not None
+        prog["blendDetailAxes"].value = base.endswith(" bark")
         prog["planarDetail"].value = detail == CANOPY_DETAIL
         prog["detailTint"].value = DETAIL_TINTS.get(detail, (1, 1, 1))
         if detail is not None:

@@ -11,7 +11,8 @@ MACRO_SPAN_M = 23.0
 HEIGHT_SPAN_M = 0.024
 BARK_BOX_BLEND = 0.35
 CANOPY_DETAIL = "regional canopy"
-DETAIL_SCALES = {CANOPY_DETAIL: (512.0, 1523.0, 2.4)}
+CROWN_DETAIL = "crown sprays"
+DETAIL_SCALES = {CANOPY_DETAIL: (512.0, 1523.0, 2.4), CROWN_DETAIL: (24.8, 127.9, 0.48)}
 DETAIL_TINTS = {"beech bark": (0.86, 1.0, 0.78), "leaf litter": (0.53, 1.26, 0.66)}
 SIZE = 512
 
@@ -29,6 +30,8 @@ SURFACE_DETAIL = {
     "ground": "soil",
     "forest floor": "leaf litter",
     "regional wood": CANOPY_DETAIL,
+    "broadleaf crown": CROWN_DETAIL,
+    "needle crown": CROWN_DETAIL,
     "grass": "grass",
     "meadow": "meadow",
     "unpaved path": "compacted",
@@ -134,12 +137,19 @@ def ground_detail(name):
         "chestnut bark",
         CANOPY_DETAIL,
         "spruce bark",
+        CROWN_DETAIL,
     ).index(name)
     rng = np.random.default_rng(seed)
     fine, grain, patches = (noise(rng, scale) for scale in (0.65, 1.6, 12))
     macro = 0.5 + 0.15 * patches
     if name == CANOPY_DETAIL:
         tint, roughness, height, macro = regional_canopy(rng)
+    elif name == CROWN_DETAIL:
+        sprays = np.tanh(0.54 * noise(rng, 11) + 0.47 * noise(rng, 24))
+        shade = np.maximum(sprays, 0)
+        tint = 0.83 + 0.25 * shade + 0.055 * grain
+        roughness = 0.84 - 0.055 * shade
+        height = 0.12 * sprays + 0.035 * noise(rng, 5)
     elif name == "asphalt":
         aggregate = np.maximum(fine - 0.40, 0)
         tint = 0.97 + 0.18 * aggregate + 0.045 * grain
@@ -245,7 +255,7 @@ def ground_detail(name):
         ),
         axis=-1,
     ).astype("f4")
-    if name in ("leaf", "beech bark", "chestnut bark"):
+    if name in ("leaf", "beech bark", "chestnut bark", CROWN_DETAIL):
         half = SIZE // 2
         return pixels.reshape(half, 2, half, 2, 4).mean(axis=(1, 3))
     return pixels
