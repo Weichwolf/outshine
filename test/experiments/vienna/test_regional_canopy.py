@@ -82,7 +82,10 @@ class RegionalCanopyTest(unittest.TestCase):
             [[0, 0], [18, 0], [18, 20], [0, 20], [28, 0], [42, 0], [42, 20], [28, 20]]
         )
         z = 0.2 * xy[:, 0] - 0.12 * xy[:, 1] + 2
-        forest = [(np.c_[xy, z], np.array([[0, 1, 2, 3], [4, 5, 6, 7]]))]
+        forest = [
+            (np.c_[xy, z], np.array([[0, 1, 2, 3]])),
+            (np.c_[xy, z].tolist(), [[4, 5, 6], [4, 6, 7]]),
+        ]
 
         domain = habitat(source)
         with patch("woodland_sites.tile_sites", side_effect=([(sites, marks)], [])):

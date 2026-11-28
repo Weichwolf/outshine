@@ -221,6 +221,15 @@
       "pitch_deg": -16
     },
     {
+      "id": "Donauinsel-Uferweg",
+      "latitude": 48.22775567115069,
+      "longitude": 16.41103891998575,
+      "heading_deg": 141.763,
+      "pitch_deg": -2,
+      "vertical_fov_deg": 48,
+      "support": "sidewalk"
+    },
+    {
       "id": "Schemerlbruecke-Downstream",
       "origin": "Schemerlbruecke",
       "offset_east_north_m": [73.153, -112.709],

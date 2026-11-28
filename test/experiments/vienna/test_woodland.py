@@ -196,7 +196,7 @@ class WoodlandTest(unittest.TestCase):
         surface = woodland_surface(
             {
                 "ground": (vertices, [[0, 1, 2], [0, 4, 1]]),
-                "grass": (vertices, [[0, 2, 3]]),
+                "grass": (vertices, [[0, 2, 3], [2, 1, 0]]),
                 "water": ([[0, 0, 3], [2, 0, 3], [2, 2, 3]], [[0, 1, 2]]),
             }
         )
