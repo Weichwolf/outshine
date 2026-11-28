@@ -70,6 +70,11 @@ def shrub_plan(sapling, form):
 @cache
 def prototype(sapling, form):
     plan = shrub_plan(sapling, form)
+    leaves = "sapling leaves" if sapling else "shrub leaves"
+    return shrub_mesh(plan, "shrub wood", leaves)
+
+
+def shrub_mesh(plan, bark, foliage, blade_segments=3):
     rows = plan.tables(sum(plan.axis_counts), sum(plan.leaf_counts))
     meshes = Meshes()
     for index, origin in enumerate(rows["axis_origins"]):
@@ -77,15 +82,15 @@ def prototype(sapling, form):
         segments = 6 if index == 0 else 3
         part = axis_mesh(length, bend, *rows["axis_radii"][index], segments, 5)
         vertices = part["vertices"] @ rows["axis_frames"][index].T + origin
-        meshes.add("shrub wood", vertices, part["faces"])
-    leaf = plan.blades[0].mesh(3)
+        meshes.add(bark, vertices, part["faces"])
+    leaf = plan.blades[0].mesh(blade_segments)
     vertices = (
         np.einsum("mj,nij->nmi", leaf["vertices"], rows["leaf_frames"])
         + rows["leaf_origins"][:, None, :]
     )
     offsets = np.arange(len(vertices)) * len(leaf["vertices"])
     meshes.add(
-        "sapling leaves" if sapling else "shrub leaves",
+        foliage,
         vertices.reshape(-1, 3),
         (leaf["faces"] + offsets[:, None, None]).reshape(-1, 3),
     )
