@@ -28,7 +28,7 @@ class BlenderDaylight(unittest.TestCase):
         obj = bpy.data.objects.new("owned fill", light)
         self.scene.collection.objects.link(obj)
         record = configure_daylight(self.scene)
-        self.assertEqual(record["profile"], "research-daylight-v1")
+        self.assertEqual(record["profile"], "research-daylight-v2")
         self.assertEqual(light.energy, 900.0)
         self.assertEqual(len([o for o in self.scene.objects if o.type == "LIGHT"]), 2)
         sun = next(
@@ -36,7 +36,8 @@ class BlenderDaylight(unittest.TestCase):
         )
         np.testing.assert_allclose(sun.rotation_euler, [0.45, -0.65, -0.6], atol=1e-6)
         self.assertEqual(sun.data.energy, 2.5)
-        self.assertAlmostEqual(sun.data.angle, 0.04, places=6)
+        self.assertAlmostEqual(record["sun_angle_radians"], 0.0093084, places=8)
+        self.assertAlmostEqual(sun.data.angle, record["sun_angle_radians"], places=8)
         self.assertEqual(self.scene.view_settings.view_transform, "AgX")
         self.assertEqual(self.scene.view_settings.exposure, 1.5)
         background = self.scene.world.node_tree.nodes["Background"]

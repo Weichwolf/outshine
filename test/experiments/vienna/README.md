@@ -20,7 +20,11 @@ Omit `--place Adlerhof` to render the twelve pedestrian views in catalog order. 
 second interval measures the warm image, including PNG encoding and writing. Report timing
 with the image and profile so workstation cost can be compared across reference runs.
 
-The Eevee directional shadow map uses a minimum 16 mm texel. The default 1 mm texel
+Blender uses the same mean solar diameter as the shared atmosphere, about 0.533°.
+EEVEE uses eight temporal samples and jittered sun shadows. The render report records
+these settings. [NASA Sun Fact Sheet](https://nssdc.gsfc.nasa.gov/planetary/factsheet/sunfact.html)
+
+The EEVEE directional shadow map uses a minimum 16 mm texel. The default 1 mm texel
 produced false shadows on sunlit roads with the full terrain horizon. The 16 mm limit
 keeps the terrain and directional shadows in the reference.
 
