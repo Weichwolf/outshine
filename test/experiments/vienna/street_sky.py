@@ -138,13 +138,16 @@ def bake_street_sky(
     return len(values), perf_counter() - start
 
 
-def combine(tree, op, left, right):
+def combine(tree, op, left, right=None):
     node = tree.nodes.new("ShaderNodeMix")
     node.data_type = "RGBA"
     node.blend_type = op
     node.inputs[0].default_value = 1
     tree.links.new(left, node.inputs[6])
-    tree.links.new(right, node.inputs[7])
+    if right is None:
+        node.inputs[7].default_value = (0, 0, 0, 1)
+    else:
+        tree.links.new(right, node.inputs[7])
     return node.outputs[2]
 
 
@@ -191,4 +194,6 @@ def replace_probe_diffuse(tree, surface, *, captured, surface_filter):
         tree, "MULTIPLY", surface.outputs[TRACED], surface.outputs["Diffuse Color"]
     )
     corrected = combine(tree, "ADD", colour, traced)
-    return combine(tree, "SUBTRACT", corrected, previous.outputs["Image"])
+    corrected = combine(tree, "SUBTRACT", corrected, previous.outputs["Image"])
+    # Separate captures can disagree at subpixel edges. Keep radiance non-negative.
+    return combine(tree, "LIGHTEN", corrected)
