@@ -105,28 +105,42 @@ def fit_ballast(station, sections, prior, floor):
     return Mesh(np.c_[xyz, np.repeat(fit.x[:count], 2)], faces[:, ::-1])
 
 
-def plan_surface_rail(features, extent, height, *, blocked, tunnels=(), decks=()):
+def _surface_lines(features, extent, decks, routes):
+    if routes is not None and not decks:
+        return routes
     ports, index = rail_neighbors(features)
-    lines = index.geometries[index.query(extent, "intersects")]
-    if not len(lines):
-        return ()
-    elevated_continuations = {
+    claimed = {
         shapely.normalize(line)
         for deck in decks
         for track in deck.tracks
         for port in (track.coords[0], track.coords[-1])
         for line in ports.get(port, ())
     }
-    lines = [line for line in lines if line not in elevated_continuations]
-    if not lines:
+    if routes is not None:
+        if not claimed:
+            return routes
+        reserve = shapely.union_all(list(claimed)).buffer(1e-4)
+        return tuple(shapely.get_parts(shapely.difference(routes, reserve)))
+    lines = [
+        index.geometries[i]
+        for i in index.query(extent, "intersects")
+        if index.geometries[i] not in claimed
+    ]
+    return shapely.get_parts(shapely.line_merge(shapely.MultiLineString(lines)))
+
+
+def plan_surface_rail(
+    features, extent, height, *, blocked, tunnels=(), decks=(), routes=None
+):
+    lines = _surface_lines(features, extent, decks, routes)
+    if not len(lines):
         return ()
     blocked = shapely.union_all(blocked)
     half = BALLAST_WIDTH / 2
     allowed = extent.buffer(-half).difference(blocked.buffer(half))
-    network = shapely.line_merge(shapely.MultiLineString(lines))
     candidates = [
         part
-        for line in shapely.get_parts(network)
+        for line in lines
         for part in shapely.get_parts(line.intersection(allowed))
         if part.geom_type == "LineString"
         and part.is_simple
