@@ -5,7 +5,7 @@ Install the reference library with the Python shipped with Blender so binary whe
 
 ```sh
 /Applications/Blender.app/Contents/Resources/5.3/python/bin/python3.13 -m venv --system-site-packages build/blender-python
-build/blender-python/bin/python -m pip install './lib[places,transport]' astral==3.2
+build/blender-python/bin/python -m pip install './lib[places,solids,transport]' astral==3.2
 blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/render.py -- --place Adlerhof --repeat
 ```
 
@@ -24,6 +24,12 @@ second interval measures the warm image, including PNG encoding and writing. Rep
 with the image and profile so workstation cost can be compared across reference runs.
 When using Cycles with `--repeat`, the fixed camera also reuses the scene data and, with
 `--sky-dir`, the matching sky-only image for aerial compositing.
+
+`Hauptallee-Fork` turns the pedestrian view from the avenue towards the closest
+chestnut. Use it alongside `Hauptallee-Avenue` and `Dechantlacke-Stem-Oblique` to
+inspect limb collars and the outline of the joined wood. Manifold builds the shared
+surface of broadleaf stems and their main limbs within the 32 m detailed stem range. Fillet
+displacement fades with distance from the joins.
 
 Blender uses the same mean solar diameter as the shared atmosphere, about 0.533°.
 EEVEE uses six temporal samples and jittered sun shadows. The render report records

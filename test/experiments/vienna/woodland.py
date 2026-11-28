@@ -15,6 +15,7 @@ from outshine_ref.vegetation import PlantPlan
 from outshine_ref.vegetation.axis_surface import axis_mesh
 from park_avenue import avenue_sites
 from scene_mesh import Meshes, terrain_grid, terrain_height
+from woodland_fork import joined_wood
 from woodland_sites import woodland_sites
 from woodland_stem import lean_tree, rooted_stem, scaffold_mesh, template_stem
 
@@ -211,6 +212,17 @@ def crown_leaf_frames(rows, seed, *, oak):
     return frames
 
 
+def scaffold_parts(plan, step, species):
+    rings, sides = (9, 10) if step <= 4 else (5, 8)
+    if species == "spruce" and step >= COARSE_LEAF_STEP:
+        rings, sides = 3, 5
+    for path in plan.children(()):
+        axis = plan.axis(path)
+        part = scaffold_mesh(axis.length, axis.bend, *plan.radii(path), rings, sides)
+        vertices = part["vertices"] @ axis.frame.T + axis.origin
+        yield lean_tree(plan, vertices, oak=species == "oak"), part["faces"]
+
+
 def geometry(plant, step, *, has_stem, species):
     spruce = species == "spruce"
     plan = plant.wood if spruce else plant
@@ -221,26 +233,24 @@ def geometry(plant, step, *, has_stem, species):
     if has_stem:
         part = template_stem(plan, oak=oak)
         meshes.add(bark, part["vertices"], part["faces"])
+    if has_stem or spruce:
+        for vertices, faces in scaffold_parts(plan, step, species):
+            meshes.add(bark, vertices, faces)
     for i in range(1, len(rows["axis_ids"])):
+        main_limb = rows["axis_parent_ids"][i] == 0
+        if main_limb or step >= COARSE_LEAF_STEP:
+            continue
         shoot = rows["axis_paths"][i, 2] >= 0
         if step > 1 and shoot:
             continue
-        main_limb = rows["axis_parent_ids"][i] == 0
-        if step >= COARSE_LEAF_STEP and not main_limb:
-            continue
-        if main_limb:
-            rings, sides = (9, 10) if step <= 4 else (5, 8)
-            if spruce and step >= COARSE_LEAF_STEP:
-                rings, sides = 3, 5
-        elif shoot:
+        if shoot:
             rings, sides = 3, 4
         elif step > 1:
             # These twigs have a radius below one sixth of the subpixel leaf width.
             rings, sides = 3, 3
         else:
             rings, sides = 4, 6
-        branch_mesh = scaffold_mesh if main_limb else axis_mesh
-        part = branch_mesh(
+        part = axis_mesh(
             rows["axis_lengths"][i],
             rows["axis_bends"][i],
             *rows["axis_radii"][i],
@@ -333,6 +343,7 @@ def tree_batches(
         return
     templates = {}
     plans = {}
+    scaffolds = {}
     stems = Meshes()
     terrain, _ = terrain_grid(source, radius)
     sampler = woodland_surface(soil) if soil is not None else None
@@ -394,17 +405,27 @@ def tree_batches(
         near_stem = distance < 32
         if near_stem:
             z = root_height(xy[None])[0]
+            position = np.array([*xy, z - 0.08])
             stem = rooted_stem(
                 plan,
                 lawn if managed else root_domain,
                 root_height,
-                np.array([*xy, z - 0.08]),
+                position,
                 angle,
                 scale,
                 oak=species == "oak",
                 seed=int(rotation * 2**32),
             )
-            stems.add(f"{species} bark", stem["vertices"], stem["faces"])
+            if spruce:
+                wood = stem["vertices"], stem["faces"]
+            else:
+                scaffold = species, form, group
+                if scaffold not in scaffolds:
+                    scaffolds[scaffold] = tuple(scaffold_parts(plan, group, species))
+                wood = joined_wood(
+                    stem, scaffolds[scaffold], position, angle, scale, plan.radii(())[0]
+                )
+            stems.add(f"{species} bark", *wood)
         key = species, form, group, near_stem
         templates.setdefault(key, []).append((*xy, z - 0.08, angle, scale))
     for (species, form, group, near_stem), placements in templates.items():
