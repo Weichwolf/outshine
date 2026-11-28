@@ -65,7 +65,6 @@ uniform vec3 sun;
 uniform vec4 surface;
 uniform float metalness;
 uniform float diffuseTransmission;
-uniform bool useSkyIrradiance;
 uniform vec3 skyIrradiance[9];
 uniform sampler2D skyRadiance;
 uniform sampler2D skySpecularMap;
@@ -170,7 +169,7 @@ vec3 reflectedSky(vec3 ray) {
 }
 
 vec3 reflectedEnvironment(vec3 ray) {
-  vec3 sky = useSkyIrradiance ? archivedSky(skyRadiance, ray) : reflectedSky(ray);
+  vec3 sky = archivedSky(skyRadiance, ray);
   float distance = length(point.xy - eye.xy);
   if (reflectionCount == 0 || distance >= reflectionRange)
     return sky;
@@ -261,20 +260,16 @@ void main(){
   float visibility = sunVisibility(point, geometricNormal);
   vec3 reflected=(b.diffuse+b.specular)*nl;
   vec3 transmitted=material.rgb*(max(0.,dot(n,-sun))/kPi);
-  vec3 environment = material.rgb *
-    mix(vec3(.065,.085,.115), vec3(.31,.40,.53), clamp(.5+.5*n.z,0.,1.));
-  if (useSkyIrradiance) {
-    vec3 diffuseColour = material.rgb * (1. - metalness);
-    vec3 front = diffuseColour * diffuseSky(n);
-    if (!waterSurface && glassIor <= 1.) {
-      float roughness = clamp(material.a, 0., 1.);
-      vec2 brdf = textureLod(skyBrdf, vec2(roughness, nv), 0.).rg;
-      vec3 reflectance = clamp(f0 * brdf.x + vec3(brdf.y), 0., 1.);
-      front = (1. - reflectance) * front +
-              reflectance * filteredSky(reflect(-view, n), roughness);
-    }
-    environment = mix(front, diffuseColour * diffuseSky(-n), diffuseTransmission);
+  vec3 diffuseColour = material.rgb * (1. - metalness);
+  vec3 front = diffuseColour * diffuseSky(n);
+  if (!waterSurface && glassIor <= 1.) {
+    float roughness = clamp(material.a, 0., 1.);
+    vec2 brdf = textureLod(skyBrdf, vec2(roughness, nv), 0.).rg;
+    vec3 reflectance = clamp(f0 * brdf.x + vec3(brdf.y), 0., 1.);
+    front = (1. - reflectance) * front +
+            reflectance * filteredSky(reflect(-view, n), roughness);
   }
+  vec3 environment = mix(front, diffuseColour * diffuseSky(-n), diffuseTransmission);
   float directSun = 2.5 * directSunFraction;
   if (cloudSunMapScale > 0. && point.z < cloudSunMapTopM) {
     vec3 offset = point - cloudSunMapOrigin;
@@ -289,9 +284,7 @@ void main(){
     vec2 bedUV=(point.xy-waterBedTransform.xy)*waterBedTransform.zw;
     vec3 transmission=texture(waterBedMap,bedUV).rgb;
     vec3 bodyColour=mix(surface.rgb,bedAlbedo,transmission);
-    vec3 bodyLight = useSkyIrradiance
-      ? bodyColour * (diffuseSky(n) + (directSun / kPi) * nl * visibility)
-      : bodyColour * .28 * mix(.58, 1., visibility);
+    vec3 bodyLight = bodyColour * (diffuseSky(n) + (directSun / kPi) * nl * visibility);
     light = mix(bodyLight, reflectedEnvironment(ray), waterFresnel(dot(n, view)));
   } else if (glassIor>1.) {
     vec3 ray=reflect(-view,n);

@@ -90,7 +90,16 @@ def shader(path):
 
 
 def atmosphere(
-    ctx, target, world, right, up, *, environment=False, linear=False, archive=None
+    ctx,
+    target,
+    world,
+    right,
+    up,
+    *,
+    environment=False,
+    linear=False,
+    archive=None,
+    lighting_target=None,
 ):
     prog = ctx.program(
         vertex_shader=SCREEN, fragment_shader=shader(HERE / "atmosphere.frag")
@@ -151,6 +160,11 @@ def atmosphere(
     prog["stage"].value = 4 if environment else 3
     prog["extent"].value = target.size
     quad.render(vertices=3)
+    if lighting_target is not None:
+        lighting_target.use()
+        prog["stage"].value = 4
+        prog["extent"].value = lighting_target.size
+        quad.render(vertices=3)
     cloud_sun, sun_map = 1.0, None
     if environment and clouds:
         probe = ctx.simple_framebuffer((1, 1), components=4, dtype="f4")
@@ -518,9 +532,29 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False):
     target.clear(depth=1)
     ctx.disable(moderngl.DEPTH_TEST)
     m, right, up = projection(world)
-    veil, sky, _, _ = atmosphere(
-        ctx, target, world, right, up, linear=linear, archive=source
+    lighting_target = (
+        ctx.simple_framebuffer(SKY_ENVIRONMENT_SIZE, components=3, dtype="f4")
+        if environment is None
+        else None
     )
+    veil, sky, _, _ = atmosphere(
+        ctx,
+        target,
+        world,
+        right,
+        up,
+        linear=linear,
+        archive=source,
+        lighting_target=lighting_target,
+    )
+    if lighting_target is None:
+        radiance = environment.radiance
+    else:
+        radiance = np.frombuffer(
+            lighting_target.read(components=3, dtype="f4"), dtype="f4"
+        ).reshape(*SKY_ENVIRONMENT_SIZE[::-1], 3)
+        lighting_target.release()
+        source = sky_radiance_texture(ctx, radiance)
     prog = ctx.program(
         vertex_shader=shader(HERE / "reference.vert"),
         fragment_shader=shader(HERE / "reference.frag"),
@@ -556,17 +590,11 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False):
         sun_map_texture.repeat_x = sun_map_texture.repeat_y = False
     (sun_map_texture or sky).use(11)
     prog["linearOutput"].value = linear
-    prog["useSkyIrradiance"].value = environment is not None
-    sky_tables = ()
-    if environment is not None:
-        prog["skyIrradiance"].write(
-            diffuse_coefficients(environment.radiance).tobytes()
-        )
-        sky_tables = (*sky_specular_atlas(ctx, source), source)
-    atlas, brdf, archive = sky_tables or (sky, sky, sky)
+    prog["skyIrradiance"].write(diffuse_coefficients(radiance).tobytes())
+    atlas, brdf = sky_specular_atlas(ctx, source)
     atlas.use(7)
     brdf.use(8)
-    archive.use(10)
+    source.use(10)
     prog["skySpecularMap"].value = 7
     prog["skyBrdf"].value = 8
     prog["skyRadiance"].value = 10
@@ -649,7 +677,7 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False):
     prog.release()
     veil.release()
     sky.release()
-    for texture in sky_tables:
+    for texture in (atlas, brdf, source):
         texture.release()
     print(
         json.dumps(
@@ -660,7 +688,7 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False):
                 "regional_crown_instances": sum(len(sites) for _, sites in crown_sites),
                 "cloud_sun": cloud_sun,
                 "spatial_cloud_sun": cloud_map is not None,
-                "sky_radiance": str(sky_path) if sky_path is not None else None,
+                "sky_radiance": str(sky_path) if sky_path is not None else "computed",
                 "shadow_gpu_ms": round(shadow_time.elapsed * 1e-6, 2),
                 "reflection_levels_m": [round(plane.height, 3) for plane in planes],
                 "reflection_gpu_ms": round(reflection_ms, 2),
