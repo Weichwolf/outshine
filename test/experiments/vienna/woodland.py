@@ -16,7 +16,13 @@ from outshine_ref.vegetation.axis_surface import axis_mesh
 from park_avenue import avenue_sites
 from scene_mesh import Meshes, terrain_grid, terrain_height
 from woodland_fork import joined_wood
-from woodland_leaves import grouped_blades, leaf_group_ranges
+from woodland_leaves import (
+    chestnut_blades,
+    chestnut_leaf,
+    grouped_blades,
+    leaf_area_centre,
+    leaf_group_ranges,
+)
 from woodland_sites import woodland_sites
 from woodland_stem import lean_tree, rooted_stem, scaffold_mesh, template_stem
 
@@ -145,7 +151,7 @@ def habitat(source, *, stems=True):
 
 def avenue_plan(form):
     broadleaf = stand_plan("oak", form)
-    stem, limbs, *outer = broadleaf.levels
+    stem, limbs, twigs, shoots = broadleaf.levels
     stem = replace(
         stem,
         length=(8.6, 10.1)[form],
@@ -159,11 +165,15 @@ def avenue_plan(form):
         radius_parent_ratio=(0.84, 0.77)[form],
         first=(0.19, 0.35)[form],
         last=0.87,
-        angle=(0.57, 0.81)[form],
-        angle_tip=0.72,
-        upward_bias=0.28,
+        angle=(1.07, 0.98)[form],
+        angle_tip=0.57,
+        upward_bias=0.18,
     )
-    return PlantPlan(broadleaf.seed + 821, (stem, limbs, *outer), broadleaf.blades)
+    twigs = replace(twigs, leaf_internode=0.22, arrangement="opposite")
+    shoots = replace(shoots, leaf_internode=0.17, arrangement="decussate")
+    return PlantPlan(
+        broadleaf.seed + 821, (stem, limbs, twigs, shoots), chestnut_blades()
+    )
 
 
 def represented_leaves(rows, areas, step):
@@ -248,7 +258,17 @@ def geometry(plant, step, *, has_stem, species):
         meshes.add("spruce foliage", lean_tree(plan, vertices, oak=False), faces)
         return meshes
     variants = rows["leaf_variants"]
-    areas = np.array([blade.area() for blade in plan.blades])
+    chestnut = species == "chestnut"
+    centres = None
+    if chestnut:
+        full_leaves = [
+            chestnut_leaf(blade, variant, 3)
+            for variant, blade in enumerate(plan.blades)
+        ]
+        properties = [leaf_area_centre(**part) for part in full_leaves]
+        areas, centres = map(np.asarray, zip(*properties))
+    else:
+        areas = np.array([blade.area() for blade in plan.blades])
     frames = crown_leaf_frames(rows, plan.seed, oak=oak)
     if step >= COARSE_LEAF_STEP:
         vertices, faces = grouped_blades(
@@ -258,6 +278,7 @@ def geometry(plant, step, *, has_stem, species):
             areas,
             step,
             merge_shoots=step >= DISTANT_LEAF_STEP,
+            centres=centres,
         )
         meshes.add("foliage", lean_tree(plan, vertices, oak=oak), faces)
         return meshes
@@ -268,16 +289,26 @@ def geometry(plant, step, *, has_stem, species):
         where = variants[selected] == variant
         if not where.any():
             continue
-        part = blade.mesh(4 if step == 1 else 2)
+        if chestnut:
+            part = (
+                full_leaves[variant]
+                if step == 1
+                else chestnut_leaf(replace(blade, petiole=0), variant, 2)
+            )
+        else:
+            part = blade.mesh(4 if step == 1 else 2)
+        local = part["vertices"]
+        placement = origins[where]
         leaf_scale = size[where]
         if step > 1:
-            a, b, c = part["vertices"][part["faces"]].transpose(1, 0, 2)
-            coarse_area = np.linalg.norm(np.cross(b - a, c - a), axis=1).sum() / 2
+            coarse_area, coarse_centre = leaf_area_centre(local, part["faces"])
             leaf_scale = leaf_scale * np.sqrt(areas[variant] / coarse_area)
+            if chestnut:
+                local = local - coarse_centre
+                placement = placement + frames[where] @ centres[variant]
         verts = (
-            np.einsum("mj,nij->nmi", part["vertices"], frames[where])
-            * leaf_scale[:, None, None]
-            + origins[where, None, :]
+            np.einsum("mj,nij->nmi", local, frames[where]) * leaf_scale[:, None, None]
+            + placement[:, None, :]
         )
         faces = (
             part["faces"]
