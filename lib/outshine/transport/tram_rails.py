@@ -150,8 +150,8 @@ def street_tram_surfaces(lines, extent, pavement, blocked, decks, vertices, face
     bed = clip_route_areas(
         shapely.buffer(routes, half, cap_style="flat", join_style="round"), domain
     )
-    rail = clip_route_areas(heads, bed)
-    flangeway = clip_route_areas(grooves, bed).difference(rail, grid_size=1e-6)
+    flangeway = clip_route_areas(grooves, bed)
+    rail = clip_route_areas(heads, bed).difference(flangeway, grid_size=1e-6)
     slab = bed.difference(pavement, grid_size=1e-6)
     return {"tram rail": rail, "tram flangeway": flangeway, "tram slab": slab}
 

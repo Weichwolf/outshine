@@ -55,3 +55,19 @@ class StreetTramTests(unittest.TestCase):
             rails = self.surfaces(deck)["tram rail"]
             self.assertEqual(rails.covers(shapely.Point(0, 0.7535)), supported)
             self.assertTrue(rails.covers(shapely.Point(6, 0.7535)))
+
+    def test_crossing_rail_preserves_the_other_tracks_flange_space(self):
+        crossing = shapely.LineString(((0, -6), (0, 6)))
+        surfaces = street_tram_surfaces(
+            (self.line, crossing),
+            self.extent,
+            self.road,
+            (),
+            (),
+            self.vertices,
+            self.faces,
+        )
+        location = shapely.Point(0.69, 0.7535)
+        self.assertTrue(surfaces["tram flangeway"].contains(location))
+        self.assertFalse(surfaces["tram rail"].covers(location))
+        self.assertTrue(surfaces["tram rail"].contains(shapely.Point(0.61, 0.7535)))
