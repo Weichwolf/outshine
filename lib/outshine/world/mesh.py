@@ -769,6 +769,9 @@ def ground_surfaces(
         portal_approaches=getattr(source, "road_tunnel_approaches", None),
     )
     if tunnels:
+        for tunnel in tunnels:
+            if tunnel.lift is not None:
+                vertices[tunnel.lift.vertices, 2] += tunnel.lift.displacement
         cuts = shapely.union_all([tunnel.openings for tunnel in tunnels])
         openings = openings.union(cuts)
         reserved_decks = reserved_decks.union(cuts)
