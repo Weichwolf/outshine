@@ -31,7 +31,11 @@ from outshine.vegetation.bank_vegetation import bank_plants
 from outshine.vegetation.grass_cover import blades
 from outshine.vegetation.landscape_cover import landscape_cover
 from outshine.vegetation.meadow import meadow_cover
-from outshine.vegetation.mojave_sites import mojave_blackbrush, mojave_yuccas
+from outshine.vegetation.mojave_sites import (
+    mojave_blackbrush,
+    mojave_woodland,
+    mojave_yuccas,
+)
 from outshine.vegetation.open_cover import (
     ACACIA_COMMIPHORA_BUSHLANDS,
     MOJAVE_DESERT,
@@ -493,6 +497,7 @@ class ReferenceScene:
             yield from mojave_blackbrush(
                 self.open_cover, self.local, self.eye[:2], seed
             )
+            yield from mojave_woodland(self.open_cover, self.local, self.eye[:2], seed)
         root_domain = shapely.union_all((self.woodland_floor, self.stands.verges))
         if self.bare_shore is not None:
             root_domain = root_domain.difference(self.bare_shore)

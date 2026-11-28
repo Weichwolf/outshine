@@ -20,6 +20,7 @@ from outshine.materials.ground_detail import (
     ground_detail,
 )
 from outshine.materials.palette import (
+    BACKFACE_REFLECTANCE,
     DIFFUSE_TRANSMISSION,
     GLASS_IOR,
     GROUND_BLENDS,
@@ -622,6 +623,7 @@ def draw_surfaces(ctx, prog, draws, textures, terrain, *, capture=False, bed_map
             continue
         base, rgb, rough = surface_properties(name)
         prog["surface"].value = (*rgb, rough)
+        prog["backfaceReflectance"].value = BACKFACE_REFLECTANCE.get(base, rgb)
         prog["metalness"].value = METALLIC.get(name, 0.0)
         prog["diffuseTransmission"].value = DIFFUSE_TRANSMISSION.get(name, 0.0)
         prog["waterSurface"].value = water
