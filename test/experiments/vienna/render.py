@@ -49,6 +49,7 @@ from outshine_ref.rendering.blender_light import (
 )
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
 from passage_light import bake_reference_irradiance
+from PIL import Image
 from reference_scene import ReferenceScene
 from sky_environment import environment_path, load_environment
 from walk_reference import plan_walk
@@ -241,6 +242,44 @@ def apply_water_bed(bed):
     colour.inputs[2].default_value = water
     link(texture.outputs["Color"], colour.inputs[0])
     link(colour.outputs["Vector"], nodes["Principled BSDF"].inputs["Base Color"])
+
+
+def apply_distant_woodland(material, cover):
+    with TemporaryDirectory(prefix="outshine-woodland-") as directory:
+        path = Path(directory) / "Woodland coverage.png"
+        Image.fromarray(cover.pixels[::-1]).save(path)
+        image = bpy.data.images.load(str(path))
+        image.colorspace_settings.name = "Non-Color"
+        image.pack()
+
+    tree = material.node_tree
+    nodes, link = tree.nodes, tree.links.new
+    point = nodes.new("ShaderNodeNewGeometry").outputs["Position"]
+    coords = nodes.new("ShaderNodeVectorMath")
+    coords.operation = "MULTIPLY_ADD"
+    x, y, sx, sy = cover.transform
+    coords.inputs[1].default_value = (sx, sy, 0)
+    coords.inputs[2].default_value = (-x * sx, -y * sy, 0)
+    link(point, coords.inputs[0])
+    mask = nodes.new("ShaderNodeTexImage")
+    mask.extension = "CLIP"
+    mask.image = image
+    link(coords.outputs[0], mask.inputs["Vector"])
+
+    bsdf = nodes["Principled BSDF"]
+    _, wood, wood_roughness = surface_properties("regional wood")
+    colour = nodes.new("ShaderNodeMixRGB")
+    colour.inputs[1].default_value = bsdf.inputs["Base Color"].default_value
+    colour.inputs[2].default_value = (*wood, 1)
+    link(mask.outputs["Color"], colour.inputs[0])
+    link(colour.outputs[0], bsdf.inputs["Base Color"])
+    roughness = nodes.new("ShaderNodeMath")
+    roughness.operation = "MULTIPLY_ADD"
+    base_roughness = bsdf.inputs["Roughness"].default_value
+    roughness.inputs[1].default_value = wood_roughness - base_roughness
+    roughness.inputs[2].default_value = base_roughness
+    link(mask.outputs["Color"], roughness.inputs[0])
+    link(roughness.outputs[0], bsdf.inputs["Roughness"])
 
 
 def upload(name, vertices, faces, *, collection, smooth=False, trail_litter=None):
@@ -467,6 +506,8 @@ def render(place, config, args):
             collection=geometry,
             trail_litter=world.trail_litter(name, verts),
         )
+    if material := bpy.data.materials.get("distant terrain"):
+        apply_distant_woodland(material, world.far_woodland)
     for name, verts, faces in world.grass_and_understory(config["seed"]):
         upload(name, verts, faces, collection=geometry)
     eye, look = Vector(walk.eyes[0] if walk else world.eye), Vector(world.look)
