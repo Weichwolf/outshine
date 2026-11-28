@@ -14,6 +14,12 @@ from mathutils import Vector
 from PIL import Image
 from shapely import Point
 
+from outshine.materials.detail_coordinates import (
+    VARIED_DETAILS,
+    WARP_METRES,
+    WAVE_STRETCH,
+    WAVES,
+)
 from outshine.materials.ground_detail import (
     BARK_BOX_BLEND,
     DETAIL_TINTS,
@@ -21,6 +27,7 @@ from outshine.materials.ground_detail import (
     SURFACE_DETAIL,
     detail_scale,
     ground_detail,
+    surface_detail_scale,
 )
 from outshine.materials.palette import (
     BACKFACE_REFLECTANCE,
@@ -79,6 +86,58 @@ from outshine.world.scene import ReferenceScene
 SUN_SHADOW_MIN_TEXEL_M = 0.016
 CYCLES_REFERENCE_SAMPLES = 128
 CYCLES_NOISE_THRESHOLD = 0.025
+DETAIL_DOMAIN = "Outshine natural material coordinates"
+
+
+def configure_detail_domain(frame):
+    graph = bpy.data.node_groups.new(DETAIL_DOMAIN, "ShaderNodeTree")
+    graph["origin"] = tuple(frame.origin)
+    graph.interface.new_socket(
+        name="Position", in_out="INPUT", socket_type="NodeSocketVector"
+    )
+    for name in ("Fine", "Broad"):
+        graph.interface.new_socket(
+            name=name, in_out="OUTPUT", socket_type="NodeSocketVector"
+        )
+    nodes = graph.nodes
+    link = graph.links.new
+    coordinates = nodes.new("NodeGroupInput")
+    output = nodes.new("NodeGroupOutput")
+    metric = nodes.new("ShaderNodeVectorMath")
+    metric.operation = "MULTIPLY"
+    metric.inputs[1].default_value = tuple(frame.scale)
+    link(coordinates.outputs["Position"], metric.inputs[0])
+    for name, stretch in zip(("Fine", "Broad"), WAVE_STRETCH, strict=True):
+        displacement = nodes.new("ShaderNodeCombineXYZ")
+        for axis, (wave, phase, amplitude) in enumerate(
+            zip(
+                WAVES / stretch,
+                frame.phase(stretch),
+                WARP_METRES * stretch,
+                strict=True,
+            )
+        ):
+            projection = nodes.new("ShaderNodeVectorMath")
+            projection.operation = "DOT_PRODUCT"
+            link(metric.outputs["Vector"], projection.inputs[0])
+            projection.inputs[1].default_value = tuple(wave)
+            shift = nodes.new("ShaderNodeMath")
+            shift.operation = "ADD"
+            link(projection.outputs["Value"], shift.inputs[0])
+            shift.inputs[1].default_value = float(phase)
+            sine = nodes.new("ShaderNodeMath")
+            sine.operation = "SINE"
+            link(shift.outputs[0], sine.inputs[0])
+            weight = nodes.new("ShaderNodeMath")
+            weight.operation = "MULTIPLY"
+            link(sine.outputs[0], weight.inputs[0])
+            weight.inputs[1].default_value = float(amplitude)
+            link(weight.outputs[0], displacement.inputs[axis])
+        warped = nodes.new("ShaderNodeVectorMath")
+        warped.operation = "ADD"
+        link(metric.outputs["Vector"], warped.inputs[0])
+        link(displacement.outputs["Vector"], warped.inputs[1])
+        link(warped.outputs["Vector"], output.inputs[name])
 
 
 def detail_texels(material, name):
@@ -96,6 +155,12 @@ def detail_texels(material, name):
     nodes = material.node_tree.nodes
     link = material.node_tree.links.new
     position = nodes.new("ShaderNodeNewGeometry").outputs["Position"]
+    coordinate_group = bpy.data.node_groups.get(DETAIL_DOMAIN)
+    varied = name in VARIED_DETAILS and coordinate_group is not None
+    if varied:
+        domain = nodes.new("ShaderNodeGroup")
+        domain.node_tree = coordinate_group
+        link(position, domain.inputs["Position"])
     planar = name in PLANAR_DETAILS
     if planar:
         axes = nodes.new("ShaderNodeVectorRotate")
@@ -105,22 +170,31 @@ def detail_texels(material, name):
         position = axes.outputs["Vector"]
     fine_span, macro_span, _ = detail_scale(name)
     texels = []
-    for span in (fine_span, macro_span):
+    for band, span in (("Fine", fine_span), ("Broad", macro_span)):
+        sample_position = position
+        if varied:
+            phase = nodes.new("ShaderNodeVectorMath")
+            phase.operation = "ADD"
+            phase.inputs[1].default_value = tuple(
+                np.remainder(coordinate_group["origin"], span)
+            )
+            link(domain.outputs[band], phase.inputs[0])
+            sample_position = phase.outputs["Vector"]
         coords = nodes.new("ShaderNodeVectorMath")
         coords.operation = "SCALE"
         coords.inputs["Scale"].default_value = 1 / span
-        link(position, coords.inputs[0])
+        link(sample_position, coords.inputs[0])
         sampler = nodes.new("ShaderNodeTexImage")
         sampler.image = image
         sampler.projection = "FLAT" if planar else "BOX"
-        if name.endswith(" bark"):
+        if name.endswith(" bark") or name == "granodiorite":
             sampler.projection_blend = BARK_BOX_BLEND
         link(coords.outputs["Vector"], sampler.inputs["Vector"])
         texels.append(sampler)
     return texels
 
 
-def detail_nodes(material, name, colour):
+def detail_nodes(material, name, colour, surface):
     nodes = material.node_tree.nodes
     link = material.node_tree.links.new
     detail, macro = detail_texels(material, name)
@@ -147,10 +221,16 @@ def detail_nodes(material, name, colour):
         link(detail.outputs["Alpha"], pigment.inputs[0])
         link(reflectance, pigment.inputs[1])
         reflectance = pigment.outputs["Color"]
+    relief = nodes.new("ShaderNodeMath")
+    relief.operation = "MULTIPLY_ADD"
+    height = surface_detail_scale(name, surface)[2]
+    link(channels.outputs["Blue"], relief.inputs[0])
+    relief.inputs[1].default_value = height
+    relief.inputs[2].default_value = -0.5 * height
     return (
         reflectance,
         channels.outputs["Green"],
-        channels.outputs["Blue"],
+        relief.outputs[0],
         detail.outputs["Alpha"],
     )
 
@@ -159,7 +239,7 @@ def blend_ground(material, target, colour, roughness, height):
     nodes = material.node_tree.nodes
     link = material.node_tree.links.new
     ground, ground_roughness, ground_height, variation = detail_nodes(
-        material, SURFACE_DETAIL[target], SURFACES[target][0]
+        material, SURFACE_DETAIL[target], SURFACES[target][0], target
     )
     mask = nodes.new("ShaderNodeAttribute")
     mask.attribute_name = "ground blend"
@@ -190,10 +270,10 @@ def blend_ground(material, target, colour, roughness, height):
     return properties
 
 
-def apply_detail(material, bsdf, name, colour, ground_target):
+def apply_detail(material, bsdf, name, colour, ground_target, surface):
     nodes = material.node_tree.nodes
     link = material.node_tree.links.new
-    reflectance, roughness, height, _ = detail_nodes(material, name, colour)
+    reflectance, roughness, height, _ = detail_nodes(material, name, colour, surface)
     if ground_target is not None:
         reflectance, roughness, height = blend_ground(
             material, ground_target, reflectance, roughness, height
@@ -201,7 +281,7 @@ def apply_detail(material, bsdf, name, colour, ground_target):
     link(reflectance, bsdf.inputs["Base Color"])
     link(roughness, bsdf.inputs["Roughness"])
     bump = nodes.new("ShaderNodeBump")
-    bump.inputs["Distance"].default_value = detail_scale(name)[2]
+    bump.inputs["Distance"].default_value = 1.0
     link(height, bump.inputs["Height"])
     link(bump.outputs["Normal"], bsdf.inputs["Normal"])
 
@@ -222,7 +302,7 @@ def surface_material(name):
     if name in WATER_MATERIALS:
         bsdf.inputs["IOR"].default_value = WATER_IOR
     if detail := SURFACE_DETAIL.get(base):
-        apply_detail(material, bsdf, detail, colour, GROUND_BLENDS.get(base))
+        apply_detail(material, bsdf, detail, colour, GROUND_BLENDS.get(base), base)
     if pale_side := BACKFACE_REFLECTANCE.get(base):
         tree = material.node_tree
         backfacing = tree.nodes.new("ShaderNodeNewGeometry").outputs["Backfacing"]
@@ -612,6 +692,7 @@ def render(place, config, args):
     scene.cycles.seed = config["seed"]
     geometry = bpy.data.collections.new("World geometry")
     scene.collection.children.link(geometry)
+    configure_detail_domain(world.detail_frame)
     crown_sites = []
     for name, verts, faces in world.surfaces(crown_sites=crown_sites):
         upload(
@@ -619,6 +700,7 @@ def render(place, config, args):
             verts,
             faces,
             collection=geometry,
+            smooth=name.endswith(" rock"),
             ground_blend=world.ground_blend(name, verts),
         )
     if material := bpy.data.materials.get("distant terrain"):

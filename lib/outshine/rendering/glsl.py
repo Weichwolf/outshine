@@ -11,6 +11,12 @@ import moderngl
 import numpy as np
 from PIL import Image
 
+from outshine.materials.detail_coordinates import (
+    VARIED_DETAILS,
+    WARP_METRES,
+    WAVE_STRETCH,
+    WAVES,
+)
 from outshine.materials.ground_detail import (
     BARK_BOX_BLEND,
     DETAIL_TINTS,
@@ -18,6 +24,7 @@ from outshine.materials.ground_detail import (
     SURFACE_DETAIL,
     detail_scale,
     ground_detail,
+    surface_detail_scale,
 )
 from outshine.materials.palette import (
     BACKFACE_REFLECTANCE,
@@ -388,7 +395,7 @@ def upload(ctx, program, name, vertices, faces, placements, *, ground_blend=None
         blend = ctx.buffer(ground_blend.tobytes())
         content.append((blend, "1f", "groundBlend"))
         buffers.append(blend)
-    if name.endswith((" bark", " crown")):
+    if name.endswith((" bark", " crown", " rock")):
         a, b, c = vertices[faces].transpose(1, 0, 2)
         area_normals = np.cross(b - a, c - a)
         normals = np.zeros_like(vertices)
@@ -614,7 +621,9 @@ def cover_texture(ctx, cover):
     return texture, cover.transform
 
 
-def draw_surfaces(ctx, prog, draws, textures, terrain, *, capture=False, bed_map=None):
+def draw_surfaces(
+    ctx, prog, draws, textures, terrain, frame, *, capture=False, bed_map=None
+):
     cover_mode = None
     for batch in draws:
         name = batch.name
@@ -647,19 +656,31 @@ def draw_surfaces(ctx, prog, draws, textures, terrain, *, capture=False, bed_map
         prog["hasShoreSubstrate"].value = shore
         prog["hasGroundBlend"].value = target is not None
         prog["hasDetail"].value = detail is not None
-        prog["blendDetailAxes"].value = base.endswith(" bark")
+        prog["detailVaried"].value = detail in VARIED_DETAILS
+        prog["blendDetailAxes"].value = (
+            base.endswith(" bark") or detail == "granodiorite"
+        )
         prog["planarDetail"].value = detail in PLANAR_DETAILS
         prog["detailTint"].value = DETAIL_TINTS.get(detail, (1, 1, 1))
         if water:
             bed_map.use(2)
         elif detail is not None:
-            prog["detailScale"].value = detail_scale(detail)
+            prog["detailScale"].value = surface_detail_scale(detail, base)
             detail_texture(ctx, textures, detail).use(2)
+            if detail in VARIED_DETAILS:
+                fine, broad, _ = detail_scale(detail)
+                prog["detailFineOffset"].value = tuple(frame.offset(fine))
+                prog["detailBroadOffset"].value = tuple(frame.offset(broad))
         if target is not None:
             overlay = SURFACE_DETAIL[target]
-            prog["overlayScale"].value = detail_scale(overlay)
+            prog["overlayScale"].value = surface_detail_scale(overlay, target)
             prog["overlayColour"].value = SURFACES[target][0]
             prog["overlayTint"].value = DETAIL_TINTS.get(overlay, (1, 1, 1))
+            prog["overlayVaried"].value = overlay in VARIED_DETAILS
+            if overlay in VARIED_DETAILS:
+                fine, broad, _ = detail_scale(overlay)
+                prog["overlayFineOffset"].value = tuple(frame.offset(fine))
+                prog["overlayBroadOffset"].value = tuple(frame.offset(broad))
             detail_texture(ctx, textures, overlay).use(12)
         if shore:
             texture, transform = terrain[SHORE_SUBSTRATE]
@@ -705,7 +726,9 @@ def capture_reflections(
                 *plane.normal,
                 plane.offset + LEVEL_TOLERANCE_M / 2,
             )
-            draw_surfaces(ctx, prog, draws, textures, terrain, capture=True)
+            draw_surfaces(
+                ctx, prog, draws, textures, terrain, world.detail_frame, capture=True
+            )
     prog["reflectionCapture"].value = False
     prog["eye"].value = tuple(world.eye)
     capture.release()
@@ -833,6 +856,13 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False, street_sky
     sky.use(2)
     prog["detailMap"].value = 2
     prog["overlayMap"].value = 12
+    frame = world.detail_frame
+    prog["detailFrameScale"].value = tuple(frame.scale)
+    prog["detailWaves"].write(WAVES.astype("f4").tobytes())
+    prog["waveMetres"].value = tuple(WARP_METRES)
+    prog["broadWaveStretch"].value = WAVE_STRETCH[1]
+    prog["fineWavePhase"].value = tuple(frame.phase(WAVE_STRETCH[0]))
+    prog["broadWavePhase"].value = tuple(frame.phase(WAVE_STRETCH[1]))
     prog["barkBoxBlend"].value = BARK_BOX_BLEND
     bed = world.water_bed
     transmission = bed.transmission if bed is not None else np.zeros((1, 1, 3))
@@ -907,7 +937,7 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False, street_sky
     )
     target.use()
     prog["viewProjection"].write(m.T.astype("f4").tobytes())
-    draw_surfaces(ctx, prog, draws, textures, terrain_maps, bed_map=bed_map)
+    draw_surfaces(ctx, prog, draws, textures, terrain_maps, frame, bed_map=bed_map)
     for batch in draws:
         batch.release()
     for texture in textures.values():

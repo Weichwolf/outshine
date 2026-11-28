@@ -42,6 +42,14 @@ Pliscoff. `potential_community` reports that regional source separately from
 mapped or satellite-observed cover. It is empty outside the supplied layer.
 [Geoportal de Chile](https://geoportal.cl/geoportal/catalog/32581/Pisos%20vegetacionales%20de%20Luebert%20y%20Pliscoff%202017)
 
+The Hidden Valley windows also include the park's observed vegetation
+associations and geological units. `observed_vegetation` reports the mapped
+cover and height classes. `geology` identifies the mapped parent material.
+Both sources describe areas and leave individual plant and boulder positions
+to the procedural recipes.
+[NPS geology](https://irma.nps.gov/DataStore/Reference/Profile/2209598) ·
+[Park vegetation inventory](https://www.nps.gov/im/vmi-jotr.htm)
+
 `shore-substrates.json` associates a mapped water body with documented
 mineral shore material. The reference uses the solved shoreline contact for
 moisture, deposits and the adjacent plant exclusion.
