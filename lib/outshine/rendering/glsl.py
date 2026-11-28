@@ -2,6 +2,7 @@
 
 import json
 import re
+from dataclasses import dataclass
 from itertools import chain
 from pathlib import Path
 from time import perf_counter
@@ -306,6 +307,49 @@ def projection(world):
     return clip @ view, right * t * 1280 / 720, up * t
 
 
+@dataclass(frozen=True, slots=True)
+class DrawBatch:
+    name: str
+    vao: moderngl.VertexArray
+    points: moderngl.Buffer
+    indices: moderngl.Buffer
+    placements: np.ndarray
+    bounds: tuple[np.ndarray, np.ndarray] | None
+    instance_and_vertex_buffers: tuple[moderngl.Buffer, ...]
+
+    def release(self):
+        self.vao.release()
+        self.points.release()
+        self.indices.release()
+        for buffer in self.instance_and_vertex_buffers:
+            buffer.release()
+
+
+def world_caster_bounds(vertices, placements):
+    coordinates = vertices.T
+    lower = np.array([axis.min() for axis in coordinates])
+    upper = np.array([axis.max() for axis in coordinates])
+    centre, half_size = (lower + upper) * 0.5, (upper - lower) * 0.5
+    position, angle, scale = placements[:, :3], placements[:, 3], placements[:, 4]
+    cosine, sine = np.cos(angle), np.sin(angle)
+    axes = np.zeros((len(placements), 3, 3), dtype="f4")
+    axes[:, 0, 0], axes[:, 0, 1] = cosine, sine
+    axes[:, 1, 0], axes[:, 1, 1] = -sine, cosine
+    axes[:, 2, 2] = 1
+    centre = position + scale[:, None] * (centre @ axes)
+    half_axes = axes * (scale[:, None] * half_size)[:, :, None]
+    return centre, half_axes
+
+
+def shadow_caster_mask(projection, centres, half_axes):
+    """Project oriented bounds into the orthographic shadow clip volume."""
+    transform = projection[:3, :3].T
+    centre = centres @ transform + projection[:3, 3]
+    half_size = np.abs(half_axes @ transform).sum(axis=1)
+    # Allow for float32 differences between CPU bounds and the vertex shader.
+    return (np.abs(centre) <= 1.0001 + half_size).all(axis=1)
+
+
 def upload(ctx, program, name, vertices, faces, placements, *, ground_litter=None):
     faces = np.asarray(faces, dtype="i4")
     if not faces.size:
@@ -313,14 +357,15 @@ def upload(ctx, program, name, vertices, faces, placements, *, ground_litter=Non
     if faces.shape[1] == 4:
         faces = faces[:, [0, 1, 2, 0, 2, 3]]
     vertices = np.asarray(vertices, dtype="f4")
+    placements = np.asarray(placements, dtype="f4")
     points = ctx.buffer(vertices.tobytes())
     idx = ctx.buffer(faces.tobytes())
-    instances = ctx.buffer(np.asarray(placements, dtype="f4").tobytes())
+    instances = ctx.buffer(placements.tobytes())
     content = [
         (points, "3f", "position"),
         (instances, "4f 1f /i", "offsetAngle", "scale"),
     ]
-    buffers = [instances, idx, points]
+    buffers = [instances]
     if ground_litter is not None:
         litter = ctx.buffer(ground_litter.tobytes())
         content.append((litter, "1f", "groundLitter"))
@@ -337,7 +382,16 @@ def upload(ctx, program, name, vertices, faces, placements, *, ground_litter=Non
         content.append((shaded, "3f", "vertexNormal"))
         buffers.append(shaded)
     vao = ctx.vertex_array(program, content, idx)
-    return name, len(placements), vao, tuple(buffers)
+    bounds = world_caster_bounds(vertices, placements) if len(placements) > 1 else None
+    return DrawBatch(
+        name,
+        vao,
+        points,
+        idx,
+        placements,
+        bounds,
+        tuple(buffers),
+    )
 
 
 def shadow_projection(world, span, forward_offset, *, resolution=None):
@@ -359,7 +413,35 @@ def shadow_projection(world, span, forward_offset, *, resolution=None):
     return light
 
 
-def shadow_depth(ctx, prog, draws, light, size):
+def shadow_casters(ctx, prog, draws, projection):
+    casters, filtered = [], []
+    for batch in draws:
+        if batch.name in WATER_MATERIALS:
+            continue
+        if batch.bounds is None:
+            casters.append((len(batch.placements), batch.vao))
+            continue
+        keep = shadow_caster_mask(projection, *batch.bounds)
+        count = np.count_nonzero(keep)
+        if not count:
+            continue
+        vao = batch.vao
+        if count != len(batch.placements):
+            instances = ctx.buffer(batch.placements[keep].tobytes())
+            vao = ctx.vertex_array(
+                prog,
+                [
+                    (batch.points, "3f", "position"),
+                    (instances, "4f 1f /i", "offsetAngle", "scale"),
+                ],
+                batch.indices,
+            )
+            filtered.extend((vao, instances))
+        casters.append((count, vao))
+    return casters, filtered
+
+
+def shadow_depth(ctx, prog, casters, light, size):
     texture = ctx.depth_texture((size, size))
     texture.repeat_x = texture.repeat_y = False
     texture.filter = (moderngl.LINEAR, moderngl.LINEAR)
@@ -367,9 +449,8 @@ def shadow_depth(ctx, prog, draws, light, size):
     target.use()
     target.clear(depth=1)
     prog["viewProjection"].write(light)
-    for name, count, vao, _ in draws:
-        if name not in WATER_MATERIALS:
-            vao.render(instances=count)
+    for count, vao in casters:
+        vao.render(instances=count)
     target.release()
     return texture
 
@@ -402,14 +483,22 @@ def render_shadows(ctx, prog, draws, world):
     for name, unit in blocker_units:
         placeholder.use(unit)
         prog[name].value = unit
+    caster_lists = [
+        shadow_casters(ctx, prog, draws, matrix) for _, _, _, matrix, _ in passes
+    ]
     prog["shadowPass"].value = True
     query = ctx.query(time=True)
     with query:
         textures = [
-            shadow_depth(ctx, prog, draws, matrix.T.astype("f4").tobytes(), size)
-            for _, _, _, matrix, size in passes
+            shadow_depth(ctx, prog, casters, matrix.T.astype("f4").tobytes(), size)
+            for (_, _, _, matrix, size), (casters, _) in zip(
+                passes, caster_lists, strict=True
+            )
         ]
     prog["shadowPass"].value = False
+    for _, resources in caster_lists:
+        for resource in resources:
+            resource.release()
     for (_, _, unit, _, _), texture in zip(passes, textures, strict=True):
         texture.use(unit)
     depth_samplers = []
@@ -436,7 +525,8 @@ def detail_texture(ctx, textures, detail):
 
 
 def draw_surfaces(ctx, prog, draws, textures, *, capture=False):
-    for name, count, vao, _ in draws:
+    for batch in draws:
+        name = batch.name
         water = name in WATER_MATERIALS
         if capture and water:
             continue
@@ -459,7 +549,7 @@ def draw_surfaces(ctx, prog, draws, textures, *, capture=False):
             detail_texture(ctx, textures, detail).use(2)
         if litter:
             detail_texture(ctx, textures, "leaf litter").use(12)
-        vao.render(instances=count)
+        batch.vao.render(instances=len(batch.placements))
 
 
 def capture_reflections(ctx, prog, draws, textures, world, projection_matrix, planes):
@@ -676,10 +766,8 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False):
     target.use()
     prog["viewProjection"].write(m.T.astype("f4").tobytes())
     draw_surfaces(ctx, prog, draws, textures)
-    for _, _, vao, buffers in draws:
-        vao.release()
-        for buffer in buffers:
-            buffer.release()
+    for batch in draws:
+        batch.release()
     for texture in textures.values():
         texture.release()
     for shadow in shadow_maps:

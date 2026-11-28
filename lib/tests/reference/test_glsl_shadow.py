@@ -1,11 +1,56 @@
 import unittest
-from math import tan
+from math import pi, tan
 
 import numpy as np
 from outshine.rendering.image import gl_context
 
 
 class GlslShadowTest(unittest.TestCase):
+    def test_shadow_caster_culling_preserves_clipped_depth(self):
+        try:
+            import moderngl
+            from outshine.rendering import glsl
+
+            context = gl_context()
+        except Exception as error:  # noqa: BLE001 - glcontext can raise a plain Exception.
+            self.skipTest(f"GLSL context unavailable: {error}")
+
+        with context as ctx:
+            program = ctx.program(
+                vertex_shader=glsl.shader(glsl.HERE / "reference.vert"),
+                fragment_shader="#version 410 core\nvoid main() {}\n",
+            )
+            ctx.enable(moderngl.DEPTH_TEST)
+            placements = [
+                (0, 0, 0, 0, 0.3),
+                (1.5, 0.5, -0.3, pi, 0.6),
+                (0, -1.4, 0.2, pi / 2, 0.5),
+                (4, 0, 0, 0, 1),
+                (0, 0, 3, 0, 1),
+            ]
+            batch = glsl.upload(
+                ctx,
+                program,
+                "foliage",
+                [(0, 0, 0), (2, 0, 0), (0, 0.8, 0)],
+                [(0, 1, 2)],
+                placements,
+            )
+            projection = np.eye(4, dtype="f4")
+            light = projection.T.tobytes()
+            casters, resources = glsl.shadow_casters(ctx, program, [batch], projection)
+            self.assertEqual([count for count, _ in casters], [3])
+            full = glsl.shadow_depth(
+                ctx, program, [(len(placements), batch.vao)], light, 64
+            )
+            culled = glsl.shadow_depth(ctx, program, casters, light, 64)
+            before = full.read()
+            self.assertLess(np.frombuffer(before, dtype="f4").min(), 1)
+            self.assertEqual(culled.read(), before)
+            for resource in (full, culled, *resources):
+                resource.release()
+            batch.release()
+
     def test_local_solar_shadows_keep_contact_and_soften_with_distance(self):
         try:
             import moderngl
