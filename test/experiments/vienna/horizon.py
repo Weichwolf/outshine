@@ -7,6 +7,8 @@ from outshine_ref.places.camera import axes, ecef
 from outshine_ref.places.height import Elevation
 from outshine_ref.places.sources import acquire
 
+HORIZON_RANGE_M = 100_000
+
 
 def terrain_horizon(source, cache, radius):
     edge = np.linspace(-1, 1, 129)[:-1]
@@ -19,7 +21,7 @@ def terrain_horizon(source, cache, radius):
             np.c_[-side, -edge],
         ]
     )
-    radii = np.geomspace(radius, 100000, 240)
+    radii = np.geomspace(radius, HORIZON_RANGE_M, 240)
     xy = radii[:, None, None] * perimeter
     lon, lat = (xy.reshape(-1, 2) / source.metres + [source.lon, source.lat]).T
     world = np.column_stack(
