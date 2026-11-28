@@ -9,7 +9,13 @@ import shapely
 from outshine_ref.vegetation import PlantPlan
 from outshine_ref.vegetation.curve_frame import arc_frame
 from scene_mesh import terrain_grid, terrain_height
-from woodland import crown_leaf_frames, represented_leaves, stand_plan, woodland_surface
+from woodland import (
+    avenue_plan,
+    crown_leaf_frames,
+    represented_leaves,
+    stand_plan,
+    woodland_surface,
+)
 from woodland_stem import lean_tree, rooted_stem, template_stem
 
 
@@ -101,35 +107,52 @@ class WoodlandTest(unittest.TestCase):
 
     def test_near_and_instanced_stems_enclose_the_same_first_branch(self):
         position = np.array([1.0, -2.0, -0.08])
-        for species in ("oak", "beech"):
+        for species in ("oak", "beech", "chestnut"):
             for form in (0, 1):
                 with self.subTest(species=species, form=form):
-                    plan = stand_plan(species, form)
-                    oak = species == "oak"
-                    near = (
-                        rooted_stem(
-                            plan,
-                            shapely.box(-5, -5, 5, 5),
-                            lambda xy: np.zeros(len(xy)),
-                            position,
-                            0,
-                            1,
-                            oak=oak,
-                            seed=9217,
-                        )["vertices"]
-                        - position
+                    plan = (
+                        avenue_plan(form)
+                        if species == "chestnut"
+                        else stand_plan(species, form)
                     )
-                    template = template_stem(plan, oak=oak)["vertices"]
+                    oak = species == "oak"
+                    rooted = rooted_stem(
+                        plan,
+                        shapely.box(-5, -5, 5, 5),
+                        lambda xy: np.zeros(len(xy)),
+                        position,
+                        0,
+                        1,
+                        oak=oak,
+                        seed=9217,
+                    )
+                    instance = template_stem(plan, oak=oak)
+                    near, template = rooted["vertices"] - position, instance["vertices"]
                     stem, branch = plan.axis(()), plan.axis((0,))
-                    _, direction, _, _ = arc_frame(
+                    _, direction, lateral, normal = arc_frame(
                         stem.length, stem.bend, 0, branch.parent_parameter
                     )
                     tangent = stem.frame @ direction
+                    section_frame = stem.frame @ np.column_stack((lateral, normal))
                     radius, _ = plan.radii((0,))
-                    for vertices in (near, template):
+                    for vertices, mesh in ((near, rooted), (template, instance)):
                         drift = lean_tree(plan, vertices, oak=oak) - vertices
                         from_union = vertices - drift - branch.origin
-                        union = from_union[abs(from_union @ tangent) < 1e-8]
-                        self.assertGreaterEqual(len(union), 8)
-                        self.assertGreater(np.linalg.norm(union, axis=1).min(), radius)
+                        axial = from_union @ tangent
+                        edges = mesh["faces"][:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2)
+                        left, right = edges[
+                            (axial[edges[:, 0]] * axial[edges[:, 1]]) < 0
+                        ].T
+                        weight = axial[left] / (axial[left] - axial[right])
+                        cut = from_union[left] + weight[:, None] * (
+                            from_union[right] - from_union[left]
+                        )
+                        cut = np.vstack((cut, from_union[abs(axial) < 1e-8]))
+                        points = np.unique(np.round(cut @ section_frame, 8), axis=0)
+                        angles = np.arctan2(points[:, 1], points[:, 0])
+                        surface = shapely.Polygon(points[np.argsort(angles)])
+                        self.assertTrue(surface.contains(shapely.Point(0, 0)))
+                        self.assertGreater(
+                            surface.boundary.distance(shapely.Point(0, 0)), radius
+                        )
                     np.testing.assert_allclose(near[-1], template[-1], atol=1e-12)
