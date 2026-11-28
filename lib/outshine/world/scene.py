@@ -33,7 +33,8 @@ from outshine.vegetation.open_cover import (
     ACACIA_COMMIPHORA_BUSHLANDS,
     RegionalOpenCover,
 )
-from outshine.vegetation.regional_woody import savanna_woody
+from outshine.vegetation.patagonian_shrub import PATAGONIAN_COMMUNITIES
+from outshine.vegetation.regional_woody import savanna_woody, steppe_shrubs
 from outshine.vegetation.understory import woodland_cover
 from outshine.vegetation.woodland import habitat, tree_batches
 from outshine.vegetation.woodland_shrubs import woodland_shrubs
@@ -67,6 +68,38 @@ SAVANNA_SURFACES = {
     "grass": "dry savanna soil",
     "unpaved road": "savanna unpaved road",
 }
+PATAGONIAN_SURFACES = {
+    "ground": "patagonian gravel soil",
+    "grass": "patagonian gravel soil",
+    "unpaved path": "patagonian gravel soil",
+    "unpaved road": "patagonian unpaved road",
+}
+
+
+def soil_surfaces(cover):
+    if cover is None:
+        return {}
+    source = cover.source
+    sample = cover.atlas.sample(source.lat, source.lon)
+    soil = sample.soil
+    if soil is None or soil.sand_g_kg is None:
+        return {}
+    if (
+        sample.ecoregion_id == ACACIA_COMMIPHORA_BUSHLANDS
+        and cover.dry_savanna
+        and soil.clay_g_kg is not None
+        and 450 <= soil.sand_g_kg <= 650
+        and 200 <= soil.clay_g_kg <= 380
+    ):
+        return SAVANNA_SURFACES
+    if (
+        sample.potential_community in PATAGONIAN_COMMUNITIES
+        and soil.coarse_fragments_pct is not None
+        and 450 <= soil.sand_g_kg <= 750
+        and soil.coarse_fragments_pct >= 5
+    ):
+        return PATAGONIAN_SURFACES
+    return {}
 
 
 def direction(bearing, altitude):
@@ -265,20 +298,7 @@ class ReferenceScene:
             if atlas_path is not None
             else None
         )
-        self.savanna_soil = False
-        if self.open_cover is not None and self.open_cover.dry_savanna:
-            habitat_sample = self.open_cover.atlas.sample(
-                self.source.lat, self.source.lon
-            )
-            soil = habitat_sample.soil
-            self.savanna_soil = (
-                habitat_sample.ecoregion_id == ACACIA_COMMIPHORA_BUSHLANDS
-                and soil is not None
-                and soil.sand_g_kg is not None
-                and soil.clay_g_kg is not None
-                and 450 <= soil.sand_g_kg <= 650
-                and 200 <= soil.clay_g_kg <= 380
-            )
+        self.soil_surfaces = soil_surfaces(self.open_cover)
         self.sun = direction(azimuth(observer, utc), elevation(observer, utc))
         self.weather = place.get("weather", config.get("weather", "clear"))
         self.aerosol_extinction = aerosol_extinction(self.weather)
@@ -317,9 +337,7 @@ class ReferenceScene:
 
     def surfaces(self, *, crown_sites=None):
         for name, (verts, faces) in self.local.items():
-            if self.savanna_soil:
-                name = SAVANNA_SURFACES.get(name, name)
-            yield name, verts, faces
+            yield self.soil_surfaces.get(name, name), verts, faces
         yield from control_surfaces(self.source, self.water_plan)
         bounds = []
         for products, tile in regional_meshes(
@@ -392,7 +410,7 @@ class ReferenceScene:
         )
 
     def ground_blend(self, name, vertices):
-        if name == "savanna unpaved road":
+        if name == self.soil_surfaces.get("unpaved road"):
             name = "unpaved road"
         if vertices is not self.local.get(name, (None,))[0]:
             return None
@@ -411,6 +429,7 @@ class ReferenceScene:
     def woody_plants(self, seed, *, eye_route=None, skylight=False):
         if self.open_cover is not None:
             yield from savanna_woody(self.open_cover, self.local, self.eye[:2], seed)
+            yield from steppe_shrubs(self.open_cover, self.local, self.eye[:2], seed)
         root_domain = shapely.union_all((self.woodland_floor, self.stands.verges))
         yield from tree_batches(
             self.source,

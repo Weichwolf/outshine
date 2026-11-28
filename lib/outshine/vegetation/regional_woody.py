@@ -1,4 +1,4 @@
-"""Place sparse savanna crowns from the atlas on solved site-local terrain."""
+"""Place atlas-selected woody growth on solved site-local terrain."""
 
 import numpy as np
 import shapely
@@ -9,6 +9,7 @@ from outshine.vegetation.open_cover import (
     mesh_footprint,
     planting_surface,
 )
+from outshine.vegetation.patagonian_shrub import SHRUB_PROFILE, patagonian_shrub
 from outshine.vegetation.plant_sites import patch_density, tile_sites
 from outshine.vegetation.umbrella_thorn import PROFILE_ID, TAXON_ID, umbrella_thorn
 from outshine.vegetation.woodland_sites import spaced_sites
@@ -17,6 +18,8 @@ SAVANNA_REACH_M = 225.0
 MIN_SPACING_M = 8.5
 DETAILED_REACH_M = 49.0
 VARIANTS = 4
+STEPPE_REACH_M = 155.0
+STEPPE_SPACING_M = 0.90
 
 
 def savanna_woody(cover, surfaces, eye_xy, seed):
@@ -85,3 +88,72 @@ def savanna_woody(cover, surfaces, eye_xy, seed):
                             (xy[group], heights[group], yaw[group], scale[group])
                         ),
                     )
+
+
+def steppe_shrubs(cover, surfaces, eye_xy, seed):
+    source = cover.source
+    reach = STEPPE_REACH_M + STEPPE_SPACING_M
+    candidates = list(
+        tile_sites(source, eye_xy, reach, seed ^ 0xC285, density=0.056, cell_size=12)
+    )
+    if not candidates:
+        return
+    xy, marks = (np.concatenate(rows) for rows in zip(*candidates, strict=True))
+    land, _ = cover.land_cells(xy)
+    habitat = cover.steppe(xy, land)
+    xy, marks, land = xy[habitat], marks[habitat], land[habitat]
+    if not len(xy):
+        return
+    patch = patch_density(source, xy, seed ^ 0x958B, scale=3.4)
+    probability = np.where(
+        land == 60, 0.022 + 0.50 * patch**2.8, 0.12 + 0.85 * patch**1.8
+    )
+    planted = marks[:, 2] < probability
+    xy, marks = xy[planted], marks[planted]
+    if not len(xy):
+        return
+    ground = planting_surface(surfaces, eye_xy, reach=reach)
+    if ground is None:
+        return
+    footprint = mesh_footprint(ground)
+    routes = planting_surface(surfaces, eye_xy, ROUTE_MATERIALS, reach=reach + 2)
+    if routes is not None:
+        footprint = footprint.difference(mesh_footprint(routes))
+    points = shapely.points(xy)
+    heights = surface_elevations(ground, xy)
+    scale = 0.45 + 0.90 * np.mod(marks[:, 0] * 7, 1)
+    clearance = shapely.distance(footprint.boundary, points)
+    supported = np.isfinite(heights) & shapely.contains(footprint, points)
+    xy, marks, heights, scale, clearance = (
+        value[supported] for value in (xy, marks, heights, scale, clearance)
+    )
+    if not len(xy):
+        return
+    distance = np.linalg.norm(xy - eye_xy, axis=1)
+    visible = spaced_sites(xy, marks[:, 0], STEPPE_SPACING_M) & (
+        distance < STEPPE_REACH_M
+    )
+    variants = (np.mod(marks[:, 0] * 17, 1) * 3).astype(int)
+    headings = 2 * np.pi * marks[:, 1]
+    detailed = distance < 24 * scale
+    for detail, high in enumerate((False, True)):
+        for variant in range(3):
+            group = visible & (detailed == high) & (variants == variant)
+            if not group.any():
+                continue
+            meshes, radius = patagonian_shrub(variant, high)
+            group &= clearance > radius * scale + 0.12
+            if group.any():
+                yield (
+                    SHRUB_PROFILE,
+                    detail * 3 + variant,
+                    meshes,
+                    np.column_stack(
+                        (
+                            xy[group],
+                            heights[group] - 0.012,
+                            headings[group],
+                            scale[group],
+                        )
+                    ),
+                )

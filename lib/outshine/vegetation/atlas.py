@@ -67,6 +67,7 @@ RASTER_DTYPES = {
     "botanical": np.dtype("<u2"),
     **dict.fromkeys(SOIL_LAYERS, np.dtype("<i2")),
 }
+COMMUNITY_DTYPE = np.dtype("<u2")
 
 
 def tile_bounds(key):
@@ -128,6 +129,7 @@ class HabitatSample:
     native_candidates: tuple[str, ...]
     introduced_candidates: tuple[str, ...]
     soil: SoilPrior | None
+    potential_community: str | None = None
 
 
 def soil_prior(values):
@@ -181,6 +183,10 @@ class VegetationAtlas:
         ):
             raise ValueError("atlas requires a matching species catalogue")
         self.species = load_species_catalog()
+        self.communities = tuple(self.manifest.get("potential_communities", ("",)))
+        self.community_indices = {
+            code: index for index, code in enumerate(self.communities) if code
+        }
         self._tiles = lru_cache(maxsize=12)(self._load_tile)
 
     def _load_tile(self, name):
@@ -191,21 +197,41 @@ class VegetationAtlas:
         data = (self.root / f"{name}-{digest}.npz").read_bytes()
         if hashlib.sha256(data).hexdigest() != digest:
             raise ValueError(f"changed vegetation atlas tile {name}")
+        dtypes = RASTER_DTYPES
+        if record.get("potential_community"):
+            dtypes = dtypes | {"community": COMMUNITY_DTYPE}
         with np.load(io.BytesIO(data), allow_pickle=False) as archive:
-            layers = {layer: archive[layer] for layer in RASTER_DTYPES}
+            layers = {layer: archive[layer] for layer in dtypes}
         if any(
-            array.shape != (TILE_CELLS, TILE_CELLS)
-            or array.dtype != RASTER_DTYPES[layer]
+            array.shape != (TILE_CELLS, TILE_CELLS) or array.dtype != dtypes[layer]
             for layer, array in layers.items()
         ):
             raise ValueError(f"invalid vegetation atlas tile {name}")
+        if "community" in layers and layers["community"].max() >= len(self.communities):
+            raise ValueError(
+                f"unknown potential community in vegetation atlas tile {name}"
+            )
         return layers
 
     def land_cells(self, latitude, longitude):
         """Read cover codes and ecoregion IDs for broadcast geographic positions."""
+        return self._cells(latitude, longitude, {"cover": "u1", "ecoregion": "<u2"})
+
+    def community_mask(self, latitude, longitude, codes):
+        """Select mapped potential communities. Missing coverage remains unknown."""
+        accepted = [
+            self.community_indices[code]
+            for code in codes
+            if code in self.community_indices
+        ]
+        if not accepted:
+            return np.zeros(np.broadcast(latitude, longitude).shape, dtype=bool)
+        (community,) = self._cells(latitude, longitude, {"community": COMMUNITY_DTYPE})
+        return np.isin(community, accepted)
+
+    def _cells(self, latitude, longitude, fields):
         x, y = grid_indices(latitude, longitude)
-        cover = np.zeros(x.shape, dtype=np.uint8)
-        regions = np.zeros(x.shape, dtype=np.uint16)
+        values = tuple(np.zeros(x.shape, dtype=dtype) for dtype in fields.values())
         keys, owners = np.unique(
             np.column_stack((x.ravel(), y.ravel())) // TILE_CELLS,
             axis=0,
@@ -220,22 +246,25 @@ class VegetationAtlas:
                 continue
             rows = order[first:stop]
             cells = y.ravel()[rows] % TILE_CELLS, x.ravel()[rows] % TILE_CELLS
-            cover.ravel()[rows] = layers["cover"][cells]
-            regions.ravel()[rows] = layers["ecoregion"][cells]
-        return cover, regions
+            for name, result in zip(fields, values, strict=True):
+                if name in layers:
+                    result.ravel()[rows] = layers[name][cells]
+        return values
 
     def sample(self, latitude, longitude, *, mapped_cover=None):
         if mapped_cover is not None and mapped_cover not in MAPPED_CLASSES:
             raise ValueError(f"unknown mapped cover {mapped_cover!r}")
         key, cell = grid_cell(latitude, longitude)
         layers = self._tiles(tile_name(key))
-        code = ecoregion = region = soil = None
+        code = ecoregion = region = soil = community = None
         if layers is not None:
             code = int(layers["cover"][cell]) or None
             ecoregion = int(layers["ecoregion"][cell]) or None
             region_index = int(layers["botanical"][cell])
             region = self.manifest["botanical_regions"][region_index] or None
             soil = soil_prior(int(layers[layer][cell]) for layer in SOIL_LAYERS)
+            if "community" in layers:
+                community = self.communities[layers["community"][cell]] or None
         cover = mapped_cover or COVER_CLASSES.get(code)
         source = "mapped" if mapped_cover else "worldcover" if cover else None
         regions = (region,) if region else ()
@@ -255,6 +284,7 @@ class VegetationAtlas:
             self.species.candidate_ids(regions),
             self.species.candidate_ids(regions, introduced=True),
             soil,
+            community,
         )
 
     def sample_local(self, source, xy):

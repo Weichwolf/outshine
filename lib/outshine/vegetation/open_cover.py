@@ -8,6 +8,7 @@ import shapely
 from outshine.terrain.ground_surface import ROUTE_MATERIALS, surface_elevations
 from outshine.terrain.land_cover import COVER_PRIORITY, cover_material
 from outshine.vegetation.graminoid import graminoid_tuft_mesh
+from outshine.vegetation.patagonian_shrub import PATAGONIAN_COMMUNITIES
 from outshine.vegetation.plant_sites import patch_density, scatter_mesh, tile_sites
 
 OPEN_COVER = {"grass", "meadow", "scrub"}
@@ -15,8 +16,14 @@ OPEN_SURFACES = ("ground", "grass", "meadow")
 REACH_M = 95.0
 SAVANNA = 1
 TUSSOCK = 2
+PATAGONIAN = 3
 ACACIA_COMMIPHORA_BUSHLANDS = 57
 NORTH_ISLAND_TEMPERATE_FORESTS = 171
+TUFT_FORMS = {
+    SAVANNA: (14, (1.30, 1.30, 0.69), 0.20, 0.12),
+    TUSSOCK: (26, (1.95, 1.95, 1.55), 0.43, 0.31),
+    PATAGONIAN: (24, (1.56, 1.56, 0.96), 0.24, 0.16),
+}
 
 
 class RegionalOpenCover:
@@ -46,24 +53,50 @@ class RegionalOpenCover:
         for _, geometry in self.overrides:
             shapely.prepare(geometry)
 
-    def open_habitat(self, xy, codes=(20, 30)):
-        lon, lat = (
+    def coordinates(self, xy):
+        return (
             np.array([self.source.lon, self.source.lat]) + xy / self.source.metres
         ).T
+
+    def land_cells(self, xy):
+        lon, lat = self.coordinates(xy)
         cover, ecoregion = self.atlas.land_cells(lat, lon)
-        open_land = np.isin(cover, codes)
         for allowed, geometry in self.overrides:
-            open_land[shapely.intersects_xy(geometry, xy[:, 0], xy[:, 1])] = allowed
-        return open_land, ecoregion
+            cover[shapely.intersects_xy(geometry, xy[:, 0], xy[:, 1])] = (
+                30 if allowed else 0
+            )
+        return cover, ecoregion
+
+    def open_habitat(self, xy, codes=(20, 30)):
+        cover, ecoregion = self.land_cells(xy)
+        return np.isin(cover, codes), ecoregion
+
+    def steppe(self, xy, cover=None):
+        if cover is None:
+            cover, _ = self.land_cells(xy)
+        eligible = np.isin(cover, (20, 30, 60))
+        if eligible.any() and PATAGONIAN_COMMUNITIES.intersection(
+            getattr(self.atlas, "community_indices", {})
+        ):
+            lon, lat = self.coordinates(xy[eligible])
+            eligible[eligible] = self.atlas.community_mask(
+                lat, lon, PATAGONIAN_COMMUNITIES
+            )
+            return eligible
+        return np.zeros(len(xy), dtype=bool)
 
     def classify(self, xy):
-        open_land, ecoregion = self.open_habitat(xy)
+        return self.groups(xy, *self.land_cells(xy))
+
+    def groups(self, xy, cover, ecoregion):
+        open_land = np.isin(cover, (20, 30))
         groups = np.zeros(len(xy), dtype=np.uint8)
         groups[open_land & (ecoregion == ACACIA_COMMIPHORA_BUSHLANDS)] = SAVANNA
         upslope = open_land & (ecoregion == NORTH_ISLAND_TEMPERATE_FORESTS)
         if upslope.any():
             elevation = self.source.height(xy[upslope]) + self.source.datum
             groups[upslope] = np.where(elevation >= 1000, TUSSOCK, 0)
+        groups[self.steppe(xy, cover)] = PATAGONIAN
         return groups
 
     def replaces(self, xy):
@@ -78,7 +111,8 @@ class RegionalOpenCover:
         if not candidates:
             return
         xy, marks = (np.concatenate(rows) for rows in zip(*candidates, strict=True))
-        groups = self.classify(xy)
+        land, ecoregion = self.land_cells(xy)
+        groups = self.groups(xy, land, ecoregion)
         patch = patch_density(self.source, xy, seed, scale=6)
         distance = np.linalg.norm(xy - eye[:2], axis=1)
         middle = np.clip((distance - 13) / 39, 0, 1)
@@ -86,7 +120,13 @@ class RegionalOpenCover:
         distance_density = 1.0 - 0.84 * middle**2 * (3 - 2 * middle)
         savanna_cover = 0.29 + 0.70 * patch**1.4
         tussock_cover = 0.07 + 0.53 * patch**1.9
-        probability = np.where(groups == SAVANNA, savanna_cover, tussock_cover)
+        steppe_cover = np.where(
+            land == 60, 0.018 + 0.30 * patch**3.2, 0.15 + 0.78 * patch**1.25
+        )
+        probability = np.select(
+            (groups == SAVANNA, groups == TUSSOCK, groups == PATAGONIAN),
+            (savanna_cover, tussock_cover, steppe_cover),
+        )
         probability *= distance_density * outer
         selected = (groups != 0) & (marks[:, 2] < probability)
         if not selected.any():
@@ -144,9 +184,7 @@ def mesh_footprint(mesh):
 
 @cache
 def tuft_geometry(profile, detailed, variant):
-    blades, shape = (
-        (14, (1.30, 1.30, 0.69)) if profile == SAVANNA else (26, (1.95, 1.95, 1.55))
-    )
+    blades, shape, spread, droop = TUFT_FORMS[profile]
     if not detailed:
         blades = (blades + 2) // 3
     seed = 0x9A43 + 113 * profile + 47 * variant
@@ -157,7 +195,6 @@ def tuft_geometry(profile, detailed, variant):
     radial_angle = mesh["blade_index"] * 2.39996 + rng.uniform(0, 2 * np.pi)
     directions = np.column_stack((np.cos(radial_angle), np.sin(radial_angle)))
     along = mesh["uv"][:, 1]
-    spread, droop = (0.20, 0.12) if profile == SAVANNA else (0.43, 0.31)
     offset = splay * (0.02 + spread * along)
     vertices[:, :2] += directions * offset[:, None]
     vertices[:, 2] -= droop * splay * along**2
@@ -167,13 +204,15 @@ def tuft_geometry(profile, detailed, variant):
 
 
 def draw_tufts(anchors, marks, groups, distance, scale, clearance, dry_savanna):
-    dry = marks[:, 1] < np.where(groups == TUSSOCK, 0.77, 0.82 if dry_savanna else 0.15)
+    dry_share = np.choose(groups, (0, 0.82 if dry_savanna else 0.15, 0.77, 0.84))
+    dry = marks[:, 1] < dry_share
     angles = 2 * np.pi * marks[:, 0]
     variants = np.floor(np.mod(marks[:, 0] * 11, 1) * 3).astype(int)
     near = distance < 21 + 7 * marks[:, 1]
     for profile, green, straw in (
         (SAVANNA, "savanna grass blades", "savanna straw blades"),
         (TUSSOCK, "tussock green blades", "tussock straw blades"),
+        (PATAGONIAN, "patagonian grass blades", "patagonian straw blades"),
     ):
         for detailed in (False, True):
             for variant in range(3):

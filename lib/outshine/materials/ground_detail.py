@@ -21,6 +21,7 @@ DETAIL_SCALES = {
     CROWN_DETAIL: (24.8, 127.9, 0.48),
     MEADOW_DETAIL: (MEADOW_TILE_M, 31.0, HEIGHT_SPAN_M),
     "umbrella thorn bark": (1.30, 8.0, 0.020),
+    "gravelly soil": (3.40, 54.0, HEIGHT_SPAN_M),
 }
 DETAIL_TINTS = {"beech bark": (0.86, 1.0, 0.78), "leaf litter": (0.53, 1.26, 0.66)}
 SIZE = 512
@@ -38,6 +39,7 @@ SURFACE_DETAIL = {
     "window sill": "concrete",
     "ground": "soil",
     "dry savanna soil": "sandy clay loam",
+    "patagonian gravel soil": "gravelly soil",
     "forest floor": "leaf litter",
     "regional wood": CANOPY_DETAIL,
     "needle crown": CROWN_DETAIL,
@@ -51,6 +53,7 @@ SURFACE_DETAIL = {
     "unpaved path": "compacted",
     "unpaved road": "compacted road",
     "savanna unpaved road": "compacted road",
+    "patagonian unpaved road": "compacted road",
     "wall": "plaster",
     "street base": "plaster",
     "street trim": "concrete",
@@ -159,6 +162,7 @@ def ground_detail(name):
         "umbrella thorn bark",
         "sandy clay loam",
         "compacted road",
+        "gravelly soil",
     ).index(name)
     rng = np.random.default_rng(seed)
     fine, grain, patches = (noise(rng, scale) for scale in (0.65, 1.6, 12))
@@ -213,6 +217,14 @@ def ground_detail(name):
         roughness = 0.88 + 0.045 * dust + 0.029 * gravel
         height = 0.0039 * gravel + 0.00072 * grain + 0.00095 * dust
         macro = 0.5 + 0.18 * dust
+    elif name == "gravelly soil":
+        beds = np.tanh(0.71 * noise(rng, 17) + 0.40 * patches)
+        stones = np.clip(noise(rng, 3.7) + 0.40 * beds - 0.88, 0, 1.45)
+        fines = np.tanh(0.56 * grain + 0.55 * patches)
+        tint = 0.86 + 0.19 * beds + 0.25 * stones + 0.13 * fines
+        roughness = 0.94 - 0.11 * stones + 0.02 * fines
+        height = 0.0093 * stones + 0.0014 * beds + 0.00046 * fine
+        macro = 0.5 + 0.20 * noise(rng, 24)
     elif name == "leaf litter":
         tint, roughness, height, macro = bake_litter(
             rng, fine, grain, noise(rng, 30), noise(rng, 15), patches, DETAIL_SPAN_M
