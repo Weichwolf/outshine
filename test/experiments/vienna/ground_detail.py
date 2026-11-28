@@ -224,13 +224,20 @@ def ground_detail(name):
         height = -0.0027 * scars + 0.00088 * lichen + 0.00034 * grain
         macro = lichen
     elif name == "chestnut bark":
-        plates = noise(rng, (14, 5)) + 0.45 * noise(rng, (25, 9))
-        lifted = np.clip(0.5 + 0.65 * plates, 0, 1)
-        seams = np.exp(-(((plates + 0.29) / 0.27) ** 2))
-        split = np.maximum(0.7 * noise(rng, (5, 2)) - 0.38, 0)
-        tint = 0.78 + 0.40 * lifted - 0.33 * seams - 0.16 * split + 0.14 * patches
-        roughness = 0.89 + 0.023 * grain + 0.034 * seams
-        height = 0.0043 * lifted - 0.0037 * seams - 0.0016 * split + 0.00045 * fine
+        y, x = np.indices((SIZE, SIZE), dtype=np.float32)
+        shift = 4.3 * noise(rng, (19, 8)) + 1.8 * noise(rng, (7, 5))
+        grain_flow = map_coordinates(
+            noise(rng, (18, 2.0)), [y, x + shift], order=1, mode="grid-wrap"
+        )
+        scales = np.tanh(0.55 * noise(rng, (7, 3.2)) + 0.35 * grain_flow)
+        fissures = np.exp(-(((grain_flow + 0.24 * scales) / 0.27) ** 2))
+        cross_breaks = np.clip(-noise(rng, (1.7, 4.7)) - 0.88, 0, 1)
+        flecks = np.maximum(noise(rng, (2.1, 1.0)) - 0.6, 0)
+        tint = 0.98 + 0.20 * scales - 0.48 * fissures - 0.21 * cross_breaks
+        tint += 0.10 * patches + 0.10 * flecks
+        roughness = 0.90 + 0.020 * grain + 0.034 * fissures
+        height = 0.0028 * scales - 0.0050 * fissures - 0.0021 * cross_breaks
+        height += 0.00062 * fine + 0.00085 * flecks
     elif name == "spruce bark":
         plates = noise(rng, (5.4, 4.0)) + 0.42 * noise(rng, (12, 8))
         lifted = np.clip(0.55 + 0.77 * plates, 0, 1)
@@ -269,7 +276,7 @@ def ground_detail(name):
         ),
         axis=-1,
     ).astype("f4")
-    if name in ("leaf", "beech bark", "chestnut bark", CROWN_DETAIL):
+    if name in ("leaf", "beech bark", CROWN_DETAIL):
         half = SIZE // 2
         return pixels.reshape(half, 2, half, 2, 4).mean(axis=(1, 3))
     return pixels

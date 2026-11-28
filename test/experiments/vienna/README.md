@@ -29,7 +29,9 @@ When using Cycles with `--repeat`, the fixed camera also reuses the scene data a
 chestnut. Use it alongside `Hauptallee-Avenue` and `Dechantlacke-Stem-Oblique` to
 inspect limb collars and the outline of the joined wood. Manifold builds the shared
 surface of broadleaf stems and their main limbs within the 32 m detailed stem range. Fillet
-displacement fades with distance from the joins.
+displacement fades with distance from the joins. The low-forked oak, beech and horse
+chestnut forms send their first substantial limb upward. Higher-forked forms retain a
+longer clear bole.
 
 Managed horse chestnuts carry opposite leaves on wider-reaching limbs. Each
 detailed leaf has an 11 cm stalk and five or seven leaflets joined at its tip.
@@ -329,9 +331,9 @@ with unequal directions and reach. The root surface follows the terrain and blen
 the original bole over six trunk radii. Root spread contracts at path and water boundaries.
 A lower-resolution mesh retains the stem profile and branch attachments beyond 32 m.
 Oak has fissures between elongated plates, beech has fine grain and lichen patches,
-and spruce has smaller bark scales. The park rows use chestnut-inspired stems and
-darker plated bark. Compare roots at Wienerwald-Woodland, branch unions from the neighbouring
-camera at Dechantlacke-Stem-Oblique, and the steep spruce margin at Koerbersee-TreeLine.
+and spruce has smaller bark scales. The horse chestnuts in the park rows have darker bark
+with fine longitudinal fissures and shorter cross-breaks. Compare roots at Wienerwald-Woodland,
+branch unions at Dechantlacke-Stem-Oblique, and the steep spruce margin at Koerbersee-TreeLine.
 [Weber and Penn, Creation and Rendering of Realistic Trees](https://doi.org/10.1145/218380.218427) ·
 [Hauptallee, 9 August 2022](https://commons.wikimedia.org/wiki/File:Hauptallee_Prater_Wien_2022-08-09_15.jpg) ·
 [Hochbruckenberg, 25 November 2012](https://commons.wikimedia.org/wiki/File:Hochbruckenberg_Wald_02.jpg) ·
