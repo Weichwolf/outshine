@@ -57,6 +57,18 @@ class RouteGraphTest(unittest.TestCase):
             graph, route_graph({EAST: layer(parallel, same_way), WEST: layer(west)})
         )
 
+    def test_shared_buffer_segment_connects_a_road_with_different_tile_ids(self):
+        west = way(72, [(2, 4), (13, 4), (22, 5)], ROAD)
+        east = way(73, [(-3, 4), (6, 5), (9, 6)], ROAD)
+        graph = route_graph({WEST: layer(west), EAST: layer(east)})
+        self.assertEqual(graph.seam_pairs, ((0, 1),))
+        self.assertEqual(graph.paths[0].nodes[-1], graph.paths[1].nodes[0])
+        self.assertEqual(graph.frontiers, ())
+        lower = east | {"properties": ROAD | {"brunnel": "tunnel", "layer": -1}}
+        separated = route_graph({WEST: layer(west), EAST: layer(lower)})
+        self.assertEqual(separated.seam_pairs, ())
+        self.assertEqual(len(separated.frontiers), 2)
+
     def test_at_grade_contact_and_layer_separation(self):
         road = way(1, [(2, 8), (8, 8), (14, 8)], ROAD)
         rail = way(2, [(8, 2), (8, 8), (8, 14)], RAIL)

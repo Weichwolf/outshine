@@ -11,7 +11,11 @@ WORLD_CELLS = 1 << 46
 @dataclass(frozen=True, slots=True)
 class RouteVertex:
     point: tuple[int, int]
-    observed: bool
+    support: tuple[tuple[int, int], tuple[int, int]] | None
+
+    @property
+    def observed(self):
+        return self.support is None
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,7 +52,7 @@ def _clip_lines(coordinates, extent, core):
         return
     inside = [0 <= x <= extent and 0 <= y <= extent for x, y in points]
     if all(inside):
-        yield tuple((point, True) for point in points)
+        yield tuple((point, None) for point in points)
         return
     fragment = []
     for a, b, inside_a, inside_b in zip(
@@ -68,8 +72,8 @@ def _clip_lines(coordinates, extent, core):
             yield tuple(fragment)
             fragment = []
         if not fragment:
-            fragment.append((start, start == a))
-        fragment.append((end, end == b))
+            fragment.append((start, None if start == a else (a, b)))
+        fragment.append((end, None if end == b else (a, b)))
         if not inside_b:
             yield tuple(fragment)
             fragment = []
@@ -115,19 +119,27 @@ def tile_fragments(tile, layer, bounds=None):
     cell = stride / extent
     core = box(0, 0, extent, extent)
     local = _tile_bounds(tile, stride, cell, bounds) if bounds is not None else None
+
+    def grid(point):
+        u, v = point
+        return x * stride + round(u * cell), y * stride + round(v * cell)
+
+    def vertex(point, support):
+        if support is None:
+            return RouteVertex(grid(point), None)
+        a, b = (grid(p) for p in support)
+        return RouteVertex(
+            grid(point),
+            tuple(sorted(((a[0] % WORLD_CELLS, a[1]), (b[0] % WORLD_CELLS, b[1])))),
+        )
+
     for feature in layer["features"]:
         tags = tuple(sorted(feature["properties"].items()))
         for line in _source_lines(feature["geometry"]):
             if len(line) < 2 or (local is not None and not _overlaps(line, local)):
                 continue
             for segment in _clip_lines(tuple(map(tuple, line)), extent, core):
-                vertices = tuple(
-                    RouteVertex(
-                        (x * stride + round(u * cell), y * stride + round(v * cell)),
-                        observed,
-                    )
-                    for (u, v), observed in segment
-                )
+                vertices = tuple(vertex(point, support) for point, support in segment)
                 if len({v.point for v in vertices}) < 2:
                     continue
                 yield RouteFragment(tile, feature.get("id") or 0, cell, tags, vertices)

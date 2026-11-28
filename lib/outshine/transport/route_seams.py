@@ -15,6 +15,10 @@ class SeamEnd:
     observed: bool
     cell: float
 
+    @property
+    def key(self):
+        return self.path, self.index
+
 
 def _tile_sides(tile, point):
     zoom, x, y = tile
@@ -49,7 +53,8 @@ def _match(side, other, axis, one_way):
 
 
 def match_seams(fragments):
-    groups = defaultdict(lambda: ([], []))
+    source_ids = defaultdict(lambda: ([], []))
+    common_segments = defaultdict(lambda: ([], []))
     boundary = {}
     for path, fragment in enumerate(fragments):
         for index in (0, -1):
@@ -61,22 +66,51 @@ def match_seams(fragments):
                 end = SeamEnd(path, index, vertex.point, vertex.observed, fragment.cell)
                 boundary.setdefault(end, set()).add(peer)
                 if fragment.feature:
-                    group = groups[seam, fragment.feature, fragment.tags]
-                    group[side > 0].append(end)
+                    source_ids[seam, fragment.feature, fragment.tags][side > 0].append(
+                        end
+                    )
+                if vertex.support is not None:
+                    common_segments[seam, vertex.support, fragment.tags][
+                        side > 0
+                    ].append(end)
 
+    matches = {}
+    _resolve(common_segments, matches)
+    _resolve(source_ids, matches)
+    open_ends = {
+        end.key: tuple(sorted(peers))
+        for end, peers in boundary.items()
+        if end.key not in matches
+    }
+    return matches, open_ends
+
+
+def _resolve(groups, matches):
     proposals = defaultdict(set)
-    for ((axis, _position, _line), _feature, tags), (
+    for ((axis, _position, _line), _evidence, tags), (
         negative,
         positive,
     ) in groups.items():
-        oneway = dict(tags).get("oneway") in (1, -1, "1", "-1", "yes", "true")
+        if not negative or not positive:
+            continue
+        negative = [end for end in negative if end.key not in matches]
+        positive = [end for end in positive if end.key not in matches]
+        attributes = dict(tags)
+        oneway = attributes.get("oneway", attributes.get("class") == "motorway") in (
+            1,
+            -1,
+            "1",
+            "-1",
+            "yes",
+            "true",
+            "reverse",
+        )
         for end, peer in (
             *_match(negative, positive, axis, oneway),
             *_match(positive, negative, axis, oneway),
         ):
             proposals[end].add(peer)
 
-    matches = {}
     for end, peers in proposals.items():
         if len(peers) != 1:
             continue
@@ -95,15 +129,9 @@ def match_seams(fragments):
         )
         if abs(end.point[0] - peer.point[0]) == WORLD_CELLS:
             position = 0, position[1]
-        first = min((end.path, end.index), (peer.path, peer.index))
-        matches[end.path, end.index] = (
+        first = min(end.key, peer.key)
+        matches[end.key] = (
             position,
             None if end.observed or peer.observed else first,
             peer.path,
         )
-    open_ends = {
-        (end.path, end.index): tuple(sorted(peers))
-        for end, peers in boundary.items()
-        if (end.path, end.index) not in matches
-    }
-    return matches, open_ends
