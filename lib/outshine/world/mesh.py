@@ -34,6 +34,7 @@ from outshine.buildings.platform_canopies import draw_platform_canopy, platform_
 from outshine.buildings.rail_station import StationHall, plan_station_halls
 from outshine.buildings.street_facade import draw_low_front, draw_street_storey
 from outshine.buildings.structures import suppressed
+from outshine.materials.aeolian_sand import SAND_TRAIL_SHOULDER_M
 from outshine.terrain.ground_surface import (
     CARRIAGEWAY_MATERIALS,
     DIRT_ROAD_CENTRE_M,
@@ -617,6 +618,7 @@ def ground_surfaces(
     structures=(),
     viaducts=(),
     blend_mineral_trails=False,
+    sand_area=None,
 ):
     transport = [(g, p) for layer, g, p in source.features if layer == "transportation"]
     paved = [
@@ -980,7 +982,11 @@ def ground_surfaces(
         roads["unpaved path"],
         breaks,
     )
-    if blend_mineral_trails:
+    if sand_area is not None:
+        boundary = sand_area.boundary.intersection(extent)
+        if not boundary.is_empty:
+            breaks.append(boundary)
+    if blend_mineral_trails or sand_area is not None:
         trail = roads["unpaved path"]
         occupied = shapely.union_all(
             [
@@ -996,13 +1002,13 @@ def ground_surfaces(
             ]
         )
         edges = trail.boundary.difference(occupied.buffer(1e-4))
+        width = MINERAL_TRAIL_SHOULDER_M
+        if sand_area is not None:
+            edges = edges.intersection(sand_area)
+            width = SAND_TRAIL_SHOULDER_M
         if not edges.is_empty:
             meshes.mineral_trail_edges = edges
-            breaks.append(
-                edges.buffer(
-                    MINERAL_TRAIL_SHOULDER_M, quad_segs=4
-                ).boundary.intersection(trail)
-            )
+            breaks.append(edges.buffer(width, quad_segs=4).boundary.intersection(trail))
     for label, (material, cover) in enumerate(vegetation.items(), cover_start):
         if not cover.is_empty:
             names[label] = material
@@ -1116,6 +1122,7 @@ def assemble(
     water_plan=None,
     facade_view=None,
     blend_mineral_trails=False,
+    sand_area=None,
 ):
     facade_view = facade_view or FacadeView()
     meshes = Meshes()
@@ -1214,6 +1221,7 @@ def assemble(
         structures=geometries,
         viaducts=viaducts,
         blend_mineral_trails=blend_mineral_trails,
+        sand_area=sand_area,
     )
     if not track_paving.is_empty:
         crossings = [

@@ -23,6 +23,7 @@ uniform vec3 overlayColour;
 uniform vec3 overlayScale;
 uniform vec3 overlayTint;
 uniform bool hasShoreSubstrate;
+uniform sampler2D shoreMap;
 uniform vec4 shoreTransform;
 uniform vec4 wetMineral;
 uniform vec4 crustMineral;
@@ -346,7 +347,7 @@ void main(){
     material.rgb=material.rgb*(1.-coverage.a)+coverage.rgb;
   if (hasShoreSubstrate) {
     vec2 uv=(point.xy-shoreTransform.xy)*shoreTransform.zw;
-    vec3 weights=texture(overlayMap,uv).rgb;
+    vec3 weights=texture(shoreMap,uv).rgb;
     material=mix(material,gravelMineral,weights.b);
     material=mix(mix(material,wetMineral,weights.r),crustMineral,weights.g*mineralGrain);
   }

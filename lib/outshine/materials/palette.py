@@ -1,4 +1,5 @@
 from outshine.buildings.modelling.material_schema import colour, srgb_to_linear
+from outshine.materials.aeolian_sand import SAND_PROFILES
 from outshine.terrain.land_cover import PARCEL_SURFACES
 
 GLASS_IOR = 1.52
@@ -109,6 +110,11 @@ SURFACES = {
     "glass": ((0.018, 0.024, 0.028), 0.13),
     "entrance door": ((0.072, 0.048, 0.030), 0.54),
     **PARCEL_SURFACES,
+    **{
+        material: properties
+        for profile in SAND_PROFILES.values()
+        for material, properties in profile.surfaces.items()
+    },
 }
 
 METALLIC = {"rail head": 1.0}
@@ -121,6 +127,7 @@ GROUND_BLENDS = {
     "patagonian unpaved road": "patagonian gravel soil",
     "mojave unpaved road": "mojave gravelly sand",
     "mojave footpath": "mojave gravelly sand",
+    **{profile.tread: profile.sand for profile in SAND_PROFILES.values()},
 }
 DIFFUSE_TRANSMISSION = {
     "foliage": 0.32,

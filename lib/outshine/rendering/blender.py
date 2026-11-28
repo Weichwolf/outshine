@@ -76,8 +76,6 @@ from outshine.water.shore_substrate import (
     CRUST_GRAIN,
     MINERAL_CRUST,
     MINERAL_GRAVEL,
-    MINERAL_WET,
-    SHORE_MATERIALS,
 )
 from outshine.water.water_bed import BED_ALBEDO
 from outshine.world.scene import ReferenceScene
@@ -454,7 +452,7 @@ def mix_shore_surface(material, weight, colour, roughness):
 
 def apply_shore_appearance(appearance):
     image = cover_image("Mineral shore weights", appearance)
-    for name in sorted(SHORE_MATERIALS):
+    for name in sorted(appearance.materials):
         material = bpy.data.materials.get(name)
         if material is None:
             continue
@@ -480,7 +478,7 @@ def apply_shore_appearance(appearance):
             tree.links.new(crust, mask.inputs[1])
             crust = mask.outputs[0]
         mix_shore_surface(material, fields.outputs["Blue"], *MINERAL_GRAVEL)
-        mix_shore_surface(material, fields.outputs["Red"], *MINERAL_WET)
+        mix_shore_surface(material, fields.outputs["Red"], *appearance.wet)
         mix_shore_surface(material, crust, *MINERAL_CRUST)
 
 

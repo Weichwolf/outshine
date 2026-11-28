@@ -5,6 +5,7 @@ from functools import cache
 import numpy as np
 from scipy.ndimage import gaussian_filter, map_coordinates
 
+from outshine.materials.aeolian_sand import SAND_DETAIL, SAND_PROFILES, TREAD_DETAIL
 from outshine.materials.leaf_litter import bake_litter
 from outshine.materials.meadow_material import MEADOW_TILE_M, bake_meadow
 
@@ -23,6 +24,8 @@ DETAIL_SCALES = {
     "umbrella thorn bark": (1.30, 8.0, 0.020),
     "gravelly soil": (3.40, 54.0, HEIGHT_SPAN_M),
     "granodiorite": (2.31, 38.9, 0.012),
+    SAND_DETAIL: (1.41, 34.7, 0.010),
+    TREAD_DETAIL: (1.41, 34.7, 0.016),
 }
 DETAIL_TINTS = {"beech bark": (0.86, 1.0, 0.78), "leaf litter": (0.53, 1.26, 0.66)}
 SURFACE_RELIEF = {
@@ -66,6 +69,8 @@ SURFACE_DETAIL = {
     "savanna unpaved road": "compacted road",
     "patagonian unpaved road": "compacted road",
     "mojave unpaved road": "compacted road",
+    **{profile.sand: SAND_DETAIL for profile in SAND_PROFILES.values()},
+    **{profile.tread: TREAD_DETAIL for profile in SAND_PROFILES.values()},
     "wall": "plaster",
     "street base": "plaster",
     "street trim": "concrete",
@@ -159,6 +164,23 @@ def beech_scars(rng):
     return scars
 
 
+def aeolian_sand(rng, fine, grain, tread):
+    y, x = np.indices((SIZE, SIZE), dtype=np.float32)
+    offsets = noise(rng, (44, 31))
+    drift = noise(rng, 21)
+    phase = 2 * np.pi * (11 * y + 3 * x) / SIZE + 1.5 * offsets + 0.56 * drift
+    crests = np.sin(phase) + 0.20 * np.sin(2 * phase + 0.8)
+    rippled = np.clip(0.61 + 0.33 * noise(rng, (17, 27)), 0, 1)
+    relief = crests * rippled
+    if tread:
+        depressions = np.clip(-noise(rng, (12, 6)) - 0.23, 0, 1.8)
+        relief = 0.27 * relief - 1.20 * depressions
+    tint = 0.98 + 0.028 * grain + 0.030 * relief + 0.026 * drift
+    roughness = (0.88 if tread else 0.91) + 0.019 * grain + 0.014 * drift
+    height = 0.0034 * relief + 0.00031 * fine + 0.00022 * grain
+    return tint, roughness, height, 0.5 + 0.075 * noise(rng, 24)
+
+
 @cache
 def ground_detail(name):
     seed = (
@@ -185,6 +207,8 @@ def ground_detail(name):
         "compacted road",
         "gravelly soil",
         "granodiorite",
+        SAND_DETAIL,
+        TREAD_DETAIL,
     ).index(name)
     rng = np.random.default_rng(seed)
     fine, grain, patches = (noise(rng, scale) for scale in (0.65, 1.6, 12))
@@ -256,6 +280,10 @@ def ground_detail(name):
         roughness = 0.86 - 0.05 * quartz + 0.047 * weathering + 0.032 * mafic
         height = 0.0012 * quartz + 0.0021 * chips + 0.00028 * fine
         macro = 0.5 + 0.12 * noise(rng, 27)
+    elif name in (SAND_DETAIL, TREAD_DETAIL):
+        tint, roughness, height, macro = aeolian_sand(
+            rng, fine, grain, tread=name == TREAD_DETAIL
+        )
     elif name == "leaf litter":
         tint, roughness, height, macro = bake_litter(
             rng, fine, grain, noise(rng, 30), noise(rng, 15), patches, DETAIL_SPAN_M

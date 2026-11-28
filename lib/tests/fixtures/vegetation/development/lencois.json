@@ -24,6 +24,14 @@
       "support": "ground"
     }
   ],
+  "comparison_views": [
+    {
+      "id": "Lencois-Waterline",
+      "origin": "Lencois-Stand",
+      "offset_east_north_m": [-21.7, -10.4],
+      "pitch_deg": -20
+    }
+  ],
   "walks": {
     "Lencois-Footpath": {
       "origin": "Lencois-Near",

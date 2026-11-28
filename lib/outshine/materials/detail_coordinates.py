@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from outshine.materials.aeolian_sand import SAND_DETAIL, TREAD_DETAIL
+
 METRES_PER_DEGREE = np.array([111319.49, 111132.0])
 WAVES = np.array(
     [[0.117, 0.405, 0.141], [0.369, -0.155, 0.245], [-0.274, 0.204, 0.363]]
@@ -20,6 +22,8 @@ VARIED_DETAILS = frozenset(
         "granodiorite",
         "grass",
         "leaf litter",
+        SAND_DETAIL,
+        TREAD_DETAIL,
     )
 )
 

@@ -71,7 +71,7 @@ def tile_cover(source, receipt, project):
             yield from zip(codes, projected, strict=True)
 
 
-def distant_cover(source, place, snapshot, focal, cache, pins):
+def distant_cover(source, place, snapshot, focal, cache, pins, *, sand_material=None):
     specs = list(cover_source_specs(source, place, snapshot, focal))
     if pins is not None:
         for _, _, url in specs:
@@ -95,12 +95,14 @@ def distant_cover(source, place, snapshot, focal, cache, pins):
             raise ValueError(f"Changed horizon land cover source: {receipt['url']}")
         footprints.extend(tile_cover(source, receipt, project))
     cover = rasterize_cover(
-        footprints, view_sector(place, focal, HORIZON_RANGE_M).bounds
+        footprints,
+        view_sector(place, focal, HORIZON_RANGE_M).bounds,
+        sand_material=sand_material,
     )
     return replace(cover, receipts=tuple(receipts))
 
 
-def rasterize_cover(footprints, bounds, size=COVER_SIZE):
+def rasterize_cover(footprints, bounds, size=COVER_SIZE, *, sand_material=None):
     lower, upper = np.asarray(bounds).reshape(2, 2)
     scale = 1.0 / (upper - lower)
     span = 2 * size
@@ -123,7 +125,10 @@ def rasterize_cover(footprints, bounds, size=COVER_SIZE):
             )
 
     palette = np.zeros((256, 4), dtype=np.uint8)
-    for code, (colour, roughness) in enumerate(COVER_MATERIALS.values()):
+    surfaces = COVER_MATERIALS
+    if sand_material is not None:
+        surfaces = COVER_MATERIALS | {"sand": SURFACES[sand_material]}
+    for code, (colour, roughness) in enumerate(surfaces.values()):
         palette[code] = np.rint(np.asarray((*colour, roughness)) * 255)
     # Filter material channels independently. The fourth channel is roughness.
     channels = [

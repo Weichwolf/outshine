@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import numpy as np
+from outshine.materials.aeolian_sand import SAND_PROFILES
 from outshine.vegetation.open_cover import RegionalOpenCover
 from outshine.water.shore_grade import shore_grade
 from outshine.water.shore_substrate import BARE_WIDTH_M, mineral_shore
@@ -20,6 +21,25 @@ def weights_at(appearance, xy):
 
 
 class ShoreSubstrateTest(unittest.TestCase):
+    def test_wet_sand_varies_only_at_mapped_sandy_water_contacts(self):
+        water = WaterBody(box(-35, -30, 15, 0), 0, water_class="pond")
+        grade = shore_grade((water,), box(-90, -90, 90, 90), box(6, -3, 11, 3))
+        mapped = box(-30, 0, 14, 8)
+        profile = SAND_PROFILES[485]
+        shore = mineral_shore(grade, {}, sand=profile, sand_area=mapped)
+        source = SimpleNamespace(
+            lon=-42.87, lat=-2.60, metres=np.array([111204, 111132]), features=[]
+        )
+        product = shore.appearance(source, np.array([0, 3, 1.7]), 2083)
+        self.assertEqual(product.materials, {profile.sand})
+        self.assertEqual(product.wet[0], profile.wet)
+        self.assertTrue(shore.bare.is_empty)
+        self.assertGreater(weights_at(product, (-15, 0.1))[0], 220)
+        self.assertGreater(weights_at(product, (-15, 1.2))[0], 35)
+        self.assertEqual(weights_at(product, (-15, 3.8))[0], 0)
+        np.testing.assert_array_equal(weights_at(product, (8, 1)), [0, 0, 0])
+        self.assertFalse(product.pixels[..., 1:3].any())
+
     def test_mapped_lake_supplies_material_weights_and_a_local_bare_margin(self):
         minerals = WaterBody(box(-35, -30, 15, 0), 0, water_class="lake", source_id="a")
         fresh = WaterBody(box(30, -20, 45, -5), 0, water_class="lake", source_id="b")

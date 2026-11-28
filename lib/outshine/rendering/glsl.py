@@ -58,7 +58,6 @@ from outshine.water.shore_substrate import (
     MINERAL_CRUST,
     MINERAL_GRAVEL,
     MINERAL_WET,
-    SHORE_MATERIALS,
 )
 from outshine.water.water_bed import BED_ALBEDO
 from outshine.weather.air_profile import EARTH_RADIUS_KM
@@ -78,6 +77,7 @@ SKYLIGHT_TILE = 768
 SKYLIGHT_ATLAS_TILES = (4, 2)
 SKYLIGHT_TEXTURE_UNIT = 5
 TERRAIN_TEXTURE_UNIT = 13
+SHORE_TEXTURE_UNIT = 14
 HORIZON_COVER = 1
 LANDSCAPE_COVER = 2
 SHORE_SUBSTRATE = 3
@@ -651,7 +651,7 @@ def draw_surfaces(
         prog["glassIor"].value = GLASS_IOR if name == "glass" else 1.0
         detail = SURFACE_DETAIL.get(base)
         target = GROUND_BLENDS.get(base)
-        shore = SHORE_SUBSTRATE in terrain and base in SHORE_MATERIALS
+        shore = SHORE_SUBSTRATE in terrain and base in terrain[SHORE_SUBSTRATE][2]
         prog["hasShoreSubstrate"].value = shore
         prog["hasGroundBlend"].value = target is not None
         prog["hasDetail"].value = detail is not None
@@ -682,8 +682,8 @@ def draw_surfaces(
                 prog["overlayBroadOffset"].value = tuple(frame.offset(broad))
             detail_texture(ctx, textures, overlay).use(12)
         if shore:
-            texture, transform = terrain[SHORE_SUBSTRATE]
-            texture.use(12)
+            texture, transform, _ = terrain[SHORE_SUBSTRATE]
+            texture.use(SHORE_TEXTURE_UNIT)
             prog["shoreTransform"].value = transform
         batch.vao.render(instances=len(batch.placements))
 
@@ -873,11 +873,12 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False, street_sky
     if cover := world.landscape_cover:
         terrain_maps[LANDSCAPE_COVER] = (*cover_texture(ctx, cover), cover.materials)
     if shore := world.shore_appearance:
-        terrain_maps[SHORE_SUBSTRATE] = cover_texture(ctx, shore)
+        terrain_maps[SHORE_SUBSTRATE] = (*cover_texture(ctx, shore), shore.materials)
     terrain_maps[HORIZON_COVER][0].use(TERRAIN_TEXTURE_UNIT)
     prog["terrainCover"].value = TERRAIN_TEXTURE_UNIT
+    prog["shoreMap"].value = SHORE_TEXTURE_UNIT
     for name, (colour, roughness) in (
-        ("wetMineral", MINERAL_WET),
+        ("wetMineral", shore.wet if shore is not None else MINERAL_WET),
         ("crustMineral", MINERAL_CRUST),
         ("gravelMineral", MINERAL_GRAVEL),
     ):

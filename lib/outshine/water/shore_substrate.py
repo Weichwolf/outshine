@@ -28,15 +28,21 @@ class ShoreAppearance:
 
     pixels: np.ndarray
     transform: tuple[float, float, float, float]
+    wet: tuple[tuple[float, float, float], float] = MINERAL_WET
+    materials: frozenset[str] = SHORE_MATERIALS
 
 
 @dataclass(frozen=True)
 class MineralShore:
     contact: shapely.Geometry
     protection: ShoreProtection
+    wet_sand: tuple[tuple[float, float, float], float] | None = None
+    sand_material: str | None = None
 
     @cached_property
     def bare(self):
+        if self.wet_sand is not None:
+            return shapely.Polygon()
         return self.contact.buffer(BARE_WIDTH_M, quad_segs=4)
 
     def appearance(self, source, eye, seed):
@@ -70,13 +76,22 @@ class MineralShore:
         natural = self.protection.weight(points[chosen], xy, distance)
         edge = SHORE_VIEW_M - np.abs(xy - eye[:2]).max(axis=1)
         fade = smoothstep(np.clip(edge / 8, 0, 1)) * natural
-        weights = substrate_weights(source, xy, distance, seed)
+        weights = (
+            sand_shore_weights(source, xy, distance, seed)
+            if self.wet_sand is not None
+            else substrate_weights(source, xy, distance, seed)
+        )
         pixels = np.zeros((len(y), len(x), 4), dtype=np.uint8)
         packed = np.rint(255 * fade[:, None] * np.column_stack(weights))
         pixels.reshape(-1, 4)[np.flatnonzero(mask)[chosen], :3] = packed
         pixels[..., 3] = 255
         span = SHORE_TEXEL_M * (stop - first)
-        return ShoreAppearance(pixels, (*(first * SHORE_TEXEL_M), *(1 / span)))
+        transform = (*(first * SHORE_TEXEL_M), *(1 / span))
+        if self.wet_sand is not None:
+            return ShoreAppearance(
+                pixels, transform, self.wet_sand, frozenset((self.sand_material,))
+            )
+        return ShoreAppearance(pixels, transform)
 
 
 def substrate_weights(source, xy, distance, seed):
@@ -91,12 +106,26 @@ def substrate_weights(source, xy, distance, seed):
     return wet, inner * outer * (0.08 + 0.85 * crust), gravel
 
 
-def mineral_shore(grade, substrates):
-    if not substrates:
-        return None
+def sand_shore_weights(source, xy, distance, seed):
+    soak = patch_density(source, xy, seed ^ 0x73B2, scale=0.23)
+    reach = 1.8 + 1.05 * soak
+    wet = 1 - smoothstep(np.clip((distance - 0.12) / reach, 0, 1))
+    dry = np.zeros_like(wet)
+    return wet, dry, dry
+
+
+def mineral_shore(grade, substrates, *, sand=None, sand_area=None):
+    substrates = substrates or {}
     chosen = [
         contact
         for body, contact in zip(grade.bodies, grade.contacts, strict=True)
         if substrates.get((body.water_class, body.source_id)) == "carbonate-gravel"
     ]
-    return MineralShore(shapely.union_all(chosen), grade.protection) if chosen else None
+    if chosen:
+        return MineralShore(shapely.union_all(chosen), grade.protection)
+    if sand is None or sand.wet is None or sand_area is None or not grade.contacts:
+        return None
+    contact = shapely.union_all(grade.contacts).intersection(sand_area.buffer(0.28))
+    if contact.length == 0:
+        return None
+    return MineralShore(contact, grade.protection, (sand.wet, 0.68), sand.sand)

@@ -104,6 +104,17 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
   [WCVP](https://powo.science.kew.org/about-wcvp) ·
   [SoilGrids](https://docs.isric.org/globaldata/soilgrids/)
 
+- **Äolische Sande und feuchte Ufersäume**. Die Namib-Dokumentation
+  beschreibt eisenoxidgefärbte Quarzkörner und die stärkere Rotfärbung
+  landeinwärts. Die IUCN dokumentiert die hellen Dünen und saisonalen
+  Lagunen der Lençóis Maranhenses. Outshine nutzt diese Belege zur
+  Farbwahl für kartierte Sande. Die optischen Messungen von Twomey et al.
+  begründen die geringere diffuse Reflektanz auf feuchtem Sand neben
+  der gelösten Uferlinie.
+  [Namib-Sandmeer](https://whc.unesco.org/uploads/nominations/1430.pdf) ·
+  [IUCN-Evaluierung Lençóis Maranhenses](https://whc.unesco.org/document/208457) ·
+  [Twomey et al.](https://opg.optica.org/ao/abstract.cfm?uri=ao-25-3-431)
+
 - **Unabhängige Standorte für die Vegetationsabnahme**. Die Welterbeliste
   der UNESCO liefert amtliche Koordinaten und dauerhaft referenzierbare
   Gebiete. Outshine nutzt sie, um Kontrollgebiete nach Kontinent und Habitat
