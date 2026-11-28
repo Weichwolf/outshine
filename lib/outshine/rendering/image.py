@@ -178,7 +178,7 @@ def render_scene(
         from .glsl import render
 
         with gl_context() as ctx:
-            render(ctx, place, config, output, sky_dir=sky_dir)
+            render(ctx, place, config, output, sky_dir=sky_dir, street_sky=street_sky)
     else:
         request = [
             place,

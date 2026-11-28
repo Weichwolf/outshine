@@ -32,7 +32,6 @@ uniform vec3 cloudSunMapOrigin;
 uniform float glassIor;
 uniform bool waterSurface;
 uniform float waterIor;
-uniform sampler2D waterBedMap;
 uniform vec4 waterBedTransform;
 uniform vec3 bedAlbedo;
 uniform bool shadowPass;
@@ -72,6 +71,9 @@ uniform sampler2D skyRadiance;
 uniform sampler2D skySpecularMap;
 uniform sampler2D skyBrdf;
 uniform bool linearOutput;
+#ifdef OUTSHINE_LOCAL_SKYLIGHT
+#include "local_skylight.glsl"
+#endif
 vec2 detailCoordinates(vec3 normal) {
   vec3 axis=abs(normal);
   // Use Blender BOX axes and mirroring for the shared texture.
@@ -102,11 +104,16 @@ vec3 bumpNormal(vec3 normal, vec3 dx, vec3 dy, float height) {
 
 vec3 diffuseSky(vec3 n) {
   float x = n.x, y = n.y, z = n.z;
-  return max(vec3(0.), .2820947918 * skyIrradiance[0] +
+  vec3 unoccluded = max(vec3(0.), .2820947918 * skyIrradiance[0] +
     .4886025119 * (y * skyIrradiance[1] + z * skyIrradiance[2] + x * skyIrradiance[3]) +
     1.092548431 * (x * y * skyIrradiance[4] + y * z * skyIrradiance[5] + x * z * skyIrradiance[7]) +
     .3153915653 * (3. * z * z - 1.) * skyIrradiance[6] +
     .5462742153 * (x * x - y * y) * skyIrradiance[8]);
+#ifdef OUTSHINE_LOCAL_SKYLIGHT
+  return occludedSkylight(unoccluded, n);
+#else
+  return unoccluded;
+#endif
 }
 
 vec3 filteredSky(vec3 direction, float roughness) {
@@ -334,7 +341,7 @@ void main(){
   if (waterSurface) {
     vec3 ray=reflect(-view,n);
     vec2 bedUV=(point.xy-waterBedTransform.xy)*waterBedTransform.zw;
-    vec3 transmission=texture(waterBedMap,bedUV).rgb;
+    vec3 transmission=texture(detailMap,bedUV).rgb;
     vec3 bodyColour=mix(surface.rgb,bedAlbedo,transmission);
     vec3 bodyLight = bodyColour * (diffuseSky(n) + (directSun / kPi) * nl * visibility);
     light = mix(bodyLight, reflectedEnvironment(ray), waterFresnel(dot(n, view)));

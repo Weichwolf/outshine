@@ -35,6 +35,7 @@ from outshine.rendering.sky_environment import (
     diffuse_coefficients,
     environment_path,
     load_environment,
+    sample_radiance,
     save_environment,
 )
 from outshine.rendering.water_reflection import (
@@ -57,6 +58,10 @@ REGIONAL_SHADOW_SPAN = (4800.0, 18000.0)
 LOCAL_SHADOW_SPAN = (96.0, 1024.0)
 NEAR_SHADOW_WIDTH = 16.0
 NEAR_SHADOW_RESOLUTION = 2048
+SKYLIGHT_SHADOW_SPAN = (96.0, 256.0)
+SKYLIGHT_TILE = 768
+SKYLIGHT_ATLAS_TILES = (4, 2)
+SKYLIGHT_TEXTURE_UNIT = 5
 
 SCREEN = """#version 410 core
 out vec2 ndc;
@@ -394,17 +399,18 @@ def upload(ctx, program, name, vertices, faces, placements, *, ground_litter=Non
     )
 
 
-def shadow_projection(world, span, forward_offset, *, resolution=None):
-    right = np.cross([0.0, 0.0, 1.0], world.sun)
+def shadow_projection(world, span, forward_offset, *, resolution=None, direction=None):
+    direction = world.sun if direction is None else direction
+    right = np.cross([0.0, 0.0, 1.0], direction)
     if np.linalg.norm(right) < 1e-6:
         right = np.array([1.0, 0.0, 0.0])
     right /= np.linalg.norm(right)
-    up = np.cross(world.sun, right)
+    up = np.cross(direction, right)
     center = world.eye + forward_offset * world.look
     width, depth = span
     light = np.eye(4)
     light[:3, :3] = np.array(
-        [2 * right / width, 2 * up / width, -2 * world.sun / depth]
+        [2 * right / width, 2 * up / width, -2 * direction / depth]
     )
     light[:3, 3] = -light[:3, :3] @ center
     if resolution is not None:
@@ -475,6 +481,9 @@ def render_shadows(ctx, prog, draws, world):
     prog["localShadowSpan"].value = LOCAL_SHADOW_SPAN
     prog["nearShadowWidth"].value = NEAR_SHADOW_WIDTH
     placeholder = ctx.depth_texture((1, 1))
+    if "skylightDepth" in prog:
+        placeholder.use(SKYLIGHT_TEXTURE_UNIT)
+        prog["skylightDepth"].value = SKYLIGHT_TEXTURE_UNIT
     for sampler, matrix, unit, projection, _ in passes:
         placeholder.use(unit)
         prog[sampler].value = unit
@@ -515,6 +524,67 @@ def render_shadows(ctx, prog, draws, world):
     return (*textures, *depth_samplers), query
 
 
+def render_skylight(ctx, prog, draws, world, radiance):
+    columns, rows = SKYLIGHT_ATLAS_TILES
+    count = columns * rows
+    strata = np.arange(count) + 0.5
+    vertical = strata / count
+    azimuth = strata * np.pi * (3 - np.sqrt(5))
+    radius = np.sqrt(1 - vertical**2)
+    directions = np.column_stack(
+        (radius * np.cos(azimuth), radius * np.sin(azimuth), vertical)
+    )
+    projections = [
+        shadow_projection(
+            world,
+            SKYLIGHT_SHADOW_SPAN,
+            10,
+            resolution=SKYLIGHT_TILE,
+            direction=direction,
+        )
+        for direction in directions
+    ]
+    casters = [shadow_casters(ctx, prog, draws, matrix) for matrix in projections]
+    atlas = ctx.depth_texture((columns * SKYLIGHT_TILE, rows * SKYLIGHT_TILE))
+    atlas.repeat_x = atlas.repeat_y = False
+    atlas.filter = (moderngl.LINEAR, moderngl.LINEAR)
+    placeholder = ctx.depth_texture((1, 1))
+    placeholder.use(SKYLIGHT_TEXTURE_UNIT)
+    target = ctx.framebuffer(depth_attachment=atlas)
+    target.use()
+    target.clear(depth=1)
+    prog["shadowPass"].value = True
+    query = ctx.query(time=True)
+    with query:
+        for i, (matrix, (batch, _)) in enumerate(
+            zip(projections, casters, strict=True)
+        ):
+            ctx.viewport = (
+                i % columns * SKYLIGHT_TILE,
+                i // columns * SKYLIGHT_TILE,
+                SKYLIGHT_TILE,
+                SKYLIGHT_TILE,
+            )
+            prog["viewProjection"].write(matrix.T.astype("f4").tobytes())
+            for instances, vao in batch:
+                vao.render(instances=instances)
+    prog["shadowPass"].value = False
+    for _, resources in casters:
+        for resource in resources:
+            resource.release()
+    target.release()
+    placeholder.release()
+    atlas.use(SKYLIGHT_TEXTURE_UNIT)
+    matrices = np.asarray(projections).transpose(0, 2, 1).astype("f4")
+    prog["skylightProjection"].write(matrices.tobytes())
+    prog["skylightDirection"].write(directions.astype("f4").tobytes())
+    prog["skylightRadiance"].write(
+        sample_radiance(radiance, directions).astype("f4").tobytes()
+    )
+    prog["skylightEye"].value = tuple(world.eye)
+    return atlas, query
+
+
 def detail_texture(ctx, textures, detail):
     if detail not in textures:
         pixels = ground_detail(detail)
@@ -524,7 +594,7 @@ def detail_texture(ctx, textures, detail):
     return textures[detail]
 
 
-def draw_surfaces(ctx, prog, draws, textures, *, capture=False):
+def draw_surfaces(ctx, prog, draws, textures, *, capture=False, bed_map=None):
     for batch in draws:
         name = batch.name
         water = name in WATER_MATERIALS
@@ -544,7 +614,9 @@ def draw_surfaces(ctx, prog, draws, textures, *, capture=False):
         prog["blendDetailAxes"].value = base.endswith(" bark")
         prog["planarDetail"].value = detail in PLANAR_DETAILS
         prog["detailTint"].value = DETAIL_TINTS.get(detail, (1, 1, 1))
-        if detail is not None:
+        if water:
+            bed_map.use(2)
+        elif detail is not None:
             prog["detailScale"].value = detail_scale(detail)
             detail_texture(ctx, textures, detail).use(2)
         if litter:
@@ -611,7 +683,7 @@ def save_view(target, path, *, linear):
     image.resize((1280, 720), Image.Resampling.BOX).save(path)
 
 
-def render(ctx, place, config, output, *, sky_dir=None, linear=False):
+def render(ctx, place, config, output, *, sky_dir=None, linear=False, street_sky=False):
     start = perf_counter()
     world = ReferenceScene(place, config)
     sky_path = environment_path(sky_dir, place) if sky_dir is not None else None
@@ -659,9 +731,14 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False):
         ).reshape(*SKY_ENVIRONMENT_SIZE[::-1], 3)
         lighting_target.release()
         source = sky_radiance_texture(ctx, radiance)
+    fragment = shader(HERE / "reference.frag")
+    if street_sky:
+        fragment = fragment.replace(
+            "#version 410 core", "#version 410 core\n#define OUTSHINE_LOCAL_SKYLIGHT", 1
+        )
     prog = ctx.program(
         vertex_shader=shader(HERE / "reference.vert"),
-        fragment_shader=shader(HERE / "reference.frag"),
+        fragment_shader=fragment,
     )
     prog["viewProjection"].write(m.T.astype("f4").tobytes())
     prog["eye"].value = tuple(world.eye)
@@ -720,8 +797,6 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False):
         transmission.shape[1::-1], 3, transmission.astype("f2").tobytes(), dtype="f2"
     )
     bed_map.repeat_x = bed_map.repeat_y = False
-    bed_map.use(5)
-    prog["waterBedMap"].value = 5
     cover = world.terrain_cover
     terrain_map = ctx.texture(cover.pixels.shape[1::-1], 4, cover.pixels.tobytes())
     terrain_map.repeat_x = terrain_map.repeat_y = False
@@ -752,12 +827,29 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False):
             world.grass_and_understory(config["seed"]),
         )
     ]
-    for _, _, meshes, plants in world.woody_plants(config["seed"]):
-        draws.extend(upload(ctx, prog, n, v, f, plants) for n, (v, f) in meshes.items())
+    skylight_foliage = {}
+    for _, _, meshes, plants in world.woody_plants(config["seed"], skylight=street_sky):
+        grouped = getattr(meshes, "skylight_foliage", None) if street_sky else None
+        for name, (vertices, faces) in meshes.items():
+            batch = upload(ctx, prog, name, vertices, faces, plants)
+            draws.append(batch)
+            if batch is not None and grouped is not None and name == grouped[0]:
+                caster = upload(ctx, prog, name, *grouped[1], plants)
+                if caster is not None:
+                    skylight_foliage[id(batch)] = caster
     for _, meshes, plants in crown_batches(crown_sites):
         draws.extend(upload(ctx, prog, n, v, f, plants) for n, (v, f) in meshes.items())
     draws = [batch for batch in draws if batch is not None]
     shadow_maps, shadow_time = render_shadows(ctx, prog, draws, world)
+    skylight_time = None
+    if street_sky:
+        sky_draws = [skylight_foliage.get(id(batch), batch) for batch in draws]
+        skylight_depth, skylight_time = render_skylight(
+            ctx, prog, sky_draws, world, radiance
+        )
+        shadow_maps = (*shadow_maps, skylight_depth)
+        for batch in skylight_foliage.values():
+            batch.release()
     textures = {}
     planes = reflection_planes(world)
     reflection, reflection_ms = capture_reflections(
@@ -765,7 +857,7 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False):
     )
     target.use()
     prog["viewProjection"].write(m.T.astype("f4").tobytes())
-    draw_surfaces(ctx, prog, draws, textures)
+    draw_surfaces(ctx, prog, draws, textures, bed_map=bed_map)
     for batch in draws:
         batch.release()
     for texture in textures.values():
@@ -795,6 +887,11 @@ def render(ctx, place, config, output, *, sky_dir=None, linear=False):
                 "spatial_cloud_sun": cloud_map is not None,
                 "sky_radiance": str(sky_path) if sky_path is not None else "computed",
                 "shadow_gpu_ms": round(shadow_time.elapsed * 1e-6, 2),
+                **(
+                    {"skylight_gpu_ms": round(skylight_time.elapsed * 1e-6, 2)}
+                    if skylight_time is not None
+                    else {}
+                ),
                 "reflection_levels_m": [round(plane.height, 3) for plane in planes],
                 "reflection_gpu_ms": round(reflection_ms, 2),
                 "build_and_npy_s" if linear else "build_and_png_s": round(

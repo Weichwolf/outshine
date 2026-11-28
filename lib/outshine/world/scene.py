@@ -352,7 +352,7 @@ class ReferenceScene:
             )
         return None
 
-    def woody_plants(self, seed, *, eye_route=None):
+    def woody_plants(self, seed, *, eye_route=None, skylight=False):
         root_domain = shapely.union_all((self.woodland_floor, self.stands.verges))
         yield from tree_batches(
             self.source,
@@ -365,6 +365,7 @@ class ReferenceScene:
             eye_route=eye_route,
             mature=self.stands.woodland,
             riverside=self.stands.riverside,
+            skylight=skylight,
         )
         if "forest floor" in self.local:
             yield from woodland_shrubs(
