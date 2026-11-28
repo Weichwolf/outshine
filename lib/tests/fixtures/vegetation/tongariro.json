@@ -1,0 +1,37 @@
+{
+  "seed": 2083,
+  "utc": "2026-03-12T21:20:00Z",
+  "weather": "clear",
+  "eye_height_m": 1.7,
+  "vertical_fov_deg": 54,
+  "source_snapshot": "20260927_080001_pt",
+  "source_pins": "tongariro-sources.json",
+  "places": [
+    {
+      "id": "Tongariro-Near",
+      "latitude": -39.14584962,
+      "longitude": 175.5819844,
+      "heading_deg": 156,
+      "pitch_deg": -6,
+      "support": "unpaved path"
+    },
+    {
+      "id": "Tongariro-Stand",
+      "latitude": -39.14636634,
+      "longitude": 175.58350515,
+      "heading_deg": 101,
+      "pitch_deg": 2,
+      "support": "unpaved path"
+    }
+  ],
+  "walks": {
+    "Tongariro-Footpath": {
+      "origin": "Tongariro-Near",
+      "station_offsets_m": [
+        0,
+        7.2
+      ],
+      "step_m": 0.45
+    }
+  }
+}

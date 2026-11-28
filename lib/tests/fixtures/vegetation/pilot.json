@@ -79,6 +79,324 @@
         "Trail clearance and dry mineral surface continuity"
       ],
       "evidence_gaps": ["Atlas soil inputs and local measurements of plant density"]
+    },
+    {
+      "id": "tz-serengeti-seronera",
+      "continent": "Africa",
+      "stratum": "Seasonally dry savanna with scattered umbrella thorn and open grassland",
+      "latitude": -2.44263704,
+      "longitude": 34.82496059,
+      "partition": "development",
+      "capture": "seronera.json",
+      "views": [
+        "Seronera-Near",
+        "Seronera-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2011-12-18",
+          "url": "https://commons.wikimedia.org/wiki/File:Seronera_2011.jpg",
+          "use": "Wet-season savanna tree spacing and open crown forms at valley scale"
+        }
+      ],
+      "habitat_references": [
+        "https://doi.org/10.1002/jwmg.70037",
+        "https://world-heritage-datasheets.unep-wcmc.org/datasheet/output/site/serengeti-national-park/"
+      ],
+      "checks": [
+        "Sparse woody cover with open grassy intervals",
+        "Flat-topped tree silhouettes and a distinct dry grass layer",
+        "Clear vehicle track and continuity of exposed soil at verges"
+      ],
+      "evidence_gaps": [
+        "Atlas soil inputs and measured local cover",
+        "Dry-season close photograph at the selected approach"
+      ]
+    },
+    {
+      "id": "za-cape-point-dias-trail",
+      "continent": "Africa",
+      "stratum": "Coastal sandstone slopes with fynbos, low coastal thicket and exposed sand",
+      "latitude": -34.35236938,
+      "longitude": 18.48459363,
+      "partition": "development",
+      "capture": "cape-point.json",
+      "views": [
+        "CapePoint-Near",
+        "CapePoint-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2024-03-01",
+          "url": "https://commons.wikimedia.org/wiki/File:Cape_Town_(ZA),_Cape_Point_Nature_Reserve,_Ausblick_--_2024_--_3377.jpg",
+          "use": "Coastal cover and remaining bare sand and rock at landscape scale"
+        },
+        {
+          "date": "2023-04-04",
+          "url": "https://commons.wikimedia.org/wiki/File:View_of_Cape_Point_at_-34.3540,_18.4897.jpg",
+          "use": "Coastal slope and vegetation height at a nearby observation point"
+        }
+      ],
+      "habitat_references": [
+        "https://www.sanparks.org/parks/table-mountain/explore/fauna-flora/vegetation",
+        "https://www.sanparks.org/wp-content/uploads/2021/03/Final_Scoping_Report.pdf"
+      ],
+      "checks": [
+        "Low shrubs with bare sandstone and occasional exposed mineral patches",
+        "Tree cover stays low on exposed slopes",
+        "Root contact and clear path on the slope"
+      ],
+      "evidence_gaps": [
+        "Atlas soil inputs and measured local cover",
+        "Close plant photo at the selected slope"
+      ],
+      "walk": "CapePoint-Footpath"
+    },
+    {
+      "id": "sg-bukit-timah-summit-trail",
+      "continent": "Asia",
+      "stratum": "Equatorial hill rainforest beside a pedestrian route",
+      "latitude": 1.35330996,
+      "longitude": 103.77872603,
+      "partition": "development",
+      "capture": "bukit-timah.json",
+      "views": [
+        "BukitTimah-Near",
+        "BukitTimah-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2023-08-17",
+          "url": "https://commons.wikimedia.org/wiki/File:Jungle_off_trail_in_Bukit_Timah_Preserve,_Singapore.jpg",
+          "use": "Tall trunks, foliage scale and overlapping understory beside the summit trail"
+        }
+      ],
+      "habitat_references": [
+        "https://www.nparks.gov.sg/visit/parks/park-detail/bukit-timah-nature-reserve"
+      ],
+      "checks": [
+        "Tall evergreen tree structure and shaded understory layers",
+        "Exposed roots and patchy moist litter on a slope",
+        "Walkable path stays clear where it passes through denser growth"
+      ],
+      "evidence_gaps": [
+        "Atlas soil inputs and measured local cover",
+        "Exact photo station and site-level soil moisture"
+      ],
+      "walk": "BukitTimah-Footpath"
+    },
+    {
+      "id": "jp-kirigamine-yashimagahara",
+      "continent": "Asia",
+      "stratum": "Temperate upland sedge and grass wetland beside managed grassland and woodland",
+      "latitude": 36.12181959,
+      "longitude": 138.16438517,
+      "partition": "development",
+      "capture": "kirigamine.json",
+      "views": [
+        "Kirigamine-Near",
+        "Kirigamine-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2011-08-04",
+          "url": "https://commons.wikimedia.org/wiki/File:Yashimagahara_Wetland_01.jpg",
+          "use": "Summer open sedge and shrub cover with a wooded rim"
+        }
+      ],
+      "habitat_references": [
+        "https://www.env.go.jp/content/000062288.pdf"
+      ],
+      "checks": [
+        "Low vegetation dominates the wetland interior",
+        "Patchy woody cover is concentrated along the rim",
+        "Wet ground and drier trail differ without abrupt material seams"
+      ],
+      "evidence_gaps": [
+        "Atlas soil inputs and measured local cover",
+        "Seasonal water level and measured wetland community boundaries"
+      ],
+      "walk": "Kirigamine-Footpath"
+    },
+    {
+      "id": "us-prairie-creek-redwoods",
+      "continent": "North America",
+      "stratum": "Coastal old-growth redwood forest and a nearby open prairie edge",
+      "latitude": 41.36319039,
+      "longitude": -124.02541196,
+      "partition": "development",
+      "capture": "prairie-creek.json",
+      "views": [
+        "PrairieCreek-Near",
+        "PrairieCreek-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2008-03-24",
+          "url": "https://commons.wikimedia.org/wiki/File:Prairie_Creek_Redwoods_-_Coastal_Redwood_Forest.jpg",
+          "use": "Massive redwood boles, vertical layering and shaded fern cover"
+        }
+      ],
+      "habitat_references": [
+        "https://www.nps.gov/places/revelationtrail.htm",
+        "https://home.nps.gov/redw/learn/nature/plants.htm"
+      ],
+      "checks": [
+        "Large-diameter boles and recognizably tall trees",
+        "Fern understory and leaf-litter scale beside the trail",
+        "Smaller plants and open gaps at the prairie transition"
+      ],
+      "evidence_gaps": [
+        "Atlas soil inputs and measured local cover",
+        "Exact ages of the visible trees"
+      ],
+      "walk": "PrairieCreek-Footpath"
+    },
+    {
+      "id": "br-manaus-ducke-musa",
+      "continent": "South America",
+      "stratum": "Amazonian terra firme forest along the Museu da Amazônia paths",
+      "latitude": -3.00490577,
+      "longitude": -59.93859529,
+      "partition": "development",
+      "capture": "ducke.json",
+      "views": [
+        "DuckeMusa-Near",
+        "DuckeMusa-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2022-08-31",
+          "url": "https://commons.wikimedia.org/wiki/File:31.08.2022-LULA_EM_MANAUS_-_Na_floresta,_Lula_discute_Desenvolvimento_Sustent%C3%A1vel.jpg",
+          "use": "Low-angle trunk, climbing stems and palm form in the forest"
+        },
+        {
+          "date": "2018-03-09",
+          "url": "https://commons.wikimedia.org/wiki/File:MarioOliveira_Musa_Manaus_AM_(40438924214).jpg",
+          "use": "Uneven terra firme canopy at stand scale"
+        }
+      ],
+      "habitat_references": [
+        "https://peld.inpa.gov.br/pt-br/sitios/ducke",
+        "https://museudaamazonia.org.br/en/visit-musa/"
+      ],
+      "checks": [
+        "Tall canopy, irregular trunks and visibly different palm and broadleaf forms",
+        "Understory persists in gaps and along the path",
+        "Humid leaf litter and roots make contact with the local slope"
+      ],
+      "evidence_gaps": [
+        "Atlas soil inputs and measured local cover",
+        "Camera station of the trunk photograph and stand plot data"
+      ],
+      "walk": "DuckeMusa-Footpath"
+    },
+    {
+      "id": "cl-torres-del-paine-laguna-amarga",
+      "continent": "South America",
+      "stratum": "Wind-exposed Patagonian cold steppe and patchy scrub near a saline lake",
+      "latitude": -50.97991335,
+      "longitude": -72.80085831,
+      "partition": "development",
+      "capture": "laguna-amarga.json",
+      "views": [
+        "LagunaAmarga-Near",
+        "LagunaAmarga-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2018-02-01",
+          "url": "https://commons.wikimedia.org/wiki/File:Torres_del_Paine_massif_from_Laguna_Amarga.jpg",
+          "use": "Low scrub and open slopes at landscape scale"
+        },
+        {
+          "date": "2012-12-29",
+          "url": "https://commons.wikimedia.org/wiki/File:Torres_del_Paine,_Laguna_Amarga.jpg",
+          "use": "Bare dark substrate and salt deposits at the lake margin"
+        }
+      ],
+      "habitat_references": [
+        "https://www.conaf.cl/parque_nacionales/parque-nacional-torres-del-paine/"
+      ],
+      "checks": [
+        "Open treeless scrub and steppe with irregular ground gaps",
+        "Exposed mineral substrate remains visible between plants",
+        "Preserve the bare shore in the lake reference"
+      ],
+      "evidence_gaps": [
+        "Atlas soil inputs and measured local cover",
+        "The shore photograph is a separate landscape control",
+        "Measured local tussock and shrub density"
+      ],
+      "walk": "LagunaAmarga-Footpath"
+    },
+    {
+      "id": "au-kakadu-ubirr",
+      "continent": "Oceania",
+      "stratum": "Monsoonal eucalypt woodland and sandstone adjoining an Alligator River floodplain",
+      "latitude": -12.41108432,
+      "longitude": 132.95629958,
+      "partition": "development",
+      "capture": "ubirr.json",
+      "views": [
+        "Ubirr-Near",
+        "Ubirr-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2016-06-05",
+          "url": "https://commons.wikimedia.org/wiki/File:Ubirr_floodplain_Kakadu_National_Park.jpg",
+          "use": "Dry-season contrast between open woodland, sandstone and floodplain"
+        }
+      ],
+      "habitat_references": [
+        "https://kakadu.gov.au/things-do/activities/walks/ubirr-walk/",
+        "https://api.parksaustralia.gov.au/sites/default/files/2024-04/document/knp-visitor-guide.pdf"
+      ],
+      "checks": [
+        "Preserve floodplain openness and scattered trees along higher ground",
+        "Sandstone outcrops and woodland ground remain distinguishable",
+        "Roots and litter follow woodland patches at the outcrop edge"
+      ],
+      "evidence_gaps": [
+        "Atlas soil inputs and measured local cover",
+        "Local surface wetness and a close vegetation image from the selected trail"
+      ],
+      "walk": "Ubirr-Footpath"
+    },
+    {
+      "id": "nz-tongariro-mangatepopo",
+      "continent": "Oceania",
+      "stratum": "Subalpine tussock and low scrub on exposed volcanic substrate",
+      "latitude": -39.14584962,
+      "longitude": 175.5819844,
+      "partition": "development",
+      "capture": "tongariro.json",
+      "views": [
+        "Tongariro-Near",
+        "Tongariro-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2011-11-22",
+          "url": "https://commons.wikimedia.org/wiki/File:Mount_Tongariro_and_Ngauruhoe.jpg",
+          "use": "Low vegetation and exposed volcanic ground near Mangatepopo"
+        }
+      ],
+      "habitat_references": [
+        "https://www.doc.govt.nz/tongariro-flora-and-fauna",
+        "https://www.doc.govt.nz/globalassets/documents/parks-and-recreation/tracks-and-walks/tongariro-taupo/tongariro-alpine-crossing-day-hikes-factsheet.pdf"
+      ],
+      "checks": [
+        "Keep the open volcanic slope free of misplaced tall trees",
+        "Separate tussock clumps, low scrub and bare ground",
+        "Check local trail continuity and variation in the mineral substrate"
+      ],
+      "evidence_gaps": [
+        "Atlas soil inputs and measured local cover",
+        "Site conditions after the 2025 wildfire and a matched close ground image"
+      ],
+      "walk": "Tongariro-Footpath"
     }
   ]
 }

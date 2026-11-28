@@ -1,0 +1,37 @@
+{
+  "seed": 2083,
+  "utc": "2026-07-18T17:00:00Z",
+  "weather": "clear",
+  "eye_height_m": 1.7,
+  "vertical_fov_deg": 54,
+  "source_snapshot": "20260927_080001_pt",
+  "source_pins": "prairie-creek-sources.json",
+  "places": [
+    {
+      "id": "PrairieCreek-Near",
+      "latitude": 41.36319039,
+      "longitude": -124.02541196,
+      "heading_deg": 311,
+      "pitch_deg": 8,
+      "support": "unpaved path"
+    },
+    {
+      "id": "PrairieCreek-Stand",
+      "latitude": 41.36273013,
+      "longitude": -124.02602971,
+      "heading_deg": 249,
+      "pitch_deg": 4,
+      "support": "unpaved path"
+    }
+  ],
+  "walks": {
+    "PrairieCreek-Footpath": {
+      "origin": "PrairieCreek-Near",
+      "station_offsets_m": [
+        0,
+        7.2
+      ],
+      "step_m": 0.45
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "seed": 2083,
+  "utc": "2026-08-12T07:30:00Z",
+  "weather": "clear",
+  "eye_height_m": 1.7,
+  "vertical_fov_deg": 54,
+  "source_snapshot": "20260927_080001_pt",
+  "source_pins": "seronera-sources.json",
+  "places": [
+    {
+      "id": "Seronera-Near",
+      "latitude": -2.44263704,
+      "longitude": 34.82496059,
+      "heading_deg": 65,
+      "pitch_deg": 0,
+      "support": "road"
+    },
+    {
+      "id": "Seronera-Stand",
+      "latitude": -2.44338901,
+      "longitude": 34.82550309,
+      "heading_deg": 200,
+      "pitch_deg": 0,
+      "support": "road"
+    }
+  ]
+}
