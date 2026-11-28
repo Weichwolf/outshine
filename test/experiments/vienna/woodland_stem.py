@@ -16,11 +16,12 @@ def lean_tree(plan, vertices, *, oak, scale=1):
     bend = axis.bend * height
     arc_sweep = 0.5 * bend * height * np.sinc(bend / (2 * np.pi)) ** 2
     lean = height**2 * (0.025 + 0.055 * np.cos(axis.phase))
-    lower = height**2 * (1 - height) ** 5 * 28
+    lower = (1.24 if oak else 1.43) * axis.bend * height * (1 - height) ** 2
     upper = np.sin(np.pi * height) ** 2
-    lean += lower * (0.070 if oak else 0.059) * np.sin(axis.phase + 0.7)
+    bearing = axis.phase + 0.7 + 3.8 * height
+    lean += lower * np.sin(bearing)
     sweep = upper * (0.045 if oak else 0.024)
-    sweep -= lower * (0.085 if oak else 0.065) * np.cos(axis.phase - 0.6)
+    sweep += lower * np.cos(bearing)
     sweep -= (0.44 if oak else 0.54) * arc_sweep
     drift = lean[..., None] * axis.frame[:, 0] + sweep[..., None] * axis.frame[:, 2]
     return vertices + length * drift
@@ -29,14 +30,15 @@ def lean_tree(plan, vertices, *, oak, scale=1):
 def root_flare(azimuth, phase, radius, height, oak, rng):
     bearings = phase + np.array([0.0, 1.5, 3.12, 4.82, 5.56])
     bearings += rng.uniform(-0.28, 0.28, len(bearings))
-    reaches = rng.permutation([2.45, 1.42, 1.90, 0.85, 0.45]) * (1 if oak else 0.73)
-    widths = rng.uniform(9.0, 18.0, len(bearings))
-    shoulders = radius * rng.uniform(2.4, 5.0, len(bearings))
+    reaches = rng.permutation([2.65, 1.70, 1.17, 0.65, 0.35]) * (1 if oak else 0.84)
+    widths = rng.uniform(8.0, 16.0, len(bearings))
+    shoulders = radius * rng.uniform(2.1, ROOT_COLLAR_RADII, len(bearings))
     fraction = height[:, None] / shoulders
-    bend = np.minimum(fraction, 1) * rng.uniform(-0.5, 0.5, len(bearings))
+    bend = np.minimum(fraction, 1) * rng.uniform(-0.48, 0.48, len(bearings))
     angle = azimuth[None, :, None] - (bearings + bend)[:, None, :]
     lobes = np.exp((np.cos(angle) - 1) * widths)
-    decay = np.maximum(1 - fraction, 0) ** 1.8
+    remaining = np.maximum(1 - fraction, 0)
+    decay = remaining**1.8 + 0.16 * remaining * np.exp(-2.3 * fraction)
     return radius * np.sum(decay[:, None, :] * reaches * lobes, axis=2)
 
 
@@ -107,14 +109,16 @@ def stem_profile(plan, scale, *, oak, grounded, seed):
     phase = axis.phase
     angle = azimuth[None, :]
     along = t[:, None]
-    waist = np.sin(np.pi * t) * np.sin(4 * np.pi * t + bearings[0])
-    body *= 1 + (0.11 if oak else 0.08) * waist
-    twist = 0.75 * np.sin(5 * along + phase) + 1.4 * along
+    waist = np.sin(np.pi * t) * np.sin(5 * np.pi * t + bearings[0])
+    body *= 1 + (0.14 if oak else 0.10) * waist
+    below_crown = np.maximum(1 - t / max(joints.min(initial=1), 0.1), 0)
+    body *= 1 + (0.25 if oak else 0.21) * np.expm1(-t / 0.065) * below_crown
+    twist = 0.88 * np.sin(6 * along + phase) + 1.3 * along
     sections = body[:, None] * (
         1
-        + (0.17 if oak else 0.12) * np.cos(2 * angle + phase + twist)
-        + 0.09 * np.sin(3 * angle - phase + 2 * twist)
-        + (0.05 if oak else 0.030) * np.sin(5 * angle + bearings[1] - twist)
+        + (0.21 if oak else 0.16) * np.cos(2 * angle + bearings[0] + twist)
+        + 0.11 * np.sin(3 * angle - phase + 2 * twist)
+        + (0.072 if oak else 0.043) * np.sin(5 * angle + bearings[1] - twist)
     )
     sections += stem_knots(t, azimuth, knots, bearings, widths, radius, oak)
     for branch, at, limb_radius in zip(branches, joints, limb_radii, strict=True):
@@ -123,7 +127,7 @@ def stem_profile(plan, scale, *, oak, grounded, seed):
         bearing = np.arctan2(up @ growth, side @ growth)
         axial = np.exp(-(((t - at) / max(4 * limb_radius / length, 0.042)) ** 2))
         around = np.exp(3 * (np.cos(azimuth - bearing) - 1))
-        sections += limb_radius * axial[:, None] * (0.11 + 0.49 * around)
+        sections += limb_radius * axial[:, None] * (0.19 + 0.49 * around)
     flare = root_flare(azimuth, phase, radius, t * length, oak, rng)
     collar = np.maximum(1 - t * length / (ROOT_COLLAR_RADII * radius), 0) ** 2
     return t, centre, tangent, radial, sections, flare, collar

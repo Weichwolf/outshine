@@ -180,13 +180,13 @@ surface tags. [Adlerhof, 21 August 2008](https://presse.wien.gv.at/bilder/2008/0
 The Vienna stand derives two deterministic trunk and limb forms each for oak and beech.
 One form develops an ascending scaffold low on the stem. The other keeps a longer clear
 bole and spreads its larger limbs higher up. Managed avenue trees start their crowns
-higher. The stem changes direction below the crown and swells around old branch scars and
-living limbs. Close trees vary the scars, section width and root buttresses using their
-tile-seeded placements. Oak has broken, ridged plates. Beech has finer grain, narrow
-branch scars and patches of lichen. A lower-resolution mesh retains the stem profile and
-attachments beyond 32 m. The root buttresses follow the terrain and contract at path and
-water boundaries. Dechantlacke-Stem-Oblique shows the same shore trees from the next
-path position, with the lower forks above the root contacts in frame.
+higher. The lower stem curves and narrows above uneven root lobes, then swells at
+living limb junctions. Close trees vary the scars, section shape and buttresses using
+their tile-seeded placements. Oak has narrow fissures that break across elongated plates.
+Beech has fine grain, shallow branch scars and subdued patches of lichen. A lower-resolution
+mesh retains the stem profile and attachments beyond 32 m. The root buttresses follow the
+terrain and contract at path and water boundaries. Dechantlacke-Stem-Oblique shows the
+same shore trees from the next path position, with the lower forks above the root contacts in frame.
 [Weber and Penn, Creation and Rendering of Realistic Trees](https://doi.org/10.1145/218380.218427)
 
 In the summer crowns, upper limbs spread out and the outer twigs carry shorter,
