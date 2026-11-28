@@ -70,9 +70,8 @@ class RegionalCanopyTest(unittest.TestCase):
             vertices, _ = meshes["shrub wood"]
             self.assertEqual(vertices[:, 2].min(), 0)
             self.assertGreater(vertices[:, 2].max(), 6.9)
-            canopy, faces = next(
-                mesh for name, mesh in meshes.items() if name.endswith("crown")
-            )
+            conifer = "needle crown" in meshes
+            canopy, faces = meshes["needle crown" if conifer else "foliage"]
             self.assertGreater(canopy[:, 2].max(), vertices[:, 2].max())
             self.assertLessEqual(canopy[:, 2].max(), CROWN_HEIGHT_M)
-            self.assertLessEqual(len(faces), 48)
+            self.assertLessEqual(len(faces), 24 if conifer else 160)

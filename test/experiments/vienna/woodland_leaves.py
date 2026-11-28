@@ -7,12 +7,13 @@ import numpy as np
 KITE_FACES = np.array([[0, 1, 2], [0, 2, 3]], dtype=np.int32)
 
 
-def leaf_group_ranges(rows, step, *, merge_shoots):
-    axes = rows["leaf_axis_ids"]
+def leaf_group_ranges(rows, step, *, parent_levels=0):
+    axes = rows["leaf_axis_ids"].astype(np.intp, copy=False)
     order = np.arange(len(axes))
-    if merge_shoots:
+    for _ in range(parent_levels):
         parents = rows["axis_parent_ids"][axes]
         axes = np.where(parents >= 0, parents, axes)
+    if parent_levels:
         order = np.argsort(axes, kind="stable")
     _, starts, counts = np.unique(axes[order], return_index=True, return_counts=True)
     first = np.concatenate(
@@ -67,7 +68,7 @@ def cluster_leaves(points, areas, normals, indices, valid):
         yield indices[present][np.arange(len(choice)), choice], total, centre
 
 
-def grouped_blades(rows, blades, frames, areas, step, *, merge_shoots):
+def grouped_blades(rows, blades, frames, areas, step, *, parent_levels):
     if not len(frames):
         return np.empty((0, 3)), np.empty((0, 3), dtype=np.int32)
     kites, kite_areas, base_offsets = map(
@@ -77,7 +78,7 @@ def grouped_blades(rows, blades, frames, areas, step, *, merge_shoots):
     leaf_centres = rows["leaf_origins"] + np.einsum(
         "nij,nj->ni", frames, base_offsets[variants]
     )
-    order, first, stop = leaf_group_ranges(rows, step, merge_shoots=merge_shoots)
+    order, first, stop = leaf_group_ranges(rows, step, parent_levels=parent_levels)
     offsets = first[:, None] + np.arange(step)
     valid = offsets < stop[:, None]
     indices = order[np.where(valid, offsets, first[:, None])]

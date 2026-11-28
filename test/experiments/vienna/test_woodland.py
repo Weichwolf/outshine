@@ -103,10 +103,10 @@ class WoodlandTest(unittest.TestCase):
         variants = rows["leaf_variants"]
         frames = crown_leaf_frames(rows, plan.seed, oak=True)
         _, middle = grouped_blades(
-            rows, plan.blades, frames, areas, 16, merge_shoots=False
+            rows, plan.blades, frames, areas, 16, parent_levels=0
         )
         vertices, far = grouped_blades(
-            rows, plan.blades, frames, areas, 32, merge_shoots=True
+            rows, plan.blades, frames, areas, 32, parent_levels=1
         )
         self.assertLess(len(far), len(middle))
         corners = vertices[far]
@@ -132,7 +132,7 @@ class WoodlandTest(unittest.TestCase):
         frames = np.tile(np.eye(3), (count, 1, 1))
         area = blade.area()
         vertices, faces = grouped_blades(
-            rows, (blade,), frames, np.array([area]), 8, merge_shoots=False
+            rows, (blade,), frames, np.array([area]), 8, parent_levels=0
         )
         self.assertEqual(len(faces), 6)
         corners = vertices[faces]

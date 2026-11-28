@@ -170,7 +170,7 @@ def represented_leaves(rows, areas, step):
     order = np.arange(len(rows["leaf_axis_ids"]))
     if step == 1 or not len(order):
         return order, np.ones(len(order)), rows["leaf_origins"]
-    order, first, stop = leaf_group_ranges(rows, step, merge_shoots=False)
+    order, first, stop = leaf_group_ranges(rows, step)
     # A fixed midpoint at even strides repeatedly selects the same side of a shoot.
     selected = order[first + np.random.default_rng(0).integers(stop - first)]
     variants = rows["leaf_variants"]
@@ -257,7 +257,7 @@ def geometry(plant, step, *, has_stem, species):
             frames,
             areas,
             step,
-            merge_shoots=step >= DISTANT_LEAF_STEP,
+            parent_levels=int(step >= DISTANT_LEAF_STEP),
         )
         meshes.add("foliage", lean_tree(plan, vertices, oak=oak), faces)
         return meshes

@@ -6,18 +6,17 @@ import numpy as np
 from ground_surface import surface_elevations, terrain_triangles
 from montane_trees import conifer_sites
 from outshine_ref.vegetation.axis_surface import axis_mesh
-from outshine_ref.vegetation.curve_frame import arc_frame
 from plant_sites import patch_density
 from scipy.spatial import ConvexHull
-from woodland import stand_plan
+from woodland import crown_leaf_frames, stand_plan
+from woodland_leaves import grouped_blades
 from woodland_sites import CANOPY_SCALE
 from woodland_stem import lean_tree
 
 CROWN_HEIGHT_M = 14.0
 MIN_CROWN_PIXELS = 12.0
 FULL_CROWN_PIXELS = 16.0
-BROADLEAF_SPREAD = 1.6
-SHOOT_ENVELOPE_M = 0.55
+REGIONAL_LEAF_GROUP = 1024
 
 
 def crown_reach(focal):
@@ -48,68 +47,36 @@ def needle_lobe(offset, profile):
     return hull_mesh(np.vstack(rings) + offset)
 
 
-def broadleaf_lobes(species, form):
+def broadleaf_crown(species, form):
     oak = species == "oak"
     plan = stand_plan(species, form)
-    sprays = []
-    for limb in plan.children(()):
-        for twig in plan.children(limb):
-            axis = plan.axis(twig)
-            local, *_ = arc_frame(
-                axis.length, axis.bend, 0, np.array([0.43, 0.74, 1.0])
-            )
-            sprays.extend(local @ axis.frame.T + axis.origin)
-    points = lean_tree(plan, np.array(sprays), oak=oak)
-    points[:, :2] *= BROADLEAF_SPREAD
-    points[:, 2] *= min(1, (CROWN_HEIGHT_M - SHOOT_ENVELOPE_M) / points[:, 2].max())
-
-    horizontal = points[:, :2] - np.median(points[:, :2], axis=0)
-    _, directions = np.linalg.eigh(horizontal.T @ horizontal)
-    along = horizontal @ directions[:, -1]
-    split = np.quantile(points[:, 2], 0.66)
-    upper = points[:, 2] >= split - SHOOT_ENVELOPE_M
-    lower = points[:, 2] <= split + SHOOT_ENVELOPE_M
-    groups = (
-        upper,
-        lower & (along <= SHOOT_ENVELOPE_M),
-        lower & (along >= -SHOOT_ENVELOPE_M),
+    rows = plan.tables(sum(plan.axis_counts), sum(plan.leaf_counts))
+    frames = crown_leaf_frames(rows, plan.seed, oak=oak)
+    areas = np.array([blade.area() for blade in plan.blades])
+    vertices, faces = grouped_blades(
+        rows, plan.blades, frames, areas, REGIONAL_LEAF_GROUP, parent_levels=2
     )
+    vertices = lean_tree(plan, vertices, oak=oak)
+    vertices[:, 2] *= min(1, CROWN_HEIGHT_M / vertices[:, 2].max())
+    return vertices, faces
 
-    bearings = 2 * np.pi * np.arange(4) / 4
-    probes = [[0, 0, -1], [0, 0, 1]]
-    for elevation, phase in ((-0.53, 0.0), (0.53, np.pi / 4)):
-        probes.extend(
-            np.c_[
-                np.cos(bearings + phase),
-                np.sin(bearings + phase),
-                np.full(4, elevation),
-            ]
-        )
-    probes = np.array(probes)
-    probes /= np.linalg.norm(probes, axis=1)[:, None]
-    for mask in groups:
-        group = points[mask]
-        support = group[np.argmax(group @ probes.T, axis=0)]
-        yield hull_mesh(support + SHOOT_ENVELOPE_M * probes)
+
+def needle_crown():
+    lower, upper = (
+        needle_lobe((0, 0, 0), ((2.8, 0), (4.4, 3.2), (9.8, 0))),
+        needle_lobe((0.12, 0, 0), ((5.1, 0), (7.4, 2.5), (14, 0))),
+    )
+    return np.vstack((lower[0], upper[0])), np.vstack(
+        (lower[1], upper[1] + len(lower[0]))
+    )
 
 
 @cache
 def crown_template(species, form):
-    if species == "spruce":
-        lobes = (
-            needle_lobe((0, 0, 0), ((2.8, 0), (4.4, 3.2), (9.8, 0))),
-            needle_lobe((0.12, 0, 0), ((5.1, 0), (7.4, 2.5), (14, 0))),
-        )
-    else:
-        lobes = tuple(broadleaf_lobes(species, form))
-    vertices = np.vstack([vertex for vertex, _ in lobes])
-    offsets = np.cumsum([0, *(len(vertex) for vertex, _ in lobes[:-1])])
-    faces = np.vstack(
-        [face + offset for (_, face), offset in zip(lobes, offsets, strict=True)]
-    )
+    crown = needle_crown() if species == "spruce" else broadleaf_crown(species, form)
     stem = axis_mesh(7.0, 0.04, 0.28, 0.09, 2, 3)
     upright = stem["vertices"][:, (0, 2, 1)] * (1, -1, 1)
-    return (vertices, faces), (upright, stem["faces"])
+    return crown, (upright, stem["faces"])
 
 
 def rooted_crowns(source, receipt, data, forest, focal, seed, stand, bounds):
@@ -159,7 +126,7 @@ def crown_batches(sites):
         groups.setdefault(key, []).append(placements)
     for (species, form), placements in groups.items():
         crown, stem = crown_template(species, form)
-        canopy = "needle crown" if species == "spruce" else "broadleaf crown"
+        canopy = "needle crown" if species == "spruce" else "foliage"
         yield (
             f"Regional {species} {form}",
             {canopy: crown, "shrub wood": stem},

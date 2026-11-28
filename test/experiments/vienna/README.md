@@ -452,9 +452,10 @@ Mapped woodland in the regional mesh uses a filtered canopy material. A shared
 512 m tile describes overlapping crowns and their shaded gaps. Slower colour
 variation across the stand helps distinguish wooded slopes from meadows. Both
 renderers project the material horizontally. In the middle distance, oak and beech
-canopies follow twig positions from the near tree recipes. Three overlapping leaf
-volumes retain the upper crown and separate lateral sprays. Spruce uses a tiered
-silhouette. Both distances use the same tile-seeded mature stems, scales and rotations.
+use the leaf positions, orientations and material from the near recipes. Leaf groups
+share a main limb and use representative blades fitted to their area and spread.
+Spruce uses a tiered silhouette. Both distances use the same tile-seeded mature stems,
+scales and rotations.
 Mapped woodland reserves buildings, water and transport corridors. The ground mesh
 determines root height and mapped leaf type informs the species. The middle distance
 thins crowns between sixteen and twelve pixels of projected tree height, leaving the
