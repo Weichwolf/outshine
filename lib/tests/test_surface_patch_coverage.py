@@ -5,7 +5,7 @@ from fractions import Fraction
 
 import numpy as np
 import shapely
-from outshine_ref.geometry.surface_patches._coverage import proves_single_boundary
+from outshine.geometry.surface_patches._coverage import proves_single_boundary
 from scipy.spatial import Delaunay
 
 GENERAL_COVERAGE = shapely.coverage_is_valid

@@ -3,7 +3,7 @@ requires = ["setuptools>=75"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "outshine-reference"
+name = "outshine"
 version = "0.1.0"
 description = "Python reference contracts and procedures for Outshine generators"
 readme = "README.md"
@@ -17,10 +17,11 @@ water = ["clarabel>=0.11,<1", "osqp>=1,<2", "pyproj>=3.8,<4"]
 roofs = ["py_straight_skeleton==0.1.0", "pysfcgal==2.3.0"]
 solids = ["manifold3d==3.5.4"]
 places = ["mapbox-vector-tile>=2.2,<3"]
+render = ["astral==3.2", "moderngl>=5.12,<6", "mapbox-vector-tile>=2.2,<3", "manifold3d==3.5.4", "clarabel>=0.11,<1", "osqp>=1,<2", "pyproj>=3.8,<4"]
 
 [tool.setuptools.packages.find]
-where = ["src"]
+include = ["outshine*"]
 
 [tool.setuptools.package-data]
-outshine_ref = ["py.typed", "vegetation/data/*.json"]
+outshine = ["py.typed", "vegetation/data/*.json", "rendering/shaders/*"]
 

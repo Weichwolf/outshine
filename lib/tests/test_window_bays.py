@@ -3,7 +3,7 @@ from itertools import product
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.buildings.window_bays import (
+from outshine.buildings.window_bays import (
     WindowBay,
     bay_skin,
     bay_surface,
@@ -14,7 +14,7 @@ from outshine_ref.buildings.window_bays import (
 
 def native(mesh):
     import manifold3d as manifold
-    from outshine_ref.buildings.modelling.mesh_fans import connected_fans
+    from outshine.buildings.modelling.mesh_fans import connected_fans
 
     if "parts" in mesh:
         solids = [
@@ -78,7 +78,7 @@ def retained_surface_samples(full, skin):
 
 class WindowBays(unittest.TestCase):
     def test_both_shapes_preserve_closed_volumes_and_open_back(self):
-        from outshine_ref.buildings.modelling.prism_union import primitive_mesh
+        from outshine.buildings.modelling.prism_union import primitive_mesh
 
         for fraction in (0.65, 1.0):
             for width in (1.8, 2.8, 3.2):
@@ -145,11 +145,11 @@ class WindowBays(unittest.TestCase):
         plan = WindowBay(2.8, 2.9)
         with (
             patch(
-                "outshine_ref.buildings.window_bays.union_prisms",
+                "outshine.buildings.window_bays.union_prisms",
                 side_effect=AssertionError("expanded"),
             ),
             patch(
-                "outshine_ref.buildings.window_bays.primitive_mesh",
+                "outshine.buildings.window_bays.primitive_mesh",
                 side_effect=AssertionError("expanded"),
             ),
         ):

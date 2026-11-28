@@ -4,7 +4,7 @@ import unittest
 
 import numpy as np
 import shapely
-from outshine_ref.transport.junction_pads import profile_junction_pad
+from outshine.transport.junction_pads import profile_junction_pad
 
 
 class ProfilePrimitive(unittest.TestCase):

@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.geometry import weld_vertices
+from outshine.geometry import weld_vertices
 
 
 class Welding(unittest.TestCase):

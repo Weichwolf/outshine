@@ -4,9 +4,9 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.contracts import Mesh
-from outshine_ref.water import fit_physical_surface
-from outshine_ref.water.geodetic import query_facet
+from outshine.contracts import Mesh
+from outshine.water import fit_physical_surface
+from outshine.water.geodetic import query_facet
 
 
 class WaterPointContactTests(unittest.TestCase):
@@ -89,7 +89,7 @@ class WaterPointContactTests(unittest.TestCase):
     def test_contact_outside_height_bounds_does_not_reach_solver(self):
         mesh, rows, primary = self.inputs()
         with patch(
-            "outshine_ref.water._program.clarabel.DefaultSolver",
+            "outshine.water._program.clarabel.DefaultSolver",
             side_effect=AssertionError,
         ):
             fit = fit_physical_surface(
@@ -106,7 +106,7 @@ class WaterPointContactTests(unittest.TestCase):
     def test_outside_contacts_are_not_snapped_to_the_surface(self):
         mesh, rows, primary = self.inputs()
         with patch(
-            "outshine_ref.water._program.clarabel.DefaultSolver",
+            "outshine.water._program.clarabel.DefaultSolver",
             side_effect=AssertionError,
         ):
             fit = fit_physical_surface(
@@ -146,7 +146,7 @@ class WaterPointContactTests(unittest.TestCase):
     def test_large_contact_input_is_rejected_before_mapping_or_copy(self):
         mesh, rows, primary = self.inputs()
         with patch(
-            "outshine_ref.water._contacts.SurfaceSampler", side_effect=AssertionError
+            "outshine.water._contacts.SurfaceSampler", side_effect=AssertionError
         ):
             fit = fit_physical_surface(
                 mesh,
@@ -178,7 +178,7 @@ class WaterPointContactTests(unittest.TestCase):
                 )
 
     def test_geodetic_query_hits_the_explicit_equatorial_physical_contact(self):
-        from outshine_ref.water.geodetic import WGS84_A, local_points
+        from outshine.water.geodetic import WGS84_A, local_points
 
         mesh, rows, primary = self.inputs()
         geographic = [[0.00002, 0.00002]]

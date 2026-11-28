@@ -5,9 +5,9 @@ from dataclasses import replace
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.vegetation import Shoot, TwigClusters
-from outshine_ref.vegetation.axis_surface import axis_mesh
-from outshine_ref.vegetation.twig_radius_basis import apply_basis, radius_basis
+from outshine.vegetation import Shoot, TwigClusters
+from outshine.vegetation.axis_surface import axis_mesh
+from outshine.vegetation.twig_radius_basis import apply_basis, radius_basis
 from scipy.spatial.transform import Rotation
 
 

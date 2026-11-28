@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 def main():
-    source = Path("lib/src/outshine_ref/vegetation/data/leaf-optics-table-1.json")
+    source = Path("lib/outshine/vegetation/data/leaf-optics-table-1.json")
     recipe = json.loads(source.read_text())
     values = recipe["values"]
     if recipe["version"] != "leaf-optics-table-1" or recipe["limits"] != [80.0, 10.0]:

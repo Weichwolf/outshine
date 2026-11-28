@@ -1,8 +1,8 @@
 import unittest
 
 import numpy as np
-from outshine_ref.buildings.facade_cells import cell_complement
-from outshine_ref.buildings.facades import FacadeRepeat
+from outshine.buildings.facade_cells import cell_complement
+from outshine.buildings.facades import FacadeRepeat
 
 
 class FacadeCells(unittest.TestCase):

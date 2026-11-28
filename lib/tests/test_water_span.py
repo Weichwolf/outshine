@@ -1,7 +1,7 @@
 import unittest
 
 import numpy as np
-from outshine_ref.transport.water_span import solve_water_span
+from outshine.transport.water_span import solve_water_span
 from shapely import affinity
 from shapely.geometry import LineString, box
 

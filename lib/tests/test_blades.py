@@ -4,8 +4,8 @@ import unittest
 from dataclasses import replace
 
 import numpy as np
-from outshine_ref.vegetation import Blade
-from outshine_ref.vegetation.blade_surface import quadrature
+from outshine.vegetation import Blade
+from outshine.vegetation.blade_surface import quadrature
 
 
 class BladeTests(unittest.TestCase):

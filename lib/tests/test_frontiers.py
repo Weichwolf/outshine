@@ -4,7 +4,7 @@ import copy
 import unittest
 
 import numpy as np
-from outshine_ref.transport.frontiers import connected_prefixes, discover_source_modules
+from outshine.transport.frontiers import connected_prefixes, discover_source_modules
 
 
 def record(key, nodes, *, eligible=True, length=10):
@@ -19,7 +19,7 @@ def record(key, nodes, *, eligible=True, length=10):
 
 class FrontierGraph(unittest.TestCase):
     def test_plain_and_integral_original_keys_keep_the_same_int64_contract(self):
-        from outshine_ref.transport.frontiers import _node_key
+        from outshine.transport.frontiers import _node_key
 
         bounds = (-(2**63), -4096, -1, 0, 1, 4096, 2**63 - 1)
         for a in bounds:

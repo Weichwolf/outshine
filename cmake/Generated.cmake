@@ -58,7 +58,7 @@ add_custom_command(OUTPUT "${OUTSHINE_GENERATED_DIRECTORY}/LeafOpticsData.inc"
   COMMAND Python3::Interpreter "${PROJECT_SOURCE_DIR}/test/scripts/prepare_leaf_optics.py"
     "${OUTSHINE_GENERATED_DIRECTORY}/LeafOpticsData.inc"
   DEPENDS "${PROJECT_SOURCE_DIR}/test/scripts/prepare_leaf_optics.py"
-    "${PROJECT_SOURCE_DIR}/lib/src/outshine_ref/vegetation/data/leaf-optics-table-1.json"
+    "${PROJECT_SOURCE_DIR}/lib/outshine/vegetation/data/leaf-optics-table-1.json"
   WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}" VERBATIM)
 target_sources(outshine_generators_flora_objects PRIVATE "${OUTSHINE_GENERATED_DIRECTORY}/LeafOpticsData.inc")
 target_include_directories(outshine_generators_flora_objects PRIVATE "${OUTSHINE_GENERATED_DIRECTORY}")

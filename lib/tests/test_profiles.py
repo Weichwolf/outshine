@@ -3,8 +3,8 @@
 import unittest
 
 import numpy as np
-from outshine_ref.vegetation import Profile
-from outshine_ref.vegetation.bezier_curve import BezierCurve
+from outshine.vegetation import Profile
+from outshine.vegetation.bezier_curve import BezierCurve
 
 
 class ProfileTests(unittest.TestCase):

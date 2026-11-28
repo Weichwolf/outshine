@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import shapely
 
-from outshine_ref.buildings.modelling import extrapolate_chart,partition_exterior_charts
+from outshine.buildings.modelling import extrapolate_chart,partition_exterior_charts
 
 
 class ExteriorUV(unittest.TestCase):

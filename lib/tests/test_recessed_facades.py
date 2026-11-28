@@ -4,8 +4,8 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.buildings.facades import FacadeRepeat
-from outshine_ref.buildings.recessed_facades import RecessPlan, recess_surface
+from outshine.buildings.facades import FacadeRepeat
+from outshine.buildings.recessed_facades import RecessPlan, recess_surface
 
 
 def ray(mesh, origin, direction):
@@ -84,7 +84,7 @@ class RecessedFacades(unittest.TestCase):
 
     def test_capacity_rejected_before_template_or_full_grid_allocation(self):
         with patch(
-            "outshine_ref.buildings.recessed_facades.cell_template",
+            "outshine.buildings.recessed_facades.cell_template",
             side_effect=AssertionError("expanded"),
         ):
             with self.assertRaisesRegex(ValueError, "capacity"):

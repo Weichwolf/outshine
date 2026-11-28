@@ -6,8 +6,8 @@ recipes filling in local detail. Visual quality is judged against real scenes
 and by what physically based rendering can deliver on an A18 Pro with 8 GB
 of shared memory.
 
-Phase 1 develops the image in Blender using the Python generators, with
-plausible OSM infrastructure and varied vegetation as the main work. The
+Phase 1 develops the image with the Python single-image renderer in Blender and
+GLSL. Plausible OSM infrastructure and varied vegetation are the main work. The
 [roadmap](https://github.com/Weichwolf/outshine/issues/1972) tracks observable
 results. The [Python generator references](lib/) preserve the research and
 recipes. [Literature](doc/references/) and [concept examples](doc/images/concept/)

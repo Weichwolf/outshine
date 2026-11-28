@@ -4,7 +4,7 @@ import unittest
 
 import numpy as np
 import shapely
-from outshine_ref.buildings.interiors.routes import graph
+from outshine.buildings.interiors.routes import graph
 
 
 class CirculationGridTests(unittest.TestCase):

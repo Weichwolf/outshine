@@ -4,9 +4,9 @@ import unittest
 import numpy as np
 import shapely
 
-from outshine_ref.buildings.modelling import Branch, Face, Frame, Shape, SkeletonBudgetExceeded, SkeletonLimits
-from outshine_ref.buildings.modelling.metadata import Material
-from outshine_ref.buildings.modelling.selectors import tagged
+from outshine.buildings.modelling import Branch, Face, Frame, Shape, SkeletonBudgetExceeded, SkeletonLimits
+from outshine.buildings.modelling.metadata import Material
+from outshine.buildings.modelling.selectors import tagged
 
 
 def volume(shape):
@@ -17,7 +17,7 @@ def volume(shape):
 
 class HipModelling(unittest.TestCase):
     def test_rotated_inset_rim_normals_remain_perpendicular_on_short_edges(self):
-        from outshine_ref.buildings.modelling.faces import plane
+        from outshine.buildings.modelling.faces import plane
         source=Shape.from_polygon(shapely.Polygon([(0,0),(12,0),(10,7),(2,6)])).r(17,31,23)
         roof=source.roof_hip(3.,'byHeight',overhang=-.5)
         mesh=roof.emit();normal=plane(source.emit()['vertices'],source.geometry.polygons[0])[0]

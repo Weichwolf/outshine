@@ -17,9 +17,11 @@ Gerät, unter vergleichbaren Bedingungen und mit dem jeweils gewählten Profil.
 
 ## Phase 1
 
-Ich entwickle die Bildwirkung mit den Python-Generatoren und prüfe sie in
-Blender. Der Schwerpunkt liegt auf plausibler Infrastruktur aus OSM und
-auf Vegetation in ihren unterschiedlichen Formen, Dichten und Lebensräumen.
+Ich entwickle die Bildwirkung in der Python-Referenz `lib/outshine/`. Eine
+geodätische Kamera liefert je Aufruf ein PNG über Blender oder GLSL. Die
+Python-Tests und Place-Fixtures liegen unter `lib/tests/`. Die C++-Echtzeitversion
+liegt unter `src/`, ihre Tests unter `test/`.
+Der Schwerpunkt liegt auf plausibler Infrastruktur aus OSM und Vegetation.
 Die geprüften Ansichten geben die Richtung für die Anwendung vor.
 Ich wähle pro Änderung die kleinste aussagekräftige Szene. Einzelne
 Quellkacheln eignen sich für Generatorarbeit, größere Ausschnitte für

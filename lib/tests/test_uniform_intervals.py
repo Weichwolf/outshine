@@ -7,7 +7,7 @@ from fractions import Fraction
 from unittest.mock import patch
 
 import numpy as np
-from outshine_ref.vegetation import DistancePattern, Profile
+from outshine.vegetation import DistancePattern, Profile
 
 
 class UniformIntervalTests(unittest.TestCase):
@@ -99,7 +99,7 @@ class UniformIntervalTests(unittest.TestCase):
     def test_budget_refusal_precedes_site_allocation_and_tables_stay_immutable(self):
         pattern = self.pattern(limit_groups=20, whorl_size=2)
         with patch(
-            "outshine_ref.vegetation.placement_patterns.np.full",
+            "outshine.vegetation.placement_patterns.np.full",
             side_effect=AssertionError("early allocation"),
         ):
             self.assertIsNone(pattern.tables([2, 8], 0, 1, max_sites=1))

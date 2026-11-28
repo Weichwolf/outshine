@@ -5,8 +5,8 @@ import unittest
 
 import numpy as np
 
-from outshine_ref.contracts import Mesh
-from outshine_ref.geometry import SurfaceSampler
+from outshine.contracts import Mesh
+from outshine.geometry import SurfaceSampler
 
 
 class Contacts(unittest.TestCase):

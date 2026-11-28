@@ -1,0 +1,1 @@
+"""Outshine reference weather components."""

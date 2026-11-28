@@ -5,11 +5,11 @@ import unittest
 
 import numpy as np
 import shapely
-from outshine_ref.transport.clothoid_turns import (
+from outshine.transport.clothoid_turns import (
     fit_symmetric_turns,
     sample_symmetric_turns,
 )
-from outshine_ref.transport.horizontal import plan_horizontal_axis
+from outshine.transport.horizontal import plan_horizontal_axis
 from scipy.integrate import solve_ivp
 
 RECIPE = {

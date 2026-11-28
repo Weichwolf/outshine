@@ -3,8 +3,8 @@
 import unittest
 
 import numpy as np
-from outshine_ref.buildings.facade_finish import FacadeFinish
-from outshine_ref.buildings.facades import FacadeRepeat
+from outshine.buildings.facade_finish import FacadeFinish
+from outshine.buildings.facades import FacadeRepeat
 
 
 def rectangles(repeat, finish):

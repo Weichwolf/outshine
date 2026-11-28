@@ -78,7 +78,7 @@ No terrain C1, automatic tier selection or full OSM generator is certified.
 From the repository root, with the external experiment Python environment:
 
 ```sh
-PYTHONPATH=lib/src:test/experiments/transport python3 test/experiments/transport/port_plane_native_reference.py verify
+PYTHONPATH=lib:test/experiments/transport python3 test/experiments/transport/port_plane_native_reference.py verify
 ```
 
 The verifier checks fixed hashes, original source/module/face/port order and XY,

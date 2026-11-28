@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 import shapely
 
-from outshine_ref.buildings.modelling import HipPlanner,HipWorkerCancelled,HipWorkerError,SkeletonBudgetExceeded,SkeletonLimits
-from outshine_ref.buildings.modelling.hip_wire import receive,send
+from outshine.buildings.modelling import HipPlanner,HipWorkerCancelled,HipWorkerError,SkeletonBudgetExceeded,SkeletonLimits
+from outshine.buildings.modelling.hip_wire import receive,send
 
 
 def blocked_native(connection):
@@ -34,7 +34,7 @@ def absent(pid):
 class HipWorker(unittest.TestCase):
     def test_native_deadline_reaps_child_and_next_request_recovers(self):
         polygon=shapely.box(0,0,12,5)
-        with patch('outshine_ref.buildings.modelling.hip_worker.worker_loop',blocked_native):
+        with patch('outshine.buildings.modelling.hip_worker.worker_loop',blocked_native):
             planner=HipPlanner(SkeletonLimits(seconds=.2));planner.__enter__();pid=planner.pid
             started=time.monotonic()
             with self.assertRaises(SkeletonBudgetExceeded):planner.prepare(polygon)
@@ -48,14 +48,14 @@ class HipWorker(unittest.TestCase):
 
     def test_crash_and_invalid_reply_retire_the_connection(self):
         for target in [crashed_worker,malformed_worker]:
-            with self.subTest(target=target.__name__),patch('outshine_ref.buildings.modelling.hip_worker.worker_loop',target):
+            with self.subTest(target=target.__name__),patch('outshine.buildings.modelling.hip_worker.worker_loop',target):
                 with HipPlanner() as planner:
                     pid=planner.pid
                     with self.assertRaises(HipWorkerError):planner.prepare(shapely.box(0,0,12,5))
                     self.assertTrue(absent(pid));self.assertIsNone(planner.pid)
 
     def test_cancel_busy_request_and_close_are_explicit(self):
-        with patch('outshine_ref.buildings.modelling.hip_worker.worker_loop',blocked_native),HipPlanner() as planner:
+        with patch('outshine.buildings.modelling.hip_worker.worker_loop',blocked_native),HipPlanner() as planner:
             errors=[]
             def request():
                 try:planner.prepare(shapely.box(0,0,12,5))
@@ -78,7 +78,7 @@ class HipWorker(unittest.TestCase):
             self.assertEqual(planner.pid,pid)
 
     def test_close_aborts_an_active_native_call(self):
-        with patch('outshine_ref.buildings.modelling.hip_worker.worker_loop',blocked_native):
+        with patch('outshine.buildings.modelling.hip_worker.worker_loop',blocked_native):
             planner=HipPlanner();planner.__enter__();errors=[]
             def request():
                 try:planner.prepare(shapely.box(0,0,12,5))

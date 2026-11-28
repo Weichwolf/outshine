@@ -6,14 +6,14 @@ import sys
 import unittest
 
 import numpy as np
-from outshine_ref.vegetation import (
+from outshine.vegetation import (
     ArcMeasure,
     CubicSpine,
     Profile,
     SpatialAxis,
     SpineField,
 )
-from outshine_ref.vegetation.spine_frames import transport_frames
+from outshine.vegetation.spine_frames import transport_frames
 
 
 def straight_spine(length=1):
@@ -204,7 +204,7 @@ class SpatialAxisTests(unittest.TestCase):
             [
                 sys.executable,
                 "-c",
-                "import sys; from outshine_ref.vegetation import Profile; assert 'scipy' not in sys.modules",
+                "import sys; from outshine.vegetation import Profile; assert 'scipy' not in sys.modules",
             ],
             capture_output=True,
             text=True,

@@ -2,7 +2,7 @@ import unittest
 from dataclasses import FrozenInstanceError, dataclass
 
 import numpy as np
-from outshine_ref.buildings.modelling.faces import Face, compile_faces, plane
+from outshine.buildings.modelling.faces import Face, compile_faces, plane
 
 
 def courtyard():

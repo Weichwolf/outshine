@@ -5,9 +5,9 @@ import numpy as np
 import shapely
 from shapely import affinity
 
-from outshine_ref.buildings.modelling import Asset, Frame, Shape
-from outshine_ref.buildings.modelling.scope_bbox import SELECTORS
-from outshine_ref.buildings.modelling.wire import Edge, Point
+from outshine.buildings.modelling import Asset, Frame, Shape
+from outshine.buildings.modelling.scope_bbox import SELECTORS
+from outshine.buildings.modelling.wire import Edge, Point
 
 
 class ScopeBBox(unittest.TestCase):

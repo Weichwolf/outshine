@@ -6,8 +6,8 @@ import numpy as np
 import shapely
 from PIL import Image
 
-from outshine_ref.buildings.modelling import Asset, Branch, Face, Frame, Material, Part, Shape, Texture
-from outshine_ref.buildings.modelling.selectors import tagged
+from outshine.buildings.modelling import Asset, Branch, Face, Frame, Material, Part, Shape, Texture
+from outshine.buildings.modelling.selectors import tagged
 
 
 def volume(mesh):

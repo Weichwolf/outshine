@@ -5,7 +5,7 @@ import unittest
 from dataclasses import replace
 
 import numpy as np
-from outshine_ref.vegetation import (
+from outshine.vegetation import (
     CurlField,
     DirectionField,
     GnarlField,
@@ -15,7 +15,7 @@ from outshine_ref.vegetation import (
     RadialFalloff,
     ReturnField,
 )
-from outshine_ref.vegetation.scalar_forces import compile_fields, scalar_force
+from outshine.vegetation.scalar_forces import compile_fields, scalar_force
 from scipy.spatial.transform import Rotation
 
 

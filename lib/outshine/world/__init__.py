@@ -1,0 +1,1 @@
+"""Outshine reference world components."""
