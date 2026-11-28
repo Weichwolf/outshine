@@ -31,6 +31,7 @@ from outshine.terrain.land_cover import (
     cover_material,
     paint_cover,
 )
+from outshine.terrain.lattice import boundary_stations
 from outshine.transport.bridge_approach import (
     APPROACH_SEARCH,
     bridge_approaches,
@@ -296,11 +297,12 @@ def tile_surface(
     # Insert the four near-patch edges so the two source domains meet exactly.
     local = box(-radius, -radius, radius, radius)
     use_seam = seam is not None and tile.intersects(local.boundary)
-    inner_axis = np.unique(seam[:, 0]) if use_seam else np.array([-radius, radius])
-    xx = np.unique(np.r_[x, inner_axis[(x[0] < inner_axis) & (inner_axis < x[-1])]])
-    yy = np.unique(np.r_[y, inner_axis[(y[-1] < inner_axis) & (inner_axis < y[0])]])[
-        ::-1
-    ]
+    inner_x, inner_y = (
+        boundary_stations(seam, radius) if use_seam else ([-radius, radius],) * 2
+    )
+    inner_x, inner_y = np.asarray(inner_x), np.asarray(inner_y)
+    xx = np.unique(np.r_[x, inner_x[(x[0] < inner_x) & (inner_x < x[-1])]])
+    yy = np.unique(np.r_[y, inner_y[(y[-1] < inner_y) & (inner_y < y[0])]])[::-1]
     xc = (xx[1:] + xx[:-1]) / 2
     yc = (yy[1:] + yy[:-1]) / 2
     ix = np.clip(np.searchsorted(x, xc) - 1, 0, size - 1)
@@ -599,6 +601,7 @@ def regional_meshes(
     *,
     seed,
     local_shore=None,
+    local_terrain=None,
     crown_sites=None,
     stands=None,
 ):
@@ -606,7 +609,9 @@ def regional_meshes(
     align_seam = any(
         a.footprint.intersects(boundary) for a in transport.approaches
     ) or any(body.footprint.distance(boundary) <= SHORE_REACH_M for body in water_plan)
-    seam = terrain_grid(source, radius)[0] if align_seam else None
+    seam = local_terrain
+    if seam is None and align_seam:
+        seam = terrain_grid(source, radius)[0]
     reach = crown_reach(focal)
     origin = shapely.Point(0, 0)
     parcels = {}

@@ -36,7 +36,6 @@ from outshine.buildings.street_facade import draw_low_front, draw_street_storey
 from outshine.buildings.structures import suppressed
 from outshine.terrain.ground_surface import (
     MEADOW_MARGIN_M,
-    ROAD_WIDTH,
     ROUTE_MATERIALS,
     SOIL_MATERIALS,
     TRAIL_SHOULDER_M,
@@ -47,10 +46,10 @@ from outshine.terrain.ground_surface import (
     partition_ground,
     partition_triangles,
     polygons,
-    route_area,
     shared_edges,
     terrain_triangles,
 )
+from outshine.terrain.lattice import lattice, terrain_height
 from outshine.terrain.wall_ground import WallGround
 from outshine.transport.bridge_approach import earthwork_meshes
 from outshine.transport.bridge_banks import (
@@ -72,7 +71,6 @@ from outshine.transport.elevated_rail import (
 )
 from outshine.transport.passage_trim import draw_passage_trim
 from outshine.transport.rail_approaches import plan_rail_approaches
-from outshine.transport.road_grades import fit_road_grades, ground_carriageways
 from outshine.transport.road_tunnels import draw_road_tunnel, plan_road_tunnels
 from outshine.transport.stair_branches import local_stair_branches
 from outshine.transport.stair_guards import draw_stair_guards
@@ -87,7 +85,7 @@ from outshine.water.water_surface import clipped_water, water_bodies
 
 class Meshes(dict):
     shore = None
-    road_grades = None
+    terrain_lattice = None
     covered_walks = ()
     trail_litter_edges = None
     meadow_woodland_edges = None
@@ -398,22 +396,7 @@ def building_walls(
 
 def terrain_grid(source, radius):
     axis = np.linspace(-radius, radius, 65)
-    x, y = np.meshgrid(axis, axis)
-    xy = np.column_stack((x.ravel(), y.ravel()))
-    cell = np.arange(len(xy)).reshape(x.shape)[:-1, :-1].ravel()
-    quads = cell[:, None] + [0, 1, len(axis) + 1, len(axis)]
-    return np.column_stack((xy, source.height(xy))), quads
-
-
-def terrain_height(vertices, points):
-    size = int(np.sqrt(len(vertices)))
-    spacing = vertices[1, 0] - vertices[0, 0]
-    grid = (points - vertices[0, :2]) / spacing
-    cell = np.clip(grid.astype(int), 0, size - 2)
-    x, y = (grid - cell).T
-    first = cell[:, 0] + cell[:, 1] * size
-    a, b, c, d = vertices[first[:, None] + [0, 1, size + 1, size], 2].T
-    return a + np.where(x >= y, x * (b - a) + y * (c - b), y * (d - a) + x * (c - d))
+    return lattice(axis, axis, source.height)
 
 
 def boundary_edges(edges, boundary):
@@ -515,29 +498,6 @@ def compound_ground(vertices, quads, junctions, footprint):
         faces.append(offset + junction.mesh.triangles)
         offset += len(junction.mesh.vertices)
     return np.concatenate(points), np.concatenate(faces)
-
-
-def grade_ground_routes(source, vertices, quads, extent, reserved):
-    network = getattr(source, "transport_graph", None)
-    if network is None:
-        return None
-    road_areas = ground_carriageways(
-        network.paths, source.metric, extent, source.features
-    )
-    if not road_areas:
-        return None
-    crossings = [
-        route_area(geometry, ROAD_WIDTH.get(tags.get("class"), BALLAST_WIDTH))
-        for name, geometry, tags in source.features
-        if name == "transportation"
-        and (
-            tags.get("brunnel")
-            or tags.get("layer")
-            or tags.get("class") in {"rail", "transit"}
-        )
-    ]
-    protected = shapely.union_all([*reserved, *crossings])
-    return fit_road_grades(vertices, quads, road_areas, protected)
 
 
 def bank_protection(source, extent, bodies, openings, roads, crossings, fixtures):
@@ -877,7 +837,13 @@ def ground_surfaces(
                 shapely.union_all(passage_ports), grid_size=1e-6
             )
     names.update({i: i for i in stair_tops.keys() | graded.keys()})
-    footprints = {1: bodies}
+    footprints = {}
+    if meshes.terrain_lattice is not None:
+        outside = box(*vertices[0, :2], *vertices[-1, :2]).difference(extent)
+        if not outside.is_empty:
+            names[-2] = "outside local terrain"
+            footprints[-2] = outside
+    footprints[1] = bodies
     if tunnels:
         names[-1] = "tunnel opening"
         footprints[-1] = cuts
@@ -960,7 +926,7 @@ def ground_surfaces(
         footprints,
         breaks=breaks,
     ):
-        if name == "tunnel opening":
+        if name in {"tunnel opening", "outside local terrain"}:
             continue
         if name in graded:
             earthwork, ground_material = graded[name]
@@ -1051,7 +1017,11 @@ def assemble(
     facade_view = facade_view or FacadeView()
     meshes = Meshes()
     extent = box(-radius, -radius, radius, radius)
-    vertices, quads = terrain_grid(source, radius)
+    surface = getattr(source, "road_terrain", None)
+    ground = surface.grid(radius) if surface is not None else None
+    vertices, quads = ground if ground is not None else terrain_grid(source, radius)
+    if ground is not None:
+        meshes.terrain_lattice = vertices
     if water_plan is None:
         water_plan = water_bodies(
             source.features, extent, vertices[:, :2], source.height, source.height
@@ -1076,21 +1046,6 @@ def assemble(
     canopies = platform_canopies(source.features, footprints)
     footprints = [(g, tags) for g, tags in footprints if g not in canopies]
     geometries = [g for g, _ in footprints]
-    meshes.road_grades = grade_ground_routes(
-        source,
-        vertices,
-        quads,
-        extent,
-        [
-            bodies,
-            *geometries,
-            *(deck.footprint for deck in viaducts),
-            *(crossing.footprint for crossing in crossings),
-            *(approach.footprint for approach in approaches),
-        ],
-    )
-    if meshes.road_grades is not None:
-        vertices = meshes.road_grades.vertices
     tags = [p for _, p in footprints]
     colours = facade_colours(geometries, tags)
     parents = building_groups(geometries, tags)

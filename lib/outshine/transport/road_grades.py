@@ -69,30 +69,66 @@ def ground_carriageways(paths, project, extent, features=()):
         clipped = axis.intersection(bounds[width])
         if clipped.geom_type.endswith("LineString") and not clipped.is_empty:
             areas[limit].append(route_area(clipped, width))
-    return {limit: shapely.union_all(parts) for limit, parts in areas.items()}
+    return dict(areas)
 
 
-def _base_limits(areas, carriageways):
-    index = shapely.STRtree(areas)
-    limits = np.full(len(areas), np.inf)
+def _base_limits(index, carriageways):
+    limits = np.full(len(index.geometries), np.inf)
     for grade, pavement in carriageways.items():
         hits = index.query(shapely.get_parts(pavement), predicate="intersects")[1]
         np.minimum.at(limits, hits, grade)
     return limits
 
 
-def _patches(quads, unsafe, violations, spacing):
+def _reserved_cells(vertices, quads, protected):
+    parts = shapely.get_parts(protected)
+    nested = shapely.get_type_id(parts) >= shapely.GeometryType.MULTIPOINT
+    while nested.any():
+        parts = np.r_[parts[~nested], shapely.get_parts(parts[nested])]
+        nested = shapely.get_type_id(parts) >= shapely.GeometryType.MULTIPOINT
+    if not len(parts):
+        return np.zeros(len(quads), dtype=bool)
+    kind = shapely.get_type_id(parts)
+    area = kind == shapely.GeometryType.POLYGON
+    line = (kind == shapely.GeometryType.LINESTRING) | (
+        kind == shapely.GeometryType.LINEARRING
+    )
+    xy = vertices[quads, :2]
+    centre = shapely.STRtree(shapely.points(xy.mean(axis=1)))
+    _, inside = centre.query(parts[area], predicate="intersects")
+    boundary = np.r_[shapely.get_parts(shapely.boundary(parts[area])), parts[line]]
+    coords, owners = shapely.get_coordinates(boundary, return_index=True)
+    start = np.flatnonzero(owners[:-1] == owners[1:])
+    edges = shapely.linestrings(coords[start[:, None] + [0, 1]])
+    index = shapely.STRtree(shapely.polygons(xy))
+    _, touching = index.query(
+        np.r_[edges, parts[~(area | line)]], predicate="intersects"
+    )
+    unsafe = np.zeros(len(quads), dtype=bool)
+    unsafe[inside] = True
+    unsafe[touching] = True
+    return unsafe
+
+
+def _patches(vertices, quads, violations, protected):
     side = int(np.sqrt(len(quads)))
     shape = (side, side)
-    safe = (~unsafe).reshape(shape)
+    spacing = vertices[1, 0] - vertices[0, 0]
     reach = max(2, ceil(2 * max(ROAD_WIDTH.values()) / spacing))
+    neighbors = np.ones((3, 3), dtype=bool)
+    requested = binary_dilation(
+        violations.reshape(shape), structure=neighbors, iterations=reach
+    )
+    safe = requested.ravel().copy()
+    safe[safe] = ~_reserved_cells(vertices, quads[safe], protected)
+    safe = safe.reshape(shape)
     active = binary_dilation(
         violations.reshape(shape) & safe,
-        structure=np.ones((3, 3), dtype=bool),
+        structure=neighbors,
         iterations=reach,
         mask=safe,
     )
-    regions, count = label(active, structure=np.ones((3, 3), dtype=int))
+    regions, count = label(active, structure=neighbors)
     for i in range(1, count + 1):
         yield np.repeat(regions.ravel() == i, 2)
 
@@ -138,20 +174,18 @@ def fit_road_grades(vertices, quads, carriageways, protected):
     """Keep the original XY mesh and pin every exterior and reserved contact."""
     faces = terrain_triangles(quads)
     areas = shapely.polygons(vertices[faces, :2])
-    limits = _base_limits(areas, carriageways)
+    index = shapely.STRtree(areas)
+    limits = _base_limits(index, carriageways)
     prior = np.linalg.norm(
         _face_gradients(vertices[:, :2], faces, vertices[:, 2]), axis=1
     )
     needs_fit = prior > limits + 1e-8
     result = vertices
     if needs_fit.any():
-        shapely.prepare(protected)
-        unsafe = shapely.intersects(protected, areas).reshape(-1, 2).any(axis=1)
         xy = vertices[:, :2]
         border = ((xy == xy.min(axis=0)) | (xy == xy.max(axis=0))).any(axis=1)
-        spacing = xy[1, 0] - xy[0, 0]
         for selected in _patches(
-            quads, unsafe, needs_fit.reshape(-1, 2).any(axis=1), spacing
+            vertices, quads, needs_fit.reshape(-1, 2).any(axis=1), protected
         ):
             exterior = border.copy()
             exterior[faces[~selected].ravel()] = True

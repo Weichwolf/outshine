@@ -19,38 +19,51 @@ from outshine.terrain.ground_surface import ROAD_WIDTH, at_grade_width
 from outshine.transport.route_graph import route_graph
 from outshine.transport.route_tiles import geography, grid_point
 
-LOCAL_LAYERS = ("building", "transportation", "water", "landcover")
+from .road_terrain import (
+    ROAD_LAYERS,
+    RoadTerrain,
+    dem_longitude,
+    elevation_tiles,
+    local_metric,
+    metres_at,
+    terrain_tiles,
+)
+
+LOCAL_LAYERS = (*ROAD_LAYERS, "landcover")
 
 
 class LocalScene:
-    def __init__(self, place, snapshot, cache, radius):
+    def __init__(self, place, snapshot, cache, radius, *, pins=None):
         self.lat, self.lon = place["latitude"], place["longitude"]
-        latitude = np.deg2rad(self.lat)
-        self.metres = np.array(
-            [
-                111412.84 * np.cos(latitude) - 93.5 * np.cos(3 * latitude),
-                111132.92 - 559.82 * np.cos(2 * latitude),
-            ]
-        )
+        self.metres = metres_at(self.lat)
         self.receipts = []
         self.features = []
         self._radius = radius
         self.dem = Elevation([])
         transport_tiles = {}
+        vectors = {}
+        support = elevation_tiles(terrain_tiles(self.lat, self.lon, radius), 12)
         extent = box(-radius, -radius, radius, radius)
         shapely.prepare(extent)
         for kind, zoom in (("elevation", 12), ("vector", 14)):
-            for tile in covering_tiles(self.lat, self.lon, radius, zoom):
+            local = set(covering_tiles(self.lat, self.lon, radius, zoom))
+            tiles = local | support if kind == "elevation" else local
+            for tile in sorted(tiles):
                 key = "/".join(map(str, tile))
                 url = (
                     f"https://tiles.mapterhorn.com/{key}.webp"
                     if kind == "elevation"
                     else f"https://tiles.openfreemap.org/planet/{snapshot}/{key}.pbf"
                 )
+                if tile not in local and pins is not None and url not in pins:
+                    continue
                 receipt = acquire((kind, tile, url), Path(cache), fetch=True)
                 self.receipts.append(receipt)
                 if kind == "vector":
                     data = decode_vector(receipt, layers=LOCAL_LAYERS)
+                    vectors[tile] = {
+                        name: data[name] for name in ROAD_LAYERS if name in data
+                    }
                     if "transportation" in data:
                         transport_tiles[tile] = data["transportation"]
                     self.add_features(receipt, extent, data)
@@ -63,10 +76,11 @@ class LocalScene:
             *grid_point(self.lon + east, self.lat - north),
         )
         self.transport_graph = route_graph(transport_tiles, bounds=bounds)
+        self.road_terrain = RoadTerrain(self, vectors)
 
     def height(self, xy):
         lon, lat = (np.asarray(xy) / self.metres + [self.lon, self.lat]).T
-        return self.dem.sample(lat, lon) - self.datum
+        return self.dem.sample(lat, dem_longitude(lon)) - self.datum
 
     def add_features(self, receipt, extent, data=None):
         for name, geometry, properties in self.metric_features(
@@ -130,11 +144,10 @@ class LocalScene:
         return tuple(joined)
 
     def metric(self, longitude, latitude):
-        east = longitude - self.lon
-        east = np.where(np.abs(east) > 180, east - np.sign(east) * 360, east)
-        return np.column_stack((east, latitude - self.lat)) * self.metres
+        return local_metric(longitude, latitude, (self.lon, self.lat), self.metres)
 
-    def metric_features(self, receipt, names, data=None):
+    def metric_features(self, receipt, names, data=None, *, project=None):
+        project = self.metric if project is None else project
         tile = receipt["tile"]
         if data is None:
             data = decode_vector(receipt, layers=names)
@@ -145,7 +158,7 @@ class LocalScene:
 
             def local(points, extent=layer["extent"]):
                 lat, lon = tile_geography(points, extent, tile)
-                return self.metric(lon, lat)
+                return project(lon, lat)
 
             for feature in layer["features"]:
                 geom = shapely.transform(shape(feature["geometry"]), local)
