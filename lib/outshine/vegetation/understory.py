@@ -19,18 +19,38 @@ LOW_COVER_MAX_SCALE = 1.16
 
 @cache
 def fern():
+    return pinnate_fern(7, 0.64, -1.13, 11, 5, 0)
+
+
+@cache
+def sword_fern(form, detailed):
+    return pinnate_fern(
+        (10 if detailed else 6) + form,
+        0.83 + 0.10 * form,
+        -1.26,
+        18 if detailed else 6,
+        4 if detailed else 2,
+        form + 1,
+    )
+
+
+def pinnate_fern(fronds, size, bend, pairs, samples, variant):
     vertices, faces = [], []
     start = 0
-    for i in range(7):
-        length = 0.64 + 0.11 * np.sin(3 * i + 0.7)
-        bend = -1.13
+    for i in range(fronds):
+        length = size + 0.11 * np.sin(3 * i + 0.7 + variant)
         pattern = PinnatePattern(
-            seed=31 + i, length=length, pairs=11, leaflet_length=0.24, aspect=0.29
+            seed=31 + i + variant * 97,
+            length=length,
+            pairs=pairs,
+            leaflet_length=0.24 if not variant else 0.18,
+            aspect=0.29,
         )
-        frond = FrondGuide(length=length, bend=bend, fold_per_m=1.2).deform(
-            pattern.mesh(5, 1)
+        guide_length = np.nextafter(length, np.inf) if variant else length
+        frond = FrondGuide(length=guide_length, bend=bend, fold_per_m=1.2).deform(
+            pattern.mesh(samples, 1)
         )
-        rachis = axis_mesh(length, bend, 0.0033, 0.0007, 7, 5)
+        rachis = axis_mesh(length, bend, 0.0033, 0.0007, max(samples + 2, 4), 5)
         heading, lean = i * 2.4, 0.95 + 0.23 * np.sin(i * 4.1)
         rotation = Rotation.from_euler("ZX", (heading, lean))
         for part in (frond, rachis):
@@ -77,7 +97,7 @@ def low_cover_tuft():
     return np.concatenate(vertices), np.concatenate(faces)
 
 
-def woodland_low_cover(mesh, source, domain, eye, seed):
+def woodland_low_cover(mesh, source, domain, eye, seed, *, exclude=None):
     centre = eye[:2]
     template = low_cover_tuft()
     reach = np.linalg.norm(template[0][:, :2], axis=1).max() * LOW_COVER_MAX_SCALE
@@ -96,6 +116,8 @@ def woodland_low_cover(mesh, source, domain, eye, seed):
         return
     xy, marks = (np.concatenate(col) for col in zip(*sites, strict=True))
     nearby = shapely.contains_xy(area, *xy.T)
+    if exclude is not None:
+        nearby &= ~exclude(xy)
     xy, marks = xy[nearby], marks[nearby]
     patches = patch_density(source, xy, seed ^ 0x7D71, scale=0.55)
     fade = np.clip((LOW_COVER_REACH_M - np.linalg.norm(xy - centre, axis=1)) / 7, 0, 1)
@@ -115,10 +137,10 @@ def woodland_low_cover(mesh, source, domain, eye, seed):
         )
 
 
-def woodland_cover(mesh, source, domain, eye, seed):
+def woodland_cover(mesh, source, domain, eye, seed, *, exclude=None):
     if domain is None:
         return
-    yield from woodland_low_cover(mesh, source, domain, eye, seed)
+    yield from woodland_low_cover(mesh, source, domain, eye, seed, exclude=exclude)
     centre = eye[:2]
     window = shapely.Point(centre).buffer(UNDERSTORY_REACH_M)
     planting = domain.intersection(window.buffer(1)).buffer(-0.72)
@@ -134,6 +156,8 @@ def woodland_cover(mesh, source, domain, eye, seed):
     xy = np.concatenate([b[0] for b in sites])
     marks = np.concatenate([b[1] for b in sites])
     inside = shapely.contains_xy(planting, *xy.T)
+    if exclude is not None:
+        inside &= ~exclude(xy)
     xy, marks = xy[inside], marks[inside]
     heights = surface_elevations(mesh, xy)
     grounded = np.isfinite(heights)
@@ -160,3 +184,45 @@ def woodland_cover(mesh, source, domain, eye, seed):
                 name,
                 *scatter_mesh(plant(), anchors[group], angles[group], scales[group]),
             )
+
+
+def redwood_ferns(mesh, source, domain, eye, seed, evidence):
+    if domain is None or domain.is_empty:
+        return
+    reach = 76
+    area = domain.intersection(shapely.Point(eye[:2]).buffer(reach + 1.25)).buffer(
+        -1.25
+    )
+    sites = list(
+        tile_sites(source, eye[:2], reach, seed ^ 0xCEA8, density=2.5, cell_size=5)
+    )
+    if not sites:
+        return
+    xy, marks = (np.concatenate(rows) for rows in zip(*sites, strict=True))
+    selected = shapely.contains_xy(area, *xy.T) & evidence(xy)
+    xy, marks = xy[selected], marks[selected]
+    distance = np.linalg.norm(xy - eye[:2], axis=1)
+    mix = patch_density(source, xy, seed ^ 0x77AF, scale=1.8)
+    nearby = np.clip(1 - (distance - 19) / 37, 0, 1)
+    probability = (0.22 + 0.71 * mix) * (0.26 + 0.74 * nearby**1.4)
+    probability *= np.clip((reach - distance) / 14, 0, 1)
+    selected = marks[:, 2] < probability
+    xy, marks, distance = xy[selected], marks[selected], distance[selected]
+    height = surface_elevations(mesh, xy)
+    anchors = np.column_stack((xy, height - 0.025))
+    forms = marks[:, 1] > 0.46
+    detail = distance < 20
+    scale = 0.71 + 0.55 * np.mod(17 * marks[:, 1], 1)
+    for form in (0, 1):
+        for detailed in (False, True):
+            keep = (forms == form) & (detail == detailed) & np.isfinite(height)
+            if keep.any():
+                yield (
+                    "redwood fern",
+                    *scatter_mesh(
+                        sword_fern(form, detailed),
+                        anchors[keep],
+                        2 * np.pi * marks[keep, 0],
+                        scale[keep],
+                    ),
+                )

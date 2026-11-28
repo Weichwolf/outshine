@@ -24,6 +24,7 @@ DETAIL_SCALES = {
     "umbrella thorn bark": (1.30, 8.0, 0.020),
     "gravelly soil": (3.40, 54.0, HEIGHT_SPAN_M),
     "granodiorite": (2.31, 38.9, 0.012),
+    "redwood bark": (2.42, 14.8, 0.088),
     SAND_DETAIL: (1.41, 34.7, 0.010),
     TREAD_DETAIL: (1.41, 34.7, 0.016),
 }
@@ -78,6 +79,7 @@ SURFACE_DETAIL = {
     "beech bark": "beech bark",
     "chestnut bark": "chestnut bark",
     "spruce bark": "spruce bark",
+    "redwood bark": "redwood bark",
     "umbrella thorn bark": "umbrella thorn bark",
     "joshua tree bark": "umbrella thorn bark",
     "mojave yucca bark": "umbrella thorn bark",
@@ -209,6 +211,7 @@ def ground_detail(name):
         "granodiorite",
         SAND_DETAIL,
         TREAD_DETAIL,
+        "redwood bark",
     ).index(name)
     rng = np.random.default_rng(seed)
     fine, grain, patches = (noise(rng, scale) for scale in (0.65, 1.6, 12))
@@ -280,6 +283,17 @@ def ground_detail(name):
         roughness = 0.86 - 0.05 * quartz + 0.047 * weathering + 0.032 * mafic
         height = 0.0012 * quartz + 0.0021 * chips + 0.00028 * fine
         macro = 0.5 + 0.12 * noise(rng, 27)
+    elif name == "redwood bark":
+        y, x = np.indices((SIZE, SIZE), dtype=np.float32)
+        channels = noise(rng, (52, 3.2))
+        offsets = 6.4 * noise(rng, (41, 13))
+        fibres = map_coordinates(channels, [y, x + offsets], order=1, mode="grid-wrap")
+        ridges = np.tanh(0.86 * fibres + 0.32 * noise(rng, (16, 6)))
+        furrows = np.clip(-ridges - 0.19, 0, 1)
+        tint = 0.91 + 0.20 * ridges - 0.22 * furrows + 0.06 * grain
+        roughness = 0.89 + 0.045 * fibres + 0.023 * fine
+        height = 0.026 * ridges - 0.025 * furrows + 0.0018 * fine
+        macro = 0.50 + 0.13 * noise(rng, (39, 15))
     elif name in (SAND_DETAIL, TREAD_DETAIL):
         tint, roughness, height, macro = aeolian_sand(
             rng, fine, grain, tread=name == TREAD_DETAIL

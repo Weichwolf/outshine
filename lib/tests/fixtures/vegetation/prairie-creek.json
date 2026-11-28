@@ -24,6 +24,13 @@
       "support": "unpaved path"
     }
   ],
+  "comparison_views": [
+    {
+      "id": "PrairieCreek-Canopy",
+      "origin": "PrairieCreek-Near",
+      "pitch_deg": 37
+    }
+  ],
   "walks": {
     "PrairieCreek-Footpath": {
       "origin": "PrairieCreek-Near",

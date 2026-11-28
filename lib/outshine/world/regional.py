@@ -40,6 +40,7 @@ from outshine.transport.bridge_approach import (
 from outshine.transport.bridge_contacts import bank_cuts
 from outshine.transport.bridges import draw_water_crossings, plan_water_crossings
 from outshine.transport.viaducts import elevated_outline
+from outshine.vegetation.redwood import redwood_sites
 from outshine.vegetation.regional_canopy import crown_reach, rooted_crowns
 from outshine.vegetation.river_park_trees import riverside_verges, verge_tree_sites
 from outshine.vegetation.woodland import habitat
@@ -66,6 +67,7 @@ class RegionalStands:
     woodland: tuple[np.ndarray, np.ndarray]
     riverside: tuple[np.ndarray, np.ndarray]
     verges: shapely.Geometry
+    redwoods: tuple[np.ndarray, np.ndarray] | None = None
 
 
 REGIONAL_LAND = (
@@ -560,7 +562,9 @@ def regional_transport(
     )
 
 
-def regional_stands(source, transport, focal, radius, seed, *, exclude=None):
+def regional_stands(
+    source, transport, focal, radius, seed, *, exclude=None, redwood=None
+):
     reach = max(radius, crown_reach(focal)) + MIN_STEM_SPACING_M
     extent = box(-reach, -reach, reach, reach)
     shapely.prepare(extent)
@@ -584,9 +588,21 @@ def regional_stands(source, transport, focal, radius, seed, *, exclude=None):
             for layer, geometry, tags in source.metric_features(receipt, layers, data)
             if extent.intersects(geometry)
         )
-    woodland = mature_stand(
-        source, habitat(source, features=features), reach, seed, receipts
-    )
+    domain = habitat(source, features=features)
+    woodland = mature_stand(source, domain, reach, seed, receipts)
+    redwoods = None
+    if redwood is not None:
+        planting = habitat(source, stems=False, features=features)
+        open_ground = shapely.union_all(
+            [
+                shapely.make_valid(geometry)
+                for name, geometry, tags in features
+                if name == "landcover" and tags.get("class") in ("grass", "farmland")
+            ]
+        )
+        if planting is not None:
+            planting = planting.difference(open_ground)
+        redwoods = redwood_sites(source, planting, reach, seed, redwood, receipts)
     verges = riverside_verges(features, extent)
     riverside = verge_tree_sites(source, verges, seed, receipts)
     if exclude is not None:
@@ -595,7 +611,7 @@ def regional_stands(source, transport, focal, radius, seed, *, exclude=None):
             keep = ~exclude(xy)
             retained.append((xy[keep], marks[keep]))
         woodland, riverside = retained
-    return RegionalStands(woodland, riverside, verges)
+    return RegionalStands(woodland, riverside, verges, redwoods)
 
 
 def regional_meshes(
@@ -640,16 +656,19 @@ def regional_meshes(
                 local_shore=local_shore,
             )
             if crown_sites is not None and tile.distance(origin) < reach:
-                for sites, materials in (
-                    (stands.woodland, ("regional wood",)),
-                    (stands.riverside, ("grass", "regional soil")),
+                for sites, materials, redwood in (
+                    (stands.woodland, ("regional wood",), False),
+                    (stands.riverside, ("grass", "regional soil"), False),
+                    (stands.redwoods, ("regional wood",), True),
                 ):
+                    if sites is None or not len(sites[0]):
+                        continue
                     ground = [
                         (vertices, faces)
                         for name, vertices, faces in products
                         if name in materials
                     ]
-                    if ground and len(sites[0]):
+                    if ground:
                         crown_sites.extend(
                             rooted_crowns(
                                 source,
@@ -660,6 +679,7 @@ def regional_meshes(
                                 seed,
                                 sites,
                                 tile.bounds,
+                                redwood=redwood,
                             )
                         )
             tile_products = []

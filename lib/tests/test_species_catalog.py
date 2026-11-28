@@ -88,14 +88,15 @@ class SpeciesCatalogTests(unittest.TestCase):
 
     def test_packaged_real_pilot_and_synonym_keep_names_and_coverage_distinct(self):
         catalog = load_species_catalog()
-        self.assertEqual(len(catalog.records), 30)
-        self.assertEqual(len(catalog.aliases), 31)
+        self.assertEqual(len(catalog.records), 35)
+        self.assertEqual(len(catalog.aliases), 36)
         self.assertEqual(
             catalog.aliases["Acacia tortilis"], catalog.aliases["Vachellia tortilis"]
         )
         for name, region in (
             ("Picea abies", "SWI"),
             ("Eucalyptus globulus", "TAS"),
+            ("Sequoia sempervirens", "CAL"),
             ("Sequoiadendron giganteum", "CAL"),
             ("Vachellia tortilis", "KEN"),
         ):

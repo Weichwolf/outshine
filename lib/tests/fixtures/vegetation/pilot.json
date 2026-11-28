@@ -251,7 +251,8 @@
       "capture": "prairie-creek.json",
       "views": [
         "PrairieCreek-Near",
-        "PrairieCreek-Stand"
+        "PrairieCreek-Stand",
+        "PrairieCreek-Canopy"
       ],
       "reference_photos": [
         {
@@ -270,8 +271,8 @@
         "Smaller plants and open gaps at the prairie transition"
       ],
       "evidence_gaps": [
-        "Atlas soil inputs and measured local cover",
-        "Exact ages of the visible trees"
+        "Site-level understory composition and seasonal soil moisture",
+        "Exact tree locations, ages and stem dimensions at the camera stations"
       ],
       "walk": "PrairieCreek-Footpath"
     },

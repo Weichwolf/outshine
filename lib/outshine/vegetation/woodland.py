@@ -402,7 +402,7 @@ def tree_batches(
         marks = np.concatenate((marks, values[inside]))
         canopy = np.r_[canopy, np.ones(inside.sum(), dtype=bool)]
     if exclude is not None:
-        eligible = ~shapely.intersects_xy(exclude, *positions.T)
+        eligible = ~exclude(positions)
         positions, marks, canopy = (
             positions[eligible],
             marks[eligible],
