@@ -17,7 +17,7 @@ from catalog import HERE, ROOT
 from cloud_profile import cloud_profile
 from facade import FacadeView
 from grass_cover import blades
-from ground_surface import trail_litter_weights
+from ground_surface import MEADOW_MARGIN_M, TRAIL_SHOULDER_M, margin_weights
 from horizon import terrain_horizon
 from horizon_cover import distant_cover
 from meadow import meadow_cover
@@ -319,6 +319,7 @@ class ReferenceScene:
                 self.eye,
                 seed,
                 focal_pixels=self.focal,
+                woodland_edges=self.local.meadow_woodland_edges,
             )
         if "forest floor" in self.local:
             yield from woodland_cover(
@@ -332,14 +333,17 @@ class ReferenceScene:
             self.local, self.source, self.local.shore, self.eye, seed
         )
 
-    def trail_litter(self, name, vertices):
-        edge = self.local.trail_litter_edges
-        if (
-            edge is not None
-            and name == "unpaved path"
-            and vertices is self.local.get(name, (None,))[0]
-        ):
-            return trail_litter_weights(edge, vertices)
+    def ground_litter(self, name, vertices):
+        if vertices is not self.local.get(name, (None,))[0]:
+            return None
+        if name == "meadow" and self.local.meadow_woodland_edges is not None:
+            return margin_weights(
+                self.local.meadow_woodland_edges, vertices, MEADOW_MARGIN_M
+            )
+        if name == "unpaved path" and self.local.trail_litter_edges is not None:
+            return margin_weights(
+                self.local.trail_litter_edges, vertices, TRAIL_SHOULDER_M
+            )
         return None
 
     def woody_plants(self, seed, *, eye_route=None):

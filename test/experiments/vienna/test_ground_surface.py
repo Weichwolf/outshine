@@ -4,11 +4,12 @@ from types import SimpleNamespace
 import numpy as np
 import shapely
 from ground_surface import (
+    MEADOW_MARGIN_M,
     TRAIL_SHOULDER_M,
     at_grade_routes,
     forest_trail_edges,
+    margin_weights,
     partition_ground,
-    trail_litter_weights,
 )
 from land_cover import cover_material
 from reference_scene import support_height
@@ -20,6 +21,36 @@ from woodland import woodland_surface
 
 
 class GroundSurfaceTest(unittest.TestCase):
+    def test_meadow_litter_follows_the_woodland_edge_through_a_path_cut(self):
+        source = SimpleNamespace(
+            height=lambda xy: 0.12 * xy[:, 0] + 0.15 * xy[:, 1],
+            features=[
+                ("landcover", box(-8, -8, 3, 8), {"class": "wood"}),
+                (
+                    "landcover",
+                    box(0, -6, 8, 6),
+                    {"class": "grass", "subclass": "meadow"},
+                ),
+                (
+                    "transportation",
+                    LineString([(-9, 0), (9, 0)]),
+                    {"class": "path", "subclass": "path"},
+                ),
+            ],
+        )
+        meshes = assemble(source, 10)
+        edge = meshes.meadow_woodland_edges
+        self.assertFalse(edge.intersects(Point(0, 0)))
+        positions = [(0, 3), (MEADOW_MARGIN_M / 2, 3), (4, 3), (8, 3)]
+        np.testing.assert_allclose(
+            margin_weights(edge, positions, MEADOW_MARGIN_M), [1, 0.5, 0, 0]
+        )
+        for x, y in positions[:-1]:
+            self.assertAlmostEqual(
+                support_height(meshes["meadow"], (x, y)).max(), 0.12 * x + 0.15 * y
+            )
+        self.assertEqual(len(support_height(meshes["meadow"], (1, 0))), 0)
+
     def test_forest_floor_keeps_the_walk_clear_and_supports_plants(self):
         source = SimpleNamespace(
             height=lambda xy: 0.15 * xy[:, 0] + 0.2 * xy[:, 1],
@@ -61,7 +92,7 @@ class GroundSurfaceTest(unittest.TestCase):
             (0.35, 0.9, 0),
         ]
         np.testing.assert_allclose(
-            trail_litter_weights(edge, positions), [1, 0.5, 0, 0, 0]
+            margin_weights(edge, positions, TRAIL_SHOULDER_M), [1, 0.5, 0, 0, 0]
         )
 
     def test_diagonal_trail_retains_both_edges_across_the_woodland_cut(self):
