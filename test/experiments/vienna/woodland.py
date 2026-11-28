@@ -18,6 +18,7 @@ from scene_mesh import Meshes, terrain_grid, terrain_height
 from woodland_sites import woodland_sites
 from woodland_stem import lean_tree, rooted_stem, scaffold_mesh, template_stem
 
+COARSE_LEAF_STEP = 16
 DISTANT_LEAF_STEP = 32
 
 
@@ -225,11 +226,11 @@ def geometry(plant, step, *, has_stem, species):
         if step > 1 and shoot:
             continue
         main_limb = rows["axis_parent_ids"][i] == 0
-        if step >= 16 and not main_limb:
+        if step >= COARSE_LEAF_STEP and not main_limb:
             continue
         if main_limb:
             rings, sides = (9, 10) if step <= 4 else (5, 8)
-            if spruce and step >= 16:
+            if spruce and step >= COARSE_LEAF_STEP:
                 rings, sides = 3, 5
         elif shoot:
             rings, sides = 3, 4
@@ -261,6 +262,8 @@ def geometry(plant, step, *, has_stem, species):
         where = variants[selected] == variant
         if not where.any():
             continue
+        if step >= COARSE_LEAF_STEP:
+            blade = replace(blade, petiole=0, base_fill=0)
         part = blade.mesh(4 if step == 1 else 2)
         leaf_scale = size[where]
         if step > 1:
@@ -384,7 +387,7 @@ def tree_batches(
             else (
                 4
                 if width_px >= 0.5
-                else (16 if width_px >= 0.30 else DISTANT_LEAF_STEP)
+                else (COARSE_LEAF_STEP if width_px >= 0.30 else DISTANT_LEAF_STEP)
             )
         )
         angle = rotation * 2 * np.pi
