@@ -20,10 +20,9 @@ uniform sampler2D litterMap;
 uniform vec3 litterColour;
 uniform vec3 litterScale;
 uniform vec3 litterTint;
-uniform bool hasWoodlandCover;
-uniform sampler2D woodlandCover;
-uniform vec4 woodlandTransform;
-uniform vec4 woodlandSurface;
+uniform bool hasTerrainCover;
+uniform sampler2D terrainCover;
+uniform vec4 terrainTransform;
 uniform float eyeKm;
 uniform float directSunFraction;
 uniform sampler2D cloudSunMap;
@@ -226,10 +225,10 @@ void main(){
     if(dot(n,view)<0.) n=-n;
   }
   vec4 material=surface;
-  if (hasWoodlandCover) {
-    vec2 uv=(point.xy-woodlandTransform.xy)*woodlandTransform.zw;
+  if (hasTerrainCover) {
+    vec2 uv=(point.xy-terrainTransform.xy)*terrainTransform.zw;
     if (all(greaterThanEqual(uv,vec2(0.))) && all(lessThanEqual(uv,vec2(1.))))
-      material=mix(material,woodlandSurface,texture(woodlandCover,uv).r);
+      material=texture(terrainCover,uv);
   }
   if (hasDetail) {
     vec3 objectNormal=vec3(

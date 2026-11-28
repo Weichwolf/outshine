@@ -19,7 +19,7 @@ from facade import FacadeView
 from grass_cover import blades
 from ground_surface import trail_litter_weights
 from horizon import terrain_horizon
-from horizon_cover import distant_woodland
+from horizon_cover import distant_cover
 from meadow import meadow_cover
 from outshine_ref.places.height import Elevation
 from regional import (
@@ -189,7 +189,7 @@ class ReferenceScene:
             pins=pins,
         )
         self.far, self.faces, receipts = terrain_horizon(self.source, cache, 250)
-        self.woodland_sources = (
+        self.terrain_cover_sources = (
             self.source,
             place,
             config["source_snapshot"],
@@ -294,8 +294,8 @@ class ReferenceScene:
         yield from skyline_meshes(self.source, self.skyline, self.focal, 250)
 
     @cached_property
-    def far_woodland(self):
-        return distant_woodland(*self.woodland_sources)
+    def terrain_cover(self):
+        return distant_cover(*self.terrain_cover_sources)
 
     @cached_property
     def woodland_floor(self):
