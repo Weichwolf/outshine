@@ -211,8 +211,10 @@ and aerosol extinction is grey. Both renderers attenuate direct sunlight through
 aerosol column. Use separate sky archives for the two weather profiles.
 [Hillaire, Scalable Atmosphere Rendering](https://doi.org/10.1111/cgf.14050)
 
-FranzKarlFernsicht-Adjacent follows the same mapped trail by four metres.
-Use the elevated Wien scenario for historical horizon comparison.
+FranzKarlFernsicht-Adjacent looks through a wider gap in the crowns from the
+same mapped trail, roughly 20 m north-northwest. Both cameras are 1.70 m above
+the solved path and use the same heading. Use the elevated Wien scenario as a
+horizon control.
 
 ```sh
 build/blender-python/bin/python test/experiments/vienna/glsl_render.py --export-sky \
