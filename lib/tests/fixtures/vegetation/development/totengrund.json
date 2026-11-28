@@ -1,0 +1,37 @@
+{
+  "seed": 2083,
+  "utc": "2026-08-12T10:00:00Z",
+  "weather": "clear",
+  "eye_height_m": 1.7,
+  "vertical_fov_deg": 54,
+  "source_snapshot": "20260927_080001_pt",
+  "source_pins": "totengrund-sources.json",
+  "places": [
+    {
+      "id": "Totengrund-Near",
+      "latitude": 53.15823884,
+      "longitude": 9.97298956,
+      "heading_deg": 151,
+      "pitch_deg": -7,
+      "support": "unpaved path"
+    },
+    {
+      "id": "Totengrund-Stand",
+      "latitude": 53.15436595,
+      "longitude": 9.97513533,
+      "heading_deg": 338,
+      "pitch_deg": 0,
+      "support": "unpaved path"
+    }
+  ],
+  "walks": {
+    "Totengrund-Footpath": {
+      "origin": "Totengrund-Near",
+      "station_offsets_m": [
+        0,
+        7.2
+      ],
+      "step_m": 0.45
+    }
+  }
+}

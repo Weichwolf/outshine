@@ -583,13 +583,17 @@ def covering_keys(positions):
     )
 
 
-def pilot_keys():
+def site_keys(sites):
     vienna = load_catalog()
     return covering_keys(
         (view["latitude"], view["longitude"])
-        for site in load_sites().values()
+        for site in sites
         for view, _ in site_views(site, vienna)
     )
+
+
+def pilot_keys():
+    return site_keys(load_sites(pilot_only=True).values())
 
 
 def build_atlas(cache, output, keys, *, fetch, pinned=None):
@@ -706,14 +710,22 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--fetch", action="store_true")
     parser.add_argument("--check-pins", type=Path)
-    parser.add_argument(
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument(
         "--at", type=float, nargs=2, action="append", metavar=("LAT", "LON")
     )
+    sites = load_sites()
+    selection.add_argument("--site", action="append", choices=sites)
     args = parser.parse_args()
     pinned = json.loads(args.check_pins.read_text()) if args.check_pins else None
-    keys = pilot_keys() if args.at is None else covering_keys(args.at)
+    if args.site:
+        keys = site_keys(sites[site_id] for site_id in dict.fromkeys(args.site))
+    elif args.at:
+        keys = covering_keys(args.at)
+    else:
+        keys = pilot_keys()
     output = args.output or ROOT / "build/vegetation-atlas" / (
-        "pilot" if args.at is None else "selection"
+        "selection" if args.site or args.at else "pilot"
     )
     manifest = build_atlas(args.cache, output, keys, fetch=args.fetch, pinned=pinned)
     print(f"Built {len(manifest['tiles'])} atlas tiles")

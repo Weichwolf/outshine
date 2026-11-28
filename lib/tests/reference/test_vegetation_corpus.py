@@ -5,7 +5,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from lib.tests.fixtures.vegetation.catalog import load_sites, site_views
+from lib.tests.fixtures.vegetation.catalog import (
+    CONTINENTS,
+    load_holdout_anchors,
+    load_sites,
+    site_views,
+)
 from lib.tests.fixtures.vegetation.pin_sources import collect_pins
 from lib.tests.fixtures.vienna.catalog import load_catalog
 from lib.tests.render_places import main
@@ -13,28 +18,40 @@ from lib.tests.render_places import main
 
 class VegetationCorpusTest(unittest.TestCase):
     def test_pilot_allocates_two_development_sites_per_continent(self):
-        sites = load_sites().values()
+        sites = load_sites(pilot_only=True).values()
         self.assertEqual(
             Counter(site["continent"] for site in sites),
-            dict.fromkeys(
-                (
-                    "Africa",
-                    "Asia",
-                    "Europe",
-                    "North America",
-                    "Oceania",
-                    "South America",
-                ),
-                2,
-            ),
+            dict.fromkeys(CONTINENTS, 2),
         )
         for site in sites:
             self.assertEqual(site["partition"], "development")
-            self.assertTrue(site["reference_photos"])
-            for photo in site["reference_photos"]:
-                self.assertEqual(
-                    date.fromisoformat(photo["date"]).isoformat(), photo["date"]
+
+    def test_holdout_anchors_are_unique_and_reserved_outside_development(self):
+        records = load_holdout_anchors()
+        self.assertEqual(
+            Counter(site["continent"] for site in records),
+            dict.fromkeys(CONTINENTS, 10),
+        )
+        self.assertEqual(len({site["id"] for site in records}), len(records))
+        self.assertEqual(
+            len({(site["latitude"], site["longitude"]) for site in records}),
+            len(records),
+        )
+        development = load_sites()
+        development_anchors = {
+            (site["latitude"], site["longitude"]) for site in development.values()
+        }
+        for site in records:
+            with self.subTest(site=site["id"]):
+                self.assertEqual(site["partition"], "holdout")
+                self.assertNotIn(site["id"], development)
+                self.assertNotIn(
+                    (site["latitude"], site["longitude"]), development_anchors
                 )
+                self.assertTrue(site["stratum"])
+                self.assertEqual(site["id"], f"whc-{site['source_id']}")
+                self.assertLess(abs(site["latitude"]), 85.05112878)
+                self.assertLess(abs(site["longitude"]), 180)
 
     def test_pin_inventory_preserves_missing_tiles_and_rejects_changed_receipts(self):
         near = SimpleNamespace(
@@ -72,6 +89,11 @@ class VegetationCorpusTest(unittest.TestCase):
         for site_id, site in load_sites().items():
             with self.subTest(site=site_id):
                 self.assertGreaterEqual(len(set(site["views"])), 2)
+                self.assertTrue(site["reference_photos"])
+                for photo in site["reference_photos"]:
+                    self.assertEqual(
+                        date.fromisoformat(photo["date"]).isoformat(), photo["date"]
+                    )
                 captures = site_views(site, config)
                 for view, view_config in captures:
                     self.assertNotIn("absolute_eye_m", view)

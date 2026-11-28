@@ -1,0 +1,37 @@
+{
+  "seed": 2083,
+  "utc": "2026-06-10T14:30:00Z",
+  "weather": "clear",
+  "eye_height_m": 1.7,
+  "vertical_fov_deg": 54,
+  "source_snapshot": "20260927_080001_pt",
+  "source_pins": "anhinga-sources.json",
+  "places": [
+    {
+      "id": "Anhinga-Near",
+      "latitude": 25.3820293,
+      "longitude": -80.60849771,
+      "heading_deg": 274,
+      "pitch_deg": -7,
+      "support": "sidewalk"
+    },
+    {
+      "id": "Anhinga-Stand",
+      "latitude": 25.3820186,
+      "longitude": -80.60781405,
+      "heading_deg": 11,
+      "pitch_deg": 0,
+      "support": "sidewalk"
+    }
+  ],
+  "walks": {
+    "Anhinga-Footpath": {
+      "origin": "Anhinga-Near",
+      "station_offsets_m": [
+        0,
+        7.2
+      ],
+      "step_m": 0.45
+    }
+  }
+}

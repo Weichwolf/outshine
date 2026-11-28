@@ -1,0 +1,193 @@
+{
+  "version": 1,
+  "sites": [
+    {
+      "id": "na-namib-dune45",
+      "continent": "Africa",
+      "stratum": "Hyperarid red dune, sparse shrubs and a sandy walking track",
+      "latitude": -24.72509638,
+      "longitude": 15.47112943,
+      "partition": "development",
+      "capture": "development/dune45.json",
+      "views": [
+        "Dune45-Near",
+        "Dune45-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2016-10-23",
+          "url": "https://commons.wikimedia.org/wiki/File:Dune_45_on_the_way_to_Sossuvlei.jpg",
+          "use": "Sparse vegetation, sandy approach and dune slope near the pinned path"
+        }
+      ],
+      "habitat_references": [
+        "https://whc.unesco.org/en/list/1430/"
+      ],
+      "checks": [
+        "Preserve broad bare sand and sparse shrubs",
+        "Check the footpath shoulder and sand grain at grazing angles"
+      ],
+      "evidence_gaps": [
+        "Local wind-shaped microrelief, shrub cover and minerals within the dune sand"
+      ],
+      "walk": "Dune45-Footpath"
+    },
+    {
+      "id": "in-keoladeo-bharatpur",
+      "continent": "Asia",
+      "stratum": "Managed subtropical freshwater wetland with embankments and wooded margins",
+      "latitude": 27.15872348,
+      "longitude": 77.50932124,
+      "partition": "development",
+      "capture": "development/keoladeo.json",
+      "views": [
+        "Keoladeo-Near",
+        "Keoladeo-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2020-02-10",
+          "url": "https://commons.wikimedia.org/wiki/File:Gorgeous_wetlands_of_Bharatpur.jpg",
+          "use": "Water, reed and woody canopy cover in the winter wetland"
+        }
+      ],
+      "habitat_references": [
+        "https://whc.unesco.org/en/list/340/"
+      ],
+      "checks": [
+        "Separate wet shore, emergent cover and dry embankment",
+        "Keep the raised lane continuous at the water edge"
+      ],
+      "evidence_gaps": [
+        "Photo location within the park and managed water level at the scene time",
+        "Surface tags for the two tracks and polygon coverage of the photographed wetland",
+        "WorldCover classifies the near camera cell as cropland and the stand cell as grass"
+      ]
+    },
+    {
+      "id": "de-lueneburg-totengrund",
+      "continent": "Europe",
+      "stratum": "Managed temperate heather and scattered junipers on sandy ground",
+      "latitude": 53.15823884,
+      "longitude": 9.97298956,
+      "partition": "development",
+      "capture": "development/totengrund.json",
+      "views": [
+        "Totengrund-Near",
+        "Totengrund-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2007-08-12",
+          "url": "https://commons.wikimedia.org/wiki/File:Totengrund_001.jpg",
+          "use": "August heather, juniper silhouettes and wooded margins in the basin"
+        }
+      ],
+      "habitat_references": [
+        "https://naturpark-lueneburger-heide.de/natur-und-kultur/naturwunder-und-naturblicke/totengrund/"
+      ],
+      "checks": [
+        "Distinguish heather, grass, juniper and woodland in the managed mosaic",
+        "Check exposed sand and the soft shoulder beside low heath"
+      ],
+      "evidence_gaps": [
+        "Exact photo pose and site-specific burn, grazing and cutting history"
+      ],
+      "walk": "Totengrund-Footpath"
+    },
+    {
+      "id": "us-everglades-anhinga",
+      "continent": "North America",
+      "stratum": "Subtropical freshwater marsh, limestone and a paved wetland path",
+      "latitude": 25.3820293,
+      "longitude": -80.60849771,
+      "partition": "development",
+      "capture": "development/anhinga.json",
+      "views": [
+        "Anhinga-Near",
+        "Anhinga-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2013-06-10",
+          "url": "https://commons.wikimedia.org/w/index.php?curid=56540459",
+          "use": "Summer water and marsh plants by the pinned Anhinga Trail"
+        }
+      ],
+      "habitat_references": [
+        "https://www.nps.gov/ever/planyourvisit/anhinga-trail.htm"
+      ],
+      "checks": [
+        "Check vegetation rooted at the solved shoreline",
+        "Preserve open water and keep the paved path clear"
+      ],
+      "evidence_gaps": [
+        "Water stage and marsh biomass at the scene time"
+      ],
+      "walk": "Anhinga-Footpath"
+    },
+    {
+      "id": "au-wilsons-promontory-squeaky-beach",
+      "continent": "Oceania",
+      "stratum": "Temperate coastal dune scrub above quartz sand and exposed granite",
+      "latitude": -39.02209243,
+      "longitude": 146.30368296,
+      "partition": "development",
+      "capture": "development/squeaky.json",
+      "views": [
+        "SqueakyBeach-Near",
+        "SqueakyBeach-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2015-10-27",
+          "url": "https://commons.wikimedia.org/wiki/File:Wilsons_Promontory_National_Park_-_Squeaky_Beach.jpg",
+          "use": "Quartz beach, coastal scrub and rock at the nearshore path"
+        }
+      ],
+      "habitat_references": [
+        "https://www.parks.vic.gov.au/places-to-see/parks/wilsons-promontory-national-park/things-to-do/squeaky-beach"
+      ],
+      "checks": [
+        "Separate quartz sand, granite and dune scrub",
+        "Check vegetation density and footing along the sheltered sand path"
+      ],
+      "evidence_gaps": [
+        "Tide stage and the vegetation line around the creek at the scene time",
+        "The coastal stand cell has no ecoregion or SoilGrids prior"
+      ],
+      "walk": "SqueakyBeach-Footpath"
+    },
+    {
+      "id": "br-lencois-barreirinhas-dunes",
+      "continent": "South America",
+      "stratum": "Wet-season freshwater lagoons and sparsely vegetated tropical dune sand",
+      "latitude": -2.58100459,
+      "longitude": -42.84872218,
+      "partition": "development",
+      "capture": "development/lencois.json",
+      "views": [
+        "Lencois-Near",
+        "Lencois-Stand"
+      ],
+      "reference_photos": [
+        {
+          "date": "2014-06-14",
+          "url": "https://commons.wikimedia.org/wiki/File:Lagoa_Azul_de_Barreirinhas.jpg",
+          "use": "Seasonal lagoon, exposed sand and low cover in the Barreirinhas dune field"
+        }
+      ],
+      "habitat_references": [
+        "https://www.gov.br/icmbio/pt-br/assuntos/unidade-de-conservacao/unidades-de-biomas/marinho/lista-de-ucs/parna-dos-lencois-maranhenses/paginas-site-parna-dos-lencois-maranhenses-ma/orientacoes-ao-visitante"
+      ],
+      "checks": [
+        "Keep active sand bodies sparse",
+        "Check relief and the extent of mapped water independently of the vegetation recipe"
+      ],
+      "evidence_gaps": [
+        "Exact photo pose and changing seasonal lagoon outlines and water levels"
+      ],
+      "walk": "Lencois-Footpath"
+    }
+  ]
+}

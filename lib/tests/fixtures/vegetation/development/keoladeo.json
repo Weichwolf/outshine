@@ -1,0 +1,27 @@
+{
+  "seed": 2083,
+  "utc": "2026-02-10T08:30:00Z",
+  "weather": "clear",
+  "eye_height_m": 1.7,
+  "vertical_fov_deg": 54,
+  "source_snapshot": "20260927_080001_pt",
+  "source_pins": "keoladeo-sources.json",
+  "places": [
+    {
+      "id": "Keoladeo-Near",
+      "latitude": 27.15872348,
+      "longitude": 77.50932124,
+      "heading_deg": 194,
+      "pitch_deg": -8,
+      "support": "road"
+    },
+    {
+      "id": "Keoladeo-Stand",
+      "latitude": 27.15712926,
+      "longitude": 77.50886302,
+      "heading_deg": 262,
+      "pitch_deg": 0,
+      "support": "road"
+    }
+  ]
+}

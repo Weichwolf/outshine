@@ -1,8 +1,19 @@
-# Vegetation pilot inputs
+# Vegetation corpus inputs
 
-`pilot.json` records the development sites, cameras, photographic references
-and habitat checks. Use the Python image driver with `--vegetation-site` to
-render a site's camera set.
+`pilot.json` and `development.json` record the development sites, cameras,
+photographic references and habitat checks. Use the Python image driver with
+`--vegetation-site` to render a site's camera set.
+
+`holdouts.json` reserves ten independent site anchors per continent. The
+coordinates are the World Heritage property reference points published by
+UNESCO. Each anchor still needs walkable poses, input digests and dated
+visual evidence before it can be evaluated. Use the reserved sites for final
+evaluation. If a reserved site informs recipe tuning, keep its verdict and
+qualify a comparable replacement from the same continent. The selected
+coordinates and labels were adapted from the World Heritage List under
+CC BY-SA 4.0. The manifest lists the dataset and source record identifiers.
+[UNESCO World Heritage List](https://data.unesco.org/explore/assets/whc001/)
+· [Data license](https://creativecommons.org/licenses/by-sa/4.0/)
 
 ## Build the atlas
 
@@ -19,7 +30,21 @@ The builder retains inputs under `build/vegetation-atlas/sources/`. Run the
 second command without `--fetch` to rebuild from the retained inputs. Use
 `--output` to write a separate atlas and `--at LAT LON` to build around a
 different location. Repeated `--at` values build all selected windows in one
-manifest.
+manifest. To build around pinned development cameras, pass their site IDs
+with one `--site` per location.
+
+```sh
+nice -n 10 build/blender-python/bin/python -m lib.tests.fixtures.vegetation.build_atlas \
+  --site na-namib-dune45 --site in-keoladeo-bharatpur \
+  --site de-lueneburg-totengrund --site us-everglades-anhinga \
+  --site au-wilsons-promontory-squeaky-beach --site br-lencois-barreirinhas-dunes \
+  --output build/vegetation-atlas/development \
+  --check-pins lib/tests/fixtures/vegetation/atlas-development-pins.json
+```
+
+Add `--fetch` when populating the source cache. Use
+`--vegetation-atlas build/vegetation-atlas/development` to render these sites
+with the selected atlas.
 
 `outshine.vegetation.atlas.VegetationAtlas` opens the output under
 `build/vegetation-atlas/pilot/`. Use `sample(latitude, longitude)` for the

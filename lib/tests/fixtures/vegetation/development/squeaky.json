@@ -1,0 +1,37 @@
+{
+  "seed": 2083,
+  "utc": "2026-10-27T04:00:00Z",
+  "weather": "clear",
+  "eye_height_m": 1.7,
+  "vertical_fov_deg": 54,
+  "source_snapshot": "20260927_080001_pt",
+  "source_pins": "squeaky-sources.json",
+  "places": [
+    {
+      "id": "SqueakyBeach-Near",
+      "latitude": -39.02209243,
+      "longitude": 146.30368296,
+      "heading_deg": 155,
+      "pitch_deg": -6,
+      "support": "unpaved path"
+    },
+    {
+      "id": "SqueakyBeach-Stand",
+      "latitude": -39.02403305,
+      "longitude": 146.30437882,
+      "heading_deg": 230,
+      "pitch_deg": 0,
+      "support": "sidewalk"
+    }
+  ],
+  "walks": {
+    "SqueakyBeach-Footpath": {
+      "origin": "SqueakyBeach-Near",
+      "station_offsets_m": [
+        0,
+        7.2
+      ],
+      "step_m": 0.45
+    }
+  }
+}
