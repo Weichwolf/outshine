@@ -30,6 +30,21 @@ class RenderCameraTest(unittest.TestCase):
         self.assertEqual(render.call_args.kwargs["backend"], "glsl")
         self.assertEqual(destination, output)
 
+    def test_geographic_camera_passes_atlas_to_both_reference_backends(self):
+        camera = Camera(-2.44263704, 34.82496059, 65)
+        for backend in ("glsl", "blender"):
+            with (
+                self.subTest(backend=backend),
+                patch("outshine.rendering.image.render_scene") as render,
+            ):
+                render_png(
+                    camera, "view.png", backend=backend, vegetation_atlas=Path("atlas")
+                )
+                self.assertEqual(
+                    render.call_args.args[1]["vegetation_atlas"],
+                    str(Path("atlas").resolve()),
+                )
+
     def test_blender_launch_selects_the_platform_gpu_backend(self):
         for platform, backend in (
             ("darwin", "metal"),

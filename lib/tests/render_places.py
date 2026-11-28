@@ -34,6 +34,9 @@ def main():
     parser.add_argument("--display-linear", type=Path, nargs="+")
     parser.add_argument("--street-bounce", action="store_true")
     parser.add_argument("--street-sky", action="store_true")
+    parser.add_argument(
+        "--vegetation-atlas", type=Path, help="directory containing the compiled atlas"
+    )
     args = parser.parse_args()
     if args.vegetation_site:
         views = [
@@ -43,6 +46,12 @@ def main():
         ]
     else:
         views = [(view, config) for view in selected_views(config, args.place)]
+    if args.vegetation_atlas:
+        path = str(args.vegetation_atlas.resolve())
+        views = [
+            (view, view_config | {"vegetation_atlas": path})
+            for view, view_config in views
+        ]
     default = (
         "glsl-agx"
         if args.display_linear

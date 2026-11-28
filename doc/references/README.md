@@ -104,6 +104,14 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
   [WCVP](https://powo.science.kew.org/about-wcvp) ·
   [SoilGrids](https://docs.isric.org/globaldata/soilgrids/)
 
+- **Offene Grasvegetation in Seronera und Tongariro**. Die Feldstudie von de
+  Jonge et al. beschreibt die Grasschicht und die Regenzeiten der zentralen
+  Serengeti. Das neuseeländische Department of Conservation beschreibt
+  Tussock-Gras und niedrige Vegetation am Tongariro. In Outshine begründen
+  diese Quellen die regionalen Unterschiede in Wuchs und Deckung.
+  [Feldstudie](https://pure.rug.nl/ws/portalfiles/portal/253679653/Remote_Sens_Ecol_Conserv_2022_Jonge_Camera_traps_enable_the_estimation_of_herbaceous_aboveground_net_primary.pdf) ·
+  [Tongariro](https://www.doc.govt.nz/tongariro-flora-and-fauna)
+
 - **Hierarchical Image Caching for Accelerated Walkthroughs of Complex Environments**,
   Shade / Lischinski / Salesin / DeRose / Snyder, SIGGRAPH 1996.
   [Autorenprojekt](https://pages.cs.huji.ac.il/danix-lab/cglab/research/wa/) ·

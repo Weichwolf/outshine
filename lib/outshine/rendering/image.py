@@ -58,6 +58,7 @@ def render_png(
     snapshot="latest",
     blender=None,
     engine="eevee",
+    vegetation_atlas=None,
 ):
     """Render a geographic view. Camera height is above solved ground by default."""
     time = datetime.now(UTC) if time is None else time
@@ -82,6 +83,8 @@ def render_png(
         "source_snapshot": snapshot,
         "source_cache": str(Path(cache).resolve()),
     }
+    if vegetation_atlas is not None:
+        config["vegetation_atlas"] = str(Path(vegetation_atlas).resolve())
     return render_scene(
         place, config, output, backend=backend, engine=engine, blender=blender
     )

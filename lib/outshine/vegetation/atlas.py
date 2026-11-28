@@ -5,7 +5,6 @@ import io
 import json
 from dataclasses import dataclass
 from functools import lru_cache
-from math import floor, isfinite
 from pathlib import Path
 
 import numpy as np
@@ -80,21 +79,27 @@ def tile_bounds(key):
     )
 
 
-def grid_cell(latitude, longitude):
+def grid_indices(latitude, longitude):
+    latitude, longitude = np.broadcast_arrays(
+        np.asarray(latitude, dtype=float), np.asarray(longitude, dtype=float)
+    )
     if not (
-        isfinite(latitude)
-        and isfinite(longitude)
-        and -90 <= latitude <= 90
-        and -180 <= longitude <= 180
+        np.isfinite(latitude).all()
+        and np.isfinite(longitude).all()
+        and (np.abs(latitude) <= 90).all()
+        and (np.abs(longitude) <= 180).all()
     ):
         raise ValueError("latitude and longitude outside the atlas grid")
-    longitude = -180 if longitude == 180 else longitude
-    x = floor((longitude + 180) * CELLS_PER_DEGREE + 1e-8)
-    y = min(
-        floor((90 - latitude) * CELLS_PER_DEGREE + 1e-8),
+    x = np.floor((longitude + 180) * CELLS_PER_DEGREE + 1e-8).astype(np.int32)
+    y = np.minimum(
+        np.floor((90 - latitude) * CELLS_PER_DEGREE + 1e-8).astype(np.int32),
         180 * CELLS_PER_DEGREE - 1,
     )
-    x %= 360 * CELLS_PER_DEGREE
+    return x % (360 * CELLS_PER_DEGREE), y
+
+
+def grid_cell(latitude, longitude):
+    x, y = map(int, grid_indices(latitude, longitude))
     return (x // TILE_CELLS, y // TILE_CELLS), (y % TILE_CELLS, x % TILE_CELLS)
 
 
@@ -195,6 +200,29 @@ class VegetationAtlas:
         ):
             raise ValueError(f"invalid vegetation atlas tile {name}")
         return layers
+
+    def land_cells(self, latitude, longitude):
+        """Read cover codes and ecoregion IDs for broadcast geographic positions."""
+        x, y = grid_indices(latitude, longitude)
+        cover = np.zeros(x.shape, dtype=np.uint8)
+        regions = np.zeros(x.shape, dtype=np.uint16)
+        keys, owners = np.unique(
+            np.column_stack((x.ravel(), y.ravel())) // TILE_CELLS,
+            axis=0,
+            return_inverse=True,
+        )
+        owners = owners.ravel()
+        order = np.argsort(owners, kind="stable")
+        stops = np.r_[0, np.cumsum(np.bincount(owners, minlength=len(keys)))]
+        for (column, row), first, stop in zip(keys, stops[:-1], stops[1:], strict=True):
+            layers = self._tiles(tile_name((column, row)))
+            if layers is None:
+                continue
+            rows = order[first:stop]
+            cells = y.ravel()[rows] % TILE_CELLS, x.ravel()[rows] % TILE_CELLS
+            cover.ravel()[rows] = layers["cover"][cells]
+            regions.ravel()[rows] = layers["ecoregion"][cells]
+        return cover, regions
 
     def sample(self, latitude, longitude, *, mapped_cover=None):
         if mapped_cover is not None and mapped_cover not in MAPPED_CLASSES:

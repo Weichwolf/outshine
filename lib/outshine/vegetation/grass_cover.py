@@ -41,7 +41,7 @@ def tuft():
     return np.concatenate(vertices), np.concatenate(faces)
 
 
-def blades(mesh, source, eye, seed):
+def blades(mesh, source, eye, seed, *, exclude=None):
     batches = list(
         tile_sites(source, eye[:2], GRASS_REACH_M, seed ^ 3103, density=78, cell_size=2)
     )
@@ -51,6 +51,8 @@ def blades(mesh, source, eye, seed):
     marks = np.concatenate([b[1] for b in batches])
     heights = surface_elevations(mesh, xy)
     present = np.isfinite(heights)
+    if exclude is not None:
+        present &= ~exclude(xy)
     anchor = np.column_stack((xy[present], heights[present] - 0.008))
     marks = marks[present]
     distance = np.linalg.norm(anchor - eye, axis=1)
