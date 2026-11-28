@@ -31,7 +31,7 @@ class GrassCoverTest(unittest.TestCase):
         xy = np.array([(1, 1), (1.97, 1), (2.5, 1), (3.03, 1), (4, 1)])
         marks = np.tile((0.98, 0.65, 0.10), (len(xy), 1))
         with (
-            patch("meadow.tile_sites", return_value=[(xy, marks)]),
+            patch("meadow.tile_sites", side_effect=([(xy, marks)], [])),
             patch("meadow.patch_density", return_value=np.full(len(xy) - 1, 0.5)),
         ):
             products = list(
@@ -40,4 +40,26 @@ class GrassCoverTest(unittest.TestCase):
         self.assertIn("meadow purple flowers", {name for name, _, _ in products})
         for _, points, _ in products:
             x = points[:, 0]
-            self.assertTrue(np.all((x < 1.5) | (x > 3.5)))
+            self.assertTrue(np.all((x <= 2) | (x >= 3)))
+        self.assertTrue(
+            any(
+                np.any((points[:, 0] > 1.8) & (points[:, 0] < 2))
+                for name, points, _ in products
+                if name == "meadow blades"
+            )
+        )
+
+    def test_midground_meadow_keeps_grass_between_near_plants_and_ground_material(self):
+        vertices = [(x, y, 0) for x in (30, 50) for y in (-5, 5)]
+        mesh = vertices, [(0, 2, 1), (1, 2, 3)]
+        sites = (np.array([(38.0, 0)]), np.array([(0.98, 0.65, 0.10)]))
+        with (
+            patch("meadow.tile_sites", side_effect=([], [sites])),
+            patch("meadow.patch_density", return_value=np.array([0.5])),
+        ):
+            products = list(
+                meadow_cover(mesh, None, np.array([0, 0, 1.7]), 17, focal_pixels=700)
+            )
+        self.assertEqual(
+            [(name, len(faces)) for name, _, faces in products], [("meadow blades", 9)]
+        )

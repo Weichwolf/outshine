@@ -14,6 +14,8 @@ from scene_mesh import Meshes
 
 MEADOW_REACH_M = 28.0
 FULL_MEADOW_COVER_M = 11.0
+MEADOW_CANDIDATES_M2 = 52.0
+MIN_COARSE_HEIGHT_PX = 2.0
 
 
 @cache
@@ -30,6 +32,17 @@ def meadow_tuft(tall):
     left, crease, right = vertices[t < 1].reshape(-1, 3, 3).transpose(1, 0, 2)
     fold = float(np.linalg.norm(crease - (left + right) / 2, axis=1).max())
     return (vertices, mesh["faces"]), (vertices[edges], faces), fold
+
+
+@cache
+def coarse_tuft():
+    _, (vertices, faces), _ = meadow_tuft(False)
+    leaves = vertices.reshape(-1, 5, 3)[::2].copy()
+    sides = leaves[:, :4].reshape(len(leaves), 2, 2, 3)
+    centre = sides.mean(axis=2, keepdims=True)
+    sides[:] = centre + 2 * (sides - centre)
+    triangles = faces[:3] + 5 * np.arange(len(leaves), dtype=np.int32)[:, None, None]
+    return leaves.reshape(-1, 3) * (1.45, 1.45, 1.0), triangles.reshape(-1, 3)
 
 
 @cache
@@ -100,27 +113,36 @@ def meadow_forb(cream):
 
 
 def meadow_cover(mesh, source, eye, seed, *, focal_pixels):
-    batches = list(
-        tile_sites(
-            source, eye[:2], MEADOW_REACH_M, seed ^ 1579, density=52, cell_size=3
+    distant = coarse_tuft()
+    distant_height = distant[0][:, 2].max()
+    reach = max(MEADOW_REACH_M, distant_height * focal_pixels / MIN_COARSE_HEIGHT_PX)
+    batches = []
+    for radius, density, salt, coarse in (
+        (MEADOW_REACH_M, MEADOW_CANDIDATES_M2, 1579, False),
+        (reach, 4.0, 0x5109, True),
+    ):
+        batches.extend(
+            (points, marks, np.full(len(points), coarse))
+            for points, marks in tile_sites(
+                source, eye[:2], radius, seed ^ salt, density=density, cell_size=3
+            )
         )
-    )
     if not batches:
         return
-    xy = np.concatenate([points for points, _ in batches])
-    marks = np.concatenate([values for _, values in batches])
+    xy, marks, coarse = (np.concatenate(rows) for rows in zip(*batches, strict=True))
     heights = surface_elevations(mesh, xy)
     grounded = np.isfinite(heights)
     if not grounded.any():
         return
-    xy, marks = xy[grounded], marks[grounded]
+    xy, marks, coarse = xy[grounded], marks[grounded], coarse[grounded]
     anchors = np.column_stack((xy, heights[grounded] - 0.014))
     distance = np.linalg.norm(anchors - eye, axis=1)
+    pixels_per_metre = focal_pixels / np.maximum(distance, 0.05)
     fade = np.clip(
         (MEADOW_REACH_M - distance) / (MEADOW_REACH_M - FULL_MEADOW_COVER_M), 0, 1
     )
     patch = patch_density(source, xy, seed)
-    active = marks[:, 2] < fade**2 * (3 - 2 * fade) * (0.68 + 0.32 * patch)
+    active = ~coarse & (marks[:, 2] < fade**2 * (3 - 2 * fade) * (0.68 + 0.32 * patch))
     tall = marks[:, 1] < 0.15 + 0.55 * patch**2
     scale = 0.58 + 0.90 * np.mod(7 * marks[:, 0], 1) + 0.37 * patch
     angles = 2 * np.pi * np.mod(13 * marks[:, 0], 1)
@@ -128,16 +150,22 @@ def meadow_cover(mesh, source, eye, seed, *, focal_pixels):
     vertices, faces = mesh
     triangles = np.asarray(vertices)[np.asarray(faces), :2]
     triangles = triangles[
-        np.all(triangles.max(axis=1) >= eye[:2] - MEADOW_REACH_M - 1, axis=1)
-        & np.all(triangles.min(axis=1) <= eye[:2] + MEADOW_REACH_M + 1, axis=1)
+        np.all(triangles.max(axis=1) >= eye[:2] - reach - 1, axis=1)
+        & np.all(triangles.min(axis=1) <= eye[:2] + reach + 1, axis=1)
     ]
     floor = shapely.union_all(shapely.polygons(triangles))
     clearance = shapely.distance(floor.boundary, shapely.points(xy))
     for stature in (False, True):
         folded, flat, fold = meadow_tuft(stature)
         radius = np.linalg.norm(folded[0][:, :2], axis=1).max()
-        group = active & (tall == stature) & (clearance > radius * scale)
-        fold_pixels = fold * scale * focal_pixels / np.maximum(distance, 0.05)
+        fitted = scale if stature else np.minimum(scale, clearance / radius)
+        group = (
+            active
+            & (tall == stature)
+            & ((clearance >= radius * scale) if stature else True)
+            & (folded[0][:, 2].max() * fitted * pixels_per_metre >= 1)
+        )
+        fold_pixels = fold * fitted * pixels_per_metre
         detailed = 0.5 + 0.25 * marks[:, 0] < fold_pixels
         for selected, geometry in (
             (group & detailed, folded),
@@ -147,7 +175,7 @@ def meadow_cover(mesh, source, eye, seed, *, focal_pixels):
                 yield (
                     "meadow blades",
                     *scatter_mesh(
-                        geometry, anchors[selected], angles[selected], scale[selected]
+                        geometry, anchors[selected], angles[selected], fitted[selected]
                     ),
                 )
     flower_patch = patch_density(source, xy, seed ^ 0x4143, scale=0.65)
@@ -171,3 +199,20 @@ def meadow_cover(mesh, source, eye, seed, *, focal_pixels):
                     name,
                     *scatter_mesh(product, anchors[group], angles[group], scale[group]),
                 )
+    enter = np.clip((distance - 16) / (MEADOW_REACH_M - 16), 0, 1)
+    leave = np.clip((reach - distance) / max(reach * 0.30, 1), 0, 1)
+    cover = enter * enter * (3 - 2 * enter) * leave * leave * (3 - 2 * leave)
+    radius = np.linalg.norm(distant[0][:, :2], axis=1).max()
+    fitted = np.minimum(scale, clearance / radius)
+    selected = (
+        coarse
+        & (marks[:, 2] < cover * (0.48 + 0.42 * patch))
+        & (distant_height * fitted * pixels_per_metre >= MIN_COARSE_HEIGHT_PX)
+    )
+    if selected.any():
+        yield (
+            "meadow blades",
+            *scatter_mesh(
+                distant, anchors[selected], angles[selected], fitted[selected]
+            ),
+        )
