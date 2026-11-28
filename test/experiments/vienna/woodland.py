@@ -26,12 +26,12 @@ def stand_plan(species, form):
     base = PlantPlan.from_recipe(json.loads(data.read_text()))
     stem, limbs, twigs = base.levels
     if species == "oak":
-        heights, radii, bends = (6.3, 7.4), (0.285, 0.18), (0.43, 0.30)
-        first, inclination, reach = (0.18, 0.28), (0.52, 1.06), (3.25, 2.85)
+        heights, radii, bends = (8.9, 10.8), (0.255, 0.15), (0.32, 0.26)
+        first, inclination, reach = (0.15, 0.35), (0.48, 0.85), (3.25, 2.85)
         branching, twig_counts, radius_ratio = (7, 9), (14, 11), (0.85, 0.66)
     else:
-        heights, radii, bends = (7.2, 8.1), (0.145, 0.23), (0.30, 0.21)
-        first, inclination, reach = (0.20, 0.38), (0.50, 0.82), (3.0, 2.65)
+        heights, radii, bends = (10.3, 12.4), (0.15, 0.19), (0.25, 0.15)
+        first, inclination, reach = (0.22, 0.42), (0.40, 0.69), (3.0, 2.65)
         branching, twig_counts, radius_ratio = (8, 9), (12, 11), (0.86, 0.68)
     stem = replace(
         stem,
