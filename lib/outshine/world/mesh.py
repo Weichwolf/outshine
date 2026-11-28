@@ -490,6 +490,9 @@ def ground_cover(meshes, features, extent, footprints, names, path, breaks):
     }
     meadow, grass, woodland = cover.values()
     if not woodland.is_empty and not (path.is_empty and meadow.is_empty):
+        forest = woodland.difference(meadow.union(grass))
+        if forest.is_empty:
+            return cover
         protected = shapely.union_all(
             [
                 extent.boundary,
@@ -500,7 +503,6 @@ def ground_cover(meshes, features, extent, footprints, names, path, breaks):
                 ),
             ]
         )
-        forest = woodland.difference(meadow.union(grass))
         if not path.is_empty:
             edges = forest_trail_edges(path, forest, protected)
             if not edges.is_empty:
