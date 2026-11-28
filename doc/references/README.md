@@ -112,6 +112,15 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
   [Feldstudie](https://pure.rug.nl/ws/portalfiles/portal/253679653/Remote_Sens_Ecol_Conserv_2022_Jonge_Camera_traps_enable_the_estimation_of_herbaceous_aboveground_net_primary.pdf) ·
   [Tongariro](https://www.doc.govt.nz/tongariro-flora-and-fauna)
 
+- **Schirmakazien in der zentralen Serengeti**. Die Flora of Tropical East
+  Africa belegt die breite Krone, die rissige Rinde und die kleinen Fiederblättchen
+  von *Vachellia tortilis*. Die Seronera-Feldstudie belegt ihr Vorkommen in der
+  Grassavanne zusammen mit *Commiphora trothae*. In Outshine stützen diese
+  Quellen die Baumform und ihre regionale Auswahl. Die lokale Dichte bleibt
+  eine Schätzung aus Landbedeckung und datierten Bildreferenzen.
+  [Kew](https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:77087190-1/general-information) ·
+  [Feldstudie](https://doi.org/10.1002/jwmg.70037)
+
 - **Hierarchical Image Caching for Accelerated Walkthroughs of Complex Environments**,
   Shade / Lischinski / Salesin / DeRose / Snyder, SIGGRAPH 1996.
   [Autorenprojekt](https://pages.cs.huji.ac.il/danix-lab/cglab/research/wa/) ·
