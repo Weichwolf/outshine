@@ -128,23 +128,6 @@ def street_receivers(scene, *, below_deck=False, woodland=False):
     return batches
 
 
-def place_street_sky(scene):
-    probe = bpy.data.lightprobes.new("Street sky visibility", "VOLUME")
-    probe.resolution_x = probe.resolution_y = 19
-    probe.resolution_z = 9
-    probe.surfel_density = 2
-    probe.bake_samples = 128
-    probe.capture_world = True
-    probe.capture_indirect = probe.capture_emission = False
-    probe.capture_distance = 64.0
-    probe.normal_bias = 0.12
-    probe.view_bias = 0.1
-    volume = bpy.data.objects.new(probe.name, probe)
-    volume.location = scene.camera.matrix_world.translation + Vector((0, 0, 8))
-    volume.scale = (36, 36, 12)
-    scene.collection.objects.link(volume)
-
-
 def surface_scattering(name):
     if name is None:
         return np.zeros((2, 3))

@@ -53,7 +53,7 @@ from outshine_ref.rendering.blender_light import (
     configure_research_view,
 )
 from outshine_ref.rendering.blender_render import configure_gpu, render_png
-from passage_light import bake_reference_irradiance, near_lower_deck
+from passage_light import bake_light_probes, bake_reference_irradiance, near_lower_deck
 from PIL import Image
 from reference_scene import ReferenceScene
 from regional_canopy import crown_batches
@@ -602,7 +602,9 @@ def render(place, config, args):
             scene,
             world.local.covered_walks,
             world.eye[:2],
+            sun.data,
             street_sky=bool(receivers) and not (below_deck or woodland),
+            woodland=woodland,
         )
         if args.engine == "eevee"
         else (0, 0.0)
@@ -666,6 +668,16 @@ def render(place, config, args):
         surface_filter = partial(
             replace_probe_diffuse, captured=captured, surface_filter=surface_filter
         )
+    woodland_bounce_s = 0.0
+    if (
+        woodland
+        and args.engine == "eevee"
+        and sun.data.energy > 0
+        and not bounce
+        and cloud_lighting is None
+    ):
+        # The subtraction image contains only skylight, so reflected sun remains.
+        woodland_bounce_s = bake_light_probes()
     sky_s = configure_aerial(
         scene,
         geometry,
@@ -741,6 +753,8 @@ def render(place, config, args):
                 "sky_radiance": str(sky_path) if sky_path is not None else None,
                 "passage_irradiance_volumes": probes,
                 "passage_irradiance_bake_s": round(bake_s, 3),
+                "woodland_sky_volume": args.engine == "eevee" and woodland,
+                "woodland_sun_bake_s": round(woodland_bounce_s, 3),
                 "street_bounce": {
                     "samples": bounce_count,
                     "seconds": round(receiver_s + bounce_s, 3),
@@ -851,7 +865,7 @@ if __name__ == "__main__":
     p.add_argument(
         "--street-sky",
         action="store_true",
-        help="trace diffuse sky visibility for nearby street surfaces in EEVEE",
+        help="bake local diffuse skylight for street and woodland in EEVEE",
     )
     args = p.parse_args(
         sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []

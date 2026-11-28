@@ -93,7 +93,16 @@ blender -b --factory-startup --python-exit-code 1 -P test/experiments/vienna/ren
 ```
 
 Near mapped woodland, `--street-sky` also covers the forest floor, trails and
-nearby trunks. The bark uses smoothed normals and fades to the standard shading
+nearby trunks. A 100 × 100 × 40 m EEVEE irradiance volume extends into the
+visible canopy. It captures the shared sky and its indirect light with the sun
+disabled during baking. Leaf materials use this directional light through their
+existing reflection and transmission shaders. The volume extends about 90 m
+along a near-horizontal view. Beyond its bounds EEVEE uses the world light.
+After capturing the sky term for the traced receivers, the daytime render
+rebakes the volume with the sun so those receivers retain reflected sunlight.
+This second bake applies when there is direct sun without the spatial cloud
+filter or `--street-bounce`.
+The bark uses smoothed normals and fades to the standard shading
 between 7 and 9 m. The first diffuse scattering samples sky on the same side of a
 surface for reflection and on the opposite side of a translucent leaf for
 transmission. The color and transmission fraction come from the scene materials.
