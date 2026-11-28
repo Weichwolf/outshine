@@ -111,3 +111,61 @@ class ElevatedRailTest(unittest.TestCase):
         blocked = assemble(source, 260)
         self.assertEqual(support_height(blocked["rail ballast"], (100, 0)).size, 0)
         self.assertAlmostEqual(support_height(blocked["road"], (75, 0)).max(), 0)
+
+    def test_station_opens_rail_level_and_preserves_the_storey_below(self):
+        source = SimpleNamespace(
+            height=lambda xy: np.zeros(len(xy)),
+            datum=0,
+            lat=0,
+            lon=0,
+            metres=np.array([111000, 111000]),
+            features=[
+                ("building", shapely.box(14, -8, 65, 8), {"render_height": 12}),
+                (
+                    "transportation",
+                    shapely.LineString([(0, -12), (0, 12)]),
+                    {"class": "minor"},
+                ),
+                *(
+                    (
+                        "transportation",
+                        shapely.LineString([(-15, y), (17, y)]),
+                        {"class": "rail", "brunnel": "bridge"},
+                    )
+                    for y in (-3, 3)
+                ),
+                *(
+                    (
+                        "transportation",
+                        shapely.LineString([(17, y), (72, y)]),
+                        {"class": "rail"},
+                    )
+                    for y in (-3, 3)
+                ),
+                (
+                    "transportation",
+                    shapely.box(20, -1, 55, 1),
+                    {"class": "path", "subclass": "platform"},
+                ),
+            ],
+        )
+        meshes = assemble(source, 80)
+        bed = meshes["rail ballast"]
+        z = support_height(bed, (30, -3)).max()
+        self.assertAlmostEqual(support_height(bed, (13.99, -3)).max(), z)
+        self.assertAlmostEqual(support_height(bed, (14.01, -3)).max(), z)
+        self.assertGreater(support_height(meshes["rail head"], (30, -2.25)).max(), z)
+        sections = []
+        for vertices, faces in meshes.values():
+            triangles = np.asarray(vertices)[faces]
+            front = triangles[(abs(triangles[:, :, 0] - 14) < 0.3).all(axis=1)]
+            sections.extend(shapely.polygons(front[:, :, 1:]))
+        section = shapely.union_all([panel for panel in sections if panel.area > 1e-8])
+        self.assertFalse(section.covers(shapely.Point(-3, z + 1)))
+        self.assertTrue(section.covers(shapely.Point(0, z + 1)))
+        self.assertTrue(section.covers(shapely.Point(-3, 1.0)))
+        self.assertTrue(section.covers(shapely.Point(-3, z + 4.7)))
+
+        source.features.pop()
+        closed = assemble(source, 80)
+        self.assertEqual(support_height(closed["rail ballast"], (30, -3)).size, 0)

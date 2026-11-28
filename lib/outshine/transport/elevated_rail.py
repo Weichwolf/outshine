@@ -223,18 +223,22 @@ def plan_elevated_rail(
     return decks
 
 
-def track_centreline(line, start, end):
+def track_centreline(line, start, end, station=(None, None)):
+    first = start.centreline if start is not None else station[0]
+    last = end.centreline if end is not None else station[1]
     return np.concatenate(
         (
-            start.centreline[:0:-1] if start is not None else np.empty((0, 2)),
+            first[:0:-1] if first is not None else np.empty((0, 2)),
             np.asarray(line.coords),
-            end.centreline[1:] if end is not None else np.empty((0, 2)),
+            last[1:] if last is not None else np.empty((0, 2)),
         )
     )
 
 
-def draw_track_hardware(meshes, line, elevation, approaches):
-    hardware, _ = build_rail_hardware(track_centreline(line, *approaches), elevation)
+def draw_track_hardware(meshes, line, elevation, approaches, station):
+    hardware, _ = build_rail_hardware(
+        track_centreline(line, *approaches, station), elevation
+    )
     if hardware is None:
         return
     sleepers = bake_rail_sleepers(hardware.sleeper_transforms)
@@ -252,7 +256,7 @@ def draw_track_hardware(meshes, line, elevation, approaches):
         meshes.add(material, vertices, product.triangles)
 
 
-def draw_elevated_rail(meshes, deck, height, approaches):
+def draw_elevated_rail(meshes, deck, height, approaches, station_tracks):
     slab(meshes, "bridge deck", deck.footprint, deck.height, SLAB_DEPTH)
     edge_guards(meshes, shapely.orient_polygons(deck.footprint), deck)
     for support in deck.supports:
@@ -277,5 +281,9 @@ def draw_elevated_rail(meshes, deck, height, approaches):
                     BALLAST_DEPTH,
                 )
         draw_track_hardware(
-            meshes, line, top, (approaches.get((line, 0)), approaches.get((line, -1)))
+            meshes,
+            line,
+            top,
+            (approaches.get((line, 0)), approaches.get((line, -1))),
+            (station_tracks.get((line, 0)), station_tracks.get((line, -1))),
         )
