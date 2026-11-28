@@ -216,6 +216,16 @@ distance meshes. Compare leaf area and blade inclination against measured broadl
 crowns. [Fleck, mature beech and oak crowns](https://epub.uni-bayreuth.de/id/eprint/264/1/FleckDiss.pdf) ·
 [Chianucci et al., leaf inclination data](https://doi.org/10.17632/4rmc7r8zvy.2)
 
+Koerbersee-TreeLine and Koerbersee-TreeLine-Oblique extend the comparison to a
+mapped alpine trail. Where the provider includes `leaf_type`, that value guides
+stand composition. In the central European reference, the spruce share for
+untyped forest rises with DEM elevation from 1,200 to 1,570 m. The two spruce
+forms use whorled branches, tapered crowns and grouped needle sprays sampled
+along curved twigs. At distance, the parent twigs represent finer shoots. The
+solved soil supplies the root heights and the mapped margins guide planting.
+[Körbersee webcam](https://www.foto-webcam.eu/webcam/koerbersee/) ·
+[European Atlas of Forest Tree Species, Norway spruce](https://forest.jrc.ec.europa.eu/media/atlas/Picea_abies.pdf)
+
 ## Photographic targets at eye level
 
 The street, water and woodland references use the pinned Vienna catalog at 1.70 m.

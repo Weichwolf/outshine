@@ -7,6 +7,24 @@
   "weather": "clear",
   "comparison_views": [
     {
+      "id": "Koerbersee-TreeLine",
+      "latitude": 47.25574433,
+      "longitude": 10.10500994,
+      "heading_deg": 338,
+      "pitch_deg": 17,
+      "support": "unpaved path",
+      "utc": "2026-09-07T10:40:00Z"
+    },
+    {
+      "id": "Koerbersee-TreeLine-Oblique",
+      "latitude": 47.25564004,
+      "longitude": 10.10488422,
+      "heading_deg": 352,
+      "pitch_deg": 2,
+      "support": "unpaved path",
+      "utc": "2026-09-07T10:40:00Z"
+    },
+    {
       "id": "FranzKarlFernsicht-BrokenCloud",
       "origin": "FranzKarlFernsicht",
       "weather": "broken-cloud"

@@ -8,6 +8,7 @@ from importlib.resources import files
 import numpy as np
 import shapely
 from ground_surface import SOIL_MATERIALS, at_grade_width, route_area
+from montane_trees import SPRAY_WIDTH_M, conifer_sites, needle_sprays, spruce_plan
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry.sampling import SurfaceSampler
 from outshine_ref.vegetation import PlantPlan
@@ -180,7 +181,9 @@ def crown_leaf_frames(rows, seed, *, oak):
     return frames
 
 
-def geometry(plan, step, *, has_stem, species):
+def geometry(plant, step, *, has_stem, species):
+    spruce = species == "spruce"
+    plan = plant.wood if spruce else plant
     rows = plan.tables(sum(plan.axis_counts), sum(plan.leaf_counts))
     meshes = Meshes()
     bark = f"{species} bark"
@@ -197,6 +200,8 @@ def geometry(plan, step, *, has_stem, species):
             continue
         if main_limb:
             rings, sides = (9, 10) if step <= 4 else (5, 8)
+            if spruce and step >= 16:
+                rings, sides = 3, 5
         elif shoot:
             rings, sides = 3, 4
         elif step > 1:
@@ -214,6 +219,10 @@ def geometry(plan, step, *, has_stem, species):
         )
         vertices = part["vertices"] @ rows["axis_frames"][i].T + rows["axis_origins"][i]
         meshes.add(bark, lean_tree(plan, vertices, oak=oak), part["faces"])
+    if spruce:
+        vertices, faces = needle_sprays(plant, step)
+        meshes.add("spruce foliage", lean_tree(plan, vertices, oak=False), faces)
+        return meshes
     # One representative spans the one-sided leaf area of its contiguous twig group.
     variants = rows["leaf_variants"]
     areas = np.array([blade.area() for blade in plan.blades])
@@ -300,18 +309,34 @@ def tree_batches(
     root_height = partial(height, fallback=partial(terrain_height, terrain))
 
     heights = height(positions, source.height)
+    conifers = conifer_sites(
+        source, positions[:stand_count], heights[:stand_count], marks[:stand_count, 0]
+    )
     distances = np.linalg.norm(positions - eye_xy, axis=1)
     for index, (xy, z, (family, rotation, scale), distance) in enumerate(
         zip(positions, heights, marks, distances, strict=True)
     ):
         managed = index >= stand_count
-        species = "chestnut" if managed else ("oak" if family < 0.5 else "beech")
+        if managed:
+            species = "chestnut"
+        elif conifers[index]:
+            species = "spruce"
+        else:
+            species = "oak" if family < 0.5 else "beech"
         form = int(family * 4) % 2
         key = species, form
         if key not in plans:
-            plans[key] = avenue_plan(form) if managed else stand_plan(species, form)
-        plan = plans[key]
-        width_px = plan.blades[0].width * scale * focal_pixels / max(1, distance)
+            if managed:
+                plans[key] = avenue_plan(form)
+            elif species == "spruce":
+                plans[key] = spruce_plan(form)
+            else:
+                plans[key] = stand_plan(species, form)
+        plant = plans[key]
+        spruce = species == "spruce"
+        plan = plant.wood if spruce else plant
+        width = 0.30 * SPRAY_WIDTH_M if spruce else plan.blades[0].width
+        width_px = width * scale * focal_pixels / max(1, distance)
         group = (
             1
             if width_px >= 1

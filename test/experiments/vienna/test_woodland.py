@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import shapely
+from montane_trees import conifer_sites, needle_sprays, spruce_plan
 from outshine_ref.vegetation import PlantPlan
 from outshine_ref.vegetation.curve_frame import arc_frame
 from scene_mesh import terrain_grid, terrain_height
@@ -20,6 +21,51 @@ from woodland_stem import lean_tree, rooted_stem, template_stem
 
 
 class WoodlandTest(unittest.TestCase):
+    def test_conifer_selection_uses_local_elevation_and_mapped_leaf_type(self):
+        xy = np.column_stack((np.arange(6), np.zeros(6)))
+        source = SimpleNamespace(
+            lat=47.25,
+            lon=10.1,
+            datum=1400,
+            features=[
+                (
+                    "landcover",
+                    shapely.box(3.5, -1, 4.5, 1),
+                    {"class": "wood", "leaf_type": "broadleaved"},
+                ),
+                (
+                    "landcover",
+                    shapely.box(4.5, -1, 5.5, 1),
+                    {"class": "wood", "leaf_type": "needleleaved"},
+                ),
+            ],
+        )
+        heights = np.array([-310, -15, -15, 265, 265, -310])
+        rank = np.array([0.2, 0.2, 0.8, 0.8, 0.2, 0.8])
+        np.testing.assert_array_equal(
+            conifer_sites(source, xy, heights, rank),
+            [False, True, False, True, False, True],
+        )
+        source.lat, source.lon = 48.2, 16.4
+        np.testing.assert_array_equal(
+            conifer_sites(source, xy, -1100 * np.ones(6), rank),
+            [False, False, False, False, False, True],
+        )
+
+    def test_spruce_keeps_a_conical_crown_in_the_grouped_representation(self):
+        for form in (0, 1):
+            with self.subTest(form=form):
+                plant = spruce_plan(form)
+                close, near_faces = needle_sprays(plant, 1)
+                coarse, far_faces = needle_sprays(plant, 32)
+                self.assertLess(len(far_faces), len(near_faces) / 8)
+                self.assertGreater(coarse[:, 2].max(), 0.93 * close[:, 2].max())
+                height = plant.wood.axis(()).length
+                lower = coarse[:, 2] < 0.5 * height
+                upper = coarse[:, 2] > 0.8 * height
+                reach = np.linalg.norm(coarse[:, :2], axis=1)
+                self.assertLess(reach[upper].max(), 0.6 * reach[lower].max())
+
     def test_leaf_roll_keeps_the_seeded_blades_on_their_midribs(self):
         count = 512
         height = np.repeat((2.0, 8.0), count // 2)

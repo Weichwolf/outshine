@@ -41,5 +41,8 @@ def available_views(config):
     places = {place["id"]: place for place in config["places"]}
     return [
         *places.values(),
-        *(places[view["origin"]] | view for view in config.get("comparison_views", [])),
+        *(
+            places[view["origin"]] | view if "origin" in view else view
+            for view in config.get("comparison_views", [])
+        ),
     ]
