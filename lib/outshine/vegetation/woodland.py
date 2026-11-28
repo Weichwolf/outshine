@@ -360,11 +360,14 @@ def woodland_surface(surfaces):
     if not len(triangles):
         return None
     vertices, indices = np.unique(triangles.reshape(-1, 3), axis=0, return_inverse=True)
+    faces = indices.reshape(-1, 3)
+    _, first = np.unique(np.sort(faces, axis=1), axis=0, return_index=True)
+    faces = faces[np.sort(first)]
     return SurfaceSampler(
-        Mesh(vertices, indices.reshape(-1, 3)),
+        Mesh(vertices, faces),
         xy_tolerance_m=2e-6,
         height_tolerance_m=3e-6,
-        max_faces=len(triangles),
+        max_faces=len(faces),
     )
 
 
@@ -379,6 +382,7 @@ def tree_batches(
     soil=None,
     eye_route=None,
     mature=None,
+    riverside=None,
 ):
     domain = habitat(source)
     lawn, avenue, avenue_marks = avenue_sites(source, radius, seed)
@@ -388,6 +392,11 @@ def tree_batches(
         positions, marks = woodland_sites(
             source, domain, np.zeros(2), radius, seed, mature=mature
         )
+    if riverside is not None:
+        sites, values = riverside
+        inside = np.all(abs(sites) < radius, axis=1)
+        positions = np.concatenate((positions, sites[inside]))
+        marks = np.concatenate((marks, values[inside]))
     stand_count = len(positions)
     positions = np.concatenate((positions, avenue))
     marks = np.concatenate((marks, avenue_marks))

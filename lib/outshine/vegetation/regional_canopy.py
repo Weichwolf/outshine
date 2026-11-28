@@ -103,6 +103,9 @@ def rooted_crowns(source, receipt, data, forest, focal, seed, stand, bounds):
     xy, marks, scale = xy[keep], marks[keep], scale[keep]
     height = np.full(len(xy), -np.inf)
     for vertices, faces in forest:
+        if not len(faces):
+            continue
+        faces = np.asarray(faces)
         triangles = terrain_triangles(faces) if faces.shape[1] == 4 else faces
         height = np.maximum(height, surface_elevations((vertices, triangles), xy))
     keep = np.isfinite(height)

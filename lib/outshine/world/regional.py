@@ -40,6 +40,7 @@ from outshine.transport.bridge_contacts import bank_cuts
 from outshine.transport.bridges import draw_water_crossings, plan_water_crossings
 from outshine.transport.viaducts import elevated_outline
 from outshine.vegetation.regional_canopy import crown_reach, rooted_crowns
+from outshine.vegetation.river_park_trees import riverside_verges, verge_tree_sites
 from outshine.vegetation.woodland import habitat
 from outshine.vegetation.woodland_sites import MIN_STEM_SPACING_M, mature_stand
 from outshine.water.shore_grade import SHORE_REACH_M, shore_grade
@@ -57,6 +58,13 @@ class RegionalTransport:
     crossings: list
     elevated: set
     bridges: Meshes
+
+
+@dataclass(frozen=True)
+class RegionalStands:
+    woodland: tuple[np.ndarray, np.ndarray]
+    riverside: tuple[np.ndarray, np.ndarray]
+    verges: shapely.Geometry
 
 
 REGIONAL_LAND = (
@@ -550,7 +558,7 @@ def regional_transport(
     )
 
 
-def regional_stand(source, transport, focal, radius, seed):
+def regional_stands(source, transport, focal, radius, seed):
     reach = max(radius, crown_reach(focal)) + MIN_STEM_SPACING_M
     extent = box(-reach, -reach, reach, reach)
     shapely.prepare(extent)
@@ -574,9 +582,12 @@ def regional_stand(source, transport, focal, radius, seed):
             for layer, geometry, tags in source.metric_features(receipt, layers, data)
             if extent.intersects(geometry)
         )
-    return mature_stand(
+    woodland = mature_stand(
         source, habitat(source, features=features), reach, seed, receipts
     )
+    verges = riverside_verges(features, extent)
+    riverside = verge_tree_sites(source, verges, seed, receipts)
+    return RegionalStands(woodland, riverside, verges)
 
 
 def regional_meshes(
@@ -589,7 +600,7 @@ def regional_meshes(
     seed,
     local_shore=None,
     crown_sites=None,
-    stand=None,
+    stands=None,
 ):
     boundary = box(-radius, -radius, radius, radius).boundary
     align_seam = any(
@@ -618,24 +629,28 @@ def regional_meshes(
                 local_shore=local_shore,
             )
             if crown_sites is not None and tile.distance(origin) < reach:
-                forest = [
-                    (vertices, faces)
-                    for name, vertices, faces in products
-                    if name == "regional wood"
-                ]
-                if forest:
-                    crown_sites.extend(
-                        rooted_crowns(
-                            source,
-                            receipt,
-                            data,
-                            forest,
-                            focal,
-                            seed,
-                            stand,
-                            tile.bounds,
+                for sites, materials in (
+                    (stands.woodland, ("regional wood",)),
+                    (stands.riverside, ("grass", "regional soil")),
+                ):
+                    ground = [
+                        (vertices, faces)
+                        for name, vertices, faces in products
+                        if name in materials
+                    ]
+                    if ground and len(sites[0]):
+                        crown_sites.extend(
+                            rooted_crowns(
+                                source,
+                                receipt,
+                                data,
+                                ground,
+                                focal,
+                                seed,
+                                sites,
+                                tile.bounds,
+                            )
                         )
-                    )
             tile_products = []
             for name, vertices, faces in products:
                 if name not in PARCEL_SURFACES:

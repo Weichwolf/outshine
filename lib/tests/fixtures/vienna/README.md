@@ -480,6 +480,11 @@ determines root height and mapped leaf type informs the species. The middle dist
 thins crowns between sixteen and twelve pixels of projected tree height, leaving the
 baked canopy relief beyond. Both renderers instance templates for oak, beech and
 spruce. Younger stems remain a near-field detail.
+Riverside parks also support seeded trees beside mapped walking and cycling paths.
+The rule uses the park and river footprints, keeps paths, bridge spans, water, buildings
+and open recreation interiors clear, and shares the same sites across the local and
+regional ground meshes. The Vienna tree register is an independent location control.
+[Tree register, City of Vienna](https://www.wien.gv.at/umwelt/stadtbaeume)
 At regional distance, the vector tile classifications give fields, grassland, rock
 and built-up ground distinct materials on the solved terrain. The same palette
 extends across the regional boundary. Parcel faces are combined by material after
