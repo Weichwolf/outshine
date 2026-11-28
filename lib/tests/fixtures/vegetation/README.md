@@ -36,3 +36,8 @@ SoilGrids fields retain their 250 m source resolution and provide a coarse
 substrate prior. Source gaps return empty fields. Botanical regions provide
 candidate species from the packaged WCVP catalogue. Plant abundance and
 actual presence require site-level evidence.
+
+In Chile the builder also joins the 2017 vegetation belts of Luebert and
+Pliscoff. `potential_community` reports that regional source separately from
+mapped or satellite-observed cover. It is empty outside the supplied layer.
+[Geoportal de Chile](https://geoportal.cl/geoportal/catalog/32581/Pisos%20vegetacionales%20de%20Luebert%20y%20Pliscoff%202017)

@@ -121,6 +121,25 @@ Die Relevanzgruppen nennen weitere konkrete Verbraucher am jeweiligen Eintrag.
   [Kew](https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:77087190-1/general-information) ·
   [Feldstudie](https://doi.org/10.1002/jwmg.70037)
 
+- **Unbefestigte Fahrwege in Seronera**. Der Bericht der Tanzania Association
+  of Tour Operators dokumentiert die Instandsetzung der Parkwege. Eine
+  datierte Aufnahme aus Seronera zeigt den verdichteten Fahrstreifen und
+  den Übergang ins Gras. In Outshine kalibrieren diese Belege die prozeduralen
+  Oberflächen und ergänzen die kartierten OSM-Belagsangaben. SoilGrids
+  liefert den regionalen Hinweis auf die mineralische Zusammensetzung.
+  [Parkwege und Instandsetzung](https://tatotz.org/serengeti-road-maintenance-project/) ·
+  [Seronera-Aufnahme vom 23. Februar 2014](https://www.butterblume-in-afrika.de/tansania-nord-uganda-2014/23-02-14-seronera-serengeti/)
+
+- **Patagonische Gebüsche und Horstgrassteppen**. Die chilenische Karte von
+  Luebert und Pliscoff ergänzt den Vegetationsatlas um potenzielle
+  Pflanzengesellschaften. WorldCover und OSM liefern die heutige Bedeckung
+  und Grenzen offener Flächen. Flora und Feldbelege stützen die schmalen
+  Blätter von *Chiliotrichum diffusum* und die Horstform der regionalen Gräser.
+  [Vegetationskarte](https://geoportal.cl/geoportal/catalog/32581/Pisos%20vegetacionales%20de%20Luebert%20y%20Pliscoff%202017) ·
+  [Chilenisches Umweltministerium](https://simbio.mma.gob.cl/Ecosistemas/Details/128) ·
+  [Flora von Chile](https://catalogoplantas.udec.cl/?q=node%2F1991) ·
+  [Argentinische Nationalparks](https://sib.gob.ar/especies/chiliotrichum-diffusum)
+
 - **Hierarchical Image Caching for Accelerated Walkthroughs of Complex Environments**,
   Shade / Lischinski / Salesin / DeRose / Snyder, SIGGRAPH 1996.
   [Autorenprojekt](https://pages.cs.huji.ac.il/danix-lab/cglab/research/wa/) ·

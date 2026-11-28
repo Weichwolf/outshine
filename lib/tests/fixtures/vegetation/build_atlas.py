@@ -35,7 +35,13 @@ from outshine.vegetation.species_catalog import (
 from outshine.vegetation.stand_habitat import polygon_components
 from rasterio.features import rasterize
 from rasterio.transform import from_bounds
-from rasterio.warp import Resampling, reproject, transform
+from rasterio.warp import (
+    Resampling,
+    reproject,
+    transform,
+    transform_bounds,
+    transform_geom,
+)
 from rasterio.windows import Window
 from shapely.geometry import box, shape
 
@@ -68,6 +74,15 @@ SOILGRID = {
     "license": "CC-BY-4.0",
     "resolution_m": 250,
 }
+CHILE_COMMUNITIES = {
+    "url": "https://geoportal.cl/geoportal/catalog/download/d9aca777-8e22-35ee-96a1-c8cfe7d8019a",
+    "release": "Pisos vegetacionales de Luebert y Pliscoff 2017",
+    "attribution": "Chile, Ministerio del Medio Ambiente",
+    "license": "Public download from Geoportal de Chile; catalog entry specifies no license.",
+    "sha256": "8234bfcee6a936b6811da379ac33ea254faabf4e040eda6cecd0675e84189f5d",
+}
+CHILE_EXTENT = box(-75.70, -55.99, -66.41, -17.49)
+CHILE_CRS = "EPSG:5360"
 HOMOLOSINE = "+proj=igh +ellps=WGS84 +units=m"
 SOIL_CRS = "http://www.opengis.net/def/crs/EPSG/0/152160"
 
@@ -229,7 +244,46 @@ def polygon_layer(features, bounds):
     )
 
 
-def build_tile(key, cache, output, fetch, resolve_path, botanical):
+def chile_communities(cache, keys, fetch):
+    selection = [box(*tile_bounds(key)) for key in keys]
+    relevant = [tile for tile in selection if tile.intersects(CHILE_EXTENT)]
+    if not relevant:
+        return [""], [], {}
+    archive = pinned_source(
+        cache, "pisos-vegetacionales-2017.zip", CHILE_COMMUNITIES, fetch
+    )
+    region = shapely.union_all(relevant)
+    bounds = transform_bounds("EPSG:4326", CHILE_CRS, *region.bounds)
+    polygons = []
+    with (
+        ZipFile(archive) as source,
+        shapefile.Reader(
+            shp=io.BytesIO(source.read("PisosVegetacionalesPliscoff2017.shp")),
+            shx=io.BytesIO(source.read("PisosVegetacionalesPliscoff2017.shx")),
+            dbf=io.BytesIO(source.read("PisosVegetacionalesPliscoff2017.dbf")),
+            encoding="latin-1",
+        ) as reader,
+    ):
+        for entry in reader.iterShapeRecords(bbox=bounds):
+            code = entry.record["codigo"]
+            if not code:
+                continue
+            projected = transform_geom(
+                CHILE_CRS, "EPSG:4326", entry.shape.__geo_interface__
+            )
+            clipped = shapely.make_valid(shape(projected)).intersection(region)
+            if not clipped.is_empty:
+                polygons.append((clipped, f"CHL-2017:{code}"))
+    codes = ["", *sorted({code for _, code in polygons})]
+    indices = {code: index for index, code in enumerate(codes)}
+    return (
+        codes,
+        [(polygon, indices[code]) for polygon, code in polygons],
+        {"chile_potential_vegetation": CHILE_COMMUNITIES},
+    )
+
+
+def build_tile(key, cache, output, fetch, resolve_path, botanical, communities):
     name = tile_name(key)
     bounds = tile_bounds(key)
     extent = box(*bounds)
@@ -251,6 +305,13 @@ def build_tile(key, cache, output, fetch, resolve_path, botanical):
         "ecoregion": polygon_layer(region_polygons, bounds),
         "botanical": polygon_layer(botanical_polygons, bounds),
     }
+    regional = [
+        (polygon.intersection(extent), code)
+        for polygon, code in communities
+        if polygon.intersects(extent)
+    ]
+    if regional:
+        layers["community"] = polygon_layer(regional, bounds)
     soil = {}
     water_or_ice = np.isin(cover, (70, 80))
     for layer in SOIL_LAYERS:
@@ -267,7 +328,10 @@ def build_tile(key, cache, output, fetch, resolve_path, botanical):
     payload = stream.getvalue()
     digest = hashlib.sha256(payload).hexdigest()
     write_bytes(output / f"{name}-{digest}.npz", payload)
-    return name, {"sha256": digest, "worldcover": worldcover, "soil": soil}
+    record = {"sha256": digest, "worldcover": worldcover, "soil": soil}
+    if regional:
+        record["potential_community"] = True
+    return name, record
 
 
 def covering_keys(positions):
@@ -314,11 +378,14 @@ def build_atlas(cache, output, keys, *, fetch, pinned=None):
         )
         for row in features
     ]
+    community_codes, communities, regional_sources = chile_communities(
+        cache, keys, fetch
+    )
     with ThreadPoolExecutor(max_workers=6) as pool:
         tiles = dict(
             pool.map(
                 lambda key: build_tile(
-                    key, cache, output, fetch, resolve_path, botanical
+                    key, cache, output, fetch, resolve_path, botanical, communities
                 ),
                 keys,
             )
@@ -332,8 +399,10 @@ def build_atlas(cache, output, keys, *, fetch, pinned=None):
             "soil": SOILGRID,
             "species": dict(load_species_catalog().document["source"])
             | {"catalog_sha256": species_catalog_digest()},
+            **regional_sources,
         },
         "botanical_regions": codes,
+        "potential_communities": community_codes,
         "ecoregions": ecoregions,
         "tiles": tiles,
     }

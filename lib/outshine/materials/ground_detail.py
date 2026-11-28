@@ -16,12 +16,12 @@ CANOPY_DETAIL = "regional canopy"
 CROWN_DETAIL = "crown sprays"
 MEADOW_DETAIL = "meadow canopy"
 PLANAR_DETAILS = (CANOPY_DETAIL, MEADOW_DETAIL)
-LITTER_DETAILS = ("compacted", MEADOW_DETAIL)
 DETAIL_SCALES = {
     CANOPY_DETAIL: (512.0, 1523.0, 2.4),
     CROWN_DETAIL: (24.8, 127.9, 0.48),
     MEADOW_DETAIL: (MEADOW_TILE_M, 31.0, HEIGHT_SPAN_M),
     "umbrella thorn bark": (1.30, 8.0, 0.020),
+    "gravelly soil": (3.40, 54.0, HEIGHT_SPAN_M),
 }
 DETAIL_TINTS = {"beech bark": (0.86, 1.0, 0.78), "leaf litter": (0.53, 1.26, 0.66)}
 SIZE = 512
@@ -38,6 +38,8 @@ SURFACE_DETAIL = {
     "portal stone": "concrete",
     "window sill": "concrete",
     "ground": "soil",
+    "dry savanna soil": "sandy clay loam",
+    "patagonian gravel soil": "gravelly soil",
     "forest floor": "leaf litter",
     "regional wood": CANOPY_DETAIL,
     "needle crown": CROWN_DETAIL,
@@ -49,6 +51,9 @@ SURFACE_DETAIL = {
     "vineyard": "grass",
     "orchard": "grass",
     "unpaved path": "compacted",
+    "unpaved road": "compacted road",
+    "savanna unpaved road": "compacted road",
+    "patagonian unpaved road": "compacted road",
     "wall": "plaster",
     "street base": "plaster",
     "street trim": "concrete",
@@ -155,6 +160,9 @@ def ground_detail(name):
         CROWN_DETAIL,
         MEADOW_DETAIL,
         "umbrella thorn bark",
+        "sandy clay loam",
+        "compacted road",
+        "gravelly soil",
     ).index(name)
     rng = np.random.default_rng(seed)
     fine, grain, patches = (noise(rng, scale) for scale in (0.65, 1.6, 12))
@@ -194,6 +202,29 @@ def ground_detail(name):
         tint = 0.97 + 0.14 * litter + 0.055 * grain + 0.075 * humus
         roughness = 0.92 - 0.065 * litter + 0.025 * patches
         height = 0.0025 * litter + 0.00070 * fine + 0.0021 * humus
+    elif name == "sandy clay loam":
+        crust = np.clip(0.52 + 0.25 * patches + 0.31 * noise(rng, 5), 0, 1)
+        stones = np.clip(noise(rng, 2.1) + 0.26 * grain - 1.30, 0, 1.30)
+        dust = np.tanh(0.71 * noise(rng, 21) - 0.33 * patches)
+        tint = 0.86 + 0.19 * dust + 0.18 * crust + 0.24 * stones + 0.055 * fine
+        roughness = 0.94 + 0.015 * dust - 0.075 * stones
+        height = 0.0018 * crust + 0.0058 * stones + 0.00062 * grain
+        macro = 0.5 + 0.24 * dust
+    elif name == "compacted road":
+        dust = np.tanh(0.68 * noise(rng, 28) + 0.45 * patches)
+        gravel = np.clip(noise(rng, 2.5) + 0.38 * grain - 1.35, 0, 1.8)
+        tint = 0.94 + 0.12 * dust + 0.23 * gravel + 0.048 * grain
+        roughness = 0.88 + 0.045 * dust + 0.029 * gravel
+        height = 0.0039 * gravel + 0.00072 * grain + 0.00095 * dust
+        macro = 0.5 + 0.18 * dust
+    elif name == "gravelly soil":
+        beds = np.tanh(0.71 * noise(rng, 17) + 0.40 * patches)
+        stones = np.clip(noise(rng, 3.7) + 0.40 * beds - 0.88, 0, 1.45)
+        fines = np.tanh(0.56 * grain + 0.55 * patches)
+        tint = 0.86 + 0.19 * beds + 0.25 * stones + 0.13 * fines
+        roughness = 0.94 - 0.11 * stones + 0.02 * fines
+        height = 0.0093 * stones + 0.0014 * beds + 0.00046 * fine
+        macro = 0.5 + 0.20 * noise(rng, 24)
     elif name == "leaf litter":
         tint, roughness, height, macro = bake_litter(
             rng, fine, grain, noise(rng, 30), noise(rng, 15), patches, DETAIL_SPAN_M

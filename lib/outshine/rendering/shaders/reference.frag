@@ -15,11 +15,11 @@ uniform vec3 detailTint;
 uniform float barkBoxBlend;
 uniform bool hasDetail;
 uniform bool planarDetail;
-uniform bool hasGroundLitter;
-uniform sampler2D litterMap;
-uniform vec3 litterColour;
-uniform vec3 litterScale;
-uniform vec3 litterTint;
+uniform bool hasGroundBlend;
+uniform sampler2D overlayMap;
+uniform vec3 overlayColour;
+uniform vec3 overlayScale;
+uniform vec3 overlayTint;
 uniform bool hasTerrainCover;
 uniform sampler2D terrainCover;
 uniform vec4 terrainTransform;
@@ -58,7 +58,7 @@ uniform vec2 localShadowSpan;
 uniform float nearShadowWidth;
 in vec3 point;
 in vec3 smoothNormal;
-in float litterWeight;
+in float blendWeight;
 flat in vec2 rotation;
 out vec4 colour;
 uniform vec3 eye;
@@ -298,15 +298,15 @@ void main(){
     material.rgb*=fine.r*(1.68+.64*macro)*mix(vec3(1.),detailTint,fine.a);
     material.a=fine.g;
     float height = fine.b * detailScale.z;
-    if (hasGroundLitter) {
-      vec2 litterUv = detailCoordinates(objectNormal);
-      vec4 litter = texture(litterMap,litterUv/litterScale.x);
-      float broad = texture(litterMap,litterUv/litterScale.y).a;
-      float weight = pow(smoothstep(0.,1.,litterWeight),1.35 - .70 * litter.a);
-      vec3 albedo = litterColour * litter.r * (1.68 + .64 * broad) *
-                    mix(vec3(1.),litterTint,litter.a);
-      material = mix(material,vec4(albedo,litter.g),weight);
-      height = mix(height,litter.b * litterScale.z,weight);
+    if (hasGroundBlend) {
+      vec2 overlayUv = detailCoordinates(objectNormal);
+      vec4 overlay = texture(overlayMap,overlayUv/overlayScale.x);
+      float broad = texture(overlayMap,overlayUv/overlayScale.y).a;
+      float weight = pow(smoothstep(0.,1.,blendWeight),1.35 - .70 * overlay.a);
+      vec3 albedo = overlayColour * overlay.r * (1.68 + .64 * broad) *
+                    mix(vec3(1.),overlayTint,overlay.a);
+      material = mix(material,vec4(albedo,overlay.g),weight);
+      height = mix(height,overlay.b * overlayScale.z,weight);
     }
     n=bumpNormal(n,dx,dy,height);
   }

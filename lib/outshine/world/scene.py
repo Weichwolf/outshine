@@ -12,10 +12,12 @@ from astral.sun import azimuth, elevation
 from outshine.buildings.facade import FacadeView
 from outshine.places.height import Elevation
 from outshine.terrain.ground_surface import (
+    CARRIAGEWAY_MATERIALS,
     MEADOW_MARGIN_M,
     ROUTE_MATERIALS,
     SOIL_MATERIALS,
     TRAIL_SHOULDER_M,
+    dirt_road_weights,
     margin_weights,
 )
 from outshine.terrain.horizon import terrain_horizon
@@ -27,8 +29,12 @@ from outshine.vegetation.atlas import VegetationAtlas
 from outshine.vegetation.bank_vegetation import bank_plants
 from outshine.vegetation.grass_cover import blades
 from outshine.vegetation.meadow import meadow_cover
-from outshine.vegetation.open_cover import RegionalOpenCover
-from outshine.vegetation.regional_woody import savanna_woody
+from outshine.vegetation.open_cover import (
+    ACACIA_COMMIPHORA_BUSHLANDS,
+    RegionalOpenCover,
+)
+from outshine.vegetation.patagonian_shrub import PATAGONIAN_COMMUNITIES
+from outshine.vegetation.regional_woody import savanna_woody, steppe_shrubs
 from outshine.vegetation.understory import woodland_cover
 from outshine.vegetation.woodland import habitat, tree_batches
 from outshine.vegetation.woodland_shrubs import woodland_shrubs
@@ -54,8 +60,46 @@ from outshine.world.sources import LocalScene
 SUPPORT_MATERIALS = {
     "ground": ("ground", "forest floor", "grass"),
     "sidewalk": ("sidewalk", "paving", "unpaved path"),
-    "street": ("sidewalk", "paving", "unpaved path", "road"),
+    "street": ("sidewalk", "paving", "unpaved path", *CARRIAGEWAY_MATERIALS),
+    "road": CARRIAGEWAY_MATERIALS,
 }
+SAVANNA_SURFACES = {
+    "ground": "dry savanna soil",
+    "grass": "dry savanna soil",
+    "unpaved road": "savanna unpaved road",
+}
+PATAGONIAN_SURFACES = {
+    "ground": "patagonian gravel soil",
+    "grass": "patagonian gravel soil",
+    "unpaved path": "patagonian gravel soil",
+    "unpaved road": "patagonian unpaved road",
+}
+
+
+def soil_surfaces(cover):
+    if cover is None:
+        return {}
+    source = cover.source
+    sample = cover.atlas.sample(source.lat, source.lon)
+    soil = sample.soil
+    if soil is None or soil.sand_g_kg is None:
+        return {}
+    if (
+        sample.ecoregion_id == ACACIA_COMMIPHORA_BUSHLANDS
+        and cover.dry_savanna
+        and soil.clay_g_kg is not None
+        and 450 <= soil.sand_g_kg <= 650
+        and 200 <= soil.clay_g_kg <= 380
+    ):
+        return SAVANNA_SURFACES
+    if (
+        sample.potential_community in PATAGONIAN_COMMUNITIES
+        and soil.coarse_fragments_pct is not None
+        and 450 <= soil.sand_g_kg <= 750
+        and soil.coarse_fragments_pct >= 5
+    ):
+        return PATAGONIAN_SURFACES
+    return {}
 
 
 def direction(bearing, altitude):
@@ -256,6 +300,7 @@ class ReferenceScene:
             if atlas_path is not None
             else None
         )
+        self.soil_surfaces = soil_surfaces(self.open_cover)
         self.sun = direction(azimuth(observer, utc), elevation(observer, utc))
         self.weather = place.get("weather", config.get("weather", "clear"))
         self.aerosol_extinction = aerosol_extinction(self.weather)
@@ -294,7 +339,7 @@ class ReferenceScene:
 
     def surfaces(self, *, crown_sites=None):
         for name, (verts, faces) in self.local.items():
-            yield name, verts, faces
+            yield self.soil_surfaces.get(name, name), verts, faces
         yield from control_surfaces(self.source, self.water_plan)
         bounds = []
         for products, tile in regional_meshes(
@@ -367,9 +412,13 @@ class ReferenceScene:
             self.local, self.source, self.local.shore, self.eye, seed
         )
 
-    def ground_litter(self, name, vertices):
+    def ground_blend(self, name, vertices):
+        if name == self.soil_surfaces.get("unpaved road"):
+            name = "unpaved road"
         if vertices is not self.local.get(name, (None,))[0]:
             return None
+        if name == "unpaved road" and self.local.dirt_road_edges is not None:
+            return dirt_road_weights(self.local.dirt_road_edges, vertices)
         if name == "meadow" and self.local.meadow_woodland_edges is not None:
             return margin_weights(
                 self.local.meadow_woodland_edges, vertices, MEADOW_MARGIN_M
@@ -383,6 +432,7 @@ class ReferenceScene:
     def woody_plants(self, seed, *, eye_route=None, skylight=False):
         if self.open_cover is not None:
             yield from savanna_woody(self.open_cover, self.local, self.eye[:2], seed)
+            yield from steppe_shrubs(self.open_cover, self.local, self.eye[:2], seed)
         root_domain = shapely.union_all((self.woodland_floor, self.stands.verges))
         yield from tree_batches(
             self.source,

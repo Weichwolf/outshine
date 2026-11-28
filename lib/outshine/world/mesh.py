@@ -35,12 +35,16 @@ from outshine.buildings.rail_station import StationHall, plan_station_halls
 from outshine.buildings.street_facade import draw_low_front, draw_street_storey
 from outshine.buildings.structures import suppressed
 from outshine.terrain.ground_surface import (
+    CARRIAGEWAY_MATERIALS,
+    DIRT_ROAD_CENTRE_M,
+    DIRT_ROAD_SHOULDER_M,
     MEADOW_MARGIN_M,
     ROUTE_MATERIALS,
     SOIL_MATERIALS,
     TRAIL_SHOULDER_M,
     at_grade_routes,
     at_grade_width,
+    carriageway_footprint,
     forest_trail_edges,
     grassland_material,
     partition_ground,
@@ -88,6 +92,7 @@ class Meshes(dict):
     terrain_lattice = None
     covered_walks = ()
     trail_litter_edges = None
+    dirt_road_edges = None
     meadow_woodland_edges = None
     skylight_foliage = None
 
@@ -518,9 +523,9 @@ def bank_protection(source, extent, bodies, openings, roads, crossings, fixtures
         and tags.get("layer", 0) == 0
         and interest.intersects(geom)
     ]
-    land_routes = roads["road"].difference(decks)
+    land_routes = carriageway_footprint(roads).difference(decks)
     paths = shapely.union_all(
-        [shape for name, shape in roads.items() if name != "road"]
+        [shape for name, shape in roads.items() if name not in CARRIAGEWAY_MATERIALS]
     ).difference(openings.buffer(0.4))
     occupied = shapely.union_all(
         [
@@ -615,7 +620,11 @@ def ground_surfaces(
     height = lambda points: terrain_height(vertices, points)
     stairs = local_stairways(source.features, extent, bodies, height)
     branches, aprons, replaced_paths = local_stair_branches(
-        source.features, stairs, extent, bodies.union(roads["road"]), height
+        source.features,
+        stairs,
+        extent,
+        bodies.union(carriageway_footprint(roads)),
+        height,
     )
     stairs.extend(branches)
     original = crossings
@@ -654,7 +663,7 @@ def ground_surfaces(
         shapely.union_all(
             [
                 bodies,
-                roads["road"],
+                carriageway_footprint(roads),
                 track_paving,
                 openings,
                 *(c.footprint for c in crossings),
@@ -691,6 +700,7 @@ def ground_surfaces(
     if routes:
         pavement = track_paving.intersection(junction_area, grid_size=1e-6)
         roads["road"] = roads["road"].union(pavement, grid_size=1e-6)
+        roads["unpaved road"] = roads["unpaved road"].difference(pavement)
     bank_grades = []
     if passages:
         bank_grades = bank_slopes(
@@ -904,6 +914,25 @@ def ground_surfaces(
         )
         building_stamps = BuildingStamps(foundations, reserved)
         breaks.extend(building_stamps.breaks())
+    dirt = roads["unpaved road"]
+    if not dirt.is_empty:
+        occupied = shapely.union_all(
+            [
+                extent.boundary,
+                *(
+                    area
+                    for label, area in footprints.items()
+                    if names[label] != "unpaved road"
+                ),
+            ]
+        )
+        edges = dirt.boundary.difference(occupied.buffer(1e-4))
+        if not edges.is_empty:
+            meshes.dirt_road_edges = edges
+            for width in (DIRT_ROAD_SHOULDER_M, *DIRT_ROAD_CENTRE_M):
+                breaks.append(
+                    edges.buffer(width, quad_segs=4).boundary.intersection(dirt)
+                )
     cover_start = first_stair + len(pieces) + len(earthworks)
     vegetation = ground_cover(
         meshes,

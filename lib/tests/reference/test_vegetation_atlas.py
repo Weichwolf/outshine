@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import numpy as np
 from outshine.vegetation.atlas import (
+    COMMUNITY_DTYPE,
     NO_SOIL,
     RASTER_DTYPES,
     TILE_CELLS,
@@ -20,7 +21,7 @@ from shapely.geometry import box
 
 
 class VegetationAtlasTest(unittest.TestCase):
-    def build_fixture(self, root, key):
+    def build_fixture(self, root, key, *, community=False):
         values = {
             "cover": 10,
             "ecoregion": 265,
@@ -35,12 +36,19 @@ class VegetationAtlasTest(unittest.TestCase):
             name: np.full((TILE_CELLS, TILE_CELLS), values[name], dtype=dtype)
             for name, dtype in RASTER_DTYPES.items()
         }
+        if community:
+            rasters["community"] = np.ones(
+                (TILE_CELLS, TILE_CELLS), dtype=COMMUNITY_DTYPE
+            )
         temporary = root / "tile.npz"
         np.savez_compressed(temporary, **rasters)
         digest = hashlib.sha256(temporary.read_bytes()).hexdigest()
         name = tile_name(key)
         product = temporary.rename(root / f"{name}-{digest}.npz")
         sources = {"species": {"catalog_sha256": species_catalog_digest()}}
+        tile = {"sha256": digest}
+        if community:
+            tile["potential_community"] = True
         (root / "atlas.json").write_text(
             json.dumps(
                 {
@@ -50,7 +58,10 @@ class VegetationAtlasTest(unittest.TestCase):
                         "265": ["Peninsular Malaysian rain forests", 1, "IM"]
                     },
                     "botanical_regions": ["", "MLY"],
-                    "tiles": {name: {"sha256": digest}},
+                    "potential_communities": ["", "CHL-2017:P70"]
+                    if community
+                    else [""],
+                    "tiles": {name: tile},
                 }
             )
         )
@@ -119,3 +130,23 @@ class VegetationAtlasTest(unittest.TestCase):
                     sample = atlas.sample(1.35, lon)
                     self.assertEqual(cover[row, column], sample.worldcover_code or 0)
                     self.assertEqual(ecoregion[row, column], sample.ecoregion_id or 0)
+
+    def test_potential_community_is_independent_of_observed_cover_and_missing_tiles(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as root:
+            latitude, longitude = -50.98, -72.80
+            self.build_fixture(
+                Path(root), grid_cell(latitude, longitude)[0], community=True
+            )
+            atlas = VegetationAtlas(root)
+            sample = atlas.sample(latitude, longitude, mapped_cover="water")
+            self.assertEqual(sample.potential_community, "CHL-2017:P70")
+            self.assertEqual(sample.cover, "water")
+            np.testing.assert_array_equal(
+                atlas.community_mask(
+                    latitude, [longitude, longitude + 1], ("CHL-2017:P70",)
+                ),
+                [True, False],
+            )
+            self.assertIsNone(atlas.sample(latitude, longitude + 1).potential_community)
