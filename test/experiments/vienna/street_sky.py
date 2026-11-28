@@ -12,7 +12,6 @@ from diffuse_bounce import (
     hemisphere_directions,
     hemisphere_rays,
     receiver_samples,
-    reflection_index,
     write_irradiance,
 )
 from sky_environment import sample_radiance
@@ -21,6 +20,7 @@ ATTRIBUTE = "Street skylight"
 TRACED = "Traced diffuse sky"
 WEIGHT = "Traced sky weight"
 SAMPLES = 256
+LEAF_BIAS_M = 0.0015
 
 
 def visible_radiance(tree, radiance, point, normal, directions):
@@ -35,30 +35,43 @@ def visible_radiance(tree, radiance, point, normal, directions):
     return sample_radiance(radiance, rays[open_rays]).sum(axis=0) / len(rays)
 
 
-def reflected_skylight(index, radiance, point, normal, directions, secondary):
-    tree, reflectance = index
+def scattered_skylight(
+    index, radiance, point, normal, directions, secondary, *, through_leaves
+):
+    tree = index.tree
     origin, rays = hemisphere_rays(point, normal, directions)
-    escaped, reflected, colours = [], [], []
+    escaped, scattered, colours = [], [], []
     for ray, (x, y, z) in zip(rays, secondary, strict=True):
         hit, surface, face, _ = tree.ray_cast(origin, ray, REFLECTION_REACH_M)
         if face is None:
             escaped.append(ray)
             continue
-        colour = reflectance[face]
-        if not colour.any():
+        material = index.face_materials[face]
+        reflection = index.reflectance[material]
+        transmission = index.transmittance[material] if through_leaves else None
+        thin = transmission is not None and transmission.any()
+        if not thin and not reflection.any():
             continue
         if np.dot(surface, ray) > 0:
             surface = -surface
         tangent, bitangent, surface = hemisphere_basis(surface)
-        bounce = tangent * x + bitangent * y + surface * z
-        start = hit + surface * SURFACE_BIAS_M
-        if tree.ray_cast(start, bounce, REFLECTION_REACH_M)[2] is None:
-            reflected.append(bounce)
-            colours.append(colour)
+        sideways = tangent * x + bitangent * y
+        lobes = [(surface, reflection)]
+        if thin:
+            lobes.append((-surface, transmission))
+        bias = LEAF_BIAS_M if thin else SURFACE_BIAS_M
+        for side, colour in lobes:
+            if not colour.any():
+                continue
+            bounce = sideways + side * z
+            start = hit + side * bias
+            if tree.ray_cast(start, bounce, REFLECTION_REACH_M)[2] is None:
+                scattered.append(bounce)
+                colours.append(colour)
     direct = sample_radiance(radiance, np.asarray(escaped).reshape(-1, 3))
-    indirect = sample_radiance(radiance, np.asarray(reflected).reshape(-1, 3))
-    reflected_radiance = indirect * np.asarray(colours).reshape(-1, 3)
-    return (direct.sum(axis=0) + reflected_radiance.sum(axis=0)) / len(rays)
+    indirect = sample_radiance(radiance, np.asarray(scattered).reshape(-1, 3))
+    scattered_radiance = indirect * np.asarray(colours).reshape(-1, 3)
+    return (direct.sum(axis=0) + scattered_radiance.sum(axis=0)) / len(rays)
 
 
 def add_sky_passes(material):
@@ -73,38 +86,38 @@ def add_sky_passes(material):
     tree.links.new(field.outputs["Alpha"], weight.inputs["Value"])
 
 
-def bake_street_sky(scene, batches, radiance, *, index=None, below_deck=False):
+def bake_street_sky(
+    scene, batches, radiance, *, index, below_deck=False, woodland=False
+):
     start = perf_counter()
     eye = np.asarray(scene.camera.matrix_world.translation)
     samples = receiver_samples(batches, eye)
     if not len(samples.first):
         return 0, perf_counter() - start
-    if index is None:
-        index = reflection_index(
-            bpy.context.evaluated_depsgraph_get(),
-            eye,
-            np.zeros(3),
-            reflected_sky=below_deck,
-        )
     directions = hemisphere_directions(SAMPLES)
-    if below_deck:
+    if below_deck or woodland:
         order = (73 * np.arange(SAMPLES) + 53) % SAMPLES
         secondary = directions[order] * np.array([-1, -1, 1])
         values = [
-            reflected_skylight(
+            scattered_skylight(
                 index,
                 radiance,
                 samples.positions[i],
                 samples.normals[i],
                 directions,
                 secondary,
+                through_leaves=woodland,
             )
             for i in samples.first
         ]
     else:
         values = [
             visible_radiance(
-                index[0], radiance, samples.positions[i], samples.normals[i], directions
+                index.tree,
+                radiance,
+                samples.positions[i],
+                samples.normals[i],
+                directions,
             )
             for i in samples.first
         ]
@@ -125,13 +138,16 @@ def bake_street_sky(scene, batches, radiance, *, index=None, below_deck=False):
     return len(values), perf_counter() - start
 
 
-def combine(tree, op, left, right):
+def combine(tree, op, left, right=None):
     node = tree.nodes.new("ShaderNodeMix")
     node.data_type = "RGBA"
     node.blend_type = op
     node.inputs[0].default_value = 1
     tree.links.new(left, node.inputs[6])
-    tree.links.new(right, node.inputs[7])
+    if right is None:
+        node.inputs[7].default_value = (0, 0, 0, 1)
+    else:
+        tree.links.new(right, node.inputs[7])
     return node.outputs[2]
 
 
@@ -178,4 +194,6 @@ def replace_probe_diffuse(tree, surface, *, captured, surface_filter):
         tree, "MULTIPLY", surface.outputs[TRACED], surface.outputs["Diffuse Color"]
     )
     corrected = combine(tree, "ADD", colour, traced)
-    return combine(tree, "SUBTRACT", corrected, previous.outputs["Image"])
+    corrected = combine(tree, "SUBTRACT", corrected, previous.outputs["Image"])
+    # Separate captures can disagree at subpixel edges. Keep radiance non-negative.
+    return combine(tree, "LIGHTEN", corrected)

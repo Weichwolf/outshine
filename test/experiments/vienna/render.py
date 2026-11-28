@@ -57,6 +57,7 @@ from passage_light import bake_reference_irradiance, near_lower_deck
 from PIL import Image
 from reference_scene import ReferenceScene
 from regional_canopy import crown_batches
+from shapely import Point
 from sky_environment import environment_path, load_environment
 from street_sky import bake_street_sky, capture_probe_diffuse, replace_probe_diffuse
 from walk_reference import plan_walk
@@ -586,8 +587,12 @@ def render(place, config, args):
     below_deck = (trace_sky or bounce) and near_lower_deck(
         world.viaducts, world.eye, RECEIVER_REACH_M
     )
+    woodland_floor = world.woodland_floor if trace_sky and not below_deck else None
+    woodland = woodland_floor is not None and woodland_floor.dwithin(
+        Point(world.eye[:2]), 4.0
+    )
     receivers = (
-        street_receivers(scene, below_deck=below_deck)
+        street_receivers(scene, below_deck=below_deck, woodland=woodland)
         if args.engine == "eevee" and (trace_sky or bounce)
         else []
     )
@@ -597,21 +602,21 @@ def render(place, config, args):
             scene,
             world.local.covered_walks,
             world.eye[:2],
-            street_sky=bool(receivers) and not below_deck,
+            street_sky=bool(receivers) and not (below_deck or woodland),
         )
         if args.engine == "eevee"
         else (0, 0.0)
     )
     ray_index = None
     ray_index_s = 0.0
-    if trace_sky and bounce and receivers:
+    if trace_sky and receivers:
         start = perf_counter()
         graph = bpy.context.evaluated_depsgraph_get()
         ray_index = reflection_index(
             graph,
             np.asarray(scene.camera.location),
-            world.sun,
-            reflected_sky=below_deck,
+            world.sun if bounce else np.zeros(3),
+            reflected_sky=below_deck or woodland,
         )
         ray_index_s = perf_counter() - start
     bounce_count, bounce_s = (
@@ -626,6 +631,7 @@ def render(place, config, args):
             environment.radiance,
             index=ray_index,
             below_deck=below_deck,
+            woodland=woodland,
         )
         if trace_sky and receivers
         else (0, 0.0)
@@ -746,10 +752,11 @@ def render(place, config, args):
                     "seconds": round(receiver_s + trace_s, 3),
                     "probe_diffuse_capture_s": round(diffuse_capture_s, 3),
                     "shared_index_s": round(ray_index_s, 3),
-                    "shared_index_faces": len(ray_index[1])
+                    "shared_index_faces": len(ray_index.face_materials)
                     if ray_index is not None
                     else None,
                     "below_deck": below_deck,
+                    "woodland": woodland,
                 }
                 if trace_count
                 else None,
