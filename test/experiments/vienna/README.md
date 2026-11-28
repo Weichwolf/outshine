@@ -442,10 +442,12 @@ jittered grid is anchored to each source tile. The rooted geometry thins between
 twelve and eight pixels of projected tree height, leaving the baked canopy relief
 for the rest of the regional terrain. Both renderers instance shared templates
 for oak, beech and spruce.
-Beyond the regional tiles, pinned OpenFreeMap zoom 10 woodland follows the same
-geodetic height field out to 100 km in the camera sector. A shared coverage image
-blends the regional woodland colours into the distant ground and retains clearings
-at the existing terrain triangle count.
+Beyond the regional tiles, pinned OpenFreeMap zoom 10 land cover and land use follow
+the geodetic height field out to 100 km in the camera sector. Forest, meadow, fields,
+vineyards, orchards, exposed rock and settlement use a shared 2048² material map in
+linear RGB and roughness. Polygon holes retain the material below them. Field tones
+are plausible proxies and remain stable across tile fragments of the same source ID.
+Area filtering mixes the material values while keeping the terrain triangle count.
 Compact buildings can use a pitched roof within their mapped top height. The near and
 regional generators share the same gable recipe, including the closing wall faces.
 Courtyards, conflicting parts and incomplete tile footprints use the flat envelope.
