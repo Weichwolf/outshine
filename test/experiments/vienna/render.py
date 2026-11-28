@@ -3,7 +3,9 @@
 import argparse
 import json
 import sys
+from functools import partial
 from pathlib import Path
+from time import perf_counter
 
 import bpy
 import numpy as np
@@ -17,6 +19,7 @@ sys.path.extend(
 )
 
 from blender_air import configure_aerial
+from blender_cloud import CloudLighting
 from blender_reflection import apply_reflection, capture_images
 from catalog import available_views, load_catalog, selected_views
 from ground_detail import (
@@ -283,7 +286,15 @@ def render(place, config, args):
         if sky_path is not None
         else None
     )
+    sun_energy = sun.data.energy
+    cloud_lighting = None
     if environment is not None:
+        if (
+            args.engine == "eevee"
+            and environment.cloud_sun_map is not None
+            and world.sun[2] > 0
+        ):
+            cloud_lighting = CloudLighting(world, sun.data, environment.cloud_sun_map)
         sun.data.energy *= environment.cloud_sun
     sky_image = configure_world_sky(
         scene,
@@ -321,23 +332,35 @@ def render(place, config, args):
         if args.engine == "eevee"
         else (0, 0.0)
     )
+    if cloud_lighting is not None:
+        sun.data.energy = sun_energy
     planes = reflection_planes(world) if args.engine == "eevee" else ()
     images = ()
     capture_s = 0.0
     if planes:
-        images, capture_s = capture_images(scene, geometry, planes)
+        images, capture_s = capture_images(
+            scene, geometry, planes, cloud_lighting=cloud_lighting
+        )
     if args.engine == "eevee" and (planes or sky_image is not None):
         for name in WATER_MATERIALS:
             if material := bpy.data.materials.get(name):
                 apply_reflection(
                     material, world.eye, planes, images, sky_image=sky_image
                 )
+    surface_filter = None
+    cloud_ambient_s = 0.0
+    if cloud_lighting is not None:
+        start = perf_counter()
+        ambient = cloud_lighting.capture_ambient(scene)
+        cloud_ambient_s = perf_counter() - start
+        surface_filter = partial(cloud_lighting.mix, ambient=ambient)
     sky_s = configure_aerial(
         scene,
         geometry,
         world,
         eye_m,
         cache_sky=args.engine == "eevee" and args.repeat,
+        surface_filter=surface_filter,
     )
     if args.engine == "cycles":
         device = configure_gpu(scene, "cycles")
@@ -350,6 +373,8 @@ def render(place, config, args):
                 "place": place["id"],
                 "weather": world.weather,
                 "cloud_sun": environment.cloud_sun if environment else 1.0,
+                "spatial_cloud_sun": cloud_lighting is not None,
+                "cloud_ambient_capture_s": round(cloud_ambient_s, 3),
                 "sun_angle_rad": sun.data.angle,
                 "eevee_sun_jitter": sun.data.use_shadow_jitter
                 if args.engine == "eevee"
