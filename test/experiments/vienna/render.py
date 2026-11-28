@@ -49,6 +49,7 @@ from sky_environment import environment_path, load_environment
 from water_bed import BED_ALBEDO
 from water_reflection import reflection_planes
 
+SUN_ANGULAR_DIAMETER_RAD = np.deg2rad(0.53)
 SUN_SHADOW_MIN_TEXEL_M = 0.016
 
 
@@ -265,6 +266,8 @@ def render(place, config, args):
     sun = next(o for o in scene.objects if o.type == "LIGHT" and o.data.type == "SUN")
     sun.rotation_euler = (-sunlight).to_track_quat("-Z", "Y").to_euler()
     sun.data.energy *= world.direct_sun_fraction
+    sun.data.angle = SUN_ANGULAR_DIAMETER_RAD
+    sun.data.use_shadow_jitter = True
     sun.data.shadow_maximum_resolution = SUN_SHADOW_MIN_TEXEL_M
     sky_dir = getattr(args, "sky_dir", None)
     sky_path = environment_path(sky_dir, place) if sky_dir is not None else None
