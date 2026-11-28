@@ -17,7 +17,7 @@ from woodland import (
     stand_plan,
     woodland_surface,
 )
-from woodland_stem import lean_tree, rooted_stem, template_stem
+from woodland_stem import lean_tree, rooted_stem, stem_profile, template_stem
 
 
 class WoodlandTest(unittest.TestCase):
@@ -202,3 +202,34 @@ class WoodlandTest(unittest.TestCase):
                             surface.boundary.distance(shapely.Point(0, 0)), radius
                         )
                     np.testing.assert_allclose(near[-1], template[-1], atol=1e-12)
+
+    def test_roots_form_low_separate_ridges(self):
+        for species in ("oak", "beech"):
+            with self.subTest(species=species):
+                plan = stand_plan(species, 0)
+                radius, _ = plan.radii(())
+                t, _, _, _, _, flare = stem_profile(
+                    plan, 1, oak=species == "oak", grounded=True, seed=9217
+                )
+                high = t * plan.axis(()).length >= radius
+                self.assertGreater(flare[0].max(), radius)
+                self.assertLess(np.mean(flare[0] > 0.5 * radius), 0.30)
+                self.assertLess(flare[high].max(), 0.30 * radius)
+
+    def test_root_ridge_keeps_ground_contact_on_a_steep_grade(self):
+        def height(points):
+            return 0.8 * (points[:, 0] + 0.2 * points[:, 1])
+
+        stem = rooted_stem(
+            stand_plan("oak", 1),
+            shapely.box(-3, -3, 1, 3),
+            height,
+            np.array([0, 0, -0.08]),
+            15,
+            1.1,
+            oak=True,
+            seed=30,
+        )
+        vertices, faces = stem["vertices"], stem["faces"]
+        collar = vertices[faces[faces[:, 0] == len(vertices) - 2, 1]]
+        np.testing.assert_allclose(collar[:, 2], height(collar[:, :2]) - 0.08)

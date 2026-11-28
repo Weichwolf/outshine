@@ -6,7 +6,8 @@ from outshine_ref.vegetation.axis_surface import tube_mesh
 from outshine_ref.vegetation.curve_frame import arc_frame
 from outshine_ref.vegetation.tube_topology import close_rings
 
-ROOT_COLLAR_RADII = 5.2
+ROOT_COLLAR_RADII = 3.2
+GROUND_BLEND_RADII = 6.0
 
 
 def scaffold_mesh(length, bend, base_radius, tip_radius, segments, sides):
@@ -42,17 +43,19 @@ def lean_tree(plan, vertices, *, oak, scale=1):
 
 
 def root_flare(azimuth, phase, radius, height, oak, rng):
-    bearings = phase + np.array([0.0, 1.5, 3.12, 4.82, 5.56])
-    bearings += rng.uniform(-0.28, 0.28, len(bearings))
-    reaches = rng.permutation([2.42, 1.62, 1.04, 0.72, 0.40]) * (1 if oak else 0.84)
-    widths = rng.uniform(8.0, 16.0, len(bearings))
-    shoulders = radius * rng.uniform(2.1, ROOT_COLLAR_RADII, len(bearings))
-    fraction = height[:, None] / shoulders
-    bend = np.minimum(fraction, 1) * rng.uniform(-0.48, 0.48, len(bearings))
+    count = rng.integers(3, 6)
+    bearings = phase + np.linspace(0, 2 * np.pi, count, endpoint=False)
+    bearings += rng.uniform(-0.48, 0.48, count)
+    reaches = rng.permutation(np.geomspace(rng.uniform(1.6, 2.6), 0.32, count))
+    reaches *= 1.0 if oak else 0.78
+    # Filter the narrow tips to the angular resolution of the stem mesh.
+    widths = np.minimum(rng.uniform(20.0, 33.0, count), (len(azimuth) / np.pi) ** 2)
+    shoulders = radius * rng.uniform(0.80, ROOT_COLLAR_RADII, count)
+    fraction = np.minimum(height[:, None] / shoulders, 1)
+    bend = fraction**2 * rng.uniform(-0.50, 0.50, count)
     angle = azimuth[None, :, None] - (bearings + bend)[:, None, :]
-    lobes = np.exp((np.cos(angle) - 1) * widths)
-    remaining = np.maximum(1 - fraction, 0)
-    decay = remaining**2.35 + 0.10 * remaining * np.exp(-2.3 * fraction)
+    lobes = np.exp((np.cos(angle) - 1) * widths * (1 - 0.65 * fraction[:, None, :]))
+    decay = (1 - fraction) ** 2 * np.exp(-2.7 * fraction)
     return radius * np.sum(decay[:, None, :] * reaches * lobes, axis=2)
 
 
@@ -60,12 +63,28 @@ def stem_knots(t, azimuth, heights, bearings, widths, radius, oak):
     """An old branch leaves a shoulder that rises into an irregular scar."""
     axial = (t[:, None, None] - heights) / widths
     angle = azimuth[None, :, None] - bearings - 0.20 * axial
-    distance = axial**2 + 7.5 * (1 - np.cos(angle))
+    distance = axial**2 + 13 * (1 - np.cos(angle))
     shoulder = np.exp(-distance)
     stub = np.exp(-2.0 * ((axial - 0.40) ** 2 + 7 * (1 - np.cos(angle))))
     centre = np.exp(-6 * distance)
-    relief = 0.19 * shoulder + (0.45 if oak else 0.23) * stub - 0.17 * centre
+    relief = 0.14 * shoulder + (0.34 if oak else 0.14) * stub - 0.14 * centre
     return radius * relief.sum(axis=2)
+
+
+def bole_sections(t, azimuth, body, phase, oak, rng):
+    # Sample swell and eccentric growth at unequal heights around the bole.
+    heights = np.array([0.04, 0.20, 0.39, 0.67, 0.86]) + rng.uniform(-0.035, 0.035, 5)
+    width = rng.uniform(0.079, 0.15, 5)
+    bulges = np.exp(-(((t[:, None] - heights) / width) ** 2))
+    girth = 1 + bulges @ rng.uniform(-0.14, 0.12, 5) * np.sin(np.pi * t)
+    bearing = phase + rng.uniform(-np.pi, np.pi, 5)
+    eccentricity = 0.22 if oak else 0.13
+    shape = eccentricity * np.cos(2 * azimuth[:, None] - bearing)
+    shape += (0.14 if oak else 0.065) * np.sin(3 * azimuth[:, None] + bearing)
+    cross_section = bulges @ shape.T
+    flute = np.cos(azimuth[None, :] * 7 + phase + t[:, None] * 7.4)
+    cross_section += (0.046 if oak else 0.018) * flute * (1 - t[:, None])
+    return (body * girth)[:, None] * (1 + cross_section)
 
 
 def stem_profile(plan, scale, *, oak, grounded, seed):
@@ -77,7 +96,7 @@ def stem_profile(plan, scale, *, oak, grounded, seed):
     joints = np.array([branch.parent_parameter for branch in branches])
     limb_radii = np.array([plan.radii(branch.path)[0] for branch in branches]) * scale
     root_sections = (
-        np.r_[0.15, 0.35, 0.6, np.arange(0.9, ROOT_COLLAR_RADII, 0.4)]
+        np.r_[0.08, 0.18, 0.32, 0.50, np.arange(0.75, ROOT_COLLAR_RADII, 0.35)]
         if grounded
         else np.array([0.35, 0.9, 1.7, 3.2])
     )
@@ -102,7 +121,7 @@ def stem_profile(plan, scale, *, oak, grounded, seed):
             10,
         )
     )
-    azimuth = np.linspace(0, 2 * np.pi, 40 if grounded else 12, endpoint=False)
+    azimuth = np.linspace(0, 2 * np.pi, 48 if grounded else 12, endpoint=False)
     centre, tangent, lateral, normal = arc_frame(length, axis.bend, 0, t)
     centre, tangent = centre @ axis.frame.T, tangent @ axis.frame.T
     lateral, normal = lateral @ axis.frame.T, normal @ axis.frame.T
@@ -110,7 +129,7 @@ def stem_profile(plan, scale, *, oak, grounded, seed):
         np.cos(azimuth)[None, :, None] * lateral[:, None, :]
         + np.sin(azimuth)[None, :, None] * normal[:, None, :]
     )
-    taper = np.expm1(0.53 * np.log1p(31 * t)) / np.expm1(0.53 * np.log(32))
+    taper = np.expm1(0.40 * np.log1p(44 * t)) / np.expm1(0.40 * np.log(45))
     body = radius + (tip - radius) * taper
     if len(joints):
         # Distribute part of the trunk section to the scaffolds at their takeoff heights.
@@ -118,22 +137,9 @@ def stem_profile(plan, scale, *, oak, grounded, seed):
         area = limb_radii**2
         remaining = (1 - transfer**2 * (3 - 2 * transfer)) @ area / area.sum()
         body = np.sqrt(
-            0.56 * body**2 + 0.44 * (tip**2 + (radius**2 - tip**2) * remaining)
+            0.72 * body**2 + 0.28 * (tip**2 + (radius**2 - tip**2) * remaining)
         )
-    phase = axis.phase
-    angle = azimuth[None, :]
-    along = t[:, None]
-    waist = np.sin(np.pi * t) * np.sin(5 * np.pi * t + bearings[0])
-    body *= 1 + (0.14 if oak else 0.10) * waist
-    below_crown = np.maximum(1 - t / max(joints.min(initial=1), 0.1), 0)
-    body *= 1 + (0.17 if oak else 0.12) * np.expm1(-t / 0.095) * below_crown
-    twist = 0.88 * np.sin(6 * along + phase) + 1.3 * along
-    sections = body[:, None] * (
-        1
-        + (0.21 if oak else 0.16) * np.cos(2 * angle + bearings[0] + twist)
-        + 0.11 * np.sin(3 * angle - phase + 2 * twist)
-        + (0.072 if oak else 0.043) * np.sin(5 * angle + bearings[1] - twist)
-    )
+    sections = bole_sections(t, azimuth, body, axis.phase, oak, rng)
     sections += stem_knots(t, azimuth, knots, bearings, widths, radius, oak)
     for branch, at, limb_radius in zip(branches, joints, limb_radii, strict=True):
         _, _, side, up = arc_frame(length, axis.bend, 0, at)
@@ -143,20 +149,19 @@ def stem_profile(plan, scale, *, oak, grounded, seed):
         shoulder = (rise + 0.65) / 3.3
         axial = np.exp(-(shoulder**2))
         around = np.exp(2.6 * (np.cos(azimuth - bearing) - 1))
-        sections += limb_radius * axial[:, None] * (0.11 + 0.68 * around)
+        sections += limb_radius * axial[:, None] * (0.04 + 0.61 * around)
         joint = np.searchsorted(t, np.round(at, 10))
         support = np.maximum(1.04 * limb_radius - sections[joint], 0)
         sections += np.exp(-((rise / 2.8) ** 2))[:, None] * support
-    flare = root_flare(azimuth, phase, radius, t * length, oak, rng)
-    collar = np.maximum(1 - t * length / (ROOT_COLLAR_RADII * radius), 0) ** 2
-    return t, centre, tangent, radial, sections, flare, collar
+    flare = root_flare(azimuth, axis.phase, radius, t * length, oak, rng)
+    return t, centre, tangent, radial, sections, flare
 
 
 def stem_mesh(
     plan, scale, *, oak, position=None, rotation=0, domain=None, height=None, seed=None
 ):
     grounded = height is not None
-    t, centre, tangent, radial, sections, flare, collar = stem_profile(
+    t, centre, tangent, radial, sections, flare = stem_profile(
         plan,
         scale,
         oak=oak,
@@ -180,11 +185,14 @@ def stem_mesh(
         flare *= extent
     surface += radial * flare[..., None]
     if grounded:
-        active = collar > 0
-        xy = surface[active, :, :2]
-        heights = height(xy.reshape(-1, 2)).reshape(xy.shape[:2])
+        blend_height = GROUND_BLEND_RADII * plan.radii(())[0] * scale
+        relative_z = surface[..., 2] - position[2]
+        active = relative_z < blend_height
+        fraction = np.clip(relative_z[active] / blend_height, 0, 1)
+        collar = 1 - fraction**2 * (3 - 2 * fraction)
+        heights = height(surface[active, :2])
         base = height(position[None, :2])[0]
-        surface[active, :, 2] += collar[active, None] * (heights - base)
+        surface[active, 2] += collar * (heights - base)
     along = np.gradient(surface, t, axis=0)
     around = np.roll(surface, -1, axis=1) - np.roll(surface, 1, axis=1)
     normals = np.cross(along, around)

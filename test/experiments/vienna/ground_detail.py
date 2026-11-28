@@ -38,7 +38,7 @@ SURFACE_DETAIL = {
     "oak bark": "oak bark",
     "beech bark": "beech bark",
     "chestnut bark": "chestnut bark",
-    "spruce bark": "chestnut bark",
+    "spruce bark": "spruce bark",
     "foliage": "leaf",
     "woodland low leaves": "leaf",
     "weir overflow": "weir overflow",
@@ -133,6 +133,7 @@ def ground_detail(name):
         "leaf litter",
         "chestnut bark",
         CANOPY_DETAIL,
+        "spruce bark",
     ).index(name)
     rng = np.random.default_rng(seed)
     fine, grain, patches = (noise(rng, scale) for scale in (0.65, 1.6, 12))
@@ -181,19 +182,20 @@ def ground_detail(name):
         plates = noise(rng, (9, 4.5))
         breaks = np.clip(-noise(rng, (1.8, 5)) + 0.48 * plates - 0.82, 0, 1)
         fissures = np.clip((0.32 - abs(grain_flow + 0.30 * plates)) * 3.2, 0, 1)
-        tint = 1.02 - 0.51 * fissures - 0.28 * breaks + 0.15 * patches + 0.12 * plates
+        raised = np.tanh(0.8 * plates + 0.65 * noise(rng, (28, 5)))
+        tint = 1.01 - 0.68 * fissures - 0.32 * breaks + 0.12 * patches + 0.26 * raised
         roughness = 0.90 + 0.032 * fissures + 0.019 * grain
-        height = -0.0070 * fissures - 0.0034 * breaks + 0.0020 * plates + 0.00064 * fine
+        height = -0.0080 * fissures - 0.0034 * breaks + 0.0030 * raised + 0.00064 * fine
     elif name == "beech bark":
-        mottling = noise(rng, (13, 10))
+        mottling = 0.65 * noise(rng, (22, 14)) + 0.35 * noise(rng, (6, 5))
         pores = np.maximum(noise(rng, (2.1, 4.3)) + 0.25 * mottling - 1.25, 0)
         lichen = np.clip(
-            noise(rng, (8, 6)) + 0.38 * patches + 0.31 * grain - 0.35, 0, 1
+            noise(rng, (14, 10)) + 0.38 * patches + 0.28 * grain - 0.56, 0, 1
         )
-        scars = 0.45 * pores + beech_scars(rng)
-        tint = 0.87 + 0.16 * mottling + 0.25 * lichen + 0.060 * grain - 0.58 * scars
+        scars = 0.36 * pores + beech_scars(rng)
+        tint = 0.81 + 0.22 * mottling + 0.38 * lichen + 0.055 * grain - 0.64 * scars
         roughness = 0.86 + 0.027 * mottling + 0.015 * lichen + 0.021 * patches
-        height = -0.0024 * scars + 0.00064 * lichen + 0.00034 * grain
+        height = -0.0027 * scars + 0.00088 * lichen + 0.00034 * grain
         macro = lichen
     elif name == "chestnut bark":
         plates = noise(rng, (14, 5)) + 0.45 * noise(rng, (25, 9))
@@ -203,6 +205,13 @@ def ground_detail(name):
         tint = 0.78 + 0.40 * lifted - 0.33 * seams - 0.16 * split + 0.14 * patches
         roughness = 0.89 + 0.023 * grain + 0.034 * seams
         height = 0.0043 * lifted - 0.0037 * seams - 0.0016 * split + 0.00045 * fine
+    elif name == "spruce bark":
+        plates = noise(rng, (5.4, 4.0)) + 0.42 * noise(rng, (12, 8))
+        lifted = np.clip(0.55 + 0.77 * plates, 0, 1)
+        rims = np.exp(-(((plates + 0.13) / 0.30) ** 2))
+        tint = 0.74 + 0.42 * lifted - 0.28 * rims + 0.19 * patches + 0.044 * fine
+        roughness = 0.91 + 0.021 * grain + 0.030 * rims
+        height = 0.0048 * lifted - 0.0028 * rims + 0.00062 * fine
     elif name == "weir overflow":
         threads = noise(rng, (15, 1.5))
         air = np.clip(0.5 + 0.24 * threads + 0.12 * grain, 0, 1)

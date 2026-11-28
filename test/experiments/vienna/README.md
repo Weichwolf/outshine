@@ -212,19 +212,20 @@ The Adlerhof photo guides the plaster and rectangular paving. The Dechantlacke p
 guides the soil, bark and leaf palette. The renderer infers material for paths without
 surface tags. [Adlerhof, 21 August 2008](https://presse.wien.gv.at/bilder/2008/08/21/adlerhof-innenhof) · [Lobau near Dechantlacke, 9 August 2022](https://commons.wikimedia.org/wiki/File:Lobau_near_Dechantlacke_in_Wien-Aspern_2022-08-09_03.jpg)
 
-The Vienna stand derives two deterministic trunk and limb forms each for oak and beech.
-One form develops an ascending scaffold low on the stem. The other keeps a longer clear
-bole and spreads its larger limbs higher up. The inferred park rows use chestnut-inspired
-stems with wider boles, low and high forks, and darker bark with raised plates. The lower
-stem curves and narrows above uneven root lobes. Larger limbs widen at takeoff and the
-stem swells toward the joint. Close trees vary the scars, section shape and buttresses using
-their tile-seeded placements. Oak has narrow fissures that break across elongated plates.
-Beech has fine grain, shallow branch scars and subdued patches of lichen. A lower-resolution
-mesh retains the stem profile and attachments beyond 32 m. The root buttresses follow the
-terrain and contract at path and water boundaries. Dechantlacke-Stem-Oblique shows the
-same shore trees from the next path position, with the lower forks above the root contacts in frame.
+The Vienna stand varies clear bole length and scaffold height across its two forms each for
+oak and beech. Close boles vary their girth, cross section and branch scars with their
+tile-seeded placements. Separate low root ridges spread along the soil beside the bole,
+with unequal directions and reach. The root surface follows the terrain and blends into
+the original bole over six trunk radii. Root spread contracts at path and water boundaries.
+A lower-resolution mesh retains the stem profile and branch attachments beyond 32 m.
+Oak has fissures between elongated plates, beech has fine grain and lichen patches,
+and spruce has smaller bark scales. The park rows use chestnut-inspired stems and
+darker plated bark. Compare roots at Wienerwald-Woodland, branch unions from the neighbouring
+camera at Dechantlacke-Stem-Oblique, and the steep spruce margin at Koerbersee-TreeLine.
 [Weber and Penn, Creation and Rendering of Realistic Trees](https://doi.org/10.1145/218380.218427) ·
-[Hauptallee, 9 August 2022](https://commons.wikimedia.org/wiki/File:Hauptallee_Prater_Wien_2022-08-09_15.jpg)
+[Hauptallee, 9 August 2022](https://commons.wikimedia.org/wiki/File:Hauptallee_Prater_Wien_2022-08-09_15.jpg) ·
+[Hochbruckenberg, 25 November 2012](https://commons.wikimedia.org/wiki/File:Hochbruckenberg_Wald_02.jpg) ·
+[Anninger Süd, 1 May 2014](https://commons.wikimedia.org/wiki/File:Wienerwald_Weg.jpg)
 
 In the summer crowns, upper limbs spread out and the outer twigs carry shorter,
 more numerous shoots. Seeded blade roll keeps the midrib attached to its shoot.
