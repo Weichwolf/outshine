@@ -619,7 +619,11 @@ def ground_surfaces(
     viaducts=(),
 ):
     transport = [(g, p) for layer, g, p in source.features if layer == "transportation"]
-    paved = [*transport, *((p.corridor, p.properties) for p in covered_walks)]
+    paved = [
+        *transport,
+        *getattr(source, "ground_tile_joins", ()),
+        *((p.corridor, p.properties) for p in covered_walks),
+    ]
     roads = at_grade_routes(paved, extent)
     height = lambda points: terrain_height(vertices, points)
     stairs = local_stairways(source.features, extent, bodies, height)
