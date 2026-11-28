@@ -190,7 +190,10 @@ def reference_water(source, transport, domain, radius, controls):
 class ReferenceScene:
     def __init__(self, place, config):
         cache = config["source_cache"]
-        self.source = LocalScene(place, config["source_snapshot"], cache, 250)
+        pins = config.get("source_pins")
+        self.source = LocalScene(
+            place, config["source_snapshot"], cache, 250, pins=pins
+        )
         domain = shapely.box(-250, -250, 250, 250)
         self.viaducts = local_viaducts(self.source.features, domain, self.source.height)
         water = shapely.union_all(
@@ -212,7 +215,6 @@ class ReferenceScene:
         self.fov = place.get("vertical_fov_deg", config["vertical_fov_deg"])
         self.focal = 360 / math.tan(math.radians(self.fov) / 2)
         self.canopy_seed = config["seed"]
-        pins = config.get("source_pins")
         self.bridgeheads = partial(
             bridgehead_sources,
             self.source,
@@ -350,6 +352,7 @@ class ReferenceScene:
             crown_sites=crown_sites,
             seed=self.canopy_seed,
             local_shore=self.local.shore.protection,
+            local_terrain=self.local.terrain_lattice,
             stands=self.stands if crown_sites is not None else None,
         ):
             yield from products

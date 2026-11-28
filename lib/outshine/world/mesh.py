@@ -53,6 +53,7 @@ from outshine.terrain.ground_surface import (
     shared_edges,
     terrain_triangles,
 )
+from outshine.terrain.lattice import lattice, terrain_height
 from outshine.terrain.wall_ground import WallGround
 from outshine.transport.bridge_approach import earthwork_meshes
 from outshine.transport.bridge_banks import (
@@ -88,6 +89,7 @@ from outshine.water.water_surface import clipped_water, water_bodies
 
 class Meshes(dict):
     shore = None
+    terrain_lattice = None
     covered_walks = ()
     trail_litter_edges = None
     dirt_road_edges = None
@@ -399,22 +401,7 @@ def building_walls(
 
 def terrain_grid(source, radius):
     axis = np.linspace(-radius, radius, 65)
-    x, y = np.meshgrid(axis, axis)
-    xy = np.column_stack((x.ravel(), y.ravel()))
-    cell = np.arange(len(xy)).reshape(x.shape)[:-1, :-1].ravel()
-    quads = cell[:, None] + [0, 1, len(axis) + 1, len(axis)]
-    return np.column_stack((xy, source.height(xy))), quads
-
-
-def terrain_height(vertices, points):
-    size = int(np.sqrt(len(vertices)))
-    spacing = vertices[1, 0] - vertices[0, 0]
-    grid = (points - vertices[0, :2]) / spacing
-    cell = np.clip(grid.astype(int), 0, size - 2)
-    x, y = (grid - cell).T
-    first = cell[:, 0] + cell[:, 1] * size
-    a, b, c, d = vertices[first[:, None] + [0, 1, size + 1, size], 2].T
-    return a + np.where(x >= y, x * (b - a) + y * (c - b), y * (d - a) + x * (c - d))
+    return lattice(axis, axis, source.height)
 
 
 def boundary_edges(edges, boundary):
@@ -860,7 +847,13 @@ def ground_surfaces(
                 shapely.union_all(passage_ports), grid_size=1e-6
             )
     names.update({i: i for i in stair_tops.keys() | graded.keys()})
-    footprints = {1: bodies}
+    footprints = {}
+    if meshes.terrain_lattice is not None:
+        outside = box(*vertices[0, :2], *vertices[-1, :2]).difference(extent)
+        if not outside.is_empty:
+            names[-2] = "outside local terrain"
+            footprints[-2] = outside
+    footprints[1] = bodies
     if tunnels:
         names[-1] = "tunnel opening"
         footprints[-1] = cuts
@@ -962,7 +955,7 @@ def ground_surfaces(
         footprints,
         breaks=breaks,
     ):
-        if name == "tunnel opening":
+        if name in {"tunnel opening", "outside local terrain"}:
             continue
         if name in graded:
             earthwork, ground_material = graded[name]
@@ -1053,7 +1046,11 @@ def assemble(
     facade_view = facade_view or FacadeView()
     meshes = Meshes()
     extent = box(-radius, -radius, radius, radius)
-    vertices, quads = terrain_grid(source, radius)
+    surface = getattr(source, "road_terrain", None)
+    ground = surface.grid(radius) if surface is not None else None
+    vertices, quads = ground if ground is not None else terrain_grid(source, radius)
+    if ground is not None:
+        meshes.terrain_lattice = vertices
     if water_plan is None:
         water_plan = water_bodies(
             source.features, extent, vertices[:, :2], source.height, source.height
