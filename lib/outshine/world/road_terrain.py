@@ -113,6 +113,33 @@ def _enclosing(axis, radius):
     return slice(left, right)
 
 
+def _quadrant(plane, row, column):
+    half = CELLS_PER_TILE // 2
+    return plane[
+        row * half : (row + 1) * half + 1, column * half : (column + 1) * half + 1
+    ]
+
+
+def _vector_parent(tile):
+    shift = TERRAIN_ZOOM - VECTOR_ZOOM
+    return VECTOR_ZOOM, tile[1] >> shift, tile[2] >> shift
+
+
+def _shifted_lattice(tiles, project):
+    half = CELLS_PER_TILE // 2
+    northwest, northeast, southwest, southeast = tiles
+    longitude = np.r_[northwest.longitude[half:-1], northeast.longitude[: half + 1]]
+    latitude = np.r_[southwest.latitude[half:-1], northwest.latitude[: half + 1]]
+    axes = project(longitude, latitude)
+    south = np.hstack(
+        (_quadrant(southwest.height, 1, 1)[:, :-1], _quadrant(southeast.height, 1, 0))
+    )
+    north = np.hstack(
+        (_quadrant(northwest.height, 0, 1)[:, :-1], _quadrant(northeast.height, 0, 0))
+    )
+    return lattice(axes[:, 0], axes[:, 1], np.vstack((south[:-1], north)))
+
+
 def _reservations(features, *, mercator=False, fit_tram=False):
     for name, geometry, tags in features:
         if name == "building":
@@ -150,9 +177,19 @@ class RoadTerrain:
     def __init__(self, source, vectors):
         self.source = source
         self.vectors = vectors
+        self.tram_sources = {
+            key
+            for key, data in vectors.items()
+            if any(
+                feature["properties"].get("subclass") == "tram"
+                for feature in data.get("transportation", {}).get("features", ())
+            )
+        }
         self.tiles = {}
         self.parents = {}
         self.tram_curves = {}
+        self.grades = {}
+        self.tram_seams = {}
         self.reservations = {}
         self.prepared = {}
         self.crowns = CrownSurface(1 << TERRAIN_ZOOM, CELLS_PER_TILE, self._patch)
@@ -283,10 +320,14 @@ class RoadTerrain:
             frame, latitude, heights, graph, elevation, reserved, absent
         )
 
-    def _prepare_tile(self, tile):
+    def _grade_tile(self, tile):
+        if tile not in self.grades:
+            self.grades[tile] = self._surface_grades(tile)
+        return self.grades[tile]
+
+    def _surface_grades(self, tile):
         _, x, y = tile
-        shift = TERRAIN_ZOOM - VECTOR_ZOOM
-        parent = (VECTOR_ZOOM, x >> shift, y >> shift)
+        parent = _vector_parent(tile)
         if parent not in self.vectors:
             return None
         longitude, latitude = _geography(tile)
@@ -328,6 +369,119 @@ class RoadTerrain:
                     tuple(_reservations(local, fit_tram=True)),
                 )
             heights = vertices[:, 2].reshape(heights.shape)
+        return TerrainTile(longitude, latitude, heights)
+
+    def _seam_features(self, parents, corners, project):
+        for parent in parents:
+            frame, features, index, _, unproject = self._parent(parent)
+            lower, upper = frame(*corners.T)
+            search = shapely.box(*lower, *upper).buffer(
+                max(ROAD_WIDTH.values()) / 2, quad_segs=1
+            )
+            for i in sorted(index.query(search, predicate="intersects")):
+                name, geometry, tags = features[i]
+                if frame is not project:
+                    geometry = shapely.transform(
+                        geometry, lambda xy, inverse=unproject: project(*inverse(xy).T)
+                    )
+                yield name, geometry, tags
+
+    def _fit_tram_seam(self, tile):
+        zoom, x, y = tile
+        side = 1 << zoom
+        if not 0 <= y < side - 1:
+            return None
+        keys = (
+            tile,
+            (zoom, (x + 1) % side, y),
+            (zoom, x, y + 1),
+            (zoom, (x + 1) % side, y + 1),
+        )
+        parents = sorted({_vector_parent(key) for key in keys})
+        if self.tram_sources.isdisjoint(parents) or not all(
+            parent in self.vectors for parent in parents
+        ):
+            return None
+        project = self._parent(_vector_parent(tile))[0]
+        south, west = tile_geography([[1, 1]], 2, keys[2])
+        north, east = tile_geography([[1, 1]], 2, keys[1])
+        centre_lat, centre_lon = tile_geography([[1, 1]], 1, tile)
+        corners = np.array([[west[0], south[0]], [east[0], north[0]]])
+        lower, upper = project(*corners.T)
+        centre = project(centre_lon, centre_lat)[0]
+        seams = shapely.MultiLineString(
+            [
+                [(centre[0], lower[1]), (centre[0], upper[1])],
+                [(lower[0], centre[1]), (upper[0], centre[1])],
+            ]
+        )
+        local = tuple(self._seam_features(parents, corners, project))
+        margin = 2 * max(ROAD_WIDTH.values())
+        if not any(
+            name == "transportation"
+            and tags.get("subclass") == "tram"
+            and shapely.dwithin(geometry, seams, margin)
+            for name, geometry, tags in local
+        ):
+            return None
+        transport = {
+            parent: layer
+            for parent in parents
+            if (layer := self.vectors[parent].get("transportation")) is not None
+        }
+        stride = WORLD_CELLS >> zoom
+        west, north = x * stride + stride // 2, y * stride + stride // 2
+        graph = route_graph(
+            transport,
+            bounds=(west, north, (west + stride) % WORLD_CELLS, north + stride),
+        )
+        trams = self.tram_lines(graph, project)
+        if not trams:
+            return None
+        surfaces = tuple(self._grade_tile(key) for key in keys)
+        if any(surface is None for surface in surfaces):
+            return None
+        vertices, quads = _shifted_lattice(surfaces, project)
+        focus = (abs(vertices[quads, :2].mean(axis=1) - centre) <= 2 * margin).any(
+            axis=1
+        )
+        roads = tuple(
+            carriageway_axes(graph.paths, project, shapely.box(*lower, *upper))
+        )
+        fit = fit_tram_grades(
+            vertices,
+            quads,
+            trams,
+            roads,
+            tuple(_reservations(local, fit_tram=True)),
+            focus=focus,
+            smooth_length=max(ROAD_WIDTH.values()) / 2,
+        )
+        return None if fit is vertices else fit[:, 2].reshape((CELLS_PER_TILE + 1,) * 2)
+
+    def _tram_seam_heights(self, tile, heights):
+        zoom, x, y = tile
+        result = heights
+        for row in (0, 1):
+            for column in (0, 1):
+                shifted = zoom, (x + column - 1) % (1 << zoom), y - row
+                if shifted not in self.tram_seams:
+                    self.tram_seams[shifted] = self._fit_tram_seam(shifted)
+                patch = self.tram_seams[shifted]
+                if patch is not None:
+                    if result is heights:
+                        result = heights.copy()
+                    _quadrant(result, row, column)[:] = _quadrant(
+                        patch, 1 - row, 1 - column
+                    )
+        return result
+
+    def _prepare_tile(self, tile):
+        grade = self._grade_tile(tile)
+        if grade is None:
+            return None
+        longitude, latitude = grade.longitude, grade.latitude
+        heights = self._tram_seam_heights(tile, grade.height)
         target, constraints = self._crossfall(tile, latitude, heights)
         return (longitude, latitude, CrownPatch(heights, target, constraints))
 

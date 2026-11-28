@@ -6,9 +6,8 @@ import shapely
 from outshine.terrain.ground_surface import terrain_triangles
 
 from .heights import _face_gradients, _gradient_weights
-from .rail_hardware import RailRecipe
 from .road_grades import GRADE_BUDGET, SHOULDER_GRADE, _patches
-from .tram_rails import TRAM_BED_WIDTH_M
+from .tram_rails import RAIL_HEAD_SPACING_M, TRAM_BED_WIDTH_M
 from .weighted_heights._solve import solve
 
 TRAM_GRADE_LIMIT = 0.06
@@ -48,7 +47,7 @@ def _tram_faces(index, lines):
     return np.tile(faces, 2), np.concatenate(
         (
             _axial_frames(direction, TRAM_GRADE_LIMIT),
-            _axial_frames(side, TRAM_CROSSLEVEL_M / RailRecipe().gauge_m),
+            _axial_frames(side, TRAM_CROSSLEVEL_M / RAIL_HEAD_SPACING_M),
         )
     )
 
@@ -69,7 +68,7 @@ def _road_faces(index, carriageways, gradients):
     )
 
 
-def _fit_patch(vertices, faces, selected, fixed, caps, roads, trams):
+def _fit_patch(vertices, faces, selected, fixed, caps, roads, trams, smooth_length):
     tram_faces, frames = trams
     rail = selected[tram_faces]
     corridor = faces[tram_faces[rail]]
@@ -112,7 +111,11 @@ def _fit_patch(vertices, faces, selected, fixed, caps, roads, trams):
     for allow_partial in (False, True):
         if allow_partial:
             rail_excess[~contact] = np.maximum(before[~contact] - 1, 0)
-        heights, _ = solve(*solve_args, excess_limits=excess if allow_partial else None)
+        heights, _ = solve(
+            *solve_args,
+            excess_limits=excess if allow_partial else None,
+            smoothing=(xy, smooth_length) if smooth_length else None,
+        )
         if heights is None or not np.isfinite(heights).all():
             continue
         heights[locked] = prior[locked]
@@ -123,7 +126,9 @@ def _fit_patch(vertices, faces, selected, fixed, caps, roads, trams):
     return None
 
 
-def fit_tram_grades(vertices, quads, trams, carriageways, protected):
+def fit_tram_grades(
+    vertices, quads, trams, carriageways, protected, *, focus=None, smooth_length=0.0
+):
     """Regrade shared pavement while retaining fixed terrain and structural contacts."""
     if not trams:
         return vertices
@@ -137,6 +142,8 @@ def fit_tram_grades(vertices, quads, trams, carriageways, protected):
     )
     violations = np.zeros(len(quads), dtype=bool)
     violations[tram_faces[tram_slopes > 1 + GRADE_TOLERANCE] // 2] = True
+    if focus is not None:
+        violations &= focus
     if not violations.any():
         return vertices
     roads = _road_faces(index, carriageways, gradients)
@@ -147,7 +154,14 @@ def fit_tram_grades(vertices, quads, trams, carriageways, protected):
         fixed = border.copy()
         fixed[faces[~selected].ravel()] = True
         fit = _fit_patch(
-            vertices, faces, selected, fixed, caps, roads, (tram_faces, frames)
+            vertices,
+            faces,
+            selected,
+            fixed,
+            caps,
+            roads,
+            (tram_faces, frames),
+            smooth_length,
         )
         if fit is not None:
             if result is vertices:
