@@ -214,6 +214,23 @@ class WoodlandTest(unittest.TestCase):
                     area = stand_plan(species, form).summary()["leaf_area_m2"]
                     self.assertGreaterEqual(area, 0.95 * base.summary()["leaf_area_m2"])
 
+    def test_low_forks_have_a_substantial_rising_leader(self):
+        for low, high in (
+            (avenue_plan(0), avenue_plan(1)),
+            (stand_plan("oak", 0), stand_plan("oak", 1)),
+            (stand_plan("beech", 0), stand_plan("beech", 1)),
+        ):
+            with self.subTest(seed=low.seed):
+                stem, limb = low.axis(()), low.axis((0,))
+                base, tip = low.radii(())
+                parent_radius = base + limb.parent_parameter * (tip - base)
+                end, *_ = arc_frame(limb.length, limb.bend, 0, 1)
+                self.assertLess(limb.origin[2], 0.27 * stem.length)
+                self.assertGreater(limb.frame[2, 1], 0.64)
+                self.assertGreater((limb.frame @ end)[2], 0.30 * stem.length)
+                self.assertGreater(low.radii((0,))[0], 0.80 * parent_radius)
+                self.assertGreater(high.axis((0,)).origin[2], limb.origin[2] + 1)
+
     def test_flared_stem_follows_a_slope_without_entering_the_path(self):
         recipe = files("outshine_ref.vegetation").joinpath("data", "stand-oak.json")
         plan = PlantPlan.from_recipe(json.loads(recipe.read_text()))
@@ -240,9 +257,11 @@ class WoodlandTest(unittest.TestCase):
 
         for species, plan in (
             ("oak", stand_plan("oak", 0)),
+            ("beech", stand_plan("beech", 0)),
+            ("chestnut", avenue_plan(0)),
             ("chestnut", avenue_plan(1)),
         ):
-            with self.subTest(species=species):
+            with self.subTest(species=species, seed=plan.seed):
                 oak = species == "oak"
 
                 def height(xy):
