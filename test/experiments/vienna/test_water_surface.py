@@ -111,6 +111,16 @@ class WaterSurfaceTests(TestCase):
         self.assertEqual(grade.contacts, ())
         self.assertIsNone(nearshore_bed(grade, extent))
 
+    def test_grade_ignores_water_tangent_to_the_sampling_neighborhood(self):
+        extent = box(-10, -10, 10, 10)
+        edge = 10 + SHORE_REACH_M + 1.0
+        tangent = WaterBody(box(edge, -1, edge + 5, 1), 0.0)
+        pond = WaterBody(box(-2, -2, 2, 2), 1.0)
+        self.assertEqual(shore_grade((tangent,), extent, Polygon()).contacts, ())
+        grade = shore_grade((tangent, pond), extent, Polygon())
+        self.assertEqual(grade.bodies, (pond,))
+        self.assertTrue(grade.contacts[0].equals(pond.footprint.boundary))
+
     def test_inferred_bed_fades_with_depth_and_leaves_quay_dark(self):
         water = (WaterBody(box(-40, -40, 0, 40), 0, water_class="lake"),)
         extent = box(-30, -30, 30, 30)
