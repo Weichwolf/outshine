@@ -14,7 +14,8 @@ Install from the checkout. For Blender, use a virtual environment with the same
 Python major and minor as Blender. The reference launches Blender with Metal on
 macOS and Vulkan on Linux and Windows. The GLSL backend uses the shared native
 shader includes from the checkout. It uses a hardware OpenGL 4.1 context, via
-EGL on headless Linux.
+EGL on headless Linux. Its atmosphere supplies the background, surface lighting
+and water reflections.
 
 ```sh
 nice -n 10 python -m pip install -e './lib[render,assets,roofs]'
