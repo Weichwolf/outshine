@@ -306,7 +306,8 @@
       "capture": "laguna-amarga.json",
       "views": [
         "LagunaAmarga-Near",
-        "LagunaAmarga-Stand"
+        "LagunaAmarga-Stand",
+        "LagunaAmarga-Shore"
       ],
       "reference_photos": [
         {
@@ -323,16 +324,17 @@
       "habitat_references": [
         "https://www.conaf.cl/parque_nacionales/parque-nacional-torres-del-paine/",
         "https://geoportal.cl/geoportal/catalog/32581/Pisos%20vegetacionales%20de%20Luebert%20y%20Pliscoff%202017",
-        "https://simbio.mma.gob.cl/Ecosistemas/Details/128"
+        "https://simbio.mma.gob.cl/Ecosistemas/Details/128",
+        "https://doi.org/10.1016/j.palaeo.2010.07.016"
       ],
       "checks": [
         "Open treeless scrub and steppe with irregular ground gaps",
         "Exposed mineral substrate remains visible between plants",
-        "Preserve the bare shore in the lake reference"
+        "Preserve the bare shore, dark wet gravel and pale deposits at the solved lake contact"
       ],
       "evidence_gaps": [
         "Local sediment samples and measured cover",
-        "The shore photograph is a separate landscape control",
+        "Exact shoreline photograph position and measured deposit width",
         "Measured local tussock and shrub density"
       ],
       "walk": "LagunaAmarga-Footpath"

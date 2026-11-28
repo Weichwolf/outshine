@@ -41,3 +41,7 @@ In Chile the builder also joins the 2017 vegetation belts of Luebert and
 Pliscoff. `potential_community` reports that regional source separately from
 mapped or satellite-observed cover. It is empty outside the supplied layer.
 [Geoportal de Chile](https://geoportal.cl/geoportal/catalog/32581/Pisos%20vegetacionales%20de%20Luebert%20y%20Pliscoff%202017)
+
+`shore-substrates.json` associates a mapped water body with documented
+mineral shore material. The reference uses the solved shoreline contact for
+moisture, deposits and the adjacent plant exclusion.

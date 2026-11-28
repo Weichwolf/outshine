@@ -22,6 +22,12 @@ uniform sampler2D overlayMap;
 uniform vec3 overlayColour;
 uniform vec3 overlayScale;
 uniform vec3 overlayTint;
+uniform bool hasShoreSubstrate;
+uniform vec4 shoreTransform;
+uniform vec4 wetMineral;
+uniform vec4 crustMineral;
+uniform vec4 gravelMineral;
+uniform vec2 crustGrain;
 uniform int terrainCoverMode;
 uniform sampler2D terrainCover;
 uniform vec4 terrainTransform;
@@ -286,6 +292,7 @@ void main(){
   }
   vec4 material=surface;
   vec4 coverage=vec4(0.);
+  float mineralGrain=1.;
   if (terrainCoverMode != 0) {
     vec2 uv=(point.xy-terrainTransform.xy)*terrainTransform.zw;
     if (all(greaterThanEqual(uv,vec2(0.))) && all(lessThanEqual(uv,vec2(1.))))
@@ -298,6 +305,8 @@ void main(){
         dot(vec2(-rotation.y,rotation.x),n.xy),n.z);
     vec2 uv=planarDetail ? vec2(-point.y,point.x) : detailCoordinates(objectNormal);
     vec4 fine=blendDetailAxes ? barkDetail(objectNormal,detailScale.x) : texture(detailMap,uv/detailScale.x);
+    if (hasShoreSubstrate)
+      mineralGrain=clamp(fine.r*crustGrain.x+crustGrain.y,0.,1.);
     float macro=blendDetailAxes ? barkDetail(objectNormal,detailScale.y).a : texture(detailMap,uv/detailScale.y).a;
     material.rgb*=fine.r*(1.68+.64*macro)*mix(vec3(1.),detailTint,fine.a);
     material.a=fine.g;
@@ -316,6 +325,12 @@ void main(){
   }
   if (terrainCoverMode==kLandscapeCover)
     material.rgb=material.rgb*(1.-coverage.a)+coverage.rgb;
+  if (hasShoreSubstrate) {
+    vec2 uv=(point.xy-shoreTransform.xy)*shoreTransform.zw;
+    vec3 weights=texture(overlayMap,uv).rgb;
+    material=mix(material,gravelMineral,weights.b);
+    material=mix(mix(material,wetMineral,weights.r),crustMineral,weights.g*mineralGrain);
+  }
   vec3 h=normalize(view+sun);
   float nl=max(0.,dot(n,sun)),nv=max(.001,dot(n,view));
   float glassF0=(glassIor-1.)/(glassIor+1.);

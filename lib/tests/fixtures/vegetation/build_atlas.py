@@ -403,6 +403,9 @@ def build_atlas(cache, output, keys, *, fetch, pinned=None):
         },
         "botanical_regions": codes,
         "potential_communities": community_codes,
+        "shore_substrates": json.loads(
+            Path(__file__).with_name("shore-substrates.json").read_text()
+        ),
         "ecoregions": ecoregions,
         "tiles": tiles,
     }

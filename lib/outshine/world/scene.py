@@ -40,6 +40,7 @@ from outshine.vegetation.understory import woodland_cover
 from outshine.vegetation.woodland import habitat, tree_batches
 from outshine.vegetation.woodland_shrubs import woodland_shrubs
 from outshine.water.river_control import RiverControl, control_surfaces
+from outshine.water.shore_substrate import mineral_shore
 from outshine.water.water_bed import nearshore_bed
 from outshine.water.water_surface import water_bodies
 from outshine.weather.air_profile import aerosol_extinction, direct_sun_transmission
@@ -296,9 +297,14 @@ class ReferenceScene:
         observer = Observer(place["latitude"], place["longitude"])
         utc = datetime.fromisoformat(place.get("utc", config["utc"]))
         atlas_path = config.get("vegetation_atlas")
+        atlas = VegetationAtlas(atlas_path) if atlas_path is not None else None
+        self.mineral_shore = (
+            mineral_shore(self.local.shore, atlas.shore_substrates) if atlas else None
+        )
+        self.bare_shore = self.mineral_shore.bare if self.mineral_shore else None
         self.open_cover = (
-            RegionalOpenCover(VegetationAtlas(atlas_path), self.source, utc)
-            if atlas_path is not None
+            RegionalOpenCover(atlas, self.source, utc, exclusion=self.bare_shore)
+            if atlas is not None
             else None
         )
         self.soil_surfaces = soil_surfaces(self.open_cover)
@@ -368,6 +374,12 @@ class ReferenceScene:
     def landscape_cover(self):
         return landscape_cover(self.open_cover, self.eye, self.canopy_seed)
 
+    @cached_property
+    def shore_appearance(self):
+        if self.mineral_shore is None:
+            return None
+        return self.mineral_shore.appearance(self.source, self.eye, self.canopy_seed)
+
     @property
     def source_receipts(self):
         """Report the terrain and vector inputs used by the reference scene."""
@@ -379,7 +391,10 @@ class ReferenceScene:
 
     @cached_property
     def woodland_floor(self):
-        return habitat(self.source, stems=False)
+        ground = habitat(self.source, stems=False)
+        if ground is not None and self.bare_shore is not None:
+            return ground.difference(self.bare_shore)
+        return ground
 
     @cached_property
     def stands(self):
@@ -388,7 +403,7 @@ class ReferenceScene:
         )
 
     def grass_and_understory(self, seed):
-        exclude = self.open_cover.replaces if self.open_cover else None
+        exclude = self.ground_cover_exclusion if self.open_cover else None
         if "grass" in self.local:
             yield from blades(
                 self.local["grass"], self.source, self.eye, seed, exclude=exclude
@@ -414,8 +429,19 @@ class ReferenceScene:
                 seed,
             )
         yield from bank_plants(
-            self.local, self.source, self.local.shore, self.eye, seed
+            self.local,
+            self.source,
+            self.local.shore,
+            self.eye,
+            seed,
+            exclusion=self.bare_shore,
         )
+
+    def ground_cover_exclusion(self, xy):
+        exclusion = self.open_cover.replaces(xy)
+        if self.bare_shore is not None:
+            exclusion |= shapely.intersects_xy(self.bare_shore, *xy.T)
+        return exclusion
 
     def ground_blend(self, name, vertices):
         if name == self.soil_surfaces.get("unpaved road"):
@@ -439,6 +465,8 @@ class ReferenceScene:
             yield from savanna_woody(self.open_cover, self.local, self.eye[:2], seed)
             yield from steppe_shrubs(self.open_cover, self.local, self.eye[:2], seed)
         root_domain = shapely.union_all((self.woodland_floor, self.stands.verges))
+        if self.bare_shore is not None:
+            root_domain = root_domain.difference(self.bare_shore)
         yield from tree_batches(
             self.source,
             250,

@@ -187,6 +187,10 @@ class VegetationAtlas:
         self.community_indices = {
             code: index for index, code in enumerate(self.communities) if code
         }
+        self.shore_substrates = {
+            tuple(row["water_key"]): row["profile"]
+            for row in self.manifest.get("shore_substrates", ())
+        }
         self._tiles = lru_cache(maxsize=12)(self._load_tile)
 
     def _load_tile(self, name):
