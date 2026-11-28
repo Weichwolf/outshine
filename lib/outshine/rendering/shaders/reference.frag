@@ -131,7 +131,8 @@ float sunVisibility(vec3 position, vec3 normal) {
   vec4 worldPoint = vec4(position, 1.);
   vec3 localUV = (localShadowMatrix * worldPoint).xyz * .5 + .5;
   float localWeight = shadowWeight(localUV);
-  float lightAngle = max(0., dot(normal, sun));
+  // Transmitting leaves can be lit on either side of the receiver plane.
+  float lightAngle = abs(dot(normal, sun));
   float slope = sqrt(max(0., 1. - lightAngle * lightAngle)) / max(lightAngle, .10);
   vec3 regionalUV = (shadowMatrix * worldPoint).xyz * .5 + .5;
   float regionalVisibility = 1.;
